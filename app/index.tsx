@@ -7,7 +7,7 @@ export default function Index() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    fetch("http://localhost:3001/api") // Replace with your backend URL
+    fetch("https://minnowspacebackend-e6635e46c3d0.herokuapp.com/api") // Replace with your backend URL
       .then((response) => response.json())
       .then((data) => setMessage(data.message))
       .catch((error) => console.error(error));
