@@ -22,7 +22,7 @@ export default function TabThreeScreen() {
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">Minnowspace</ThemedText>
       </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
+      <ThemedText>Let's have fun with this</ThemedText>
       <Collapsible title="File-based routing">
         <ThemedText>
           This app has two screens:{' '}
