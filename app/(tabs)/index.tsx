@@ -8,46 +8,50 @@ import { ThemedView } from '@/components/ThemedView';
 export default function HomeScreen() {
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
+      headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
       headerImage={
         <Image
-          source={require('@/assets/images/redfish.jpg')}
+          source={require("@/assets/images/redfish.jpg")}
           style={styles.reactLogo}
         />
-      }>
+      }
+    >
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">Welcome to minnowspace!</ThemedText>
         <HelloWave />
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
+        <ThemedText type="subtitle">
+          Minnowspace is a place where we can all come together to share our
+          stories, experiences, and ideas.
         </ThemedText>
       </ThemedView>
+
       <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
+        <ThemedText type="subtitle">About Us</ThemedText>
         <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
+          Minnowspace is your destination for creativity, connection, and
+          community. It’s a space where stories, experiences, and ideas come to
+          life, and everyone has the opportunity to contribute and be part of
+          something special. At its core, Minnowspace is all about
+          people—empowering individuals to share their voices while creating a
+          platform where the rewards are shared. We may be small fish but we
+          don't have to play in a small pond. With modern technnology we will
+          build a community platform with video and chat that is co-owned by
+          YOU, not some bazillionaire.
         </ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
         <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
+          This is just the start of an exciting journey. Minnowspace is built on
+          the idea of collaboration and creativity, and we’re laying the
+          foundation for something truly unique in the digital space. While
+          future plans are shaping up behind the scenes, today you’ll find
+          inspiring content, engaging conversations, and curated affiliate
+          recommendations for products and services that we believe in. Every
+          time you choose one of these products, you’re not only supporting a
+          great brand—you’re helping fuel the growth of Minnowspace.
         </ThemedText>
       </ThemedView>
     </ParallaxScrollView>
