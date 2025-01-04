@@ -1,9 +1,9 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import { Image, StyleSheet, Platform } from "react-native";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { HelloWave } from "@/components/HelloWave";
+import ParallaxScrollView from "@/components/ParallaxScrollView";
+import { ThemedText } from "@/components/ThemedText";
+import { ThemedView } from "@/components/ThemedView";
 
 export default function HomeScreen() {
   return (
@@ -46,12 +46,7 @@ export default function HomeScreen() {
         <ThemedText>
           This is just the start of an exciting journey. Minnowspace is built on
           the idea of collaboration and creativity, and we’re laying the
-          foundation for something truly unique in the digital space. While
-          future plans are shaping up behind the scenes, today you’ll find
-          inspiring content, engaging conversations, and curated affiliate
-          recommendations for products and services that we believe in. Every
-          time you choose one of these products, you’re not only supporting a
-          great brand—you’re helping fuel the growth of Minnowspace.
+          foundation for something truly unique in the digital space.
         </ThemedText>
       </ThemedView>
     </ParallaxScrollView>
@@ -60,8 +55,8 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   stepContainer: {
@@ -69,10 +64,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   reactLogo: {
-    height:250,
+    height: 250,
     width: 375,
     bottom: 0,
     left: 0,
-    position: 'absolute',
+    position: "absolute",
   },
 });
