@@ -17,8 +17,10 @@ export default function HomeScreen() {
       }
     >
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome to minnowspace!</ThemedText>
-        <HelloWave />
+        <ThemedText style={{ fontFamily: "Montserrat" }}>
+          <ThemedText type="title">Welcome to minnowspace!</ThemedText>
+          <HelloWave />
+        </ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">
@@ -28,25 +30,33 @@ export default function HomeScreen() {
       </ThemedView>
 
       <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">About Us</ThemedText>
+        <ThemedText style={{ fontFamily: "Montserrat" }}>
+          <ThemedText type="subtitle">About Us</ThemedText>
+        </ThemedText>
         <ThemedText>
-          Minnowspace is your destination for creativity, connection, and
-          community. It’s a space where stories, experiences, and ideas come to
-          life, and everyone has the opportunity to contribute and be part of
-          something special. At its core, Minnowspace is all about
-          people—empowering individuals to share their voices while creating a
-          platform where the rewards are shared. We may be small fish but we
-          don't have to play in a small pond. With modern technnology we will
-          build a community platform with video and chat that is co-owned by
-          YOU, not some bazillionaire.
+          <ThemedText style={{ fontFamily: "Montserrat" }}>
+            Minnowspace is your destination for creativity, connection, and
+            community. It’s a space where stories, experiences, and ideas come
+            to life, and everyone has the opportunity to contribute and be part
+            of something special. At its core, Minnowspace is all about
+            people—empowering individuals to share their voices while creating a
+            platform where the rewards are shared. We may be small fish but we
+            don't have to play in a small pond. With modern technnology we will
+            build a community platform with video and chat that is co-owned by
+            YOU, not some bazillionaire.
+          </ThemedText>
         </ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          This is just the start of an exciting journey. Minnowspace is built on
-          the idea of collaboration and creativity, and we’re laying the
-          foundation for something truly unique in the digital space.
+        <ThemedText style={{ fontFamily: "Montserrat" }}>
+          <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
+        </ThemedText>
+        <ThemedText style={{ fontFamily: "Montserrat" }}>
+          <ThemedText>
+            This is just the start of an exciting journey. Minnowspace is built
+            on the idea of collaboration and creativity, and we’re laying the
+            foundation for something truly unique in the digital space.
+          </ThemedText>
         </ThemedText>
       </ThemedView>
     </ParallaxScrollView>
