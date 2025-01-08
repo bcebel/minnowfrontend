@@ -1,11 +1,15 @@
 import { StyleSheet, Image, Platform } from "react-native";
-
+import { link } from "fs";
 import { Collapsible } from "@/components/Collapsible";
 import { ExternalLink } from "@/components/ExternalLink";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import { createStackNavigator } from "@react-navigation/stack";
+
+import HomeScreen from "@/app/(tabs)/mycam";
+const Stack = createStackNavigator();
 
 export default function TabTwoScreen() {
   return (
@@ -23,7 +27,13 @@ export default function TabTwoScreen() {
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">Explore</ThemedText>
       </ThemedView>
+
       <ThemedText>
+            <Stack.Screen
+              name="Home"
+              component={HomeScreen}
+              options={{ title: "Welcome" }}
+            />
         This app includes example code to help you get started.
       </ThemedText>
       <Collapsible title="File-based routing">
