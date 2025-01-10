@@ -12,7 +12,7 @@ import {
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { io } from "socket.io-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import WelcomeScreen from "./WelcomeScreen"; // Adjust the path based on your file structure
+import WelcomeScreen from "../../components/WelcomeScreen"; // Adjust the path based on your file structure
 import { useNavigation } from "@react-navigation/native";
 const Stack = createNativeStackNavigator();
 const BACKEND_URL = "http://localhost:3001"; // Change this to your backend URL

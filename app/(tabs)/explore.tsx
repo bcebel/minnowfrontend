@@ -9,7 +9,6 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import { createStackNavigator } from "@react-navigation/stack";
 
 import HomeScreen from "@/app/(tabs)/mycam";
-import Welcome from "./WelcomeScreen";
 const Stack = createStackNavigator();
 
 export default function TabTwoScreen() {
@@ -29,14 +28,6 @@ export default function TabTwoScreen() {
         <ThemedText type="title">Explore</ThemedText>
       </ThemedView>
 
-      <ThemedText>
-            <Stack.Screen
-              name="Home"
-              component={HomeScreen}
-              options={{ title: "Welcome" }}
-            />
-        This app includes example code to help you get started.
-      </ThemedText>
       <Collapsible title="File-based routing">
         <ThemedText>
           This app has two screens:{" "}
