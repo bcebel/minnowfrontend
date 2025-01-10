@@ -12,7 +12,8 @@ import {
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { io } from "socket.io-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import WelcomeScreen from "./WelcomeScreen"; // Adjust the path based on your file structure
+import { useNavigation } from "@react-navigation/native";
 const Stack = createNativeStackNavigator();
 const BACKEND_URL = "http://localhost:3001"; // Change this to your backend URL
 
@@ -27,7 +28,7 @@ const setupSocket = (token) => {
 // Auth Context
 const AuthContext = React.createContext();
 
-export function AuthProvider({ children }) {
+export function AuthProvider({ children, navigation }) {
   const [token, setToken] = useState(null);
   const [socket, setSocket] = useState(null);
 
@@ -41,24 +42,27 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
-  const login = async (username, password) => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await response.json();
-      if (data.token) {
-        await AsyncStorage.setItem("token", data.token);
-        setToken(data.token);
-        setSocket(setupSocket(data.token));
-      }
-    } catch (error) {
-      console.error("Login error:", error);
-      throw error;
+const login = async (username, password, navigation) => {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await response.json();
+    if (data.token) {
+      await AsyncStorage.setItem("token", data.token);
+      setToken(data.token);
+      setSocket(setupSocket(data.token));
+
+      // Navigate to Welcome
+      navigation.navigate("Welcome");
     }
-  };
+  } catch (error) {
+    console.error("Login error:", error);
+    throw error;
+  }
+};
 
   const logout = async () => {
     await AsyncStorage.removeItem("token");
@@ -75,7 +79,7 @@ export function AuthProvider({ children }) {
 }
 
 // Login Screen
-function LoginScreen() {
+function LoginScreen({ navigation }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const { login } = React.useContext(AuthContext);
@@ -95,7 +99,10 @@ function LoginScreen() {
         secureTextEntry
         style={styles.input}
       />
-      <Button title="Login" onPress={() => login(username, password)} />
+      <Button
+        title="Login"
+        onPress={() => login(username, password, navigation)}
+      />
     </View>
   );
 }
@@ -229,15 +236,18 @@ const styles = StyleSheet.create({
 });
 
 export default function App() {
+  const navigation = useNavigation();
   return (
-    <AuthProvider>
-        <Stack.Navigator>
-          <Stack.Screen
-            name="Login"
-            component={LoginScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen name="Chat" component={ChatScreen} />
-        </Stack.Navigator>    </AuthProvider>
+    <AuthProvider navigation={navigation}>
+      <Stack.Navigator>
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        <Stack.Screen name="Chat" component={ChatScreen} />
+      </Stack.Navigator>
+    </AuthProvider>
   );
 }

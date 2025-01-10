@@ -9,6 +9,7 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import { createStackNavigator } from "@react-navigation/stack";
 
 import HomeScreen from "@/app/(tabs)/mycam";
+import Welcome from "./WelcomeScreen";
 const Stack = createStackNavigator();
 
 export default function TabTwoScreen() {
