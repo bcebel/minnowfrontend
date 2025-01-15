@@ -8,10 +8,14 @@ import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { createStackNavigator } from "@react-navigation/stack";
 
+
+
 import HomeScreen from "@/app/(tabs)/mycam";
 const Stack = createStackNavigator();
 
 export default function TabTwoScreen() {
+  
+  
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#D0D0D0", dark: "#353636" }}
@@ -27,7 +31,7 @@ export default function TabTwoScreen() {
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">Explore</ThemedText>
       </ThemedView>
-
+      <AdMobBanner />
       <Collapsible title="File-based routing">
         <ThemedText>
           This app has two screens:{" "}
