@@ -45,7 +45,8 @@
     "react-native-web": "~0.19.13",
     "react-native-webrtc": "^124.0.5",
     "react-native-webview": "13.12.5",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "expo-video": "~2.0.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

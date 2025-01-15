@@ -245,7 +245,7 @@ export default function App() {
           component={LoginScreen}
           options={{ headerShown: false }}
         />
-        <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        <Stack.Screen name="Welcome" component={WelcomeScreen}/>
         <Stack.Screen name="Chat" component={ChatScreen} />
       </Stack.Navigator>
     </AuthProvider>
