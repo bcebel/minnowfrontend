@@ -34,13 +34,12 @@
         }
       ],
       [
-                "expo-video",
+        "expo-video",
         {
           "supportsBackgroundPlayback": true,
           "supportsPictureInPicture": true
         }
       ],
-  
       [
         "react-native-vision-camera",
         {
@@ -60,7 +59,8 @@
         }
       ],
       "react-native-vision-camera",
-      "expo-video"
+      "expo-video",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
