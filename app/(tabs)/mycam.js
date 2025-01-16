@@ -16,7 +16,7 @@ import WelcomeScreen from "../../components/WelcomeScreen"; // Adjust the path b
 import { useNavigation } from "@react-navigation/native";
 const Stack = createNativeStackNavigator();
 const BACKEND_URL =
-  "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/http://localhost:"; // Change this to your backend URL
+  "https://minnowspacebackend-e6635e46c3d0.herokuapp.com"; // Change this to your backend URL
 
 // Socket.io connection with auth
 const setupSocket = (token) => {
