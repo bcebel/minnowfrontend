@@ -16,7 +16,7 @@ import WelcomeScreen from "../../components/WelcomeScreen"; // Adjust the path b
 import { useNavigation } from "@react-navigation/native";
 const Stack = createNativeStackNavigator();
 const BACKEND_URL =
-  "https://minnowspacebackend-e6635e46c3d0.herokuapp.com"; // Change this to your backend URL
+  "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/"; // Change this to your backend URL
 
 // Socket.io connection with auth
 const setupSocket = (token) => {
@@ -47,7 +47,9 @@ const login = async (username, password, navigation) => {
   try {
     const response = await fetch(`${BACKEND_URL}/api/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "https://minnowspacexpo.vercel.app", 
+     "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE",
+     "Access-Control-Allow-Headers": "Content-Type, Authorization" },
       body: JSON.stringify({ username, password }),
     });
     const data = await response.json();
