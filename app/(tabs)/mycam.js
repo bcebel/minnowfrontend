@@ -15,8 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import WelcomeScreen from "../../components/WelcomeScreen"; // Adjust the path based on your file structure
 import { useNavigation } from "@react-navigation/native";
 const Stack = createNativeStackNavigator();
-const BACKEND_URL =
-  "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/"; // Change this to your backend URL
+const BACKEND_URL = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com"; // Change this to your backend URL
 
 // Socket.io connection with auth
 const setupSocket = (token) => {
@@ -43,29 +42,32 @@ export function AuthProvider({ children, navigation }) {
     });
   }, []);
 
-const login = async (username, password, navigation) => {
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "https://minnowspacexpo.vercel.app", 
-     "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE",
-     "Access-Control-Allow-Headers": "Content-Type, Authorization" },
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await response.json();
-    if (data.token) {
-      await AsyncStorage.setItem("token", data.token);
-      setToken(data.token);
-      setSocket(setupSocket(data.token));
+  const login = async (username, password, navigation) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "https://minnowspacexpo.vercel.app",
+          "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await response.json();
+      if (data.token) {
+        await AsyncStorage.setItem("token", data.token);
+        setToken(data.token);
+        setSocket(setupSocket(data.token));
 
-      // Navigate to Welcome
-      navigation.navigate("Welcome");
+        // Navigate to Welcome
+        navigation.navigate("Welcome");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      throw error;
     }
-  } catch (error) {
-    console.error("Login error:", error);
-    throw error;
-  }
-};
+  };
 
   const logout = async () => {
     await AsyncStorage.removeItem("token");
@@ -248,7 +250,7 @@ export default function App() {
           component={LoginScreen}
           options={{ headerShown: false }}
         />
-        <Stack.Screen name="Welcome" component={WelcomeScreen}/>
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Chat" component={ChatScreen} />
       </Stack.Navigator>
     </AuthProvider>
