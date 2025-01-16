@@ -15,7 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import WelcomeScreen from "../../components/WelcomeScreen"; // Adjust the path based on your file structure
 import { useNavigation } from "@react-navigation/native";
 const Stack = createNativeStackNavigator();
-const BACKEND_URL = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/"; // Change this to your backend URL
+const BACKEND_URL = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com"; // Change this to your backend URL
 
 // Socket.io connection with auth
 const setupSocket = (token) => {
