@@ -102,6 +102,7 @@ function LoginScreen({ navigation }) {
       <Button
         title="Login"
         onPress={() => login(username, password, navigation)}
+        backgroundColor="#743600"
       />
     </View>
   );
@@ -202,6 +203,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     padding: 10,
     borderRadius: 5,
+    borderColor: "#743600",
+    color: '#743600',
   },
   messageContainer: {
     padding: 10,
