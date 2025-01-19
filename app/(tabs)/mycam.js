@@ -15,6 +15,7 @@ import { io } from "socket.io-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import WelcomeScreen from "../../components/WelcomeScreen";
 import RegistrationScreen from "../../components/RegistrationScreen";
+import Imagein from "../../components/ImagePicker";
 // Adjust path based on your file structure
 
 const Stack = createNativeStackNavigator();
@@ -127,8 +128,8 @@ function LoginScreen({ navigation }) {
 function ChatScreen({ route }) {
   const { socket, token } = React.useContext(AuthContext);
   const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState(""); // State for new message
-  const { room } = route.params || { room: "general" }; // Default room if none specified
+  const [newMessage, setNewMessage] = useState("");
+  const { room } = route.params || { room: "general" };
 
   useEffect(() => {
     if (socket) {
@@ -138,14 +139,13 @@ function ChatScreen({ route }) {
         setMessages((prev) => [newMessage, ...prev]);
       });
 
-      // Load previous messages from the backend
       fetch(`${BACKEND_URL}/api/messages/${room}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => res.json())
         .then((data) => setMessages(data))
         .catch(console.error);
-      console.log("Fetching messages with token:", token);
+
       return () => {
         socket.emit("leave-room", room);
         socket.off("message");
@@ -153,15 +153,19 @@ function ChatScreen({ route }) {
     }
   }, [socket, room]);
 
-  const sendMessage = (content) => {
-    if (socket && content.trim()) {
-      socket.emit("message", { content, room });
+  const sendMessage = (content, imageUrl = null) => {
+    if (socket && (content.trim() || imageUrl)) {
+      socket.emit("message", { content, imageUrl, room });
     }
   };
 
   const handleSendMessage = () => {
     sendMessage(newMessage);
-    setNewMessage(""); // Clear input field after sending message
+    setNewMessage("");
+  };
+
+  const handleImageSelected = (imageUri) => {
+    sendMessage("", imageUri); // Send the image URI as a message
   };
 
   return (
@@ -189,11 +193,13 @@ function ChatScreen({ route }) {
           value={newMessage}
           onChangeText={setNewMessage}
         />
+        <Imagein onImageSelected={handleImageSelected} />
         <Button title="Send" onPress={handleSendMessage} />
       </View>
     </View>
   );
 }
+
 // App Component
 export default function App() {
   return (
