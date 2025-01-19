@@ -105,12 +105,14 @@ function LoginScreen({ navigation }) {
     <View style={styles.container}>
       <TextInput
         placeholder="Username"
+        placeholderTextColor="#888"
         value={username}
         onChangeText={setUsername}
         style={styles.input}
       />
       <TextInput
         placeholder="Password"
+        placeholderTextColor="#888"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -187,6 +189,7 @@ function ChatScreen({ route }) {
       <View style={styles.inputContainer}>
         <TextInput
           placeholder="Type a message..."
+          
           style={styles.messageInput}
           value={newMessage}
           onChangeText={setNewMessage}
@@ -215,12 +218,13 @@ export default function App() {
     </AuthProvider>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 10,
     backgroundColor: "#fff",
+    justifyContent: "center", // This centers content vertically
+    alignItems: "center", // This centers content horizontally
   },
   input: {
     height: 40,
