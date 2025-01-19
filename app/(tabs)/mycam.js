@@ -16,6 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import WelcomeScreen from "../../components/WelcomeScreen";
 import RegistrationScreen from "../../components/RegistrationScreen";
 import Imagein from "../../components/ImagePicker";
+import AmpComponent from "./Ampcomponent";
 // Adjust path based on your file structure
 
 const Stack = createNativeStackNavigator();
@@ -44,11 +45,8 @@ export function AuthProvider({ children }) {
       if (savedToken) {
         setToken(savedToken);
         setSocket(setupSocket(savedToken));
-        
       }
-      
     });
-
   }, []);
 
   const login = async (username, password, navigation) => {
@@ -194,6 +192,7 @@ function ChatScreen({ route }) {
           onChangeText={setNewMessage}
         />
         <Imagein onImageSelected={handleImageSelected} />
+        <AmpComponent />
         <Button title="Send" onPress={handleSendMessage} />
       </View>
     </View>
@@ -204,16 +203,15 @@ function ChatScreen({ route }) {
 export default function App() {
   return (
     <AuthProvider>
-        <Stack.Navigator>
-          <Stack.Screen
-            name="Login"
-            component={LoginScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen name="Welcome" component={WelcomeScreen} />
-          <Stack.Screen name="Chat" component={ChatScreen} />
-        </Stack.Navigator>
-
+      <Stack.Navigator>
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        <Stack.Screen name="Chat" component={ChatScreen} />
+      </Stack.Navigator>
     </AuthProvider>
   );
 }
