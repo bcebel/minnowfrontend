@@ -13,7 +13,9 @@ import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { io } from "socket.io-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import WelcomeScreen from "../../components/WelcomeScreen"; // Adjust path based on your file structure
+import WelcomeScreen from "../../components/WelcomeScreen";
+import RegistrationScreen from "../../components/RegistrationScreen";
+// Adjust path based on your file structure
 
 const Stack = createNativeStackNavigator();
 const BACKEND_URL = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com"; // Change this to your backend URL
@@ -116,6 +118,7 @@ function LoginScreen({ navigation }) {
         style={styles.input}
       />
       <Button title="Login" onPress={handleLogin} />
+      <RegistrationScreen />
     </View>
   );
 }
