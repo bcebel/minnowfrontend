@@ -10,7 +10,7 @@ if (Platform.OS === "web") {
   App = () => (
     <div
       dangerouslySetInnerHTML={{
-        __html: `<iframe src="https://minnowspace.com/yotu.html" height=1000</iframe>"`,
+        __html: `<iframe src="https://minnowspace.com/yotu.html" width=500 height=500</iframe>"`,
       }}
     />
   );

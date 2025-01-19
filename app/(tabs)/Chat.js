@@ -195,13 +195,12 @@ function ChatScreen({ route }) {
           onChangeText={setNewMessage}
         />
         <Imagein onImageSelected={handleImageSelected} />
-        <AmpComponent />
+
         <Button title="Send" onPress={handleSendMessage} />
       </View>
     </View>
   );
 }
-
 // App Component
 export default function App() {
   return (
@@ -218,13 +217,12 @@ export default function App() {
     </AuthProvider>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 10,
     backgroundColor: "#fff",
-    justifyContent: "center", // This centers content vertically
-    alignItems: "center", // This centers content horizontally
   },
   input: {
     height: 40,
