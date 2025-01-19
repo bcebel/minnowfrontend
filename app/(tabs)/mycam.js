@@ -9,15 +9,16 @@ import {
   Image,
   StyleSheet,
 } from "react-native";
+import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { io } from "socket.io-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import WelcomeScreen from "../../components/WelcomeScreen"; // Adjust the path based on your file structure
-import { useNavigation } from "@react-navigation/native";
+import WelcomeScreen from "../../components/WelcomeScreen"; // Adjust path based on your file structure
+
 const Stack = createNativeStackNavigator();
 const BACKEND_URL = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com"; // Change this to your backend URL
 
-// Socket.io connection with auth
+// Socket.io connection setup
 const setupSocket = (token) => {
   const socket = io(BACKEND_URL, {
     auth: { token },
@@ -28,18 +29,23 @@ const setupSocket = (token) => {
 // Auth Context
 const AuthContext = React.createContext();
 
-export function AuthProvider({ children, navigation }) {
+// AuthProvider Component
+export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    // Load token from storage on app start
+    // Retrieve token from storage when the app starts
     AsyncStorage.getItem("token").then((savedToken) => {
+      console.log("Retrieved token:", savedToken); // Debug statement
       if (savedToken) {
         setToken(savedToken);
         setSocket(setupSocket(savedToken));
+        
       }
+      
     });
+
   }, []);
 
   const login = async (username, password, navigation) => {
@@ -49,14 +55,16 @@ export function AuthProvider({ children, navigation }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
+
       const data = await response.json();
+      console.log("Setting token after login:", data.token); // Debug statement
       if (data.token) {
         await AsyncStorage.setItem("token", data.token);
         setToken(data.token);
         setSocket(setupSocket(data.token));
-
-        // Navigate to Welcome
-        navigation.navigate("Welcome");
+        navigation.navigate("Chat");
+      } else {
+        console.error("Invalid credentials or token missing");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -84,6 +92,14 @@ function LoginScreen({ navigation }) {
   const [password, setPassword] = useState("");
   const { login } = React.useContext(AuthContext);
 
+  const handleLogin = () => {
+    if (username && password) {
+      login(username, password, navigation);
+    } else {
+      console.error("Please enter username and password");
+    }
+  };
+
   return (
     <View style={styles.container}>
       <TextInput
@@ -99,35 +115,7 @@ function LoginScreen({ navigation }) {
         secureTextEntry
         style={styles.input}
       />
-      <Button
-        title="Login"
-        onPress={() => login(username, password, navigation)}
-        backgroundColor="#743600"
-      />
-    </View>
-  );
-}
-
-// Message Input Component
-function MessageInput({ onSend }) {
-  const [message, setMessage] = useState("");
-
-  const handleSend = () => {
-    if (message.trim()) {
-      onSend(message);
-      setMessage("");
-    }
-  };
-
-  return (
-    <View style={styles.inputContainer}>
-      <TextInput
-        value={message}
-        onChangeText={setMessage}
-        style={styles.messageInput}
-        placeholder="Type a message..."
-      />
-      <Button title="Send" onPress={handleSend} />
+      <Button title="Login" onPress={handleLogin} />
     </View>
   );
 }
@@ -136,7 +124,8 @@ function MessageInput({ onSend }) {
 function ChatScreen({ route }) {
   const { socket, token } = React.useContext(AuthContext);
   const [messages, setMessages] = useState([]);
-  const { room } = route.params || { room: "general" }; // Default to 'general' room if none specified
+  const [newMessage, setNewMessage] = useState(""); // State for new message
+  const { room } = route.params || { room: "general" }; // Default room if none specified
 
   useEffect(() => {
     if (socket) {
@@ -146,14 +135,14 @@ function ChatScreen({ route }) {
         setMessages((prev) => [newMessage, ...prev]);
       });
 
-      // Load previous messages
+      // Load previous messages from the backend
       fetch(`${BACKEND_URL}/api/messages/${room}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => res.json())
         .then((data) => setMessages(data))
         .catch(console.error);
-
+      console.log("Fetching messages with token:", token);
       return () => {
         socket.emit("leave-room", room);
         socket.off("message");
@@ -161,10 +150,15 @@ function ChatScreen({ route }) {
     }
   }, [socket, room]);
 
-  const sendMessage = (content, imageUrl = null) => {
-    if (socket) {
-      socket.emit("message", { content, imageUrl, room });
+  const sendMessage = (content) => {
+    if (socket && content.trim()) {
+      socket.emit("message", { content, room });
     }
+  };
+
+  const handleSendMessage = () => {
+    sendMessage(newMessage);
+    setNewMessage(""); // Clear input field after sending message
   };
 
   return (
@@ -185,8 +179,33 @@ function ChatScreen({ route }) {
           </View>
         )}
       />
-      <MessageInput onSend={sendMessage} />
+      <View style={styles.inputContainer}>
+        <TextInput
+          placeholder="Type a message..."
+          style={styles.messageInput}
+          value={newMessage}
+          onChangeText={setNewMessage}
+        />
+        <Button title="Send" onPress={handleSendMessage} />
+      </View>
     </View>
+  );
+}
+// App Component
+export default function App() {
+  return (
+    <AuthProvider>
+        <Stack.Navigator>
+          <Stack.Screen
+            name="Login"
+            component={LoginScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen name="Welcome" component={WelcomeScreen} />
+          <Stack.Screen name="Chat" component={ChatScreen} />
+        </Stack.Navigator>
+
+    </AuthProvider>
   );
 }
 
@@ -203,8 +222,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     padding: 10,
     borderRadius: 5,
-    borderColor: "#743600",
-    color: '#743600',
   },
   messageContainer: {
     padding: 10,
@@ -214,7 +231,6 @@ const styles = StyleSheet.create({
   username: {
     fontWeight: "bold",
     marginBottom: 5,
-    color: "#2b5876",
   },
   messageImage: {
     width: 200,
@@ -237,20 +253,3 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
 });
-
-export default function App() {
-  const navigation = useNavigation();
-  return (
-    <AuthProvider navigation={navigation}>
-      <Stack.Navigator>
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen name="Welcome" component={WelcomeScreen} />
-        <Stack.Screen name="Chat" component={ChatScreen} />
-      </Stack.Navigator>
-    </AuthProvider>
-  );
-}
