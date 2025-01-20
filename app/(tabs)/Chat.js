@@ -9,14 +9,13 @@ import {
   Image,
   StyleSheet,
 } from "react-native";
-import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { io } from "socket.io-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import WelcomeScreen from "../../components/WelcomeScreen";
 import RegistrationScreen from "../../components/RegistrationScreen";
 import Imagein from "../../components/ImagePicker";
-import AmpComponent from "./Ampcomponent";
+import AmpComponent from "./YouTube";
 // Adjust path based on your file structure
 
 const Stack = createNativeStackNavigator();
