@@ -1,7 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
-
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
@@ -38,9 +37,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="Ampcomponent"
+        name="Chat"
         options={{
-          title: "YouTube",
+          title: "Chat",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="house.fill" color={color} />
           ),
@@ -48,9 +47,18 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="minnowspace"
+        name="Login"
         options={{
-          title: "Minnowspace",
+          title: "Login",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="house.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="YouTube"
+        options={{
+          title: "YouTube",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="house.fill" color={color} />
           ),

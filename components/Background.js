@@ -5,7 +5,7 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 
-import { theme } from "../app/core/theme";
+import theme from "../app/core/theme";
 
 export default function Background({ children }) {
   return (
