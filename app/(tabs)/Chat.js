@@ -8,7 +8,12 @@ import {
   Image,
   StyleSheet,
 } from "react-native";
-import { Text } from "react-native-paper";
+import {
+  Text,
+  Modal,
+  Portal,
+  PaperProvider,
+} from "react-native-paper";
 import Background from "../../components/Background";
 import Logo from "../../components/Logo";
 import Header from "../../components/Header";
@@ -212,6 +217,12 @@ function ChatScreen({ route }) {
     </View>
   );
 }
+
+  const [visible, setVisible] = React.useState(false);
+
+  const showModal = () => setVisible(true);
+  const hideModal = () => setVisible(false);
+  const containerStyle = { backgroundColor: "white", padding: 20 };
 // App Component
 export default function App() {
   return (
@@ -223,7 +234,9 @@ export default function App() {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="Chat" component={ChatScreen} />
+      
       </Stack.Navigator>
+      
     </AuthProvider>
   );
 }
