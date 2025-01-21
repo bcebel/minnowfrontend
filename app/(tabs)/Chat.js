@@ -192,6 +192,7 @@ function ChatScreen({ route }) {
           style={styles.messageInput}
           value={newMessage}
           onChangeText={setNewMessage}
+          onSubmitEditing={handleSendMessage}
         />
         <Imagein onImageSelected={handleImageSelected} />
 

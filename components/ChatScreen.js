@@ -7,7 +7,7 @@ import {
   Button,
   StyleSheet,
 } from "react-native";
-import { AuthContext } from "../context/uthProvider";
+import { AuthContext } from "../context/authProvider";
   const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function ChatScreen({ route }) {
