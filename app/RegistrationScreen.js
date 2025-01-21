@@ -62,7 +62,7 @@ const RegistrationScreen = () => {
         secureTextEntry
         onSubmitEditing={handleRegister}
       />
-      <Button title="Register" mode="contained" onPress={handleRegister} />
+      <Button title="Register" mode="outlined" onPress={handleRegister} ><text>new user submit</text></Button>
     </View>
   );
 };

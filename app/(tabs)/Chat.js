@@ -128,7 +128,7 @@ function LoginScreen({ navigation }) {
           style={styles.input}
           onSubmitEditing={handleLogin}
         />
-        <Button title="Login" mode="contained" onPress={handleLogin} />
+        <Button title="Login" mode="outlined" onPress={handleLogin} ><text>login</text></Button>
         <RegistrationScreen />
       </View>
     </Background>
