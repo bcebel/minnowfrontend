@@ -18,9 +18,8 @@ import RegistrationScreen from "../../components/RegistrationScreen";
 import Imagein from "../../components/ImagePicker";
 import AmpComponent from "./YouTube";
 // Adjust path based on your file structure
-
+  const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const Stack = createNativeStackNavigator();
-const BACKEND_URL = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com"; // Change this to your backend URL
 
 // Socket.io connection setup
 const setupSocket = (token) => {
@@ -190,7 +189,6 @@ function ChatScreen({ route }) {
       <View style={styles.inputContainer}>
         <TextInput
           placeholder="Type a message..."
-          
           style={styles.messageInput}
           value={newMessage}
           onChangeText={setNewMessage}

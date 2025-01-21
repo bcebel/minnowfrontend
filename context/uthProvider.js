@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { io } from "socket.io-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+  const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-const BACKEND_URL = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com";
 export const AuthContext = React.createContext();
 
 const setupSocket = (token) => io(BACKEND_URL, { auth: { token } });

@@ -8,8 +8,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { AuthContext } from "../context/uthProvider";
-
-const BACKEND_URL = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com";
+  const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function ChatScreen({ route }) {
   const { socket, token } = React.useContext(AuthContext);
