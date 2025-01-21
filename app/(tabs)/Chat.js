@@ -116,6 +116,7 @@ function LoginScreen({ navigation }) {
         onChangeText={setPassword}
         secureTextEntry
         style={styles.input}
+        onSubmitEditing={handleLogin}
       />
       <Button title="Login" onPress={handleLogin} />
       <RegistrationScreen />

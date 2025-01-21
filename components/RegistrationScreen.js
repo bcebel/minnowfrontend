@@ -26,6 +26,7 @@ const RegistrationScreen = () => {
 
       const data = await response.json();
       console.log(data);
+      alert(`welcome to da club!  Now log in and get chatting and memeing!`);
     } catch (error) {
       console.error(error);
     }
@@ -52,6 +53,7 @@ const RegistrationScreen = () => {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        onSubmitEditing={handleRegister}
       />
       <Button title="Register" onPress={handleRegister} />
     </View>
