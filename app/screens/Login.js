@@ -9,7 +9,7 @@ import {
   RegisterScreen,
   ResetPasswordScreen,
   HomeScreen,
-} from "../screens/index.js";
+} from "./index.js";
 
 const Stack = createStackNavigator();
 

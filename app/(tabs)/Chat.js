@@ -2,23 +2,29 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   TouchableHighlight,
-  TextInput,
-  Button,
+  TouchableOpacity,
   FlatList,
   Image,
   StyleSheet,
 } from "react-native";
+import { Text } from "react-native-paper";
+import Background from "../../components/Background";
+import Logo from "../../components/Logo";
+import Header from "../../components/Header";
+import Button from "../../components/Button";
+import TextInput from "../../components/TextInput";
+import BackButton from "../../components/BackButton";
+import theme from "../core/theme";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { io } from "socket.io-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import WelcomeScreen from "../../components/WelcomeScreen";
-import RegistrationScreen from "../../components/RegistrationScreen";
+import RegistrationScreen from "../RegistrationScreen";
 import Imagein from "../../components/ImagePicker";
 import AmpComponent from "./YouTube";
+import { passwordValidator } from "../helpers/passwordValidator";
 // Adjust path based on your file structure
-  const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const Stack = createNativeStackNavigator();
 
 // Socket.io connection setup
@@ -101,26 +107,31 @@ function LoginScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <TextInput
-        placeholder="Username"
-        placeholderTextColor="#888"
-        value={username}
-        onChangeText={setUsername}
-        style={styles.input}
-      />
-      <TextInput
-        placeholder="Password"
-        placeholderTextColor="#888"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={styles.input}
-        onSubmitEditing={handleLogin}
-      />
-      <Button title="Login" onPress={handleLogin} />
-      <RegistrationScreen />
-    </View>
+    <Background>
+      <BackButton goBack={navigation.goBack} />
+      <Logo />
+      <Header>Hello.</Header>
+      <View style={styles.container}>
+        <TextInput
+          placeholder="Username"
+          placeholderTextColor="#888"
+          value={username}
+          onChangeText={setUsername}
+          style={styles.input}
+        />
+        <TextInput
+          placeholder="Password"
+          placeholderTextColor="#888"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          style={styles.input}
+          onSubmitEditing={handleLogin}
+        />
+        <Button title="Login" mode="contained" onPress={handleLogin} />
+        <RegistrationScreen />
+      </View>
+    </Background>
   );
 }
 
@@ -211,7 +222,6 @@ export default function App() {
           component={LoginScreen}
           options={{ headerShown: false }}
         />
-        <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Chat" component={ChatScreen} />
       </Stack.Navigator>
     </AuthProvider>
@@ -260,5 +270,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ddd",
     borderRadius: 5,
+  },
+  forgotPassword: {
+    width: "100%",
+    alignItems: "flex-end",
+    marginBottom: 10,
+  },
+  row: {
+    flexDirection: "row",
+    marginTop: 4,
+  },
+  forgot: {
+    fontSize: 13,
+    color: theme.colors.secondary,
+  },
+  link: {
+    fontWeight: "bold",
+    color: theme.colors.primary,
   },
 });

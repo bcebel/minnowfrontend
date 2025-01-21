@@ -1,7 +1,14 @@
 // RegistrationScreen.js
 import React, { useState } from "react";
-import { View, Text, TextInput, Button } from "react-native";
-
+import { View } from "react-native";
+import { Text } from "react-native-paper";
+import Background from "../components/Background";
+import Logo from "../components/Logo";
+import Header from "../components/Header";
+import Button from "../components/Button";
+import TextInput from "../components/TextInput";
+import BackButton from "../components/BackButton";
+import theme from "./core/theme";
 const RegistrationScreen = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -55,7 +62,7 @@ const RegistrationScreen = () => {
         secureTextEntry
         onSubmitEditing={handleRegister}
       />
-      <Button title="Register" onPress={handleRegister} />
+      <Button title="Register" mode="contained" onPress={handleRegister} />
     </View>
   );
 };

@@ -9,8 +9,12 @@ import Button from "../../components/Button";
 import TextInput from "../../components/TextInput";
 import BackButton from "../../components/BackButton";
 import theme from "../core/theme";
-import { emailValidator } from "../helpers/emailValidator";
+
 import { passwordValidator } from "../helpers/passwordValidator";
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+  
+
+
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState({ value: "", error: "" });
