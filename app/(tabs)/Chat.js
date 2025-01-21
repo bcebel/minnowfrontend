@@ -9,7 +9,6 @@ import {
   Image,
   StyleSheet,
 } from "react-native";
-import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { io } from "socket.io-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -117,6 +116,7 @@ function LoginScreen({ navigation }) {
         onChangeText={setPassword}
         secureTextEntry
         style={styles.input}
+        onSubmitEditing={handleLogin}
       />
       <Button title="Login" onPress={handleLogin} />
       <RegistrationScreen />
