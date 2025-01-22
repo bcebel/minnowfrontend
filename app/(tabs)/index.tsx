@@ -20,8 +20,8 @@ export default function HomeScreen() {
       <ThemedView style={styles.titleContainer}>
         <ThemedText style={{ fontFamily: "Montserrat" }}>
           <ThemedText type="title">
-            Welcome to minnowspace! Impact-Site-Verification:
-            3f4902c9-1abd-4826-8a0e-b411ba66d04c
+            Impact-Site-Verification:
+            3f4902c9-1abd-4826-8a0e-b411ba66d04c Welcome to minnowspace!
           </ThemedText>
           <HelloWave />
         </ThemedText>
