@@ -2,12 +2,16 @@ import React, { useState } from "react";
 import { Button, Image, View, StyleSheet } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 
-export default function ImagePickerExample({ onImageSelected }) {
+interface ImagePickerExampleProps {
+  onImageSelected: (uri: string | null) => void;
+}
+
+export default function ImagePickerExample({ onImageSelected }: ImagePickerExampleProps) {
   const [image, setImage] = useState<string | null>(null);
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images", "videos"],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
@@ -27,7 +31,6 @@ export default function ImagePickerExample({ onImageSelected }) {
   return (
     <View style={styles.container}>
       <Button title="Pick an image from camera roll" onPress={pickImage} />
-      {image && <Image source={{ uri: image }} style={styles.image} />}
     </View>
   );
 }

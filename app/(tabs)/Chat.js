@@ -206,7 +206,7 @@ function ChatScreen({ route }) {
       />
       <View style={styles.inputContainer}>
         <Imagein onImageSelected={handleImageSelected} />
-        </View>
+      </View>
       <View style={styles.inputContainer}>
         <TextInput
           placeholder="Type a message..."
@@ -216,7 +216,7 @@ function ChatScreen({ route }) {
           onSubmitEditing={handleSendMessage}
         />
       </View>
-
+      <Button title="Send" onPress={handleSendMessage} />
     </View>
   );
 }
