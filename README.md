@@ -1,50 +1,17 @@
-# Welcome to your Expo app 👋
+# Welcome to minnowSpace 
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+We are small but mighty.  Like that movie Ants.  
 
-## Get started
 
-1. Install dependencies
+## Need (N): The world/USA is in dire need of a fair, decentralized social media platform that redistributes wealth and empowers individuals, as current centralized platforms exacerbate economic disparities, social division, and mental health crises. Americans are increasingly disillusioned and fatigued by systems that concentrate wealth and power among the top 1%, leaving the majority feeling disenfranchised and unheard.
 
-   ```bash
-   npm install
-   ```
+## Approach (A): Minnowspace leverages decentralized technology to create a platform where users generate, own, and share the value they contribute. It ensures equitable revenue distribution, fosters community-driven collaboration, and promotes transparent governance, prioritizing user well-being and empowerment.
 
-2. Start the app
+## Benefit (B): Minnowspace reduces the societal cost of centralized platforms—such as economic inequality, exploitation of user data, and declining mental health—by directly addressing these issues. By giving power back to users, it fosters a healthier, more inclusive online environment while enabling individuals to earn from their contributions. This leads to a win-win scenario where personal and societal prosperity grows sustainably.
 
-   ```bash
-    npx expo start
-   ```
+## Competition (C): Unlike traditional platforms like Facebook or Instagram that centralize profits and control, Minnowspace disrupts the status quo by aligning user incentives with platform growth. It outcompetes by prioritizing equity, privacy, and transparency, offering a solution that resonates with individuals tired of being exploited by corporate monopolies.
 
-In the output, you'll find options to open the app in a
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## About N=ABC 
+My uncle wrote a book about Innovation.  He came up with a formula for how to bring a product to market and have it be something people need.  N=ABC 
+It's math.  I'm assuming since you are reading a github readme you know math.  N = A * B * C  N=Need A=Approach B=Benefit/Cost and C=Competition  Sometimes one of these is big enough, like people NEED water.  That's a great product.  But people don't really NEED social media.  We could play badmitton instead, how do you make people NEED it?  Approach (its easily accesesible on your phone & PC, its available 24/7 whenever you want).  Benefit?  It connects you to friends and family.  Cost?  Here's the thing, we are all 'the product'.  I want to flip that around.  We are sold these services as being 'free' but right now everyone is flocking to RedNote.  I rest my case on that one.  and Competition?  Well they never had any.  Until now.  We NEED money to get by and so far social media hasn't provided any.   I want to decentralize the internet once and for all.  
