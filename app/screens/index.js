@@ -1,7 +1,15 @@
-export { default as StartScreen } from "./StartScreen";
-export { default as LoginScreen } from "./LoginScreen";
-export { default as RegisterScreen } from "./RegisterScreen";
-export { default as ResetPasswordScreen } from "./ResetPasswordScreen";
-export { default as HomeScreen } from "./HomeScreen";
+import StartScreen from "./StartScreen";
+import LoginScreen from "./LoginScreen";
+import RegisterScreen from "./RegisterScreen";
+import ResetPasswordScreen from "./ResetPasswordScreen";
+import HomeScreen from "./HomeScreen";
 
+const Screens = {
+  StartScreen,
+  LoginScreen,
+  RegisterScreen,
+  ResetPasswordScreen,
+  HomeScreen,
+};
 
+export default Screens;

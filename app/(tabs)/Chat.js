@@ -114,8 +114,6 @@ function LoginScreen({ navigation }) {
   return (
     <Background>
       <BackButton goBack={navigation.goBack} />
-      <Logo />
-      <Header>Hello.</Header>
       <View style={styles.container}>
         <TextInput
           placeholder="Username"
@@ -133,7 +131,7 @@ function LoginScreen({ navigation }) {
           style={styles.input}
           onSubmitEditing={handleLogin}
         />
-        <Button title="Login" mode="outlined" onPress={handleLogin} ><text>login</text></Button>
+        <Button title="Login" mode="outlined" onPress={handleLogin} ><Text>login</Text></Button>
         <RegistrationScreen />
       </View>
     </Background>
@@ -146,6 +144,10 @@ function ChatScreen({ route }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const { room } = route.params || { room: "general" };
+  const [visible, setVisible] = React.useState(false);
+  const showModal = () => setVisible(true);
+  const hideModal = () => setVisible(false);
+  const containerStyle = { backgroundColor: "white", padding: 20 };
 
   useEffect(() => {
     if (socket) {
@@ -190,7 +192,7 @@ function ChatScreen({ route }) {
         data={messages}
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
-          <View style={styles.messageContainer}>
+          <View>
             <Text style={styles.username}>{item.sender.username}</Text>
             <Text>{item.content}</Text>
             {item.imageUrl && (
@@ -203,6 +205,9 @@ function ChatScreen({ route }) {
         )}
       />
       <View style={styles.inputContainer}>
+        <Imagein onImageSelected={handleImageSelected} />
+        </View>
+      <View style={styles.inputContainer}>
         <TextInput
           placeholder="Type a message..."
           style={styles.messageInput}
@@ -210,19 +215,12 @@ function ChatScreen({ route }) {
           onChangeText={setNewMessage}
           onSubmitEditing={handleSendMessage}
         />
-        <Imagein onImageSelected={handleImageSelected} />
-
-        <Button title="Send" onPress={handleSendMessage} />
       </View>
+
     </View>
   );
 }
 
-  const [visible, setVisible] = React.useState(false);
-
-  const showModal = () => setVisible(true);
-  const hideModal = () => setVisible(false);
-  const containerStyle = { backgroundColor: "white", padding: 20 };
 // App Component
 export default function App() {
   return (
@@ -249,15 +247,12 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 40,
-    borderColor: "gray",
-    borderWidth: 1,
     marginBottom: 10,
-    padding: 10,
+    padding:2,
     borderRadius: 5,
   },
   messageContainer: {
-    padding: 10,
-    borderBottomWidth: 1,
+    padding: 2,
     borderBottomColor: "#eee",
   },
   username: {
@@ -267,21 +262,19 @@ const styles = StyleSheet.create({
   messageImage: {
     width: 200,
     height: 200,
-    marginTop: 10,
+    marginTop: 5,
     borderRadius: 10,
   },
   inputContainer: {
     flexDirection: "row",
-    padding: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
+    padding: 5,
+    height: 75,
   },
   messageInput: {
     flex: 1,
-    marginRight: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "#ddd",
+    height:40,
+    marginRight: 20,
+    padding: 5,
     borderRadius: 5,
   },
   forgotPassword: {
