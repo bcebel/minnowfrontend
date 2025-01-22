@@ -1,5 +1,8 @@
 import * as React from "react";
 import { Modal, Portal, Text, Button, PaperProvider } from "react-native-paper";
+import { Pressable } from "react-native";
+
+import { Link } from "expo-router";
 
 const MyComponent = () => {
   const [visible, setVisible] = React.useState(false);
@@ -16,6 +19,11 @@ const MyComponent = () => {
           onDismiss={hideModal}
           contentContainerStyle={containerStyle}
         >
+              <Link href="https://www.tkqlhce.com/click-101317164-15077776" asChild>
+                <Pressable>
+                  <Text>Home</Text>
+                </Pressable>
+              </Link>
           <Text>Example Modal. Click outside this area to dismiss.</Text>
         </Modal>
       </Portal>
