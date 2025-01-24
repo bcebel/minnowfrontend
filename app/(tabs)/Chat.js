@@ -7,6 +7,7 @@ import {
   FlatList,
   Image,
   StyleSheet,
+  ImageBackground,
 } from "react-native";
 import {
   Text,
@@ -26,7 +27,6 @@ import { io } from "socket.io-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RegistrationScreen from "../RegistrationScreen";
 import Imagein from "../../components/ImagePicker";
-import AmpComponent from "./YouTube";
 import { passwordValidator } from "../helpers/passwordValidator";
 // Adjust path based on your file structure
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -115,13 +115,14 @@ function LoginScreen({ navigation }) {
     <Background>
       <BackButton goBack={navigation.goBack} />
       <View style={styles.container}>
-        <TextInput
-          placeholder="Username"
-          placeholderTextColor="#888"
-          value={username}
-          onChangeText={setUsername}
-          style={styles.input}
-        />
+      
+          <TextInput
+            placeholder="Username"
+            placeholderTextColor="#888"
+            value={username}
+            onChangeText={setUsername}
+            style={styles.input}
+          />
         <TextInput
           placeholder="Password"
           placeholderTextColor="#888"
@@ -131,7 +132,9 @@ function LoginScreen({ navigation }) {
           style={styles.input}
           onSubmitEditing={handleLogin}
         />
-        <Button title="Login" mode="outlined" onPress={handleLogin} ><Text>login</Text></Button>
+        <Button title="Login" mode="outlined" onPress={handleLogin}>
+          <Text>login</Text>
+        </Button>
         <RegistrationScreen />
       </View>
     </Background>
@@ -243,12 +246,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 10,
-    backgroundColor: "#fff",
+   backgroundColor: "#fff",
   },
   input: {
     height: 40,
     marginBottom: 10,
-    padding:2,
+    padding: 2,
     borderRadius: 5,
   },
   messageContainer: {
@@ -272,7 +275,7 @@ const styles = StyleSheet.create({
   },
   messageInput: {
     flex: 1,
-    height:40,
+    height: 40,
     marginRight: 20,
     padding: 5,
     borderRadius: 5,
