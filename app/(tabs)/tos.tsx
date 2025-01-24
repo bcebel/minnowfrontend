@@ -10,12 +10,7 @@ export default function HomeScreen() {
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#A1CEDC", dark: "#743600" }}
-      headerImage={
-        <Image
-          source={require("../../assets/images/redfish.jpg")}
-          style={styles.reactLogo}
-        />
-      }
+
     >
       <ThemedView style={styles.titleContainer}>
         <ThemedText style={{ fontFamily: "Montserrat" }}>
