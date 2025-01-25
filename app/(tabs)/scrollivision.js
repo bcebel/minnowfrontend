@@ -6,6 +6,8 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
+import YT from "./YouTube"
+const MAX_COLUMNS = 30;
 
 const App = () => {
   const [data, setData] = useState([1, 2, 3, 4, 5]);
@@ -16,16 +18,23 @@ const App = () => {
     if (loading) return; // Avoid multiple requests at once
     setLoading(true);
 
-    setTimeout(() => {
+      setTimeout(() => {
+        if (data.length == MAX_COLUMNS) {
+          setLoading(false);
+            return;}
+            if (data.length > MAX_COLUMNS) {
+                setLoading(false);
+                return;
+                }
+        
       const newData = [
         ...data,
         data.length + 1,
-        data.length + 2,
-        data.length + 3,
+
       ];
       setData(newData);
       setLoading(false);
-    }, 1500); // Simulating network request delay
+    }); // Simulating network request delay
   };
 
   return (
@@ -33,7 +42,8 @@ const App = () => {
       data={data}
       renderItem={({ item }) => (
         <View style={styles.page}>
-          <Text>Page {item}</Text>
+              <Text>Column {item}</Text>
+      
         </View>
       )}
       keyExtractor={(item) => item.toString()}
@@ -51,7 +61,7 @@ const App = () => {
 
 const styles = StyleSheet.create({
   page: {
-    width: 300,
+    width: 200,
     justifyContent: "center",
     alignItems: "center",
     height: 200,

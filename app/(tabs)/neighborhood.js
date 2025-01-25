@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import Scrollivision from "./scrollivision";
+import Chat from "./Chat";
+const MAX_ROWS = 30;
 const App = () => {
   const [data, setData] = useState([1, 2, 3, 4, 5]);
   const [loading, setLoading] = useState(false);
@@ -17,15 +19,18 @@ const App = () => {
     setLoading(true);
 
     setTimeout(() => {
+             if (data.length == MAX_ROWS) {
+               setLoading(false);
+               return;
+             }
       const newData = [
         ...data,
         data.length + 1,
-        data.length + 2,
-        data.length + 3,
+
       ];
       setData(newData);
       setLoading(false);
-    }, 1500); // Simulating network request delay
+    }); // Simulating network request delay
   };
 
   return (
@@ -33,7 +38,8 @@ const App = () => {
       data={data}
       renderItem={({ item }) => (
         <View style={styles.item}>
-              <Text style={styles.text}>Item {item}</Text>
+              <Text style={styles.text}>Row {item}</Text>
+              
               <Scrollivision />
         </View>
       )}
