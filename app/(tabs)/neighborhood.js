@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { SimpleGrid } from "react-native-super-grid";
+import { useWindowDimensions } from "react-native";
 import {
   FlatList,
   View,
   Text,
   StyleSheet,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 
 const MAX_ROWS = 30;
@@ -16,6 +17,9 @@ const App = () => {
   const [columnData, setColumnData] = useState([1, 2, 3, 4, 5]);
   const [loadingRows, setLoadingRows] = useState(false);
   const [loadingColumns, setLoadingColumns] = useState(false);
+
+  // Get window dimensions
+  const { width, height } = useWindowDimensions();
 
   // Simulate fetching more row data
   const loadMoreRows = () => {
@@ -30,7 +34,7 @@ const App = () => {
       const newRowData = [...rowData, rowData.length + 1];
       setRowData(newRowData);
       setLoadingRows(false);
-    }); // Simulating network request delay
+    }, 1000); // Simulating network request delay
   };
 
   // Simulate fetching more column data
@@ -51,16 +55,19 @@ const App = () => {
 
   return (
     <FlatList
-      
       data={rowData}
       renderItem={({ item: row }) => (
         <View style={styles.row}>
-          
           <Text style={styles.rowText}>Row {row}</Text>
           <FlatList
             data={columnData}
             renderItem={({ item: column }) => (
-              <View style={styles.cell}>
+              <View
+                style={[
+                  styles.cell,
+                  { width: width - 10, height: height - 100 }, // Adjust for margins/padding
+                ]}
+              >
                 <Text>
                   Row {row}, Column {column}
                 </Text>
@@ -68,6 +75,7 @@ const App = () => {
             )}
             keyExtractor={(column) => `row-${row}-column-${column}`}
             horizontal={true}
+            pagingEnabled={true} // Enable paging for one video per page
             onEndReached={loadMoreColumns}
             onEndReachedThreshold={0.5}
             ListFooterComponent={
@@ -101,8 +109,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   cell: {
-    width: 300,
-    height: 300,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f9c2ff",
