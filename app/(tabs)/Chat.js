@@ -9,25 +9,20 @@ import {
   StyleSheet,
   ImageBackground,
 } from "react-native";
-import {
-  Text,
-  Modal,
-  Portal,
-  PaperProvider,
-} from "react-native-paper";
+import { Text, Modal, Portal, PaperProvider } from "react-native-paper";
 import Background from "../../components/Background";
 import Logo from "../../components/Logo";
 import Header from "../../components/Header";
 import Button from "../../components/Button";
 import TextInput from "../../components/TextInput";
 import BackButton from "../../components/BackButton";
-import theme from "../core/theme";
+import theme from "../../app/core/theme";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { io } from "socket.io-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import RegistrationScreen from "../RegistrationScreen";
+import RegistrationScreen from "../../app/RegistrationScreen";
 import Imagein from "../../components/ImagePicker";
-import { passwordValidator } from "../helpers/passwordValidator";
+import { passwordValidator } from "../../app/helpers/passwordValidator";
 // Adjust path based on your file structure
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const Stack = createNativeStackNavigator();
@@ -115,14 +110,13 @@ function LoginScreen({ navigation }) {
     <Background>
       <BackButton goBack={navigation.goBack} />
       <View style={styles.container}>
-      
-          <TextInput
-            placeholder="Username"
-            placeholderTextColor="#888"
-            value={username}
-            onChangeText={setUsername}
-            style={styles.input}
-          />
+        <TextInput
+          placeholder="Username"
+          placeholderTextColor="#888"
+          value={username}
+          onChangeText={setUsername}
+          style={styles.input}
+        />
         <TextInput
           placeholder="Password"
           placeholderTextColor="#888"
@@ -235,9 +229,7 @@ export default function App() {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="Chat" component={ChatScreen} />
-      
       </Stack.Navigator>
-      
     </AuthProvider>
   );
 }
@@ -246,7 +238,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 10,
-   backgroundColor: "#fff",
+    backgroundColor: "#fff",
   },
   input: {
     height: 40,

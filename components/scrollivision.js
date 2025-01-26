@@ -6,7 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
-import YT from "./YouTube"
+import YT from "../app/(tabs)/YouTube";
 const MAX_COLUMNS = 30;
 
 const App = () => {
@@ -18,23 +18,21 @@ const App = () => {
     if (loading) return; // Avoid multiple requests at once
     setLoading(true);
 
-      setTimeout(() => {
-        if (data.length == MAX_COLUMNS) {
-          setLoading(false);
-            return;}
-            if (data.length > MAX_COLUMNS) {
-                setLoading(false);
-                return;
-                }
-        
-      const newData = [
-        ...data,
-        data.length + 1,
+    setTimeout(() => {
+      if (data.length == MAX_COLUMNS) {
+        setLoading(false);
+        return;
+      }
+      if (data.length > MAX_COLUMNS) {
+        setLoading(false);
+        return;
+      }
 
-      ];
+      const newData = [...data, data.length + 1];
       setData(newData);
       setLoading(false);
     }); // Simulating network request delay
+    console.log(data);
   };
 
   return (
@@ -42,8 +40,7 @@ const App = () => {
       data={data}
       renderItem={({ item }) => (
         <View style={styles.page}>
-              <Text>Column {item}</Text>
-      
+          <Text>Column {item}</Text>
         </View>
       )}
       keyExtractor={(item) => item.toString()}
