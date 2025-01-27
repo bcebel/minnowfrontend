@@ -9,20 +9,19 @@ import {
   StyleSheet,
   ImageBackground,
 } from "react-native";
-import { Text, Modal, Portal, PaperProvider } from "react-native-paper";
-import Background from "../../components/Background";
+import { Text, Modal, Portal, PaperProvider } from "react-native-paper";import Background from "../../components/Background";
 import Logo from "../../components/Logo";
 import Header from "../../components/Header";
 import Button from "../../components/Button";
 import TextInput from "../../components/TextInput";
 import BackButton from "../../components/BackButton";
-import theme from "../../app/core/theme";
+import theme from "../core/theme";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { io } from "socket.io-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import RegistrationScreen from "../../app/RegistrationScreen";
+import RegistrationScreen from "../RegistrationScreen";
 import Imagein from "../../components/ImagePicker";
-import { passwordValidator } from "../../app/helpers/passwordValidator";
+import { passwordValidator } from "../helpers/passwordValidator";
 // Adjust path based on your file structure
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const Stack = createNativeStackNavigator();
@@ -105,7 +104,8 @@ function LoginScreen({ navigation }) {
       console.error("Please enter username and password");
     }
   };
-
+// In your component, before the return statement
+   console.log("Message data:");
   return (
     <Background>
       <BackButton goBack={navigation.goBack} />
