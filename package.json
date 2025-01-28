@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@apollo/client": "^3.12.6",
+    "@daily-co/daily-js": "^0.74.0",
+    "@daily-co/daily-react": "^0.22.0",
     "@expo/html-elements": "^0.11.2",
     "@expo/vector-icons": "^14.0.2",
     "@react-native-async-storage/async-storage": "1.23.1",
@@ -40,6 +42,7 @@
     "expo-video": "~2.0.5",
     "expo-web-browser": "~14.0.1",
     "graphql": "^16.10.0",
+    "jotai": "^2.11.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-native": "0.76.5",
@@ -52,6 +55,7 @@
     "react-native-super-grid": "^6.0.1",
     "react-native-vision-camera": "^4.6.3",
     "react-native-web": "~0.19.13",
+    "react-native-web-webview": "^1.0.2",
     "react-native-webrtc": "^124.0.5",
     "react-native-webview": "13.12.5",
     "socket.io-client": "^4.8.1"
