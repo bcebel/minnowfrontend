@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React, { useState, useRef } from "react";
 import { useWindowDimensions } from "react-native";
 import {
   FlatList,
@@ -11,21 +12,21 @@ import {
 
 // Example array of YouTube video IDs (ensure it has enough unique IDs)
 const YOUTUBE_VIDEO_IDS = [
-  "TG_NHr-idTA",
+   "TG_NHr-idTA",
   "dQw4w9WgXcQ", // Example video ID 1
   "ZoWxZ8Ihf4M",
+  "LfvfgLb7CtQ",
   "K4ovKtlZCEE",
   "a8Ri0rODNLk",
-  "uEyGYjlzbA0",
   "ZtiAzE6nMoI",
   "x6TtCyKwNAE",
+  "4wn6GruYrSM",
+  "FMU0j_ly4kk",
   "xCQXyZkMsbs",
   "WEBiebbeNCA",
   "SpS7z-laLVU",
   "p0YNFn9Dloc",
   "uEyGYjlzbA0",
-  "x6TtCyKwNAE",
-  "xCQXyZkMsbs",
   "W20feROpK1o",
   "sW4l802xphA",
   "sdbZTNKvoM8",
@@ -40,8 +41,7 @@ const YOUTUBE_VIDEO_IDS = [
   "IkmLXvBfVv0",
   "HSJOF4ulYG8",
   "B4-L2nfGcuE",
-  "Dx5qFachd3A", // Example video ID 5
-  // Add more video IDs as needed
+  "Dx5qFachd3A", 
 ];
 
 const MAX_ROWS = 30;
@@ -54,6 +54,21 @@ const App = () => {
   const [loadingColumns, setLoadingColumns] = useState(false);
 
   const { width, height } = useWindowDimensions();
+
+  // Ref to store references to all column FlatLists
+  const columnRefs = useRef([]);
+
+  // State to track whether we're currently synchronizing rows
+  const isSyncing = useRef(false);
+
+  // Function to get a unique video ID based on row and column
+  const getVideoId = (rowIndex, colIndex) => {
+    const index = rowIndex * columnData.length + colIndex;
+    if (index < YOUTUBE_VIDEO_IDS.length) {
+      return YOUTUBE_VIDEO_IDS[index];
+    }
+    return null; // Return null if no video ID is available
+  };
 
   // Simulate fetching more row data
   const loadMoreRows = () => {
@@ -85,13 +100,26 @@ const App = () => {
     }, 1000); // Simulating network request delay
   };
 
-  // Function to get a unique video ID based on row and column
-  const getVideoId = (rowIndex, colIndex) => {
-    const index = rowIndex * columnData.length + colIndex;
-    if (index < YOUTUBE_VIDEO_IDS.length) {
-      return YOUTUBE_VIDEO_IDS[index];
-    }
-    return null; // Return null if no video ID is available
+  // Handle horizontal scroll synchronization
+  const onScroll = (event, rowIndex) => {
+    if (isSyncing.current) return; // Skip synchronization if already syncing
+
+    const offsetX = event.nativeEvent.contentOffset.x;
+
+    // Mark as syncing to prevent feedback loops
+    isSyncing.current = true;
+
+    // Synchronize all other rows to the same horizontal position
+    columnRefs.current.forEach((ref, index) => {
+      if (ref && index !== rowIndex) {
+        ref.scrollToOffset({ offset: offsetX, animated: false });
+      }
+    });
+
+    // Reset syncing flag after a short delay
+    setTimeout(() => {
+      isSyncing.current = false;
+    }, 16); // Match the scrollEventThrottle value
   };
 
   return (
@@ -101,6 +129,7 @@ const App = () => {
         <View style={styles.row}>
           <Text style={styles.rowText}>Row {row}</Text>
           <FlatList
+            ref={(ref) => (columnRefs.current[rowIndex] = ref)} // Store reference for each row's column FlatList
             data={columnData}
             renderItem={({ item: column, index: colIndex }) => {
               const videoId = getVideoId(rowIndex, colIndex);
@@ -130,19 +159,16 @@ const App = () => {
             keyExtractor={(column, colIndex) => `row-${row}-column-${colIndex}`}
             horizontal={true}
             pagingEnabled={true}
-            onEndReached={loadMoreColumns}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={
-              loadingColumns ? (
-                <ActivityIndicator size="small" color="#0000ff" />
-              ) : null
-            }
+            onScroll={(event) => onScroll(event, rowIndex)} // Synchronize scrolling
+            scrollEventThrottle={16} // Ensure smooth scrolling synchronization
             showsHorizontalScrollIndicator={false}
+            onEndReached={loadMoreColumns} // Load more columns when reaching the end
+            onEndReachedThreshold={0.5}
           />
         </View>
       )}
       keyExtractor={(row, rowIndex) => `row-${rowIndex}`}
-      onEndReached={loadMoreRows}
+      onEndReached={loadMoreRows} // Load more rows when reaching the end
       onEndReachedThreshold={0.5}
       ListFooterComponent={
         loadingRows ? <ActivityIndicator size="large" color="#0000ff" /> : null
