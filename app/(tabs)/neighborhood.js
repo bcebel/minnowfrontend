@@ -23,15 +23,9 @@ const YOUTUBE_VIDEO_IDS = [
   "WEBiebbeNCA",
   "SpS7z-laLVU",
   "p0YNFn9Dloc",
-  "M7lc1UVf-VE", // Example video ID 2
-  "KMU0tzLwhbE", // Example video ID 3
-  "eI4an8aSsgw", // Example video ID 4
   "uEyGYjlzbA0",
-  "ZtiAzE6nMoI",
   "x6TtCyKwNAE",
   "xCQXyZkMsbs",
-  "WEBiebbeNCA",
-  "SpS7z-laLVU",
   "W20feROpK1o",
   "sW4l802xphA",
   "sdbZTNKvoM8",
@@ -39,12 +33,6 @@ const YOUTUBE_VIDEO_IDS = [
   "3kgNy-kvFak",
   "whl05wi5KXw",
   "hOQw_J-JjJk",
-  "dQw4w9WgXcQ", // Example video ID 1
-  "M7lc1UVf-VE", // Example video ID 2
-  "KMU0tzLwhbE", // Example video ID 3
-  "eI4an8aSsgw", // Example video ID 4
-  // Add more video IDs as needed
-
   "KCJbIbySmk4",
   "k_dLVdoRhFM",
   "HL2mRKTVutM",
