@@ -9,6 +9,53 @@ import {
   Dimensions,
 } from "react-native";
 
+// Example array of YouTube video IDs (ensure it has enough unique IDs)
+const YOUTUBE_VIDEO_IDS = [
+  "TG_NHr-idTA",
+  "dQw4w9WgXcQ", // Example video ID 1
+  "ZoWxZ8Ihf4M",
+  "K4ovKtlZCEE",
+  "a8Ri0rODNLk",
+  "uEyGYjlzbA0",
+  "ZtiAzE6nMoI",
+  "x6TtCyKwNAE",
+  "xCQXyZkMsbs",
+  "WEBiebbeNCA",
+  "SpS7z-laLVU",
+  "p0YNFn9Dloc",
+  "M7lc1UVf-VE", // Example video ID 2
+  "KMU0tzLwhbE", // Example video ID 3
+  "eI4an8aSsgw", // Example video ID 4
+  "uEyGYjlzbA0",
+  "ZtiAzE6nMoI",
+  "x6TtCyKwNAE",
+  "xCQXyZkMsbs",
+  "WEBiebbeNCA",
+  "SpS7z-laLVU",
+  "W20feROpK1o",
+  "sW4l802xphA",
+  "sdbZTNKvoM8",
+  "4l-P9HjdU5E",
+  "3kgNy-kvFak",
+  "whl05wi5KXw",
+  "hOQw_J-JjJk",
+  "dQw4w9WgXcQ", // Example video ID 1
+  "M7lc1UVf-VE", // Example video ID 2
+  "KMU0tzLwhbE", // Example video ID 3
+  "eI4an8aSsgw", // Example video ID 4
+  // Add more video IDs as needed
+
+  "KCJbIbySmk4",
+  "k_dLVdoRhFM",
+  "HL2mRKTVutM",
+  "56WBs0A4Kng",
+  "IkmLXvBfVv0",
+  "HSJOF4ulYG8",
+  "B4-L2nfGcuE",
+  "Dx5qFachd3A", // Example video ID 5
+  // Add more video IDs as needed
+];
+
 const MAX_ROWS = 30;
 const MAX_COLUMNS = 30;
 
@@ -18,14 +65,12 @@ const App = () => {
   const [loadingRows, setLoadingRows] = useState(false);
   const [loadingColumns, setLoadingColumns] = useState(false);
 
-  // Get window dimensions
   const { width, height } = useWindowDimensions();
 
   // Simulate fetching more row data
   const loadMoreRows = () => {
-    if (loadingRows) return; // Avoid multiple requests at once
+    if (loadingRows) return;
     setLoadingRows(true);
-
     setTimeout(() => {
       if (rowData.length >= MAX_ROWS) {
         setLoadingRows(false);
@@ -39,9 +84,8 @@ const App = () => {
 
   // Simulate fetching more column data
   const loadMoreColumns = () => {
-    if (loadingColumns) return; // Avoid multiple requests at once
+    if (loadingColumns) return;
     setLoadingColumns(true);
-
     setTimeout(() => {
       if (columnData.length >= MAX_COLUMNS) {
         setLoadingColumns(false);
@@ -53,29 +97,51 @@ const App = () => {
     }, 1000); // Simulating network request delay
   };
 
+  // Function to get a unique video ID based on row and column
+  const getVideoId = (rowIndex, colIndex) => {
+    const index = rowIndex * columnData.length + colIndex;
+    if (index < YOUTUBE_VIDEO_IDS.length) {
+      return YOUTUBE_VIDEO_IDS[index];
+    }
+    return null; // Return null if no video ID is available
+  };
+
   return (
     <FlatList
       data={rowData}
-      renderItem={({ item: row }) => (
+      renderItem={({ item: row, index: rowIndex }) => (
         <View style={styles.row}>
           <Text style={styles.rowText}>Row {row}</Text>
           <FlatList
             data={columnData}
-            renderItem={({ item: column }) => (
-              <View
-                style={[
-                  styles.cell,
-                  { width: width - 10, height: height - 100 }, // Adjust for margins/padding
-                ]}
-              >
-                <Text>
-                  Row {row}, Column {column}
-                </Text>
-              </View>
-            )}
-            keyExtractor={(column) => `row-${row}-column-${column}`}
+            renderItem={({ item: column, index: colIndex }) => {
+              const videoId = getVideoId(rowIndex, colIndex);
+              return (
+                <View
+                  style={[
+                    styles.cell,
+                    { width: width - 10, height: height - 100 },
+                  ]}
+                >
+                  {videoId ? (
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      src={`https://www.youtube.com/embed/${videoId}`}
+                      title={`YouTube video for Row ${row}, Column ${column}`}
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <Text>No video available</Text>
+                  )}
+                </View>
+              );
+            }}
+            keyExtractor={(column, colIndex) => `row-${row}-column-${colIndex}`}
             horizontal={true}
-            pagingEnabled={true} // Enable paging for one video per page
+            pagingEnabled={true}
             onEndReached={loadMoreColumns}
             onEndReachedThreshold={0.5}
             ListFooterComponent={
@@ -87,7 +153,7 @@ const App = () => {
           />
         </View>
       )}
-      keyExtractor={(row) => `row-${row}`}
+      keyExtractor={(row, rowIndex) => `row-${rowIndex}`}
       onEndReached={loadMoreRows}
       onEndReachedThreshold={0.5}
       ListFooterComponent={
