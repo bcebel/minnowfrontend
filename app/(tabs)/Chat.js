@@ -141,26 +141,19 @@ function ChatScreen({ route }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const { room } = route.params || { room: "general" };
-  const [visible, setVisible] = React.useState(false);
-  const showModal = () => setVisible(true);
-  const hideModal = () => setVisible(false);
-  const containerStyle = { backgroundColor: "white", padding: 20 };
 
   useEffect(() => {
     if (socket) {
       socket.emit("join-room", room);
-
       socket.on("message", (newMessage) => {
         setMessages((prev) => [newMessage, ...prev]);
       });
-
       fetch(`${BACKEND_URL}/api/messages/${room}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => res.json())
         .then((data) => setMessages(data))
         .catch(console.error);
-
       return () => {
         socket.emit("leave-room", room);
         socket.off("message");
@@ -183,15 +176,25 @@ function ChatScreen({ route }) {
     sendMessage("", imageUri); // Send the image URI as a message
   };
 
+  // Helper function to format the createdAt timestamp
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+  };
+
   return (
     <View style={styles.container}>
       <FlatList
         data={messages}
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
-          <View>
+          <View style={styles.messageContainer}>
             <Text style={styles.username}>{item.sender.username}</Text>
             <Text>{item.content}</Text>
+            {/* Display formatted timestamp */}
+            <Text style={styles.timestamp}>
+              {formatTimestamp(item.createdAt)}
+            </Text>
             {item.imageUrl && (
               <Image
                 source={{ uri: item.imageUrl }}
@@ -247,12 +250,18 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   messageContainer: {
-    padding: 2,
+    padding: 10,
     borderBottomColor: "#eee",
+    borderBottomWidth: 1,
   },
   username: {
     fontWeight: "bold",
     marginBottom: 5,
+  },
+  timestamp: {
+    fontSize: 12,
+    color: "#888", // Light gray color for timestamps
+    marginTop: 2,
   },
   messageImage: {
     width: 200,
