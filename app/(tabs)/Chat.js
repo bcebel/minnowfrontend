@@ -188,7 +188,16 @@ function ChatScreen({ route }) {
         data={messages}
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
-          <View style={styles.messageContainer}>
+          <View style={styles.container}>
+            <Image
+              source={{
+                uri:
+                  item.sender.profilePhoto ||
+                  "https://example.com/default-avatar.png",
+              }}
+              style={styles.profileImage}
+            />
+
             <Text style={styles.username}>{item.sender.username}</Text>
             <Text>{item.content}</Text>
             {/* Display formatted timestamp */}
@@ -248,6 +257,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     padding: 2,
     borderRadius: 5,
+  },
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20, // Circular avatar
+    marginRight: 10,
   },
   messageContainer: {
     padding: 10,
