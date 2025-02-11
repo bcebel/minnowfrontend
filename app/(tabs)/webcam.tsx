@@ -5,6 +5,7 @@ import {
   Text,
   TouchableOpacity,
   Linking,
+  Image,
   StyleSheet,
 } from "react-native";
 
@@ -19,14 +20,17 @@ const MyComponent = () => {
     );
   };
 
+  
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>
-        Click the link below to join the chat:
-      </Text>
+      <Text style={styles.text}>Click the link below to join the chat:</Text>
       <TouchableOpacity onPress={handlePress}>
         <Text style={styles.link}>be antisocial</Text>
       </TouchableOpacity>
+      <Image
+        source={require("../../assets/images/antisocial3.jpeg")}
+        style={{ width: 200, height: 200, padding: 10, margin: 10 }}
+      />
     </View>
   );
 };
