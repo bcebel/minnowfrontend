@@ -17,7 +17,6 @@ const YOUTUBE_VIDEO_IDS = [
   "LfvfgLb7CtQ",
   "K4ovKtlZCEE",
   "a8Ri0rODNLk",
-  "ZtiAzE6nMoI",
   "x6TtCyKwNAE",
   "4wn6GruYrSM",
   "FMU0j_ly4kk",
@@ -97,11 +96,10 @@ const App = () => {
   };
 
   return (
-    <FlatList
+    <FlatList style={styles.container}
       data={rowData}
       renderItem={({ item: videoId, index }) => (
         <View style={[styles.row, { width: width, height: height}]}>
-          <Text style={styles.rowText}>Video {index + 1}</Text>
           <iframe
             width="100%"
             height="100%"
@@ -127,13 +125,16 @@ const App = () => {
 };
 
 const styles = StyleSheet.create({
+  container: {
+    backgroundColor: "#000",
+  },
   row: {
     padding: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
+    borderBottomColor: "#000",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f9c2ff",
+    backgroundColor: "#000",
     marginVertical: 5,
   },
   rowText: {
