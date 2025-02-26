@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Button, View, Text, Alert } from "react-native";
+import { Button, View, Text, Alert, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system"; // Import FileSystem
+import * as FileSystem from "expo-file-system";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL.replace(/[\/;]$/, "");
 const uploadRoute = `${BACKEND_URL}/upload`;
@@ -17,12 +17,16 @@ export default function App() {
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
+      base64: true, //get base64 data.
     });
 
     if (!result.canceled) {
       setVideoUri(result.assets[0].uri);
+      setResultData(result.assets[0]);
     }
   };
+
+  const [resultData, setResultData] = useState(null);
 
   const uploadVideo = async () => {
     if (!videoUri) {
@@ -31,17 +35,22 @@ export default function App() {
     }
 
     const formData = new FormData();
-    const asset = await FileSystem.readAsStringAsync(videoUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    const fileType = result.assets[0].type;
+    const fileType = resultData.type;
     const fileName = videoUri.split("/").pop();
 
-    formData.append("video", {
-      uri: videoUri,
-      name: fileName,
-      type: fileType,
-    });
+    if (Platform.OS === "web") {
+      //web code
+      formData.append("video", resultData.base64);
+      formData.append("name", fileName);
+      formData.append("type", fileType);
+    } else {
+      //native code
+      formData.append("video", {
+        uri: videoUri,
+        name: fileName,
+        type: fileType,
+      });
+    }
 
     console.log("Uploading:", {
       uri: videoUri,
