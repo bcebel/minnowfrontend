@@ -3,21 +3,32 @@ import { Button, View, Text, Alert, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 
+// Load the backend URL from environment variables
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL.replace(/[\/;]$/, "");
 const uploadRoute = `${BACKEND_URL}/upload`;
 
 export default function App() {
   const [videoUri, setVideoUri] = useState(null);
+  const [resultData, setResultData] = useState(null);
 
+  // Function to pick a video from the device
   const pickVideo = async () => {
-    // ... (permission request code) ...
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Denied",
+        "Sorry, we need camera roll permissions to make this work!"
+      );
+      return;
+    }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images", "videos"],
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
-      base64: true, //get base64 data.
+      videoMaxDuration: 600,
+      base64: Platform.OS === "web", // Enable base64 only for web
     });
 
     if (!result.canceled) {
@@ -26,8 +37,7 @@ export default function App() {
     }
   };
 
-  const [resultData, setResultData] = useState(null);
-
+  // Function to upload the selected video to the backend
   const uploadVideo = async () => {
     if (!videoUri) {
       Alert.alert("No Video Selected", "Please select a video first.");
@@ -35,16 +45,16 @@ export default function App() {
     }
 
     const formData = new FormData();
-    const fileType = resultData.type;
-    const fileName = videoUri.split("/").pop();
+    const fileType = resultData.type || "video/mp4"; // Default to 'video/mp4' if type is missing
+    const fileName = videoUri.split("/").pop() || "video.mp4"; // Default to 'video.mp4' if name is missing
 
     if (Platform.OS === "web") {
-      //web code
-      formData.append("video", resultData.base64);
-      formData.append("name", fileName);
-      formData.append("type", fileType);
+      // Handle web upload
+      const base64Data = resultData.base64.split(",")[1]; // Extract base64 data
+      const blob = base64ToBlob(resultData.base64, fileType); // Convert base64 to Blob
+      formData.append("video", blob, fileName); // Append Blob with file name
     } else {
-      //native code
+      // Handle native upload
       formData.append("video", {
         uri: videoUri,
         name: fileName,
@@ -65,7 +75,6 @@ export default function App() {
       });
 
       console.log("Response status:", response.status);
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Upload failed");
@@ -86,4 +95,17 @@ export default function App() {
       <Button title="Upload Video" onPress={uploadVideo} disabled={!videoUri} />
     </View>
   );
+}
+
+// Utility function to convert base64 to Blob
+function base64ToBlob(base64, mimeType) {
+  const byteString = atob(base64.split(",")[1]); // Decode base64 string
+  const arrayBuffer = new ArrayBuffer(byteString.length);
+  const uint8Array = new Uint8Array(arrayBuffer);
+
+  for (let i = 0; i < byteString.length; i++) {
+    uint8Array[i] = byteString.charCodeAt(i);
+  }
+
+  return new Blob([uint8Array], { type: mimeType });
 }
