@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { Button, View, Text, Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import axios from "axios";
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+// Load the backend URL from environment variables
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL.replace(/[\/;]$/, "");
+const uploadRoute = `${BACKEND_URL}/upload`;
+
 export default function App() {
   const [videoUri, setVideoUri] = useState(null);
 
@@ -19,7 +21,7 @@ export default function App() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: ["images", "videos"],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
@@ -38,29 +40,41 @@ export default function App() {
     }
 
     const formData = new FormData();
-    formData.append("video", {
-      uri: videoUri,
-      name: "video.mp4",
-      type: "video/mp4",
-    });
+
+      const fileInfo = {
+        uri: videoUri,
+        name: "video.mp4",
+        type: "video/mp4",
+      };
+    
+    formData.append("video", fileInfo);
+    console.log("Uploading:", fileInfo);
+    
 
     try {
-      const response = await axios.post(
-        `${BACKEND_URL}/upload`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const response = await fetch(uploadRoute, {
+        method: "POST",
+        body: formData,
+        headers: {
+          Accept: "application/json",
+          // Don't set Content-Type header manually when sending FormData
+        },
+      });
+console.log("Response status:", response.status);
 
-      Alert.alert("Upload Successful", `CID: ${response.data.cid}`);
+      if (!response.ok) {
+        // Handle non-2xx responses
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Upload failed");
+      }
+
+      const data = await response.json();
+      Alert.alert("Upload Successful", `CID: ${data.cid}`);
     } catch (error) {
       console.error(error);
       Alert.alert(
         "Upload Failed",
-        "An error occurred while uploading the video."
+        error.message || "An error occurred while uploading the video."
       );
     }
   };
