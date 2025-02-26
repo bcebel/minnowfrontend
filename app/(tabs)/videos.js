@@ -55,10 +55,6 @@ export default function App() {
       const response = await fetch(uploadRoute, {
         method: "POST",
         body: formData,
-        headers: {
-          Accept: "application/json",
-          // Don't set Content-Type header manually when sending FormData
-        },
       });
 console.log("Response status:", response.status);
 
