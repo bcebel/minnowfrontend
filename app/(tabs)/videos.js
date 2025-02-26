@@ -46,7 +46,7 @@ export default function App() {
 
     try {
       const response = await axios.post(
-        `BACKEND_URL"/upload"`,
+        `${BACKEND_URL}/upload`,
         formData,
         {
           headers: {
