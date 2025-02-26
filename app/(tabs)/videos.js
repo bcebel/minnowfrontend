@@ -20,7 +20,8 @@ export default function App() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: ["images", "videos"],
+
       allowsEditing: false,
       quality: 1,
       videoMaxDuration: 600,
