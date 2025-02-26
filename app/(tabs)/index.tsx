@@ -51,18 +51,7 @@ Welcome to minnowspace!
           </ThemedText>
         </ThemedText>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText style={{ fontFamily: "Montserrat" }}>
-          <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        </ThemedText>
-        <ThemedText style={{ fontFamily: "Montserrat" }}>
-          <ThemedText>
-            This is just the start of an exciting journey. Minnowspace is built
-            on the idea of collaboration and creativity, and we’re laying the
-            foundation for something truly unique in the digital space.
-          </ThemedText>
-        </ThemedText>
-      </ThemedView>
+
     </ParallaxScrollView>
   );
 }
