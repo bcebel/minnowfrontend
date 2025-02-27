@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import { Button, View, Text, Alert, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { S3 } from "aws-sdk";
 import { v4 as uuidv4 } from "uuid";
+import * as FileSystem from 'expo-file-system';
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL.replace(/[\/;]$/, "");
-const uploadRoute = `${BACKEND_URL}/upload`;
+const FILEBASE_ACCESS_KEY = process.env.EXPO_PUBLIC_FILEBASE_ACCESS_KEY;
+const FILEBASE_SECRET_KEY = process.env.EXPO_PUBLIC_FILEBASE_SECRET_KEY;
+const FILEBASE_BUCKET_NAME = process.env.EXPO_PUBLIC_FILEBASE_BUCKET_NAME;
 
 export default function App() {
   const [videoUri, setVideoUri] = useState(null);
@@ -33,50 +36,43 @@ export default function App() {
       return;
     }
 
-    const formData = new FormData();
-    const fileType = resultData.type;
-    const fileName = uuidv4();
-
-    if (Platform.OS === "web") {
-      //web code
-      formData.append("video", resultData.base64);
-      formData.append("name", fileName);
-      formData.append("type", fileType);
-    } else {
-      //native code
-      formData.append("video", {
-        uri: videoUri,
-        name: fileName,
-        type: fileType,
-      });
-    }
-
-    console.log("Uploading:", {
-      uri: videoUri,
-      name: fileName,
-      type: fileType,
+    const s3 = new S3({
+      endpoint: "https://s3.filebase.com",
+      accessKeyId: FILEBASE_ACCESS_KEY,
+      secretAccessKey: FILEBASE_SECRET_KEY,
+      region: "us-east-1",
     });
 
-    try {
-      const response = await fetch(uploadRoute, {
-        method: "POST",
-        body: formData,
+    const fileName = uuidv4();
+    let fileData;
+    if (Platform.OS === "web") {
+      fileData = Buffer.from(resultData.base64, "base64");
+    } else {
+      const fileInfo = await FileSystem.readAsStringAsync(videoUri, {
+        encoding: FileSystem.EncodingType.Base64,
       });
-
-      console.log("Response status:", response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Upload failed");
-      }
-
-      const data = await response.json();
-      Alert.alert("Upload Successful", `CID: ${data.cid}`);
-    } catch (error) {
-      console.error(error);
-      Alert.alert("Upload Failed", error.message || "An error occurred.");
+      fileData = Buffer.from(fileInfo, "base64");
     }
+
+    const params = {
+      Bucket: FILEBASE_BUCKET_NAME,
+      Key: fileName,
+      Body: fileData,
+      ContentType: resultData.type,
+    };
+
+    s3.upload(params, (err, data) => {
+      if (err) {
+        console.error("S3 upload error:", err);
+        Alert.alert("Upload Failed", err.message || "An S3 error occurred.");
+      } else {
+        console.log("S3 upload successful:", data);
+        Alert.alert("Upload Successful", `Location: ${data.Location}`);
+      }
+    });
   };
+
+  // ... (rest of your component) ...
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
