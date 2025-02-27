@@ -1,13 +1,9 @@
-import React, { useState } from "react";
-import { Button, View, Text, Alert, Platform } from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import { S3 } from "aws-sdk";
-import { v4 as uuidv4 } from "uuid";
-import * as FileSystem from 'expo-file-system';
-import { Buffer } from "buffer"; // Import Buffer
 
+import * as ImagePicker from 'expo-image-picker';
+import { useState } from 'react';
+import { Button, View, Text } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-  
 
 export default function App() {
   const [video, setVideo] = useState(null);
@@ -28,14 +24,26 @@ export default function App() {
   const uploadVideo = async () => {
     if (!video) return;
 
-    const formData = new FormData();
-    formData.append('video', {
-      uri: video.uri,
-      type: 'video/mp4', // Adjust type as needed
-      name: 'video.mp4', // Or generate a unique name
-    });
-
     try {
+      // Read the file data as a Blob
+      const fileInfo = await FileSystem.getInfoAsync(video.uri);
+      const blob = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+          resolve(xhr.response);
+        };
+        xhr.onerror = function (e) {
+          console.log(e);
+          reject(new TypeError('Network request failed'));
+        };
+        xhr.responseType = 'blob';
+        xhr.open('GET', video.uri, true);
+        xhr.send(null);
+      });
+
+      const formData = new FormData();
+      formData.append('video', blob, 'video.mp4'); // Append Blob with filename
+
       const response = await fetch(`${BACKEND_URL}/upload`, {
         method: 'POST',
         body: formData,
