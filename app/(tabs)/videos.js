@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { S3 } from "aws-sdk";
 import { v4 as uuidv4 } from "uuid";
 import * as FileSystem from 'expo-file-system';
+import { Buffer } from "buffer"; // Import Buffer
 
 const FILEBASE_ACCESS_KEY = process.env.EXPO_PUBLIC_FILEBASE_ACCESS_KEY;
 const FILEBASE_SECRET_KEY = process.env.EXPO_PUBLIC_FILEBASE_SECRET_KEY;
