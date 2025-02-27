@@ -1,6 +1,13 @@
+import React, { useState } from "react";
+import { Button, View, Text, Alert, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { useState } from "react";
-import { Button, View, Text } from "react-native";
+import { S3 } from "aws-sdk";
+import { v4 as uuidv4 } from "uuid";
+import * as FileSystem from 'expo-file-system';
+import { Buffer } from "buffer"; // Import Buffer
+
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+  
 
 export default function App() {
   const [video, setVideo] = useState(null);
@@ -22,31 +29,31 @@ export default function App() {
     if (!video) return;
 
     const formData = new FormData();
-    formData.append("video", {
+    formData.append('video', {
       uri: video.uri,
-      type: "video/mp4", // Adjust type as needed
-      name: "video.mp4", // Or generate a unique name
+      type: 'video/mp4', // Adjust type as needed
+      name: 'video.mp4', // Or generate a unique name
     });
 
     try {
-      const response = await fetch("YOUR_BACKEND_API_ENDPOINT", {
-        method: "POST",
+      const response = await fetch(`${BACKEND_URL}/upload`, {
+        method: 'POST',
         body: formData,
         headers: {
-          "Content-Type": "multipart/form-data",
+          'Content-Type': 'multipart/form-data',
         },
       });
 
       const data = await response.json();
-      console.log("Upload successful:", data);
+      console.log('Upload successful:', data);
       // Handle the returned IPFS URL and magnet link
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error('Upload error:', error);
     }
   };
 
   return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
       <Button title="Pick a video" onPress={pickVideo} />
       {video && <Button title="Upload video" onPress={uploadVideo} />}
       {video && <Text>Video Selected</Text>}
