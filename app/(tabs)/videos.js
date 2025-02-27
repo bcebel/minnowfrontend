@@ -41,6 +41,7 @@ export default function App() {
       endpoint: "https://s3.filebase.com",
       accessKeyId: FILEBASE_ACCESS_KEY,
       secretAccessKey: FILEBASE_SECRET_KEY,
+      bucket: FILEBASE_BUCKET_NAME,
       region: "us-east-1",
     });
 
