@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>WebTorrent Player</title>
+</head>
+
+<body>
+    <video id="player" controls></video>
+    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+    <script>
+        const magnetURI = 'magnet:?xt=urn:btih:4650ec71e2cf3949c157ab75ae9eb642538588f6&dn=QmUJwvNWbyCrGhsLcAU6vuXLgx2Kh6PdzeRhU4sVq62kEN.mp4&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.internetwarriors.net%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969%2Fannounce'; // Replace with your magnet link
+        const client = new WebTorrent();
+        const video = document.getElementById('player');
+
+        client.add(magnetURI, (torrent) => {
+            const file = torrent.files.find((file) => file.name.endsWith('.mp4')); // Adjust file extension as needed
+            file.renderTo('#player');
+        });
+    </script>
+</body>
+
+</html>
