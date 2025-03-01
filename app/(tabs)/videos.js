@@ -37,7 +37,7 @@ const htmlContent = `
   </style>
 </head>
 <body>
-  <h1>Vanilla HTML Video Picker</h1>
+  <h1>Video Picker</h1>
   <video-picker></video-picker>
 
   <script>
@@ -79,7 +79,11 @@ const htmlContent = `
 
     customElements.define('video-picker', VideoPicker);
   </script>
+<label for="title">Title:</label>
+<input type="text" id="title" placeholder="Enter video title" />
 
+<label for="description">Description:</label>
+<textarea id="description" placeholder="Enter video description"></textarea>
   <button id="uploadButton" disabled>Upload Video</button>
   <button id="playTorrentButton" disabled>Play Torrent</button>
   <video id="torrentVideo" controls style="display: none; width: 100%; margin-top: 20px;"></video>
@@ -98,7 +102,13 @@ const htmlContent = `
 
     picker.addEventListener('file-selected', (event) => {
       selectedFile = event.detail;
+
+        if (selectedFile) {
+    console.log("Selected file:", selectedFile.name, selectedFile.type);
       uploadButton.disabled = false;
+        } else {
+    uploadButton.disabled = true;
+  }
     });
 
     uploadButton.addEventListener('click', async () => {
@@ -110,8 +120,13 @@ const htmlContent = `
         return;
       }
 
+  const title = document.getElementById("title").value || "Untitled Video";
+  const description = document.getElementById("description").value || "";
+  
       const formData = new FormData();
       formData.append('video', selectedFile);
+        formData.append('title', title);
+  formData.append('description', description);
 
       try {
         const response = await fetch('https://minnowspacebackend-e6635e46c3d0.herokuapp.com/upload', {
@@ -175,7 +190,7 @@ export default function App() {
     return (
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 20, textAlign: "center", margin: 20 }}>
-          Web Version - Direct HTML Rendering
+          Upload your basicness. Let us bask in it.
         </Text>
         {/* Inject the HTML into the DOM */}
         <iframe
