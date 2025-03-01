@@ -104,12 +104,21 @@ const htmlContent = `
     uploadButton.addEventListener('click', async () => {
       if (!selectedFile) return;
 
+      const token = localStorage.getItem("token"); // Retrieve the JWT token
+      if (!token) {
+        alert("You must log in to upload files.");
+        return;
+      }
+
       const formData = new FormData();
       formData.append('video', selectedFile);
 
       try {
         const response = await fetch('https://minnowspacebackend-e6635e46c3d0.herokuapp.com/upload', {
           method: 'POST',
+          headers: {
+            Authorization: \`Bearer \${token}\`, // Properly escaped backticks
+          },
           body: formData,
         });
 
@@ -157,7 +166,6 @@ const htmlContent = `
 </body>
 </html>
 `;
-
 export default function App() {
   // Detect if the app is running on the web
   const isWeb = Platform.OS === "web";
