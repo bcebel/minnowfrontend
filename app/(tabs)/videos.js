@@ -190,7 +190,7 @@ export default function App() {
     return (
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 20, textAlign: "center", margin: 20 }}>
-          Upload your basicness. Let us bask in it.
+          Upload your greatest. Let us bask in it.
         </Text>
         {/* Inject the HTML into the DOM */}
         <iframe
