@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 async function fetchVideos() {
   try {
     const response = await fetch(
-      "https://localhost:3001/api/videos"
+      "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/api/videos"
     );
     const videos = await response.json();
     return videos;
