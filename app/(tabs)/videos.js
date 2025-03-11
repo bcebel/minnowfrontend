@@ -60,7 +60,7 @@ const htmlContent = `
         const fileInput = this.shadowRoot.querySelector('input[type="file"]');
         const videoElement = this.shadowRoot.querySelector('video');
 
-        fileInput.addEventListe ner('change', (event) => {
+        fileInput.addEventListener('change', (event) => {
           const file = event.target.files[0];
           if (file) {
             const videoURL = URL.createObjectURL(file);
