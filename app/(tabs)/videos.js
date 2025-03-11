@@ -1,223 +1,101 @@
-import React from "react";
-import { Platform, View, Text } from "react-native";
+
+import React, { useState } from "react";
+import { Platform, View, Text, Button, TextInput } from "react-native";
 import { WebView } from "react-native-webview";
+import * as DocumentPicker from "expo-document-picker";
 
-// Vanilla HTML Video Picker Component as a string
-const htmlContent = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Video Picker</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-    }
-    video-picker {
-      display: block;
-      margin-top: 20px;
-    }
-    video {
-      max-width: 100%;
-      margin-top: 10px;
-    }
-    button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    button:disabled {
-      background-color: #ccc;
-    }
-  </style>
-</head>
-<body>
-  <h1>Video Picker</h1>
-  <video-picker></video-picker>
-
-  <script>
-    class VideoPicker extends HTMLElement {
-      constructor() {
-        super();
-        this.attachShadow({ mode: 'open' });
-        this.shadowRoot.innerHTML = \`
-          <style>
-            input[type="file"] {
-              margin-bottom: 10px;
-            }
-          </style>
-          <input type="file" accept="video/*">
-          <video controls></video>
-        \`;
-      }
-
-      connectedCallback() {
-        const fileInput = this.shadowRoot.querySelector('input[type="file"]');
-        const videoElement = this.shadowRoot.querySelector('video');
-
-        fileInput.addEventListener('change', (event) => {
-          const file = event.target.files[0];
-          if (file) {
-            const videoURL = URL.createObjectURL(file);
-            videoElement.src = videoURL;
-            videoElement.style.display = 'block';
-
-            // Emit a custom event with the selected file
-            this.dispatchEvent(new CustomEvent('file-selected', { detail: file }));
-          } else {
-            videoElement.src = '';
-            videoElement.style.display = 'none';
-          }
-        });
-      }
-    }
-
-    customElements.define('video-picker', VideoPicker);
-  </script>
-<label for="title">Title:</label>
-<input type="text" id="title" placeholder="Enter video title" />
-
-<label for="description">Description:</label>
-<textarea id="description" placeholder="Enter video description"></textarea>
-  <button id="uploadButton" disabled>Upload Video</button>
-  <button id="playTorrentButton" disabled>Play Torrent</button>
-  <video id="torrentVideo" controls style="display: none; width: 100%; margin-top: 20px;"></video>
-
-  <!-- Include WebTorrent Library -->
+const torrentHtml = `
+  <video id="torrentVideo" controls style="width: 100%;"></video>
   <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
   <script>
-    const picker = document.querySelector('video-picker');
-    const uploadButton = document.getElementById('uploadButton');
-    const playTorrentButton = document.getElementById('playTorrentButton');
-    const torrentVideo = document.getElementById('torrentVideo');
-
-    let selectedFile = null;
-    let magnetLink = null;
-    let client = null;
-
-    picker.addEventListener('file-selected', (event) => {
-      selectedFile = event.detail;
-
-        if (selectedFile) {
-    console.log("Selected file:", selectedFile.name, selectedFile.type);
-      uploadButton.disabled = false;
-        } else {
-    uploadButton.disabled = true;
-  }
+    window.addEventListener("message", (event) => {
+      const magnetLink = event.data.magnetLink;
+      if (magnetLink) {
+        const client = new WebTorrent();
+        client.add(magnetLink, (torrent) => {
+          const file = torrent.files.find(f => f.name.endsWith('.mp4'));
+          if (file) file.renderTo("#torrentVideo");
+        });
+      }
     });
+  </script>
+`;
 
-    uploadButton.addEventListener('click', async () => {
-      if (!selectedFile) return;
+export default function App() {
+  const [magnetLink, setMagnetLink] = useState(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
 
-      const token = localStorage.getItem("token"); // Retrieve the JWT token
-      if (!token) {
+  const pickVideo = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ type: "video/*" });
+    if (result.type !== "cancel") {
+      const uri = result.uri;
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      await uploadVideo(blob);
+    }
+  };
+
+  const uploadVideo = async (blob) => {
+    const token = localStorage.getItem("token");
+    // Replace with your auth logic (AsyncStorage?)
+          if (!token) {
         alert("You must log in to upload files.");
         return;
       }
+    const formData = new FormData();
+    
+    formData.append("video", blob, "video.mp4");
+    formData.append("title", title || "Untitled Video");
+    formData.append("description", description || "");
 
-  const title = document.getElementById("title").value || "Untitled Video";
-  const description = document.getElementById("description").value || "";
-  
-      const formData = new FormData();
-      formData.append('video', selectedFile);
-        formData.append('title', title);
-  formData.append('description', description);
-
-      try {
-        const response = await fetch('https://minnowspacebackend-e6635e46c3d0.herokuapp.com/upload', {
-          method: 'POST',
-          headers: {
-            Authorization: \`Bearer \${token}\`, // Properly escaped backticks
-          },
-          body: formData,
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          magnetLink = result.magnetLink;
-          alert(\`Upload successful!\\nIPFS URL: \${result.ipfsUrl}\\nMagnet Link: \${result.magnetLink}\`);
-          console.log(\`Upload successful!\\nIPFS URL: \${result.ipfsUrl}\\nMagnet Link: \${result.magnetLink}\`);
-          playTorrentButton.disabled = false;
-        } else {
-          alert('Upload failed.');
-        }
-      } catch (error) {
-        console.error(error);
-        alert('An error occurred while uploading.');
-      }
-    });
-
-    playTorrentButton.addEventListener('click', () => {
-      if (!magnetLink) {
-        alert('No magnet link available.');
-        return;
-      }
-
-      if (!client) {
-        client = new WebTorrent();
-      }
-
-      client.add(magnetLink, (torrent) => {
-        console.log('Torrent added:', torrent);
-
-        // Play the first file in the torrent
-        const file = torrent.files.find((f) => f.name.endsWith('.mp4'));
-        if (file) {
-          file.renderTo(torrentVideo, () => {
-            torrentVideo.style.display = 'block';
-            console.log('Playing torrent file:', file.name);
-          });
-        } else {
-          alert('No playable video file found in the torrent.');
-        }
+    try {
+      const res = await fetch("https://minnowspacebackend-e6635e46c3d0.herokuapp.com/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       });
-    });
-  </script>
-</body>
-</html>
-`;
-export default function App() {
-  // Detect if the app is running on the web
-  const isWeb = Platform.OS === "web";
+      const data = await res.json();
+      if (res.ok) {
+        setMagnetLink(data.magnetLink);
+        alert(`Uploaded!\nIPFS: ${data.ipfsUrl}\nMagnet: ${data.magnetLink}`);
+      } else throw new Error("Upload failed");
+    } catch (error) {
+      console.error(error);
+      alert("Upload error");
+    }
+  };
 
-  if (isWeb) {
-    // Render the HTML directly for the web
-    return (
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 20, textAlign: "center", margin: 20 }}>
-          Upload your greatest. Let us bask in it.
-        </Text>
-        {/* Inject the HTML into the DOM */}
-        <iframe
-          srcDoc={htmlContent}
-          style={{
-            flex: 1,
-            width: "100%",
-            height: "100%",
-            border: "none",
-          }}
-          title="Video Picker"
-        />
-      </View>
-    );
-  }
-
-  // For non-web platforms, use a WebView
   return (
-    <View style={{ flex: 1 }}>
-      <Text style={{ fontSize: 20, textAlign: "center", margin: 20 }}>
-        Mobile Version - WebView
+    <View style={{ flex: 1, padding: 20 }}>
+      <Text style={{ fontSize: 20, textAlign: "center", marginBottom: 10 }}>
+        Upload your greatest. Let us bask in it.
       </Text>
-      <WebView
-        originWhitelist={["*"]}
-        source={{ html: htmlContent }}
-        style={{ flex: 1 }}
+      <TextInput
+        placeholder="Title"
+        value={title}
+        onChangeText={setTitle}
+        style={{ borderWidth: 1, padding: 5, marginBottom: 10 }}
       />
+      <TextInput
+        placeholder="Description"
+        value={description}
+        onChangeText={setDescription}
+        multiline
+        style={{ borderWidth: 1, padding: 5, marginBottom: 10, height: 80 }}
+      />
+      <Button title="Pick Video" onPress={pickVideo} />
+      {magnetLink && (
+        <WebView
+          source={{ html: torrentHtml }}
+          style={{ flex: 1, marginTop: 20 }}
+          onLoad={() =>
+            this.webview.injectJavaScript(
+              `window.postMessage({ magnetLink: "${magnetLink}" }, "*");`
+            )
+          }
+        />
+      )}
     </View>
   );
 }
