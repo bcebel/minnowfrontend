@@ -33,7 +33,7 @@
     "expo": "~52.0.23",
     "expo-ads-admob": "^13.0.0",
     "expo-blur": "~14.0.1",
-    "expo-camera": "~16.0.10",
+    "expo-camera": "~16.0.17",
     "expo-constants": "~17.0.3",
     "expo-document-picker": "~13.0.3",
     "expo-font": "~13.0.2",
@@ -67,7 +67,8 @@
     "react-native-webview": "13.12.5",
     "socket.io-client": "^4.8.1",
     "uint8-util": "^2.2.5",
-    "webtorrent": "^2.5.19"
+    "webtorrent": "^2.5.19",
+    "expo-media-library": "~17.0.6"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
