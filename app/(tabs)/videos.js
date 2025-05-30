@@ -11,7 +11,20 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WebView } from "react-native-webview";
 
-const torrentHtml = `/* your WebTorrent playback HTML, unchanged */`;
+const torrentHtml = `<video id="torrentVideo" controls style="width: 100%;"></video>Add commentMore actions
+  <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+  <script>
+    window.addEventListener("message", (event) => {
+      const magnetLink = event.data.magnetLink;
+      if (magnetLink) {
+        const client = new WebTorrent();
+        client.add(magnetLink, (torrent) => {
+          const file = torrent.files.find(f => f.name.endsWith('.mp4'));
+          if (file) file.renderTo("#torrentVideo");
+        });
+      }
+    });
+  </script>`;
 
 export default function App() {
   const [title, setTitle] = useState("");
