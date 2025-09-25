@@ -6,13 +6,14 @@ import { WebView } from 'react-native-webview';
   const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function App() {
-  const isWeb = Platform.OS === 'web';
+  // const isWeb = Platform.OS === 'web'; // <-- Can remove this line
 
-  if (isWeb) {
-        window.location.href = BACKEND_URL;
-    // For web, redirect to the hosted site
-  }
+  // if (isWeb) { // <-- Remove this
+  //    window.location.href = BACKEND_URL; // <-- Remove this
+  //    // For web, redirect to the hosted site // <-- Remove this
+  // } // <-- Remove this
 
-  // For mobile, use WebView
+  // Now, for ALL platforms, it will attempt to render the WebView
+  // Note: react-native-webview on 'web' renders as a standard iframe.
   return <WebView source={{ uri: BACKEND_URL }} style={{ flex: 1 }} />;
 }
