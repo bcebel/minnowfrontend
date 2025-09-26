@@ -29,6 +29,10 @@ export default function App() {
 
   // For mobile, use WebView
 
-  return <WebView source={{ uri: BACKEND_URL }} style={{ flex: 1 }} />;
+  return <WebView source={{ uri: BACKEND_URL }} style={{ flex: 1 }}
+  allowsFullscreenVideo={true}
+  allowsInlineMediaPlayback={true}
+  // You might also need this depending on the site:
+  mediaPlaybackRequiresUserAction={false} />;
 
 }
