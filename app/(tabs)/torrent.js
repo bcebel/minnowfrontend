@@ -6,22 +6,23 @@ import {
     ActivityIndicator, 
     StyleSheet, 
     SafeAreaView,
-    Platform 
+    Platform,
+    useWindowDimensions // Used for basic responsive styling
 } from 'react-native';
+// Ensure you have run: npx expo install expo-av
 import { Video } from 'expo-av'; 
 
-// Use the environment variable as before
+// Use the environment variable for your backend URL
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL; 
 
 // --- Video Card Component ---
 const VideoCard = ({ video }) => {
-    // 1. Implement the same URL processing logic from your old HTML script
+    // 1. Implement the URL processing logic: 
     //    Prioritize CID for the Pinata gateway, otherwise fix old Filebase URLs
     const ipfsUrl = video.cid
         ? `https://gateway.pinata.cloud/ipfs/${video.cid}`
         : video.ipfsUrl?.replace('ipfs.filebase.io', 'gateway.pinata.cloud');
     
-    // Fallback if no valid URL can be constructed
     if (!ipfsUrl) {
         return (
             <View style={styles.videoCard}>
@@ -40,8 +41,8 @@ const VideoCard = ({ video }) => {
             <Video
                 source={{ uri: ipfsUrl }}
                 style={styles.videoPlayer}
-                useNativeControls // Crucial for native playback controls (solves iPhone issue)
-                resizeMode="contain" // Ensures the video fits within the bounds
+                useNativeControls // Crucial for native playback controls
+                resizeMode="contain" 
                 isLooping
             />
         </View>
@@ -50,15 +51,14 @@ const VideoCard = ({ video }) => {
 
 // --- Main App Component ---
 export default function App() {
-    // Redirect web users to the public page (same logic as before)
-    if (Platform.OS === 'web') {
-        window.location.href = BACKEND_URL;
-        return null;
-    }
-    
+    const { width } = useWindowDimensions();
     const [videos, setVideos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // Calculate grid columns based on screen width (for web/tablet responsiveness)
+    const numColumns = Platform.OS === 'web' && width > 900 ? 3 : 1;
+    const itemWidth = Platform.OS === 'web' && width > 900 ? width / numColumns - 30 : '100%';
 
     const fetchVideos = async () => {
         setLoading(true);
@@ -72,13 +72,11 @@ export default function App() {
             }
 
             const data = await response.json();
-            // The VideoCard component handles the URL modification logic, 
-            // so we just pass the raw data array to state.
             setVideos(data); 
 
         } catch (e) {
             console.error("Fetch Error:", e);
-            setError("Failed to load videos.");
+            setError("Failed to load videos. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -86,7 +84,7 @@ export default function App() {
 
     useEffect(() => {
         fetchVideos();
-        // Implement the 30-second refresh interval
+        // 30-second refresh interval
         const interval = setInterval(fetchVideos, 30000); 
         return () => clearInterval(interval);
     }, []);
@@ -109,21 +107,29 @@ export default function App() {
         );
     }
 
-    // Use FlatList for efficient scrolling and rendering of a list of videos
+    // Use FlatList for efficient scrolling
     return (
         <SafeAreaView style={styles.container}>
             <FlatList
                 data={videos}
-                keyExtractor={(item) => item._id} // Use the unique _id from your JSON
+                // Use the unique _id from your JSON for keyExtractor
+                keyExtractor={(item) => item._id} 
+                // Render a VideoCard for each item
                 renderItem={({ item }) => <VideoCard video={item} />}
-                contentContainerStyle={styles.galleryContainer}
+                contentContainerStyle={[
+                    styles.galleryContainer,
+                    // Apply the max-width and center alignment for web
+                    Platform.OS === 'web' && { maxWidth: 1200, marginHorizontal: 'auto' }
+                ]}
                 ListHeaderComponent={<Text style={styles.header}>Minnow Video Strike</Text>}
+                numColumns={numColumns} // Uses 1 column on mobile, 3 on large screens
+                columnWrapperStyle={numColumns > 1 ? { justifyContent: 'space-between' } : null}
             />
         </SafeAreaView>
     );
 }
 
-// --- Basic Styles (adapted from your HTML/CSS) ---
+// --- Styles ---
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -146,12 +152,16 @@ const styles = StyleSheet.create({
         padding: 10,
     },
     videoCard: {
+        // Basic card styling
         borderWidth: 1,
         borderColor: '#ccc',
         borderRadius: 8,
         padding: 10,
-        marginBottom: 15, // Space between cards
         backgroundColor: '#f9f9f9',
+        
+        // Flexbox ensures width works for both mobile and web grid
+        flex: 1, 
+        margin: 5, // Space between grid items
     },
     title: {
         fontSize: 18,
@@ -165,7 +175,7 @@ const styles = StyleSheet.create({
     },
     videoPlayer: {
         width: '100%',
-        height: 250, // Set a fixed height for consistency
+        height: 250, // Fixed height for visual consistency
         backgroundColor: '#000',
         borderRadius: 4,
     },
@@ -175,6 +185,7 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 5,
         margin: 10,
+        textAlign: 'center',
     },
     loadingText: {
         marginTop: 10,
