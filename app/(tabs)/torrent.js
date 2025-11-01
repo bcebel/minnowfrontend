@@ -85,7 +85,7 @@ export default function App() {
     useEffect(() => {
         fetchVideos();
         // 30-second refresh interval
-        const interval = setInterval(fetchVideos, 30000); 
+        const interval = setInterval(fetchVideos, 3000000); 
         return () => clearInterval(interval);
     }, []);
 
