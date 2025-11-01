@@ -33,6 +33,7 @@
     "buffer": "^6.0.3",
     "expo": "^54.0.10",
     "expo-ads-admob": "^13.0.0",
+    "expo-av": "~16.0.7",
     "expo-blur": "~15.0.7",
     "expo-camera": "~17.0.8",
     "expo-constants": "~18.0.9",
