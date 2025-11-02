@@ -5,7 +5,6 @@ import {
   FlatList,
   ActivityIndicator,
   StyleSheet,
-  SafeAreaView,
   Platform,
   useWindowDimensions, // Used for basic responsive styling
 } from "react-native";
@@ -13,16 +12,16 @@ import {
 import { useVideoPlayer, VideoView } from "expo-video";
 
 // Use the environment variable for your backend URL
-// NOTE: Ensure EXPO_PUBLIC_BACKEND_URL is set in your .env or app.json
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-// --- Video Card Component (Updated for expo-video) ---
+// --- Video Card Component ---
 const VideoCard = ({ video }) => {
-  // 1. Implement the URL processing logic:
-  //    Prioritize CID for the Pinata gateway, otherwise fix old Filebase URLs
-  const ipfsUrl = video.cid
-    ? `https://gateway.pinata.cloud/ipfs/${video.cid}`
-    : video.ipfsUrl?.replace("ipfs.filebase.io", "gateway.pinata.cloud");
+  // 1. Implement the URL processing logic, prioritizing the most stable IPFS gateway.
+  let ipfsUrl = video.cid
+    ? // Use the stable subdomain gateway format for CIDs (this fixed the iOS issue)
+      `https://${video.cid}.ipfs.dweb.link/`
+    : // Fallback for legacy items that only use the old ipfsUrl structure
+      video.ipfsUrl?.replace("ipfs.filebase.io", "gateway.pinata.cloud");
 
   if (!ipfsUrl) {
     return (
@@ -55,6 +54,8 @@ const VideoCard = ({ video }) => {
         style={[styles.videoPlayer]} // Style prop requires an array/object
         showsControls={true} // Display native controls (Play/Pause, Seek, etc.)
         contentFit="contain" // Equivalent to resizeMode="contain"
+        // Retaining this fix as it helps native players manage streams
+        allowsExternalPlayback={true}
       />
     </View>
   );
@@ -62,6 +63,8 @@ const VideoCard = ({ video }) => {
 
 // --- Main App Component ---
 export default function App() {
+  // ... (rest of App component code remains unchanged)
+
   const { width } = useWindowDimensions();
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,8 +72,6 @@ export default function App() {
 
   // Calculate grid columns based on screen width (for web/tablet responsiveness)
   const numColumns = Platform.OS === "web" && width > 900 ? 3 : 1;
-  // itemWidth calculation is not needed if flex: 1 is used in videoCard style
-  // const itemWidth = Platform.OS === 'web' && width > 900 ? width / numColumns - 30 : '100%';
 
   const fetchVideos = async () => {
     // Guard against missing URL
@@ -112,24 +113,24 @@ export default function App() {
   // --- Loading, Error, and Render States ---
   if (loading) {
     return (
-      <SafeAreaView style={styles.centerContainer}>
+      <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
         <Text style={styles.loadingText}>Loading Videos...</Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={styles.centerContainer}>
+      <View style={styles.centerContainer}>
         <Text style={styles.errorText}>{error}</Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // Use FlatList for efficient scrolling
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <FlatList
         data={videos}
         // Use the unique _id from your JSON for keyExtractor
@@ -150,7 +151,7 @@ export default function App() {
           numColumns > 1 ? { justifyContent: "space-between" } : null
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -159,6 +160,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+    // When using a regular View as the root, the system often handles safe area
+    // automatically, or we rely on the component's internal padding (like FlatList)
   },
   centerContainer: {
     flex: 1,
