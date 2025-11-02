@@ -17,7 +17,7 @@ const RegistrationScreen = () => {
   const handleRegister = async () => {
     try {
       const response = await fetch(
-        "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/register",
+        "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/api/register",
         {
           method: "POST",
           headers: {
