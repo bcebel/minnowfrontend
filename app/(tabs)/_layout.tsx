@@ -44,16 +44,6 @@ export default function TabLayout() {
           ),
         }}
       />
-
-      <Tabs.Screen
-        name="YouTube"
-        options={{
-          title: "YouTube",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
-          ),
-        }}
-      />
     </Tabs>
   );
 }

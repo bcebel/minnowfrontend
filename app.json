@@ -10,14 +10,29 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.minnowspace"
+      "bundleIdentifier": "com.anonymous.minnowspace",
+      "infoPlist": {
+        "NSCameraUsageDescription": "$(PRODUCT_NAME) needs access to your Camera.",
+        "NSMicrophoneUsageDescription": "$(PRODUCT_NAME) needs access to your Microphone."
+      }
     },
     "android": {
+      "useHermes": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.minnowspace"
+      "package": "com.anonymous.minnowspace",
+      "permissions": [
+        "INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "config": {
+        "android": {
+          "largeHeap": true
+        }
+      }
     },
     "web": {
       "bundler": "metro",
@@ -72,6 +87,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3032d0f0-ca55-4291-9ce4-2012f2f3e7ad"
+      }
     }
   }
 }

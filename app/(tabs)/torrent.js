@@ -16,12 +16,24 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 // --- Video Card Component ---
 const VideoCard = ({ video }) => {
-  // 1. Implement the URL processing logic, prioritizing the most stable IPFS gateway.
-  let ipfsUrl = video.cid
-    ? // Use the stable subdomain gateway format for CIDs (this fixed the iOS issue)
-      `https://${video.cid}.ipfs.dweb.link/`
-    : // Fallback for legacy items that only use the old ipfsUrl structure
-      video.ipfsUrl?.replace("ipfs.filebase.io", "gateway.pinata.cloud");
+  let ipfsUrl;
+
+  // 1. Implement the URL processing logic using Platform.OS to assign the most stable stream.
+  if (Platform.OS === "android") {
+    // Android Fix: Revert to the legacy Pinata/Filebase stream.
+    // This stream is less likely to trigger the native java.lang.OutOfMemoryError
+    // caused by direct, unoptimized IPFS gateway links on Android.
+    ipfsUrl = video.ipfsUrl?.replace(
+      "ipfs.filebase.io",
+      "gateway.pinata.cloud"
+    );
+  } else {
+    // iOS, Web, and other platforms: Use the stable CID subdomain format.
+    // This format previously fixed stability issues on iOS.
+    ipfsUrl = video.cid
+      ? `https://${video.cid}.ipfs.dweb.link/`
+      : video.ipfsUrl?.replace("ipfs.filebase.io", "gateway.pinata.cloud");
+  }
 
   if (!ipfsUrl) {
     return (
@@ -32,7 +44,7 @@ const VideoCard = ({ video }) => {
     );
   }
 
-  // 2. Initialize the video player with the IPFS URL
+  // 2. Initialize the video player with the platform-specific IPFS URL
   const player = useVideoPlayer(ipfsUrl, (player) => {
     // Set properties like looping during initialization
     player.loop = true;
@@ -63,8 +75,6 @@ const VideoCard = ({ video }) => {
 
 // --- Main App Component ---
 export default function App() {
-  // ... (rest of App component code remains unchanged)
-
   const { width } = useWindowDimensions();
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -150,6 +160,11 @@ export default function App() {
         columnWrapperStyle={
           numColumns > 1 ? { justifyContent: "space-between" } : null
         }
+        // === ANDROID STABILITY FIX: Throttling FlatList rendering for OOM ===
+        // This is a direct fix for memory issues in lists of heavy components.
+        windowSize={5}
+        initialNumToRender={3}
+        maxToRenderPerBatch={1} // Corrected typo and set to 1 for aggressive throttling
       />
     </View>
   );
@@ -160,8 +175,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    // When using a regular View as the root, the system often handles safe area
-    // automatically, or we rely on the component's internal padding (like FlatList)
   },
   centerContainer: {
     flex: 1,
