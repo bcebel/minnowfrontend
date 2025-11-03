@@ -1,26 +1,25 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Minnow Space - Bold Black, Red, Green Theme
  */
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+const tintColorLight = "#FF0000"; // Pure red
+const tintColorDark = "#00FF00"; // Pure green
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: "#000000", // Pure black
+    background: "#FFFFFF", // White background for contrast
+    tint: tintColorLight, // Pure red
+    icon: "#000000", // Black icons
+    tabIconDefault: "#333333", // Dark gray for unselected
+    tabIconSelected: "#FF0000", // Bright red for selected
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: "#00FF00", // Pure green text
+    background: "#000000", // Pure black background
+    tint: tintColorDark, // Pure green
+    icon: "#00FF00", // Green icons
+    tabIconDefault: "#00AA00", // Darker green for unselected
+    tabIconSelected: "#00FF00", // Bright green for selected
   },
 };

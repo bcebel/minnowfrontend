@@ -31,16 +31,14 @@ export default function RootLayout() {
   }
 
   return (
-    
-    <ThemeProvider value={colorScheme === "light" ? DarkTheme : DefaultTheme}>
-      <StatusBar style="auto" />
+    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="privacy" />
-        <Stack.Screen name="tos" />
-        <Stack.Screen name="+not-found" />
+        <Stack.Screen name="privacy" options={{ title: "Privacy Policy" }} />
+        <Stack.Screen name="tos" options={{ title: "Terms of Service" }} />
+        <Stack.Screen name="+not-found" options={{ title: "Not Found" }} />
       </Stack>
-      <StatusBar style="auto" />
     </ThemeProvider>
   );
 }

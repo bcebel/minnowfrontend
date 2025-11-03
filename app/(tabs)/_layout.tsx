@@ -12,35 +12,54 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: "absolute",
-          },
-          default: {},
-        }),
-      }}
+      screenOptions={
+        {
+          // ... your existing options
+        }
+      }
     >
       <Tabs.Screen
-        name="index"
+        name="index" // This is your welcome screen
         options={{
-          title: "Home",
+          title: "🌊 Welcome", // Changed from Neighborhood
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="star.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="Neighborhood" // Renamed from torrent
+        options={{
+          title: "🏠 Neighborhood",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="house.fill" color={color} />
           ),
         }}
       />
       <Tabs.Screen
+        name="torrent" // This becomes Public Square
+        options={{
+          title: "🎪 Public Square",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="play.rectangle.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="videos"
+        options={{
+          title: "📹 Studio",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="video.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="Chat"
         options={{
-          title: "Chat",
+          title: "👥 Social",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
+            <IconSymbol size={28} name="message.fill" color={color} />
           ),
         }}
       />

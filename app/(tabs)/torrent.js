@@ -6,34 +6,139 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
-  useWindowDimensions, // Used for basic responsive styling
+  useWindowDimensions,
+  TouchableOpacity,
+  Linking,
 } from "react-native";
-// Correct import from expo-video
 import { useVideoPlayer, VideoView } from "expo-video";
 
-// Use the environment variable for your backend URL
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
+// Click tracking function
+const trackAffiliateClick = async (affiliateLinkId) => {
+  try {
+    await fetch(`${BACKEND_URL}/api/track-click`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ affiliateLinkId }),
+    });
+  } catch (error) {
+    console.log("Click tracking failed:", error);
+  }
+};
+
+// Function to fetch user affiliate data
+const fetchUserAffiliateData = async (userId) => {
+  try {
+    const response = await fetch(`${BACKEND_URL}/graphql`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `
+          query GetUserAffiliateLinks($userId: ID!) {
+            user(id: $userId) {
+              id
+              username
+              affiliateLinks {
+                id
+                url
+                title
+                clicks
+              }
+            }
+          }
+        `,
+        variables: { userId },
+      }),
+    });
+
+    const result = await response.json();
+    return result.data?.user;
+  } catch (error) {
+    console.log("Failed to fetch affiliate data:", error);
+    return null;
+  }
+};
+
+// Affiliate Links Component
+const AffiliateLinks = ({ user }) => {
+  if (!user?.affiliateLinks?.length) return null;
+
+  return (
+    <View style={styles.affiliateSection}>
+      <Text style={styles.affiliateTitle}>
+        💎 Recommended by {user.username}
+      </Text>
+      {user.affiliateLinks.map((link) => (
+        <TouchableOpacity
+          key={link._id || link.id}
+          style={styles.affiliateLink}
+          onPress={async () => {
+            await trackAffiliateClick(link._id || link.id);
+            Linking.openURL(link.url);
+          }}
+        >
+          <Text style={styles.linkTitle}>{link.title}</Text>
+          <Text style={styles.linkClicks}>{link.clicks} clicks</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+};
+
 // --- Video Card Component ---
+// --- SIMPLE Video Card Component ---
+// --- SMART Video Card Component ---
 const VideoCard = ({ video }) => {
+  const [userData, setUserData] = useState(null);
   let ipfsUrl;
 
-  // 1. Implement the URL processing logic using Platform.OS to assign the most stable stream.
+  // URL processing logic
   if (Platform.OS === "android") {
-    // Android Fix: Revert to the legacy Pinata/Filebase stream.
-    // This stream is less likely to trigger the native java.lang.OutOfMemoryError
-    // caused by direct, unoptimized IPFS gateway links on Android.
     ipfsUrl = video.ipfsUrl?.replace(
       "ipfs.filebase.io",
       "gateway.pinata.cloud"
     );
   } else {
-    // iOS, Web, and other platforms: Use the stable CID subdomain format.
-    // This format previously fixed stability issues on iOS.
     ipfsUrl = video.cid
       ? `https://${video.cid}.ipfs.dweb.link/`
       : video.ipfsUrl?.replace("ipfs.filebase.io", "gateway.pinata.cloud");
   }
+
+  // SIMPLIFIED: Only try to fetch affiliate data for users we know exist in GraphQL
+  useEffect(() => {
+    // For now, let's just use mock data for everyone
+    // But in the future, we can conditionally fetch real data
+    const mockUserData = {
+      username: video.user?.username || "Creator",
+      affiliateLinks: [
+        {
+          id: "1",
+          url: "https://impact.com/test",
+          title: "Amazon Products", 
+          clicks: Math.floor(Math.random() * 10)
+        },
+        {
+          id: "2", 
+          url: "https://impact.com/electronics",
+          title: "Electronics",
+          clicks: Math.floor(Math.random() * 5)
+        }
+      ]
+    };
+    setUserData(mockUserData);
+    
+    // Optional: Uncomment this later when we fix the data sync
+    // if (video.user?._id) {
+    //   fetchUserAffiliateData(video.user._id).then(data => {
+    //     if (data) {
+    //       setUserData(data); // Use real data if available
+    //     } else {
+    //       setUserData(mockUserData); // Fallback to mock
+    //     }
+    //   });
+    // }
+  }, [video.user]);
 
   if (!ipfsUrl) {
     return (
@@ -44,11 +149,8 @@ const VideoCard = ({ video }) => {
     );
   }
 
-  // 2. Initialize the video player with the platform-specific IPFS URL
   const player = useVideoPlayer(ipfsUrl, (player) => {
-    // Set properties like looping during initialization
     player.loop = true;
-    // Optionally: player.play(); // to autoplay
   });
 
   return (
@@ -60,15 +162,16 @@ const VideoCard = ({ video }) => {
         {video.description || "No description provided."}
       </Text>
 
-      {/* 3. Use the VideoView component */}
       <VideoView
         player={player}
-        style={[styles.videoPlayer]} // Style prop requires an array/object
-        showsControls={true} // Display native controls (Play/Pause, Seek, etc.)
-        contentFit="contain" // Equivalent to resizeMode="contain"
-        // Retaining this fix as it helps native players manage streams
+        style={[styles.videoPlayer]}
+        showsControls={true}
+        contentFit="contain"
         allowsExternalPlayback={true}
       />
+
+      {/* This will now show data (mock for now, real later) */}
+      <AffiliateLinks user={userData} />
     </View>
   );
 };
@@ -80,11 +183,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Calculate grid columns based on screen width (for web/tablet responsiveness)
   const numColumns = Platform.OS === "web" && width > 900 ? 3 : 1;
 
   const fetchVideos = async () => {
-    // Guard against missing URL
     if (!BACKEND_URL) {
       setError("BACKEND_URL is not configured.");
       setLoading(false);
@@ -115,12 +216,10 @@ export default function App() {
 
   useEffect(() => {
     fetchVideos();
-    // 5-minute refresh interval (300000 ms)
     const interval = setInterval(fetchVideos, 300000);
     return () => clearInterval(interval);
   }, []);
 
-  // --- Loading, Error, and Render States ---
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -138,33 +237,26 @@ export default function App() {
     );
   }
 
-  // Use FlatList for efficient scrolling
   return (
     <View style={styles.container}>
       <FlatList
         data={videos}
-        // Use the unique _id from your JSON for keyExtractor
         keyExtractor={(item) => item._id}
-        // Render a VideoCard for each item
         renderItem={({ item }) => <VideoCard video={item} />}
         contentContainerStyle={[
           styles.galleryContainer,
-          // Apply the max-width and center alignment for web
           Platform.OS === "web" && { maxWidth: 1200, marginHorizontal: "auto" },
         ]}
         ListHeaderComponent={
           <Text style={styles.header}>Minnow Video Strike</Text>
         }
-        numColumns={numColumns} // Uses 1 column on mobile, 3 on large screens
-        // Ensures equal spacing when multiple columns are active
+        numColumns={numColumns}
         columnWrapperStyle={
           numColumns > 1 ? { justifyContent: "space-between" } : null
         }
-        // === ANDROID STABILITY FIX: Throttling FlatList rendering for OOM ===
-        // This is a direct fix for memory issues in lists of heavy components.
         windowSize={5}
         initialNumToRender={3}
-        maxToRenderPerBatch={1} // Corrected typo and set to 1 for aggressive throttling
+        maxToRenderPerBatch={1}
       />
     </View>
   );
@@ -193,16 +285,13 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   videoCard: {
-    // Basic card styling
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 8,
     padding: 10,
     backgroundColor: "#f9f9f9",
-
-    // Flexbox ensures width works for both mobile (full width) and web grid (equal width)
     flex: 1,
-    margin: 5, // Space between grid items
+    margin: 5,
   },
   title: {
     fontSize: 18,
@@ -216,7 +305,7 @@ const styles = StyleSheet.create({
   },
   videoPlayer: {
     width: "100%",
-    height: 250, // Fixed height for visual consistency
+    height: 250,
     backgroundColor: "#000",
     borderRadius: 4,
   },
@@ -231,5 +320,36 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     color: "#007AFF",
+  },
+  // Add affiliate styles
+  affiliateSection: {
+    backgroundColor: "#f5f5f5",
+    padding: 12,
+    marginTop: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  affiliateTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  affiliateLink: {
+    backgroundColor: "white",
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  linkTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  linkClicks: {
+    fontSize: 12,
+    color: "#666",
   },
 });
