@@ -40,12 +40,19 @@ const themeStyles = {
     },
     userItem: {
       padding: 15,
-      borderBottomWidth: 1,
-      borderBottomColor: "#FF0000",
+      // REMOVE or CHANGE these border properties:
+      // borderBottomWidth: 1,
+      // borderBottomColor: "#FF0000",
       marginHorizontal: 10,
       borderRadius: 8,
       marginBottom: 8,
       backgroundColor: "#FFFFFF",
+      // Add a subtle shadow or different separator instead:
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 1,
+      elevation: 1,
     },
     userName: {
       fontSize: 18,
@@ -81,12 +88,16 @@ const themeStyles = {
     },
     userItem: {
       padding: 15,
-      borderBottomWidth: 1,
-      borderBottomColor: "#00FF00",
+      // REMOVE or CHANGE these border properties:
+      // borderBottomWidth: 1,
+      // borderBottomColor: "#00FF00",
       marginHorizontal: 10,
       borderRadius: 8,
       marginBottom: 8,
       backgroundColor: "#000000",
+      // Add a subtle border instead:
+      borderWidth: 1,
+      borderColor: "#333333",
     },
     userName: {
       fontSize: 18,
