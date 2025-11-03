@@ -355,5 +355,42 @@ const styles = StyleSheet.create({
     marginRight: 10,
     fontSize: 16,
   },
-  // ... (Rest of styles) ...
+messageInputDisabled: {
+
+    borderColor: "#333333",
+
+    color: "#666666",
+
+  },
+
+  sendButton: {
+
+    backgroundColor: "#00FF00",
+
+    paddingHorizontal: 20,
+
+    paddingVertical: 12,
+
+    borderRadius: 25,
+
+    justifyContent: "center",
+
+  },
+
+  sendButtonDisabled: {
+
+    backgroundColor: "#333333",
+
+  },
+
+  sendButtonText: {
+
+    color: "#000000",
+
+    fontWeight: "bold",
+
+    fontSize: 16,
+
+  },
+
 });
