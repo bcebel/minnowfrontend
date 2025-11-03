@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
-  ScrollView, // Changed from FlatList
+  ScrollView, 
   Image,
   StyleSheet,
   TouchableOpacity,
@@ -65,7 +65,7 @@ export default function ChatScreen() {
     skip: !username,
   });
   
-  // 💡 FIX: Use 'update' for instant UI update after mutation
+  // Using the efficient 'update' function for instant UI display
   const [sendMessageMutation] = useMutation(SEND_MESSAGE, {
     update(cache, { data: { sendMessage } }) {
       const existingMessages = cache.readQuery({
@@ -78,7 +78,6 @@ export default function ChatScreen() {
           query: GET_MESSAGES,
           variables: { room },
           data: {
-            // Prepend the new message to the list
             messages: [sendMessage, ...existingMessages.messages],
           },
         });
@@ -93,10 +92,9 @@ export default function ChatScreen() {
     }
   }, [data]);
 
-  // Socket and auth initialization remains the same
+  // Socket and auth initialization
   useEffect(() => {
     const initializeChat = async () => {
-      // ... (authentication check and socket initialization logic)
       try {
         const token = await AsyncStorage.getItem("token");
         const savedUsername = await AsyncStorage.getItem("username");
@@ -139,10 +137,11 @@ export default function ChatScreen() {
       });
 
       newSocket.on("message", (newMsg) => {
-        // Only append if the message is NOT from the current user (if backend echoes)
-        if (newMsg.sender.username !== username) { 
+        // 💡 CRUCIAL TEST FIX: TEMPORARILY REMOVE THE SENDER CHECK!
+        // This allows us to see if the message is being successfully echoed by the server.
+        // if (newMsg.sender.username !== username) { 
           setMessages((prev) => [newMsg, ...prev]);
-        }
+        // }
       });
 
       newSocket.on("disconnect", () => {
@@ -162,16 +161,21 @@ export default function ChatScreen() {
     };
   }, [room, username]);
 
-  // 💡 FIX: Robust sendMessage function with explicit token context
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
+    
+    // 💡 Security/Timing Check: Prevent send if username (token) is not fully loaded
+    if (!username) { 
+        Alert.alert("Error", "User identity not loaded. Please wait or log in again.");
+        return;
+    }
 
     const messageContent = newMessage.trim();
     setNewMessage(""); 
 
     try {
+        // We ensure the token exists but let Apollo's global authLink attach the header.
         const token = await AsyncStorage.getItem("token");
-        
         if (!token) {
             Alert.alert("Authentication Error", "Please log in to send messages.");
             router.replace("/login");
@@ -183,16 +187,17 @@ export default function ChatScreen() {
                 content: messageContent,
                 room: room,
             },
+            // CRITICAL: We removed the manual 'context' block to avoid conflicting with authLink
         });
 
     } catch (err) {
+        // If you see the "Authentication required" error here, the issue is Apollo's authLink timing.
         console.error("Send message error:", err);
-        // Note: Apollo errors include the 'Authentication required' message you saw
         Alert.alert("Error Sending", "Failed to send message: Check console for GraphQL error.");
     }
   };
 
-  // ... (handleLogout and formatTimestamp remain the same) ...
+  // ... (handleLogout and formatTimestamp functions remain the same) ...
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(["token", "username"]);
     router.replace("/login");
@@ -283,29 +288,30 @@ export default function ChatScreen() {
       {/* Input area */}
       <View style={styles.inputContainer}>
         <RNTextInput
-          style={[styles.messageInput, !socket && styles.messageInputDisabled]}
-          placeholder={socket ? "Type a message..." : "Not connected..."}
+          style={[styles.messageInput, (!socket || !username) && styles.messageInputDisabled]} // 💡 Added !username check
+          placeholder={(socket && username) ? "Type a message..." : "Loading or Offline..."}
           placeholderTextColor="#888"
           value={newMessage}
           onChangeText={setNewMessage}
           onSubmitEditing={sendMessage}
-          editable={!!socket}
+          editable={!!socket && !!username} // 💡 Added !username check
         />
         <TouchableOpacity
           style={[
             styles.sendButton,
-            (!newMessage.trim() || !socket) && styles.sendButtonDisabled,
+            (!newMessage.trim() || !socket || !username) && styles.sendButtonDisabled, // 💡 Added !username check
           ]}
           onPress={sendMessage}
-          disabled={!newMessage.trim() || !socket}
+          disabled={!newMessage.trim() || !socket || !username} // 💡 Added !username check
         >
-          <Text style={styles.sendButtonText}>{socket ? "Send" : "Offline"}</Text>
+          <Text style={styles.sendButtonText}>{(socket && username) ? "Send" : "Offline"}</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
+// ... (Styles remain the same)
 // ----------------------------------------------------------------------
 // --- Styles (Same as before) ---
 // ----------------------------------------------------------------------
