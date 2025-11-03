@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { // Note: FlatList replaced with ScrollView
+import {
   View,
-  ScrollView, 
+  ScrollView, // Changed from FlatList
   Image,
   StyleSheet,
   TouchableOpacity,
@@ -14,7 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io } from "socket.io-client";
 import { gql, useQuery, useMutation } from "@apollo/client";
 
-// --- GraphQL Definitions (Remain the same) ---
+// --- GraphQL Definitions (Same) ---
 const GET_MESSAGES = gql`
   query GetMessages($room: String!) {
     messages(room: $room) {
@@ -53,43 +53,50 @@ export default function ChatScreen() {
   const router = useRouter();
   const room = params.room || "general";
   
-  // 💡 NEW: Ref for ScrollView to enable auto-scroll
   const scrollViewRef = useRef(null); 
 
-  // State remains the same
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [socket, setSocket] = useState(null);
   const [username, setUsername] = useState("");
   
-  // useQuery remains the same
   const { loading, error, data, refetch } = useQuery(GET_MESSAGES, {
     variables: { room },
     skip: !username,
-    fetchPolicy: "cache-and-network", // Ensure we always check for new data
   });
   
-  // 💡 CRITICAL FIX: useMutation now uses refetchQueries to update the list
+  // 💡 FIX: Use 'update' for instant UI update after mutation
   const [sendMessageMutation] = useMutation(SEND_MESSAGE, {
-    refetchQueries: [
-      { query: GET_MESSAGES, variables: { room: room } },
-    ],
+    update(cache, { data: { sendMessage } }) {
+      const existingMessages = cache.readQuery({
+        query: GET_MESSAGES,
+        variables: { room },
+      });
+
+      if (existingMessages && existingMessages.messages) {
+        cache.writeQuery({
+          query: GET_MESSAGES,
+          variables: { room },
+          data: {
+            // Prepend the new message to the list
+            messages: [sendMessage, ...existingMessages.messages],
+          },
+        });
+      }
+    },
   });
 
-  // useEffect for initial message load
+  // Message loading effect remains the same
   useEffect(() => {
     if (data) {
-      // Assuming your server returns messages newest-to-oldest, 
-      // or at least in a consistent order. If you want oldest-to-newest, 
-      // remove the .reverse() but consider setting inverted={true} on FlatList (if you re-add it).
-      // Since we are now using ScrollView (which scrolls up), we keep the list newest-first.
       setMessages(data.messages ? data.messages.slice().reverse() : []);
     }
   }, [data]);
 
-  // useEffect for chat initialization and socket setup (Logic remains the same)
+  // Socket and auth initialization remains the same
   useEffect(() => {
     const initializeChat = async () => {
+      // ... (authentication check and socket initialization logic)
       try {
         const token = await AsyncStorage.getItem("token");
         const savedUsername = await AsyncStorage.getItem("username");
@@ -109,7 +116,6 @@ export default function ChatScreen() {
     };
 
     const initializeSocket = (token) => {
-      // ... (Socket connection logic remains the same)
       const newSocket = io(BACKEND_URL, {
         auth: { token },
         transports: ["websocket", "polling"],
@@ -133,8 +139,7 @@ export default function ChatScreen() {
       });
 
       newSocket.on("message", (newMsg) => {
-        // Only append if the message wasn't sent by the current user 
-        // (to avoid duplicates if the backend echoes the message)
+        // Only append if the message is NOT from the current user (if backend echoes)
         if (newMsg.sender.username !== username) { 
           setMessages((prev) => [newMsg, ...prev]);
         }
@@ -157,43 +162,38 @@ export default function ChatScreen() {
     };
   }, [room, username]);
 
-  // 💡 CRITICAL FIX: Removed manual state update and optimistic update
+  // 💡 FIX: Robust sendMessage function with explicit token context
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
 
     const messageContent = newMessage.trim();
-    setNewMessage(""); // Clear input immediately for better UX
+    setNewMessage(""); 
 
     try {
-      const token = await AsyncStorage.getItem("token");
+        const token = await AsyncStorage.getItem("token");
+        
+        if (!token) {
+            Alert.alert("Authentication Error", "Please log in to send messages.");
+            router.replace("/login");
+            return;
+        }
 
-      // The mutation handles sending the data
-      await sendMessageMutation({
-        variables: {
-          content: messageContent,
-          room: room,
-        },
-        context: {
-          headers: {
-            authorization: `Bearer ${token}`,
-          },
-        },
-      });
-      
-      // The refetchQueries option on useMutation now automatically 
-      // re-runs GET_MESSAGES, which updates the component via 'data'.
-      
-      // If your socket is still working for *other* users' messages, 
-      // you might want to manually emit here to notify others faster 
-      // than the refetch cycle:
-      // if (socket) {
-      //   socket.emit("send-message", { content: messageContent, room });
-      // }
+        await sendMessageMutation({
+            variables: {
+                content: messageContent,
+                room: room,
+            },
+            context: { // <-- REQUIRED for passing auth headers
+                headers: {
+                    authorization: `Bearer ${token}`,
+                },
+            },
+        });
 
     } catch (err) {
-      console.error("Send message error:", err);
-      Alert.alert("Error", "Failed to send message");
-      // No manual revert needed since we removed the manual optimistic update
+        console.error("Send message error:", err);
+        // Note: Apollo errors include the 'Authentication required' message you saw
+        Alert.alert("Error Sending", "Failed to send message: Check console for GraphQL error.");
     }
   };
 
@@ -214,6 +214,7 @@ export default function ChatScreen() {
     }
   };
 
+  // ... (Loading/Error views remain the same) ...
   if (loading && !data) {
     return (
       <View style={styles.container}>
@@ -259,12 +260,12 @@ export default function ChatScreen() {
         </View>
       )}
 
-      {/* 💡 FIX: Replaced FlatList with ScrollView */}
+      {/* ScrollView for chat messages */}
       <ScrollView
         style={styles.messagesList}
-        contentContainerStyle={styles.messagesContentContainer} // Used to push messages to bottom
-        ref={scrollViewRef} // Reference for scrolling
-        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })} // Auto-scroll to end
+        contentContainerStyle={styles.messagesContentContainer}
+        ref={scrollViewRef}
+        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
         {messages.map((item) => (
           <View style={styles.messageContainer} key={item.id}>
@@ -283,8 +284,8 @@ export default function ChatScreen() {
           </View>
         ))}
       </ScrollView>
-      {/* ------------------------------------------- */}
 
+      {/* Input area */}
       <View style={styles.inputContainer}>
         <RNTextInput
           style={[styles.messageInput, !socket && styles.messageInputDisabled]}
@@ -311,19 +312,80 @@ export default function ChatScreen() {
 }
 
 // ----------------------------------------------------------------------
-// --- Styles (Added messagesContentContainer) ---
+// --- Styles (Same as before) ---
 // ----------------------------------------------------------------------
 const styles = StyleSheet.create({
-  // ... (Other styles remain the same) ...
   container: {
     flex: 1,
     backgroundColor: "#000000",
   },
-  // ... (Header and other styles) ...
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#111111",
+    borderBottomWidth: 1,
+    borderBottomColor: "#00FF00",
+    paddingHorizontal: 15,
+  },
+  roomTitle: {
+    fontSize: 18,
+    color: "#00FF00",
+    paddingVertical: 15,
+    fontWeight: "bold",
+  },
+  headerButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  refreshButton: {
+    padding: 8,
+    marginRight: 10,
+  },
+  refreshText: {
+    fontSize: 18,
+    color: "#00FF00",
+  },
+  logoutButton: {
+    padding: 8,
+  },
+  logoutText: {
+    fontSize: 18,
+    color: "#FF4444",
+  },
+  loadingText: {
+    color: "#00FF00",
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+  },
+  userInfo: {
+    fontSize: 12,
+    color: "#00AA00",
+    textAlign: "center",
+    padding: 5,
+    backgroundColor: "#111111",
+  },
+  connectionWarning: {
+    backgroundColor: "#331100",
+    padding: 10,
+    alignItems: "center",
+  },
+  warningText: {
+    fontSize: 12,
+    color: "#FFAA00",
+    textAlign: "center",
+  },
+  warningSubtext: {
+    fontSize: 10,
+    color: "#FFAA00",
+    textAlign: "center",
+    marginTop: 2,
+    opacity: 0.8,
+  },
   messagesList: {
     flex: 1,
   },
-  // 💡 NEW STYLE: Forces the content to stick to the bottom
   messagesContentContainer: {
     flexGrow: 1, 
     justifyContent: 'flex-end',
@@ -334,7 +396,41 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#333333",
   },
-  // ... (Rest of styles) ...
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+    backgroundColor: "#333333",
+  },
+  messageContent: {
+    flex: 1,
+  },
+  username: {
+    fontWeight: "bold",
+    color: "#00FF00",
+    marginBottom: 4,
+    fontSize: 14,
+  },
+  messageText: {
+    color: "#FFFFFF",
+    marginBottom: 6,
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  timestamp: {
+    fontSize: 11,
+    color: "#00AA00",
+    opacity: 0.7,
+  },
+  messageImage: {
+    width: 200,
+    height: 200,
+    marginTop: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#00FF00",
+  },
   inputContainer: {
     flexDirection: "row",
     padding: 15,
@@ -355,42 +451,23 @@ const styles = StyleSheet.create({
     marginRight: 10,
     fontSize: 16,
   },
-messageInputDisabled: {
-
+  messageInputDisabled: {
     borderColor: "#333333",
-
     color: "#666666",
-
   },
-
   sendButton: {
-
     backgroundColor: "#00FF00",
-
     paddingHorizontal: 20,
-
     paddingVertical: 12,
-
     borderRadius: 25,
-
     justifyContent: "center",
-
   },
-
   sendButtonDisabled: {
-
     backgroundColor: "#333333",
-
   },
-
   sendButtonText: {
-
     color: "#000000",
-
     fontWeight: "bold",
-
     fontSize: 16,
-
   },
-
 });
