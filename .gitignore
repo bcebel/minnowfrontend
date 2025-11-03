@@ -32,6 +32,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# logs
+web_output.log
+
 # typescript
 *.tsbuildinfo
 
