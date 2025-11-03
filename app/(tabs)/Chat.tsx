@@ -63,7 +63,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (data) {
-      setMessages(data.messages.slice().reverse());
+      setMessages(data.messages ? data.messages.slice().reverse() : []);
     }
   }, [data]);
 
