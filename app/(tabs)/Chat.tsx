@@ -17,11 +17,11 @@ import { gql, useQuery, useMutation } from "@apollo/client";
 const GET_MESSAGES = gql`
   query GetMessages($room: String!) {
     messages(room: $room) {
-      _id
+      id
       content
       createdAt
       sender {
-        _id
+        id
         username
         profilePhoto
       }
@@ -32,11 +32,11 @@ const GET_MESSAGES = gql`
 const SEND_MESSAGE = gql`
   mutation SendMessage($content: String!, $room: String!) {
     sendMessage(content: $content, room: $room) {
-      _id
+      id
       content
       createdAt
       sender {
-        _id
+        id
         username
         profilePhoto
       }
@@ -138,7 +138,7 @@ export default function ChatScreen() {
 
     try {
       const optimisticMessage = {
-        _id: `temp-${Date.now()}`,
+        id: `temp-${Date.now()}`,
         content: newMessage.trim(),
         createdAt: new Date().toISOString(),
         sender: {
@@ -159,7 +159,7 @@ export default function ChatScreen() {
     } catch (err) {
       console.error("Send message error:", err);
       Alert.alert("Error", "Failed to send message");
-      setMessages((prev) => prev.filter((msg) => msg._id !== optimisticMessage._id));
+      setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessage.id));
     }
   };
 
@@ -188,6 +188,7 @@ export default function ChatScreen() {
   }
 
   if (error) {
+    console.error("GraphQL error:", JSON.stringify(error, null, 2));
     return (
       <View style={styles.container}>
         <Text style={styles.loadingText}>Error loading messages.</Text>
@@ -224,7 +225,7 @@ export default function ChatScreen() {
 
       <FlatList
         data={messages}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.messageContainer}>
             <Image
