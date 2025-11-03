@@ -161,21 +161,17 @@ export default function ChatScreen() {
     };
   }, [room, username]);
 
-  const sendMessage = async () => {
+ const sendMessage = async () => {
     if (!newMessage.trim()) return;
-    
-    // 💡 Security/Timing Check: Prevent send if username (token) is not fully loaded
-    if (!username) { 
-        Alert.alert("Error", "User identity not loaded. Please wait or log in again.");
-        return;
-    }
 
     const messageContent = newMessage.trim();
     setNewMessage(""); 
 
     try {
-        // We ensure the token exists but let Apollo's global authLink attach the header.
+        // 💡 CRITICAL: MANUALLY FETCH TOKEN AND PASS CONTEXT AGAIN.
+        // This bypasses the global race condition in the authLink for this critical operation.
         const token = await AsyncStorage.getItem("token");
+        
         if (!token) {
             Alert.alert("Authentication Error", "Please log in to send messages.");
             router.replace("/login");
@@ -187,15 +183,19 @@ export default function ChatScreen() {
                 content: messageContent,
                 room: room,
             },
-            // CRITICAL: We removed the manual 'context' block to avoid conflicting with authLink
+            // Re-adding the context block to force the header onto the mutation
+            context: { 
+                headers: {
+                    authorization: `Bearer ${token}`,
+                },
+            },
         });
 
     } catch (err) {
-        // If you see the "Authentication required" error here, the issue is Apollo's authLink timing.
         console.error("Send message error:", err);
-        Alert.alert("Error Sending", "Failed to send message: Check console for GraphQL error.");
+        Alert.alert("Error Sending", "Failed to send message: Token not accepted by server.");
     }
-  };
+};
 
   // ... (handleLogout and formatTimestamp functions remain the same) ...
   const handleLogout = async () => {
