@@ -183,11 +183,6 @@ export default function ChatScreen() {
                 content: messageContent,
                 room: room,
             },
-            context: { // <-- REQUIRED for passing auth headers
-                headers: {
-                    authorization: `Bearer ${token}`,
-                },
-            },
         });
 
     } catch (err) {
