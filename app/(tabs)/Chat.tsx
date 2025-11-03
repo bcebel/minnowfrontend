@@ -137,6 +137,7 @@ export default function ChatScreen() {
     if (!newMessage.trim()) return;
 
     try {
+      const token = await AsyncStorage.getItem("token");
       const optimisticMessage = {
         id: `temp-${Date.now()}`,
         content: newMessage.trim(),
@@ -154,6 +155,11 @@ export default function ChatScreen() {
         variables: {
           content: newMessage.trim(),
           room: room,
+        },
+        context: {
+          headers: {
+            authorization: `Bearer ${token}`,
+          },
         },
       });
     } catch (err) {
