@@ -1,76 +1,152 @@
-import { Image, StyleSheet, Platform } from "react-native";
-
-import { HelloWave } from "@/components/HelloWave";
-import ParallaxScrollView from "@/components/ParallaxScrollView";
-import { ThemedText } from "@/components/ThemedText";
+import { Image, StyleSheet, Platform, TouchableOpacity } from "react-native";
+import { Text } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
-
-
+import { useRouter } from "expo-router";
 
 export default function HomeScreen() {
+  const router = useRouter();
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: "#A1CEDC", dark: "#743600" }}
-      headerImage={
-        <Image
-          source={require("@/assets/images/redfish.jpg")}
-          style={styles.reactLogo}
-        />
-      }
-    >
+    <ThemedView style={styles.container}>
+      <Image
+        source={require("@/assets/images/redfish.jpg")}
+        style={styles.headerImage}
+      />
+
       <ThemedView style={styles.titleContainer}>
-        <ThemedText style={{ fontFamily: "Montserrat" }}>
-          <ThemedText type="title">
-Welcome to minnowspace!
-          </ThemedText>
-          <HelloWave />
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">
-          Minnowspace is a place where we can all come together to share our
-          stories, experiences, and ideas.
-        </ThemedText>
+        <Text style={styles.title}>Welcome to MinnowSpace!</Text>
+        <Text style={styles.subtitle}>
+          Where small fish make big waves together
+        </Text>
       </ThemedView>
 
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText style={{ fontFamily: "Montserrat" }}>
-          <ThemedText type="subtitle">About Us</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          <ThemedText style={{ fontFamily: "Montserrat" }}>
-            Minnowspace is your destination for creativity, connection, and
-            community. It’s a space where stories, experiences, and ideas come
-            to life, and everyone has the opportunity to contribute and be part
-            of something special. At its core, Minnowspace is all about
-            people—empowering individuals to share their voices while creating a
-            platform where the rewards are shared. We may be small fish but we
-            don't have to play in a small pond. With modern technnology we will
-            build a community platform with video and chat that is co-owned by
-            YOU, not some bazillionaire.
-          </ThemedText>
-        </ThemedText>
+      <ThemedView style={styles.actionsContainer}>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={() => router.push("/register")}
+        >
+          <Text style={styles.primaryButtonText}>Join the Neighborhood</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => router.push("/login")}
+        >
+          <Text style={styles.secondaryButtonText}>Sign In</Text>
+        </TouchableOpacity>
       </ThemedView>
 
-    </ParallaxScrollView>
+      <ThemedView style={styles.features}>
+        <Text style={styles.featuresTitle}>What makes us different:</Text>
+        <Text style={styles.feature}>
+          🏠 Digital neighborhoods, not just feeds
+        </Text>
+        <Text style={styles.feature}>🎪 Live events from multiple angles</Text>
+        <Text style={styles.feature}>
+          💎 Earn from your content, not Zuckerberg
+        </Text>
+        <Text style={styles.feature}>🔒 You control your privacy</Text>
+        <Text style={styles.feature}>
+          🌊 P2P technology, not corporate servers
+        </Text>
+      </ThemedView>
+
+      <ThemedView style={styles.quote}>
+        <Text style={styles.quoteText}>
+          "We may be small fish but we don't have to play in a small pond."
+        </Text>
+      </ThemedView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  container: {
+    flex: 1,
+    backgroundColor: "#000000",
   },
-  stepContainer: {
-    gap: 8,
+  headerImage: {
+    width: "100%",
+    height: 200,
+    resizeMode: "cover",
+  },
+  titleContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#00FF00",
+    textAlign: "center",
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 250,
-    width: 375,
-    bottom: 0,
-    left: 0,
-    position: "absolute",
+  subtitle: {
+    fontSize: 18,
+    color: "#00AA00",
+    textAlign: "center",
+    opacity: 0.9,
+  },
+  actionsContainer: {
+    padding: 20,
+    gap: 15,
+  },
+  primaryButton: {
+    backgroundColor: "#00FF00",
+    padding: 20,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  primaryButtonText: {
+    color: "#000000",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  secondaryButton: {
+    borderWidth: 2,
+    borderColor: "#00FF00",
+    padding: 18,
+    borderRadius: 12,
+    alignItems: "center",
+    backgroundColor: "transparent",
+  },
+  secondaryButtonText: {
+    color: "#00FF00",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  features: {
+    margin: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#00FF00",
+    borderRadius: 12,
+    backgroundColor: "#111111",
+  },
+  featuresTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#00FF00",
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  feature: {
+    fontSize: 16,
+    color: "#00AA00",
+    marginBottom: 10,
+    paddingLeft: 10,
+  },
+  quote: {
+    margin: 20,
+    padding: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: "#00FF00",
+    backgroundColor: "#111111",
+  },
+  quoteText: {
+    fontSize: 16,
+    color: "#00AA00",
+    fontStyle: "italic",
+    lineHeight: 22,
   },
 });
