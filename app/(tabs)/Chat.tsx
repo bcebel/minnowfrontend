@@ -12,6 +12,37 @@ import { Text } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io } from "socket.io-client";
+import { gql, useQuery, useMutation } from "@apollo/client";
+
+const GET_MESSAGES = gql`
+  query GetMessages($room: String!) {
+    messages(room: $room) {
+      _id
+      content
+      createdAt
+      sender {
+        _id
+        username
+        profilePhoto
+      }
+    }
+  }
+`;
+
+const SEND_MESSAGE = gql`
+  mutation SendMessage($content: String!, $room: String!) {
+    sendMessage(content: $content, room: $room) {
+      _id
+      content
+      createdAt
+      sender {
+        _id
+        username
+        profilePhoto
+      }
+    }
+  }
+`;
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -24,7 +55,17 @@ export default function ChatScreen() {
   const [newMessage, setNewMessage] = useState("");
   const [socket, setSocket] = useState(null);
   const [username, setUsername] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const { loading, error, data, refetch } = useQuery(GET_MESSAGES, {
+    variables: { room },
+    skip: !username,
+  });
+  const [sendMessageMutation] = useMutation(SEND_MESSAGE);
+
+  useEffect(() => {
+    if (data) {
+      setMessages(data.messages.slice().reverse());
+    }
+  }, [data]);
 
   useEffect(() => {
     const initializeChat = async () => {
@@ -32,136 +73,54 @@ export default function ChatScreen() {
         const token = await AsyncStorage.getItem("token");
         const savedUsername = await AsyncStorage.getItem("username");
 
-        console.log("Token exists:", !!token);
-        console.log("Username:", savedUsername);
-
         if (!token) {
-          Alert.alert(
-            "Authentication Required",
-            "Please log in to access chat"
-          );
+          Alert.alert("Authentication Required", "Please log in to access chat");
           router.replace("/login");
           return;
         }
 
         setUsername(savedUsername || "");
-
-        // ✅ FIXED: Use REST endpoint for messages (not GraphQL)
-        await loadMessagesViaREST(token);
-
-        // Initialize socket
         initializeSocket(token);
       } catch (error) {
         console.error("Initialization error:", error);
         Alert.alert("Error", "Failed to initialize chat");
-      } finally {
-        setIsLoading(false);
       }
     };
 
-    const loadMessagesViaREST = async (token) => {
-      try {
-        console.log("Loading messages via REST...");
-        const response = await fetch(`${BACKEND_URL}/api/messages/${room}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+    const initializeSocket = (token) => {
+      const newSocket = io(BACKEND_URL, {
+        auth: { token },
+        transports: ["websocket", "polling"],
+        forceNew: true,
+        timeout: 10000,
+      });
 
-        console.log("REST response status:", response.status);
+      newSocket.on("connect", () => {
+        setSocket(newSocket);
+        newSocket.emit("join-room", room);
+      });
 
-        if (response.status === 401 || response.status === 403) {
-          // Token is invalid
-          await AsyncStorage.multiRemove(["token", "username"]);
-          Alert.alert("Session Expired", "Please log in again", [
-            { text: "OK", onPress: () => router.replace("/login") },
-          ]);
-          return;
+      newSocket.on("connect_error", (err) => {
+        if (err.message.includes("Authentication")) {
+          AsyncStorage.multiRemove(["token", "username"]).then(() => {
+            Alert.alert("Authentication Failed", "Please log in again", [
+              { text: "OK", onPress: () => router.replace("/login") },
+            ]);
+          });
         }
+      });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const messagesData = await response.json();
-        console.log("Messages loaded via REST:", messagesData);
-        setMessages(messagesData.reverse()); // Reverse to show newest first
-      } catch (error) {
-        console.error("Failed to load messages via REST:", error);
-
-        // If REST fails, try to continue without messages
-        setMessages([]);
-        Alert.alert(
-          "Warning",
-          "Could not load previous messages, but you can still send new ones"
-        );
-      }
-    };
-
-    const initializeSocket = async (token) => {
-      try {
-        console.log("Initializing socket with token...");
-
-        // ✅ FIXED: Socket connection with proper auth
-        const newSocket = io(BACKEND_URL, {
-          auth: {
-            token: token,
-          },
-          transports: ["websocket", "polling"],
-          forceNew: true,
-          timeout: 10000,
-        });
-
-        newSocket.on("connect", () => {
-          console.log("✅ Socket connected successfully");
-          setSocket(newSocket);
-          newSocket.emit("join-room", room);
-        });
-
-        newSocket.on("connect_error", (error) => {
-          console.error("❌ Socket connection error:", error);
-
-          // Handle specific authentication errors
-          if (
-            error.message.includes("Authentication") ||
-            error.message.includes("403") ||
-            error.message.includes("401") ||
-            error.message.includes("invalid token")
-          ) {
-            console.log("Authentication failed, clearing token...");
-            AsyncStorage.multiRemove(["token", "username"]).then(() => {
-              Alert.alert("Authentication Failed", "Please log in again", [
-                { text: "OK", onPress: () => router.replace("/login") },
-              ]);
-            });
-          } else {
-            // Other connection error (network, server down, etc.)
-            Alert.alert(
-              "Connection Error",
-              "Unable to connect to chat server. You can still read messages but cannot send new ones.",
-              [{ text: "OK" }]
-            );
-          }
-        });
-
-        // Handle incoming messages
-        newSocket.on("message", (newMsg) => {
-          console.log("📨 New message received:", newMsg);
+      newSocket.on("message", (newMsg) => {
+        if (newMsg.sender.username !== username) {
           setMessages((prev) => [newMsg, ...prev]);
-        });
+        }
+      });
 
-        newSocket.on("disconnect", (reason) => {
-          console.log("🔌 Socket disconnected:", reason);
-          setSocket(null);
-        });
+      newSocket.on("disconnect", () => {
+        setSocket(null);
+      });
 
-        // Handle join-room confirmation
-        newSocket.on("joined-room", (roomName) => {
-          console.log(`✅ Joined room: ${roomName}`);
-        });
-      } catch (error) {
-        console.error("Socket initialization error:", error);
-      }
+      setSocket(newSocket);
     };
 
     initializeChat();
@@ -172,22 +131,12 @@ export default function ChatScreen() {
         socket.disconnect();
       }
     };
-  }, [room]);
+  }, [room, username]);
 
   const sendMessage = async () => {
-    if (!socket || !newMessage.trim()) {
-      Alert.alert("Error", "Not connected to chat server");
-      return;
-    }
+    if (!newMessage.trim()) return;
 
     try {
-      // Send message via socket
-      socket.emit("message", {
-        content: newMessage.trim(),
-        room: room,
-      });
-
-      // Optimistically add message to UI
       const optimisticMessage = {
         _id: `temp-${Date.now()}`,
         content: newMessage.trim(),
@@ -200,19 +149,18 @@ export default function ChatScreen() {
 
       setMessages((prev) => [optimisticMessage, ...prev]);
       setNewMessage("");
-    } catch (error) {
-      console.error("Send message error:", error);
-      Alert.alert("Error", "Failed to send message");
-    }
-  };
 
-  const refreshChat = async () => {
-    setIsLoading(true);
-    const token = await AsyncStorage.getItem("token");
-    if (token) {
-      await loadMessagesViaREST(token);
+      await sendMessageMutation({
+        variables: {
+          content: newMessage.trim(),
+          room: room,
+        },
+      });
+    } catch (err) {
+      console.error("Send message error:", err);
+      Alert.alert("Error", "Failed to send message");
+      setMessages((prev) => prev.filter((msg) => msg._id !== optimisticMessage._id));
     }
-    setIsLoading(false);
   };
 
   const handleLogout = async () => {
@@ -222,8 +170,7 @@ export default function ChatScreen() {
 
   const formatTimestamp = (timestamp) => {
     try {
-      const date = new Date(timestamp);
-      return date.toLocaleTimeString([], {
+      return new Date(timestamp).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       });
@@ -232,10 +179,18 @@ export default function ChatScreen() {
     }
   };
 
-  if (isLoading) {
+  if (loading && !data) {
     return (
       <View style={styles.container}>
         <Text style={styles.loadingText}>Loading chat...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Error loading messages.</Text>
       </View>
     );
   }
@@ -245,7 +200,7 @@ export default function ChatScreen() {
       <View style={styles.header}>
         <Text style={styles.roomTitle}>💬 {room} Chat</Text>
         <View style={styles.headerButtons}>
-          <TouchableOpacity onPress={refreshChat} style={styles.refreshButton}>
+          <TouchableOpacity onPress={() => refetch()} style={styles.refreshButton}>
             <Text style={styles.refreshText}>🔄</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
@@ -254,15 +209,13 @@ export default function ChatScreen() {
         </View>
       </View>
 
-      {username ? (
+      {username && (
         <Text style={styles.userInfo}>Logged in as: {username}</Text>
-      ) : null}
+      )}
 
       {!socket && (
         <View style={styles.connectionWarning}>
-          <Text style={styles.warningText}>
-            ⚠️ Not connected to chat server
-          </Text>
+          <Text style={styles.warningText}>⚠️ Not connected to chat server</Text>
           <Text style={styles.warningSubtext}>
             You can read messages but cannot send new ones
           </Text>
@@ -271,30 +224,20 @@ export default function ChatScreen() {
 
       <FlatList
         data={messages}
-        keyExtractor={(item) => item._id || Math.random().toString()}
+        keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
           <View style={styles.messageContainer}>
             <Image
-              source={{
-                uri:
-                  item.sender?.profilePhoto || "https://via.placeholder.com/40",
-              }}
+              source={{ uri: item.sender?.profilePhoto || "https://via.placeholder.com/40" }}
               style={styles.profileImage}
             />
             <View style={styles.messageContent}>
-              <Text style={styles.username}>
-                {item.sender?.username || "Unknown"}
-              </Text>
+              <Text style={styles.username}>{item.sender?.username || "Unknown"}</Text>
               <Text style={styles.messageText}>{item.content}</Text>
               {item.imageUrl && (
-                <Image
-                  source={{ uri: item.imageUrl }}
-                  style={styles.messageImage}
-                />
+                <Image source={{ uri: item.imageUrl }} style={styles.messageImage} />
               )}
-              <Text style={styles.timestamp}>
-                {formatTimestamp(item.createdAt)}
-              </Text>
+              <Text style={styles.timestamp}>{formatTimestamp(item.createdAt)}</Text>
             </View>
           </View>
         )}
@@ -320,9 +263,7 @@ export default function ChatScreen() {
           onPress={sendMessage}
           disabled={!newMessage.trim() || !socket}
         >
-          <Text style={styles.sendButtonText}>
-            {socket ? "Send" : "Offline"}
-          </Text>
+          <Text style={styles.sendButtonText}>{socket ? "Send" : "Offline"}</Text>
         </TouchableOpacity>
       </View>
     </View>
