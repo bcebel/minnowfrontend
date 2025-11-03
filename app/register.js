@@ -31,39 +31,54 @@ const RegistrationScreen = () => {
     setIsLoading(true);
 
     try {
-  const response = await fetch(`${BACKEND_URL}/graphql`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query: `
-      mutation RegisterUser($username: String!, $email: String!, $password: String!) {
-        registerUser(username: $username, email: $email, password: $password) {
-          id
-          username
-          email
-        }
-      }
-    `,
-      variables: { username, email, password },
-    }),
-  });
+      const response = await fetch(`${BACKEND_URL}/graphql`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `
+            mutation RegisterUser($username: String!, $email: String!, $password: String!) {
+              registerUser(username: $username, email: $email, password: $password) {
+                token
+                user {
+                  id
+                  username
+                  email
+                  profilePhoto
+                }
+              }
+            }
+          `,
+          variables: { username, email, password },
+        }),
+      });
 
       const data = await response.json();
+      console.log("Registration response:", data); // Debug log
 
-      if (response.ok) {
+      // ✅ FIXED: Check for GraphQL response structure
+      if (data.data?.registerUser?.token) {
+        const token = data.data.registerUser.token;
+        const user = data.data.registerUser.user;
+
+        // Auto-login after registration
+        await AsyncStorage.setItem("token", token);
+        await AsyncStorage.setItem("username", user.username);
+
         Alert.alert(
           "Welcome!",
-          `🎉 Welcome to the club, ${username}! Now log in and start creating!`
+          `🎉 Welcome to the club, ${user.username}! You've been automatically logged in.`
         );
-        router.push("/login");
+        router.replace("/(tabs)/Chat"); // Use replace so they can't go back to registration
       } else {
-        Alert.alert(
-          "Error",
-          data.error || "Registration failed. Please try again."
-        );
+        // Handle GraphQL errors
+        const errorMessage =
+          data.errors?.[0]?.message ||
+          data.error ||
+          "Registration failed. Please try again.";
+        Alert.alert("Error", errorMessage);
       }
     } catch (error) {
-      console.error(error);
+      console.error("Registration error:", error);
       Alert.alert("Error", "Network error. Please check your connection.");
     } finally {
       setIsLoading(false);
