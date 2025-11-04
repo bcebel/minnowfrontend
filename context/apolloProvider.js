@@ -25,6 +25,7 @@ export function useApolloClient() {
 
         const httpLink = createHttpLink({
           uri: `${BACKEND_URL}/graphql`,
+          credentials: "include",
         });
 
     const authLink = setContext(async (_, { headers }) => {
