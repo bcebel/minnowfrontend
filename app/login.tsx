@@ -27,38 +27,49 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
-      // In login.tsx - replace REST with:
       const response = await fetch(`${BACKEND_URL}/graphql`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: `
-      mutation LoginUser($username: String!, $password: String!) {
-        loginUser(username: $username, password: $password) {
-          token
-          user {
-            id
-            username
-            email
+          mutation LoginUser($username: String!, $password: String!) {
+            loginUser(username: $username, password: $password) {
+              token
+              user {
+                id
+                username
+                email
+                profilePhoto
+              }
+            }
           }
-        }
-      }
-    `,
-          variables: { username, password }, // ← Use username here too
+        `,
+          variables: { username, password },
         }),
       });
 
       const data = await response.json();
+      console.log("✅ Login response:", data);
 
       if (data.data?.loginUser?.token) {
         const token = data.data.loginUser.token;
         const user = data.data.loginUser.user;
-          await AsyncStorage.setItem("token", token);
-           await AsyncStorage.setItem("username", user.username);
-        Alert.alert("Success", `Welcome back, ${username}!`);
+
+        // ✅ CRITICAL: Save token and username to AsyncStorage
+        await AsyncStorage.setItem("token", token);
+        await AsyncStorage.setItem("username", user.username);
+
+        console.log(
+          "✅ Token saved to AsyncStorage:",
+          token.substring(0, 20) + "..."
+        );
+        console.log("✅ Username saved:", user.username);
+
+        Alert.alert("Success", `Welcome back, ${user.username}!`);
         router.replace("/(tabs)/Chat");
       } else {
-        Alert.alert("Error", data.error || "Login failed");
+        const errorMessage = data.errors?.[0]?.message || "Login failed";
+        Alert.alert("Error", errorMessage);
       }
     } catch (error) {
       console.error("Login error:", error);

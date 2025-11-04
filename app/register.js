@@ -64,6 +64,9 @@ const RegistrationScreen = () => {
         await AsyncStorage.setItem("token", token);
         await AsyncStorage.setItem("username", user.username);
 
+          console.log("✅ Registration - Token saved to AsyncStorage");
+          console.log("✅ Registration - Username saved:", user.username);
+
         Alert.alert(
           "Welcome!",
           `🎉 Welcome to the club, ${user.username}! You've been automatically logged in.`
