@@ -55,6 +55,7 @@ export default function ChatScreen() {
   const room = params.room || "general";
 
   const scrollViewRef = useRef(null);
+  const messageInputRef = useRef<RNTextInput>(null);
   const [socket, setSocket] = useState(null);
   const [username, setUsername] = useState("");
   const [newMessage, setNewMessage] = useState("");
@@ -165,6 +166,10 @@ export default function ChatScreen() {
         },
       });
       console.log("✅ Message sent via GraphQL");
+
+         setTimeout(() => {
+           messageInputRef.current?.focus();
+         }, 100);
     } catch (err) {
       console.error("❌ Send message error:", err);
       Alert.alert("Error", "Failed to send message");
@@ -211,15 +216,6 @@ export default function ChatScreen() {
 
   // Get messages from GraphQL data
   const messages = data?.messages || [];
-
-  useEffect(() => {
-    // Auto-scroll to bottom when messages change
-    if (scrollViewRef.current && messages.length > 0) {
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  }, [messages]);
 
   useEffect(() => {
     if (socket) {
@@ -328,6 +324,7 @@ export default function ChatScreen() {
 
       <View style={styles.inputContainer}>
         <RNTextInput
+          ref={messageInputRef}
           style={[styles.messageInput, !socket && styles.messageInputDisabled]}
           placeholder={socket ? "Type a message..." : "Connecting..."}
           placeholderTextColor="#888"
