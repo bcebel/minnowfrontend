@@ -9,14 +9,14 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <Image
-        source={require("@/assets/images/redfish.jpg")}
+        source={require("@/assets/images/gigunit.png")}
         style={styles.headerImage}
       />
 
       <ThemedView style={styles.titleContainer}>
-        <Text style={styles.title}>Welcome to gigunit!</Text>
+        <Text style={styles.title}> GigUnit: The decentralized front.</Text>
         <Text style={styles.subtitle}>
-          Where small fish make big waves together
+          Liberate your media. Power to the peers.
         </Text>
       </ThemedView>
 
@@ -51,11 +51,7 @@ export default function HomeScreen() {
         </Text>
       </ThemedView>
 
-      <ThemedView style={styles.quote}>
-        <Text style={styles.quoteText}>
-          "We may be small fish but we don't have to play in a small pond."
-        </Text>
-      </ThemedView>
+
     </ThemedView>
   );
 }
@@ -68,7 +64,7 @@ const styles = StyleSheet.create({
   headerImage: {
     width: "100%",
     height: 200,
-    resizeMode: "contain",
+    resizeMode: "cover",
   },
   titleContainer: {
     padding: 20,
