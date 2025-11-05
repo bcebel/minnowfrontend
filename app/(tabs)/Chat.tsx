@@ -182,17 +182,46 @@ export default function ChatScreen() {
     router.replace("/login");
   };
 
-  const formatTimestamp = (timestamp) => {
-    try {
-      return new Date(timestamp).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return "";
-    }
-  };
+const formatTimestamp = (timestamp) => {
+  try {
+    const date = new Date(Number(timestamp));
+    if (isNaN(date.getTime())) return "Now";
 
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const isYesterday =
+      new Date(now.setDate(now.getDate() - 1)).toDateString() ===
+      date.toDateString();
+
+    if (isToday) {
+      // Today: show time only "2:30 PM"
+      return date.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } else if (isYesterday) {
+      // Yesterday: show "Yesterday 2:30 PM"
+      return `Yesterday ${date.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })}`;
+    } else {
+      // Older: show date "11/4 2:30 PM"
+      return `${date.toLocaleDateString([], {
+        month: "numeric",
+        day: "numeric",
+      })} ${date.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })}`;
+    }
+  } catch {
+    return "Now";
+  }
+};
   const debugToken = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
