@@ -18,13 +18,13 @@ export default function HomeScreen() {
     >
       <ThemedView style={styles.titleContainer}>
         <ThemedText style={{ fontFamily: "Montserrat" }}>
-          <ThemedText type="title">Welcome to minnowspace!</ThemedText>
+          <ThemedText type="title">Welcome to gigunit!</ThemedText>
           <HelloWave />
         </ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">
-          Minnowspace is a place where we can all come together to share our
+          gigunit is a place where we can all come together to share our
           stories, experiences, and ideas.
         </ThemedText>
       </ThemedView>
@@ -35,10 +35,10 @@ export default function HomeScreen() {
         </ThemedText>
         <ThemedText>
           <ThemedText style={{ fontFamily: "Montserrat" }}>
-            Minnowspace is your destination for creativity, connection, and
+            gigunit is your destination for creativity, connection, and
             community. It’s a space where stories, experiences, and ideas come
             to life, and everyone has the opportunity to contribute and be part
-            of something special. At its core, Minnowspace is all about
+            of something special. At its core, gigunit is all about
             people—empowering individuals to share their voices while creating a
             platform where the rewards are shared. We may be small fish but we
             don't have to play in a small pond. With modern technnology we will
@@ -53,8 +53,8 @@ export default function HomeScreen() {
         </ThemedText>
         <ThemedText style={{ fontFamily: "Montserrat" }}>
           <ThemedText>
-            This is just the start of an exciting journey. Minnowspace is built
-            on the idea of collaboration and creativity, and we’re laying the
+            This is just the start of an exciting journey. gigunit is built on
+            the idea of collaboration and creativity, and we’re laying the
             foundation for something truly unique in the digital space.
           </ThemedText>
         </ThemedText>

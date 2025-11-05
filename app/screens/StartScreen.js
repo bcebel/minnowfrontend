@@ -10,10 +10,13 @@ export default function StartScreen({ navigation }) {
   return (
     <Background>
       <Logo />
-      <Header>Welcome to Minnowspace! This Login Page is under construction, go to the chat tab and log in there for now</Header>
+      <Header>
+        Welcome to gigunit! This Login Page is under construction, go to the
+        chat tab and log in there for now
+      </Header>
       <Paragraph>
-        Minnowspace is a place where we can all come together to share our
-        stories, experiences, and ideas.
+        gigunit is a place where we can all come together to share our stories,
+        experiences, and ideas.
       </Paragraph>
       <Button
         mode="contained"

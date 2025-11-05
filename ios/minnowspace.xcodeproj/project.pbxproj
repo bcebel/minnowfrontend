@@ -10,26 +10,26 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		4E09A0C7D7B8467647FE3E4F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B9511A3E25B57E419410D30E /* PrivacyInfo.xcprivacy */; };
-		4EDBC3D5CABA29D16AA7DD2E /* libPods-minnowspace.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A7C34B50DC31BA548651B969 /* libPods-minnowspace.a */; };
+		4EDBC3D5CABA29D16AA7DD2E /* libPods-gigunit.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A7C34B50DC31BA548651B969 /* libPods-gigunit.a */; };
 		A1BE9311ADB58F6D8ACDF555 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47EE2F1E6229DC705515038F /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		13B07F961A680F5B00A75B9A /* minnowspace.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = minnowspace.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = minnowspace/Images.xcassets; sourceTree = "<group>"; };
-		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = minnowspace/Info.plist; sourceTree = "<group>"; };
-		3C55CCF5D51C7A4DD770B546 /* Pods-minnowspace.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-minnowspace.release.xcconfig"; path = "Target Support Files/Pods-minnowspace/Pods-minnowspace.release.xcconfig"; sourceTree = "<group>"; };
-		47EE2F1E6229DC705515038F /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-minnowspace/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		A7C34B50DC31BA548651B969 /* libPods-minnowspace.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-minnowspace.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = minnowspace/SplashScreen.storyboard; sourceTree = "<group>"; };
-		B9511A3E25B57E419410D30E /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = minnowspace/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		13B07F961A680F5B00A75B9A /* gigunit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = gigunit.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = gigunit/Images.xcassets; sourceTree = "<group>"; };
+		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = gigunit/Info.plist; sourceTree = "<group>"; };
+		3C55CCF5D51C7A4DD770B546 /* Pods-gigunit.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-gigunit.release.xcconfig"; path = "Target Support Files/Pods-gigunit/Pods-gigunit.release.xcconfig"; sourceTree = "<group>"; };
+		47EE2F1E6229DC705515038F /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-gigunit/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		A7C34B50DC31BA548651B969 /* libPods-gigunit.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-gigunit.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = gigunit/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B9511A3E25B57E419410D30E /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = gigunit/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		C682DD13C60021DBB75810BA /* Pods-minnowspace.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-minnowspace.debug.xcconfig"; path = "Target Support Files/Pods-minnowspace/Pods-minnowspace.debug.xcconfig"; sourceTree = "<group>"; };
+		C682DD13C60021DBB75810BA /* Pods-gigunit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-gigunit.debug.xcconfig"; path = "Target Support Files/Pods-gigunit/Pods-gigunit.debug.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = minnowspace/AppDelegate.swift; sourceTree = "<group>"; };
-		F11748442D0722820044C1D9 /* minnowspace-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "minnowspace-Bridging-Header.h"; path = "minnowspace/minnowspace-Bridging-Header.h"; sourceTree = "<group>"; };
+		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = gigunit/AppDelegate.swift; sourceTree = "<group>"; };
+		F11748442D0722820044C1D9 /* gigunit-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "gigunit-Bridging-Header.h"; path = "gigunit/gigunit-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4EDBC3D5CABA29D16AA7DD2E /* libPods-minnowspace.a in Frameworks */,
+				4EDBC3D5CABA29D16AA7DD2E /* libPods-gigunit.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -47,31 +47,31 @@
 		0B2AE2790A9B2F498C24F96B /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				C682DD13C60021DBB75810BA /* Pods-minnowspace.debug.xcconfig */,
-				3C55CCF5D51C7A4DD770B546 /* Pods-minnowspace.release.xcconfig */,
+				C682DD13C60021DBB75810BA /* Pods-gigunit.debug.xcconfig */,
+				3C55CCF5D51C7A4DD770B546 /* Pods-gigunit.release.xcconfig */,
 			);
 			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
-		13B07FAE1A68108700A75B9A /* minnowspace */ = {
+		13B07FAE1A68108700A75B9A /* gigunit */ = {
 			isa = PBXGroup;
 			children = (
 				F11748412D0307B40044C1D9 /* AppDelegate.swift */,
-				F11748442D0722820044C1D9 /* minnowspace-Bridging-Header.h */,
+				F11748442D0722820044C1D9 /* gigunit-Bridging-Header.h */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				B9511A3E25B57E419410D30E /* PrivacyInfo.xcprivacy */,
 			);
-			name = minnowspace;
+			name = gigunit;
 			sourceTree = "<group>";
 		};
 		192C1BF69A33450E1279FEDB /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				3084AE1BA878BB7612DE59FA /* minnowspace */,
+				3084AE1BA878BB7612DE59FA /* gigunit */,
 			);
 			name = ExpoModulesProviders;
 			sourceTree = "<group>";
@@ -80,17 +80,17 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				A7C34B50DC31BA548651B969 /* libPods-minnowspace.a */,
+				A7C34B50DC31BA548651B969 /* libPods-gigunit.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		3084AE1BA878BB7612DE59FA /* minnowspace */ = {
+		3084AE1BA878BB7612DE59FA /* gigunit */ = {
 			isa = PBXGroup;
 			children = (
 				47EE2F1E6229DC705515038F /* ExpoModulesProvider.swift */,
 			);
-			name = minnowspace;
+			name = gigunit;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -103,7 +103,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
-				13B07FAE1A68108700A75B9A /* minnowspace */,
+				13B07FAE1A68108700A75B9A /* gigunit */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
@@ -118,7 +118,7 @@
 		83CBBA001A601CBA00E9B192 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				13B07F961A680F5B00A75B9A /* minnowspace.app */,
+				13B07F961A680F5B00A75B9A /* gigunit.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -129,15 +129,15 @@
 				BB2F792C24A3F905000567C9 /* Expo.plist */,
 			);
 			name = Supporting;
-			path = minnowspace/Supporting;
+			path = gigunit/Supporting;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		13B07F861A680F5B00A75B9A /* minnowspace */ = {
+		13B07F861A680F5B00A75B9A /* gigunit */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "minnowspace" */;
+			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "gigunit" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
 				55D25F909B1C2FAC52F43868 /* [Expo] Configure project */,
@@ -152,9 +152,9 @@
 			);
 			dependencies = (
 			);
-			name = minnowspace;
-			productName = minnowspace;
-			productReference = 13B07F961A680F5B00A75B9A /* minnowspace.app */;
+			name = gigunit;
+			productName = gigunit;
+			productReference = 13B07F961A680F5B00A75B9A /* gigunit.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -170,7 +170,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "minnowspace" */;
+			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "gigunit" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -183,7 +183,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				13B07F861A680F5B00A75B9A /* minnowspace */,
+				13B07F861A680F5B00A75B9A /* gigunit */,
 			);
 		};
 /* End PBXProject section */
@@ -235,7 +235,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-minnowspace-checkManifestLockResult.txt",
+				"$(DERIVED_FILE_DIR)/Pods-gigunit-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -253,18 +253,18 @@
 			inputPaths = (
 				"$(SRCROOT)/.xcode.env",
 				"$(SRCROOT)/.xcode.env.local",
-				"$(SRCROOT)/minnowspace/minnowspace.entitlements",
-				"$(SRCROOT)/Pods/Target Support Files/Pods-minnowspace/expo-configure-project.sh",
+				"$(SRCROOT)/gigunit/gigunit.entitlements",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-gigunit/expo-configure-project.sh",
 			);
 			name = "[Expo] Configure project";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/Pods/Target Support Files/Pods-minnowspace/ExpoModulesProvider.swift",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-gigunit/ExpoModulesProvider.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-minnowspace/expo-configure-project.sh\"\n";
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-gigunit/expo-configure-project.sh\"\n";
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -272,7 +272,7 @@
 			files = (
 			);
 			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-minnowspace/Pods-minnowspace-resources.sh",
+				"${PODS_ROOT}/Target Support Files/Pods-gigunit/Pods-gigunit-resources.sh",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
@@ -335,7 +335,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-minnowspace/Pods-minnowspace-resources.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-gigunit/Pods-gigunit-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		E796F94C64B8DB7B0A3409A4 /* [CP] Embed Pods Frameworks */ = {
@@ -344,7 +344,7 @@
 			files = (
 			);
 			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-minnowspace/Pods-minnowspace-frameworks.sh",
+				"${PODS_ROOT}/Target Support Files/Pods-gigunit/Pods-gigunit-frameworks.sh",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/JitsiWebRTC/WebRTC.framework/WebRTC",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
@@ -359,7 +359,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-minnowspace/Pods-minnowspace-frameworks.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-gigunit/Pods-gigunit-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -379,18 +379,18 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C682DD13C60021DBB75810BA /* Pods-minnowspace.debug.xcconfig */;
+			baseConfigurationReference = C682DD13C60021DBB75810BA /* Pods-gigunit.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = minnowspace/minnowspace.entitlements;
+				CODE_SIGN_ENTITLEMENTS = gigunit/gigunit.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"FB_SONARKIT_ENABLED=1",
 				);
-				INFOPLIST_FILE = minnowspace/Info.plist;
+				INFOPLIST_FILE = gigunit/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -403,9 +403,9 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.minnowspace;
-				PRODUCT_NAME = minnowspace;
-				SWIFT_OBJC_BRIDGING_HEADER = "minnowspace/minnowspace-Bridging-Header.h";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.gigunit;
+				PRODUCT_NAME = gigunit;
+				SWIFT_OBJC_BRIDGING_HEADER = "gigunit/gigunit-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -415,13 +415,13 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3C55CCF5D51C7A4DD770B546 /* Pods-minnowspace.release.xcconfig */;
+			baseConfigurationReference = 3C55CCF5D51C7A4DD770B546 /* Pods-gigunit.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = minnowspace/minnowspace.entitlements;
+				CODE_SIGN_ENTITLEMENTS = gigunit/gigunit.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				INFOPLIST_FILE = minnowspace/Info.plist;
+				INFOPLIST_FILE = gigunit/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -434,9 +434,9 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.minnowspace;
-				PRODUCT_NAME = minnowspace;
-				SWIFT_OBJC_BRIDGING_HEADER = "minnowspace/minnowspace-Bridging-Header.h";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.gigunit;
+				PRODUCT_NAME = gigunit;
+				SWIFT_OBJC_BRIDGING_HEADER = "gigunit/gigunit-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
@@ -564,7 +564,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "minnowspace" */ = {
+		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "gigunit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,
@@ -573,7 +573,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "minnowspace" */ = {
+		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "gigunit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,

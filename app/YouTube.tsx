@@ -10,7 +10,7 @@ if (Platform.OS === "web") {
   App = () => (
     <div
       dangerouslySetInnerHTML={{
-        __html: `<iframe src="https://minnowspace.com/yotu.html" width=500 height=500</iframe>"`,
+        __html: `<iframe src="https://gigunit.com/yotu.html" width=500 height=500</iframe>"`,
       }}
     />
   );
@@ -19,7 +19,7 @@ if (Platform.OS === "web") {
   App = () => (
     <WebView
       style={styles.container}
-      source={{ uri: "https://minnowspace.com/yotu.html" }}
+      source={{ uri: "https://gigunit.com/yotu.html" }}
     />
   );
 }

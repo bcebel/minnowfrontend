@@ -14,7 +14,7 @@ export default function HomeScreen() {
       />
 
       <ThemedView style={styles.titleContainer}>
-        <Text style={styles.title}>Welcome to MinnowSpace!</Text>
+        <Text style={styles.title}>Welcome to gigunit!</Text>
         <Text style={styles.subtitle}>
           Where small fish make big waves together
         </Text>
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   headerImage: {
     width: "100%",
     height: 200,
-    resizeMode: "cover",
+    resizeMode: "contain",
   },
   titleContainer: {
     padding: 20,

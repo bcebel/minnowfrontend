@@ -39,7 +39,7 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="myapp"/>
-        <data android:scheme="exp+minnowspace"/>
+        <data android:scheme="exp+gigunit"/>
       </intent-filter>
     </activity>
   </application>

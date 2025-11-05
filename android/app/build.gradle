@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.anonymous.minnowspace'
+    namespace 'com.anonymous.gigunit'
     defaultConfig {
-        applicationId 'com.anonymous.minnowspace'
+        applicationId 'com.anonymous.gigunit'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

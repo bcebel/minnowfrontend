@@ -5,22 +5,20 @@ import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 
-
 export default function HomeScreen() {
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#A1CEDC", dark: "#743600" }}
-
     >
       <ThemedView style={styles.titleContainer}>
         <ThemedText style={{ fontFamily: "Montserrat" }}>
-          <ThemedText type="title">Welcome to minnowspace!</ThemedText>
+          <ThemedText type="title">Welcome to gigunit!</ThemedText>
           <HelloWave />
         </ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">
-          Minnowspace is a place where we can all come together to share our
+          gigunit is a place where we can all come together to share our
           stories, experiences, and ideas.
         </ThemedText>
       </ThemedView>
@@ -31,20 +29,21 @@ export default function HomeScreen() {
         </ThemedText>
         <ThemedText>
           <ThemedText style={{ fontFamily: "Montserrat" }}>
-            Terms of Service Effective Date: 1/24/25 Last Updated: 1/24/25 Welcome to Minnowspace! By using our app, you agree to
-            these Terms of Service ("Terms"). Please read them carefully. 1.
-            Acceptance of Terms By downloading, accessing, or using [Your App
-            Name], you agree to comply with these Terms. If you do not agree, do
-            not use the app. 2. Use of the App You agree to: Use the app for
-            lawful purposes only. Not misuse or disrupt the app's functionality.
-            Not reverse engineer or attempt to access the app's source code. 3.
-            Intellectual Property All content, trademarks, and features in [Your
-            App Name] are owned by us or our licensors. You may not copy,
-            modify, or distribute our content without permission. 4. User
-            Content If you share content in the app: You grant us a license to
-            use it as necessary for the app's operation. You confirm that your
-            content does not violate the rights of others or applicable laws. 5.
-            Disclaimer of Warranties Minnowspace is provided "as is" without
+            Terms of Service Effective Date: 1/24/25 Last Updated: 1/24/25
+            Welcome to gigunit! By using our app, you agree to these Terms of
+            Service ("Terms"). Please read them carefully. 1. Acceptance of
+            Terms By downloading, accessing, or using [Your App Name], you agree
+            to comply with these Terms. If you do not agree, do not use the app.
+            2. Use of the App You agree to: Use the app for lawful purposes
+            only. Not misuse or disrupt the app's functionality. Not reverse
+            engineer or attempt to access the app's source code. 3. Intellectual
+            Property All content, trademarks, and features in [Your App Name]
+            are owned by us or our licensors. You may not copy, modify, or
+            distribute our content without permission. 4. User Content If you
+            share content in the app: You grant us a license to use it as
+            necessary for the app's operation. You confirm that your content
+            does not violate the rights of others or applicable laws. 5.
+            Disclaimer of Warranties gigunit is provided "as is" without
             warranties of any kind. We do not guarantee the app will be
             error-free or available at all times. 6. Limitation of Liability We
             are not liable for any indirect, incidental, or consequential
@@ -53,8 +52,9 @@ export default function HomeScreen() {
             any time without notice for violations of these Terms. 8. Changes to
             the Terms We may modify these Terms from time to time. Continued use
             of the app constitutes your acceptance of the updated Terms. 9.
-            Governing Law These Terms are governed by the laws of Texas USA. 10. Contact Us For questions about these Terms,
-            contact us at: bcebel@gmail.com
+            Governing Law These Terms are governed by the laws of Texas USA. 10.
+            Contact Us For questions about these Terms, contact us at:
+            bcebel@gmail.com
           </ThemedText>
         </ThemedText>
       </ThemedView>
@@ -64,8 +64,8 @@ export default function HomeScreen() {
         </ThemedText>
         <ThemedText style={{ fontFamily: "Montserrat" }}>
           <ThemedText>
-            This is just the start of an exciting journey. Minnowspace is built
-            on the idea of collaboration and creativity, and we’re laying the
+            This is just the start of an exciting journey. gigunit is built on
+            the idea of collaboration and creativity, and we’re laying the
             foundation for something truly unique in the digital space.
           </ThemedText>
         </ThemedText>

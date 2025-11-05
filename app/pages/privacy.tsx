@@ -5,22 +5,20 @@ import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 
-
 export default function HomeScreen() {
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#A1CEDC", dark: "#743600" }}
-
     >
       <ThemedView style={styles.titleContainer}>
         <ThemedText style={{ fontFamily: "Montserrat" }}>
-          <ThemedText type="title">Welcome to minnowspace!</ThemedText>
+          <ThemedText type="title">Welcome to gigunit!</ThemedText>
           <HelloWave />
         </ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">
-          Minnowspace is a place where we can all come together to share our
+          gigunit is a place where we can all come together to share our
           stories, experiences, and ideas.
         </ThemedText>
       </ThemedView>
@@ -32,17 +30,17 @@ export default function HomeScreen() {
         <ThemedText>
           <ThemedText style={{ fontFamily: "Montserrat" }}>
             Privacy Policy Effective Date: 1/24/2025 Last Updated: 1/24/2025
-            Minnowspace respects your privacy and is committed to protecting the
+            gigunit respects your privacy and is committed to protecting the
             information you share with us. This Privacy Policy describes how we
             collect, use, and protect your data. 1. Information We Collect We
-            may collect the following information when you use Minnowspace:
-            Personal Information: Name, email address, or other data you
-            provide. Device Information: IP address, device type, operating
-            system, and unique device identifiers. Usage Data: Information about
-            how you interact with the app, such as features used and time spent
-            on the app. 2. How We Use Your Information We use your data to:
-            Provide and maintain our services. Improve app functionality and
-            user experience. Respond to user inquiries and offer support. Ensure
+            may collect the following information when you use gigunit: Personal
+            Information: Name, email address, or other data you provide. Device
+            Information: IP address, device type, operating system, and unique
+            device identifiers. Usage Data: Information about how you interact
+            with the app, such as features used and time spent on the app. 2.
+            How We Use Your Information We use your data to: Provide and
+            maintain our services. Improve app functionality and user
+            experience. Respond to user inquiries and offer support. Ensure
             security and prevent fraud. 3. Sharing Your Information We do not
             sell or share your personal data with third parties except: With
             your consent. To comply with legal obligations. With service
@@ -54,8 +52,8 @@ export default function HomeScreen() {
             collection. 6. Third-Party Links and Services Our app may link to
             third-party websites or services. We are not responsible for their
             privacy practices. Please review their policies before sharing your
-            information. 7. Children’s Privacy Minnowspace is not intended for
-            use by children under the age of 13. We do not knowingly collect
+            information. 7. Children’s Privacy gigunit is not intended for use
+            by children under the age of 13. We do not knowingly collect
             personal information from children. 8. Changes to This Privacy
             Policy We may update this Privacy Policy. Changes will be posted
             with the "Last Updated" date. 9. Contact Us If you have any
@@ -69,8 +67,8 @@ export default function HomeScreen() {
         </ThemedText>
         <ThemedText style={{ fontFamily: "Montserrat" }}>
           <ThemedText>
-            This is just the start of an exciting journey. Minnowspace is built
-            on the idea of collaboration and creativity, and we’re laying the
+            This is just the start of an exciting journey. gigunit is built on
+            the idea of collaboration and creativity, and we’re laying the
             foundation for something truly unique in the digital space.
           </ThemedText>
         </ThemedText>

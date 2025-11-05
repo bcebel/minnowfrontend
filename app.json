@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "minnowspace",
-    "slug": "minnowspace",
+    "name": "gigunit",
+    "slug": "gigunit",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.minnowspace",
+      "bundleIdentifier": "com.anonymous.gigunit",
       "infoPlist": {
         "NSCameraUsageDescription": "$(PRODUCT_NAME) needs access to your Camera.",
         "NSMicrophoneUsageDescription": "$(PRODUCT_NAME) needs access to your Microphone."
@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.minnowspace",
+      "package": "com.anonymous.gigunit",
       "permissions": [
         "INTERNET",
         "android.permission.CAMERA",
