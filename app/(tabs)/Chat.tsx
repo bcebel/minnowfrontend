@@ -212,6 +212,29 @@ export default function ChatScreen() {
   // Get messages from GraphQL data
   const messages = data?.messages || [];
 
+  useEffect(() => {
+    // Auto-scroll to bottom when messages change
+    if (scrollViewRef.current && messages.length > 0) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    if (socket) {
+      socket.on("message", (newMsg) => {
+        console.log("📨 New message via socket:", newMsg);
+        refetch();
+
+        // Auto-scroll after refetch
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 200);
+      });
+    }
+  }, [socket]);
+
   if (!isAuthenticated) {
     return (
       <View style={styles.container}>
