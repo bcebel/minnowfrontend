@@ -8,8 +8,7 @@ import { ThemedView } from "@/components/ThemedView";
 export default function HomeScreen() {
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: "#A1CEDC", dark: "#743600" }}
-    >
+      headerBackgroundColor={{ light: "#A1CEDC", dark: "#743600" }} headerImage={<></>}    >
       <ThemedView style={styles.titleContainer}>
         <ThemedText style={{ fontFamily: "Montserrat" }}>
           <ThemedText type="title">Welcome to gigunit!</ThemedText>

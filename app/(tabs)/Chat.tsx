@@ -11,7 +11,7 @@ import {
 import { Text } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { io } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 import { gql, useQuery, useMutation } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 
@@ -54,29 +54,43 @@ const SEND_MESSAGE = gql`
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
+// Add this helper function to detect if content is an image URL
+const isImageUrl = (text: string) => {
+  if (!text) return false;
+  return (
+    text.match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) !== null ||
+    text.includes("picsum.photos") ||
+    text.includes("placeholder.com")
+  );
+};
+
 export default function ChatScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
   const room = params.room || "general";
 
-  const scrollViewRef = useRef(null);
+  const scrollViewRef = useRef<ScrollView>(null);
   const messageInputRef = useRef<RNTextInput>(null);
-  const [socket, setSocket] = useState(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const [username, setUsername] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [uploading, setUploading] = useState(false); // ✅ MOVED INSIDE COMPONENT
+  const [uploading, setUploading] = useState(false);
 
   // Only run GraphQL query when authenticated
   const { loading, error, data, refetch } = useQuery(GET_MESSAGES, {
     variables: { room },
-    fetchPolicy: "network-and-cache",
+    fetchPolicy: "cache-and-network",
     skip: !isAuthenticated,
     onCompleted: (data) => {
       console.log(
         "✅ GraphQL Query Success:",
         data?.messages?.length,
         "messages"
+      );
+      console.log(
+        "🔍 GRAPHQL MESSAGES DATA:",
+        JSON.stringify(data?.messages, null, 2)
       );
     },
     onError: (error) => {
@@ -93,78 +107,72 @@ export default function ChatScreen() {
 
   const [sendMessageMutation] = useMutation(SEND_MESSAGE);
 
-  // Add this function for image picking - MOVED INSIDE COMPONENT
   const pickImage = async () => {
     try {
-      // Request permissions
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to upload images.');
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission needed",
+          "Sorry, we need camera roll permissions to upload images."
+        );
         return;
       }
 
-      // Pick image
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images", "videos"], // Both images and videos        quality: 0.8,
+        mediaTypes: ["images", "videos"],
+        quality: 0.8,
       });
 
       if (!result.canceled) {
         await uploadImage(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('Image picker error:', error);
-      Alert.alert('Error', 'Failed to pick image');
+      console.error("Image picker error:", error);
+      Alert.alert("Error", "Failed to pick image");
     }
   };
 
-  // Add this function to upload the image - MOVED INSIDE COMPONENT
-const uploadImage = async (imageUri) => {
+const uploadImage = async (imageUri: string | Request) => {
   setUploading(true);
 
   try {
     const token = await AsyncStorage.getItem("token");
 
-    // Handle blob: URIs in web
-    let fileToUpload;
-
-    if (imageUri.startsWith("blob:")) {
-      // For blob URIs in web, we need to fetch and convert
+    let blob;
+    if (typeof imageUri === "string" && imageUri.startsWith("blob:")) {
       const response = await fetch(imageUri);
-      const blob = await response.blob();
-
-      // Create a proper File object from the blob
-      fileToUpload = new File([blob], `chat-image-${Date.now()}.jpg`, {
-        type: "image/jpeg",
-      });
+      blob = await response.blob();
+    } else if (typeof imageUri === "string") {
+      const response = await fetch(imageUri);
+      blob = await response.blob();
     } else {
-      // For React Native (non-web) - use the existing approach
-      const filename = imageUri.split("/").pop();
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : "image/jpeg";
-
-      fileToUpload = {
-        uri: imageUri,
-        type: type,
-        name: filename || `chat-image-${Date.now()}.jpg`,
-      };
+      throw new Error("Invalid imageUri type");
     }
 
-    console.log("Uploading file:", fileToUpload);
+    console.log("Uploading image to IPFS...");
 
     const formData = new FormData();
-    formData.append("file", fileToUpload);
+    formData.append("video", blob, `chat-image-${Date.now()}.jpg`);
 
-    // Upload image
-    const uploadResponse = await fetch(`${BACKEND_URL}/api/upload-image`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        // Don't set Content-Type - let browser set it with boundary
-      },
-      body: formData,
-    });
+    // Use proper values instead of empty/default ones
+    formData.append("title", `Chat image from ${username}`);
+    formData.append("description", `Shared in ${room} chat`);
 
-    // Check response
+    // If you want to be even more specific about it being an image:
+    // formData.append("fileType", "image");
+
+    const uploadResponse = await fetch(
+      "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/upload",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      }
+    );
+
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text();
       console.error("Upload failed:", uploadResponse.status, errorText);
@@ -172,28 +180,33 @@ const uploadImage = async (imageUri) => {
     }
 
     const uploadResult = await uploadResponse.json();
-    console.log("Upload result:", uploadResult);
+    console.log("IPFS Upload result:", uploadResult);
 
-    if (uploadResult.success) {
-      // Send message with the image URL
+    if (uploadResult.ipfsUrl) {
+        console.log("Waiting for IPFS processing...");
+        await new Promise((resolve) => setTimeout(resolve, 10000)); // 10 seconds
+        console.log("Proceeding with IPFS URL");
       await sendMessageMutation({
         variables: {
-          content: "", // Optional caption
+          content: "",
           room: room,
-          imageUrl: uploadResult.fileUrl || uploadResult.imageUrl,
+          imageUrl: uploadResult.ipfsUrl,
         },
       });
     } else {
-      throw new Error(uploadResult.error || "Upload failed");
+      throw new Error("No IPFS URL returned");
     }
   } catch (error) {
     console.error("Upload error:", error);
-    Alert.alert("Upload Failed", error.message || "Could not upload image");
+    const errorMessage =
+      typeof error === "object" && error !== null && "message" in error
+        ? (error as { message?: string }).message
+        : "Could not upload image";
+    Alert.alert("Upload Failed", errorMessage || "Could not upload image");
   } finally {
     setUploading(false);
   }
 };
-
   // Single auth check
   useEffect(() => {
     const checkAuth = async () => {
@@ -225,7 +238,7 @@ const uploadImage = async (imageUri) => {
     checkAuth();
   }, []);
 
-  const initializeSocket = (token) => {
+  const initializeSocket = (token: string) => {
     console.log("🔌 Initializing socket with token...");
 
     const newSocket = io(BACKEND_URL, {
@@ -288,9 +301,14 @@ const uploadImage = async (imageUri) => {
     router.replace("/login");
   };
 
-  const formatTimestamp = (timestamp) => {
+  // FIXED timestamp function
+  const formatTimestamp = (timestamp: any) => {
     try {
-      const date = new Date(Number(timestamp));
+      // Handle string timestamps that are already numeric
+      const date = new Date(
+        typeof timestamp === "string" ? parseInt(timestamp) : timestamp
+      );
+
       if (isNaN(date.getTime())) return "Now";
 
       const now = new Date();
@@ -446,18 +464,56 @@ const uploadImage = async (imageUri) => {
                 {item.sender?.username || "Unknown"}
               </Text>
 
-              {/* Image OR Video OR Text - not mixed */}
+              {/* Show image if imageUrl exists */}
               {item.imageUrl ? (
-                <Image
-                  source={{ uri: item.imageUrl }}
-                  style={styles.messageImage}
-                  resizeMode="cover"
-                />
-              ) : item.videoUrl ? (
-                <Text style={styles.messageText}>[Video] {item.videoUrl}</Text>
-              ) : item.content ? (
+                <View>
+                  {/* Try to show image */}
+                  <Image
+                    source={{
+                      uri: item.imageUrl?.replace(
+                        "ipfs.filebase.io",
+                        "gateway.pinata.cloud"
+                      ),
+                    }}
+                    style={styles.messageImage}
+                    resizeMode="cover"
+                    onError={() => {
+                      // If image fails, show magnet link info
+                      console.log(
+                        "Image failed, magnet available:",
+                        item.videoUrl
+                      );
+                    }}
+                  />
+
+                  {/* Always show the magnet link as fallback */}
+                  {item.videoUrl && item.videoUrl.includes("magnet:") && (
+                    <TouchableOpacity
+                      style={styles.magnetLink}
+                      onPress={() => {
+                        Alert.alert(
+                          "Torrent Available",
+                          "This content is available via BitTorrent",
+                          [
+                            {
+                              text: "Copy Magnet",
+                              onPress: () => Clipboard.setString(item.videoUrl),
+                            },
+                            { text: "OK" },
+                          ]
+                        );
+                      }}
+                    >
+                      <Text style={styles.magnetText}>
+                        🧲 Torrent Available
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ) : (
+                /* Show text if no image */
                 <Text style={styles.messageText}>{item.content}</Text>
-              ) : null}
+              )}
 
               <Text style={styles.timestamp}>
                 {formatTimestamp(item.createdAt)}
@@ -466,8 +522,6 @@ const uploadImage = async (imageUri) => {
           </View>
         ))}
       </ScrollView>
-
-      {/* ✅ FIXED: Only one input container */}
       <View style={styles.inputContainer}>
         <TouchableOpacity
           style={styles.uploadButton}
@@ -504,8 +558,6 @@ const uploadImage = async (imageUri) => {
     </View>
   );
 }
-
-
 
 const styles = StyleSheet.create({
   container: {
@@ -685,5 +737,12 @@ const styles = StyleSheet.create({
   uploadButtonText: {
     fontSize: 18,
     color: "#00FF00",
+  },
+  magnetLink: {
+    backgroundColor: "#222222",
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 6,
+    alignSelf: "flex-start",
   },
 });
