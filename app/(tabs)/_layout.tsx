@@ -15,8 +15,7 @@ export default function TabLayout() {
         options={{
           title: "🌊 Welcome", // Changed from Neighborhood
           tabBarIcon: ({ color }) => null,
-        }
-        }
+        }}
       />
       <Tabs.Screen
         name="Neighborhood" // Renamed from torrent
@@ -41,6 +40,13 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="Chat"
+        options={{
+          title: "👥 Social",
+          tabBarIcon: ({ color }) => null,
+        }}
+      />
+      <Tabs.Screen
+        name="sandbox"
         options={{
           title: "👥 Social",
           tabBarIcon: ({ color }) => null,
