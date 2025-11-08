@@ -441,40 +441,27 @@ const uploadImage = async (imageUri) => {
               }}
               style={styles.profileImage}
             />
+            <View style={styles.messageContent}>
+              <Text style={styles.username}>
+                {item.sender?.username || "Unknown"}
+              </Text>
 
-            <View style={styles.messageContainer} key={item.id}>
-              <Image
-                source={{
-                  uri:
-                    item.sender?.profilePhoto ||
-                    "https://via.placeholder.com/40",
-                }}
-                style={styles.profileImage}
-              />
-              <View style={styles.messageContent}>
-                <Text style={styles.username}>
-                  {item.sender?.username || "Unknown"}
-                </Text>
+              {/* Image OR Video OR Text - not mixed */}
+              {item.imageUrl ? (
+                <Image
+                  source={{ uri: item.imageUrl }}
+                  style={styles.messageImage}
+                  resizeMode="cover"
+                />
+              ) : item.videoUrl ? (
+                <Text style={styles.messageText}>[Video] {item.videoUrl}</Text>
+              ) : item.content ? (
+                <Text style={styles.messageText}>{item.content}</Text>
+              ) : null}
 
-                {/* Image OR Video OR Text - not mixed */}
-                {item.imageUrl ? (
-                  <Image
-                    source={{ uri: item.imageUrl }}
-                    style={styles.messageImage}
-                    resizeMode="cover"
-                  />
-                ) : item.videoUrl ? (
-                  <Text style={styles.messageText}>
-                    [Video] {item.videoUrl}
-                  </Text>
-                ) : item.content ? (
-                  <Text style={styles.messageText}>{item.content}</Text>
-                ) : null}
-
-                <Text style={styles.timestamp}>
-                  {formatTimestamp(item.createdAt)}
-                </Text>
-              </View>
+              <Text style={styles.timestamp}>
+                {formatTimestamp(item.createdAt)}
+              </Text>
             </View>
           </View>
         ))}
