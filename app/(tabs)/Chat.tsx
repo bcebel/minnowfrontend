@@ -20,6 +20,8 @@ const GET_MESSAGES = gql`
     messages(room: $room) {
       id
       content
+      imageUrl
+      videoUrl
       room
       createdAt
       sender {
