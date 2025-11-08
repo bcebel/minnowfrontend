@@ -124,35 +124,63 @@ const uploadImage = async (imageUri) => {
   try {
     const token = await AsyncStorage.getItem("token");
 
-    const formData = new FormData();
-    formData.append("file", {
-      // Changed from 'image' to 'file'
-      uri: imageUri,
-      type: "image/jpeg",
-      name: `chat-file-${Date.now()}.jpg`,
-    });
+    // Handle blob: URIs in web
+    let fileToUpload;
 
+    if (imageUri.startsWith("blob:")) {
+      // For blob URIs in web, we need to fetch and convert
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+
+      // Create a proper File object from the blob
+      fileToUpload = new File([blob], `chat-image-${Date.now()}.jpg`, {
+        type: "image/jpeg",
+      });
+    } else {
+      // For React Native (non-web) - use the existing approach
+      const filename = imageUri.split("/").pop();
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : "image/jpeg";
+
+      fileToUpload = {
+        uri: imageUri,
+        type: type,
+        name: filename || `chat-image-${Date.now()}.jpg`,
+      };
+    }
+
+    console.log("Uploading file:", fileToUpload);
+
+    const formData = new FormData();
+    formData.append("file", fileToUpload);
+
+    // Upload image
     const uploadResponse = await fetch(`${BACKEND_URL}/api/upload-image`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
-        // Let the browser set Content-Type for FormData
+        // Don't set Content-Type - let browser set it with boundary
       },
       body: formData,
     });
 
+    // Check response
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error("Upload failed:", uploadResponse.status, errorText);
+      throw new Error(`Upload failed: ${uploadResponse.status}`);
+    }
+
     const uploadResult = await uploadResponse.json();
+    console.log("Upload result:", uploadResult);
 
     if (uploadResult.success) {
-      // Determine if it's an image or video message
-      const isImage = uploadResult.fileType === "image";
-
+      // Send message with the image URL
       await sendMessageMutation({
         variables: {
-          content: "",
+          content: "", // Optional caption
           room: room,
-          imageUrl: isImage ? uploadResult.fileUrl : null,
-          videoUrl: !isImage ? uploadResult.fileUrl : null,
+          imageUrl: uploadResult.fileUrl || uploadResult.imageUrl,
         },
       });
     } else {
@@ -160,7 +188,7 @@ const uploadImage = async (imageUri) => {
     }
   } catch (error) {
     console.error("Upload error:", error);
-    Alert.alert("Upload Failed", error.message || "Could not upload file");
+    Alert.alert("Upload Failed", error.message || "Could not upload image");
   } finally {
     setUploading(false);
   }
@@ -408,31 +436,45 @@ const uploadImage = async (imageUri) => {
           <View style={styles.messageContainer} key={item.id}>
             <Image
               source={{
-                uri: item.sender?.profilePhoto || "https://via.placeholder.com/40",
+                uri:
+                  item.sender?.profilePhoto || "https://via.placeholder.com/40",
               }}
               style={styles.profileImage}
             />
-            <View style={styles.messageContent}>
-              <Text style={styles.username}>
-                {item.sender?.username || "Unknown"}
-              </Text>
 
-              {/* Add image display here */}
-              {item.imageUrl && (
-                <Image
-                  source={{ uri: item.imageUrl }}
-                  style={styles.messageImage}
-                  resizeMode="cover"
-                />
-              )}
+            <View style={styles.messageContainer} key={item.id}>
+              <Image
+                source={{
+                  uri:
+                    item.sender?.profilePhoto ||
+                    "https://via.placeholder.com/40",
+                }}
+                style={styles.profileImage}
+              />
+              <View style={styles.messageContent}>
+                <Text style={styles.username}>
+                  {item.sender?.username || "Unknown"}
+                </Text>
 
-              {item.content && (
-                <Text style={styles.messageText}>{item.content}</Text>
-              )}
+                {/* Image OR Video OR Text - not mixed */}
+                {item.imageUrl ? (
+                  <Image
+                    source={{ uri: item.imageUrl }}
+                    style={styles.messageImage}
+                    resizeMode="cover"
+                  />
+                ) : item.videoUrl ? (
+                  <Text style={styles.messageText}>
+                    [Video] {item.videoUrl}
+                  </Text>
+                ) : item.content ? (
+                  <Text style={styles.messageText}>{item.content}</Text>
+                ) : null}
 
-              <Text style={styles.timestamp}>
-                {formatTimestamp(item.createdAt)}
-              </Text>
+                <Text style={styles.timestamp}>
+                  {formatTimestamp(item.createdAt)}
+                </Text>
+              </View>
             </View>
           </View>
         ))}
@@ -445,9 +487,7 @@ const uploadImage = async (imageUri) => {
           onPress={pickImage}
           disabled={uploading || !socket}
         >
-          <Text style={styles.uploadButtonText}>
-            {uploading ? "📤" : "📷"}
-          </Text>
+          <Text style={styles.uploadButtonText}>{uploading ? "📤" : "📷"}</Text>
         </TouchableOpacity>
 
         <RNTextInput
