@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io } from "socket.io-client";
 import { gql, useQuery, useMutation } from "@apollo/client";
+import * as ImagePicker from "expo-image-picker";
 
 // GraphQL Definitions
 const GET_MESSAGES = gql`
@@ -64,38 +65,7 @@ export default function ChatScreen() {
   const [username, setUsername] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Single auth check - REMOVED THE DUPLICATE
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const token = await AsyncStorage.getItem("token");
-        const savedUsername = await AsyncStorage.getItem("username");
-
-        console.log("🔑 ChatScreen: Token exists:", !!token);
-        console.log("🔑 ChatScreen: Username:", savedUsername);
-        console.log("🔑 ChatScreen: Full token:", token);
-
-        if (!token) {
-          Alert.alert(
-            "Authentication Required",
-            "Please log in to access chat"
-          );
-          router.replace("/login");
-          return;
-        }
-
-        setUsername(savedUsername || "");
-        setIsAuthenticated(true);
-        initializeSocket(token);
-      } catch (error) {
-        console.error("Auth check error:", error);
-        Alert.alert("Error", "Failed to initialize chat");
-      }
-    };
-
-    checkAuth();
-  }, []);
+  const [uploading, setUploading] = useState(false); // ✅ MOVED INSIDE COMPONENT
 
   // Only run GraphQL query when authenticated
   const { loading, error, data, refetch } = useQuery(GET_MESSAGES, {
@@ -122,6 +92,110 @@ export default function ChatScreen() {
   });
 
   const [sendMessageMutation] = useMutation(SEND_MESSAGE);
+
+  // Add this function for image picking - MOVED INSIDE COMPONENT
+  const pickImage = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to upload images.');
+        return;
+      }
+
+      // Pick image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images", "videos"], // Both images and videos        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        await uploadImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  // Add this function to upload the image - MOVED INSIDE COMPONENT
+const uploadImage = async (imageUri) => {
+  setUploading(true);
+
+  try {
+    const token = await AsyncStorage.getItem("token");
+
+    const formData = new FormData();
+    formData.append("file", {
+      // Changed from 'image' to 'file'
+      uri: imageUri,
+      type: "image/jpeg",
+      name: `chat-file-${Date.now()}.jpg`,
+    });
+
+    const uploadResponse = await fetch(`${BACKEND_URL}/api/upload-image`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        // Let the browser set Content-Type for FormData
+      },
+      body: formData,
+    });
+
+    const uploadResult = await uploadResponse.json();
+
+    if (uploadResult.success) {
+      // Determine if it's an image or video message
+      const isImage = uploadResult.fileType === "image";
+
+      await sendMessageMutation({
+        variables: {
+          content: "",
+          room: room,
+          imageUrl: isImage ? uploadResult.fileUrl : null,
+          videoUrl: !isImage ? uploadResult.fileUrl : null,
+        },
+      });
+    } else {
+      throw new Error(uploadResult.error || "Upload failed");
+    }
+  } catch (error) {
+    console.error("Upload error:", error);
+    Alert.alert("Upload Failed", error.message || "Could not upload file");
+  } finally {
+    setUploading(false);
+  }
+};
+
+  // Single auth check
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        const savedUsername = await AsyncStorage.getItem("username");
+
+        console.log("🔑 ChatScreen: Token exists:", !!token);
+        console.log("🔑 ChatScreen: Username:", savedUsername);
+
+        if (!token) {
+          Alert.alert(
+            "Authentication Required",
+            "Please log in to access chat"
+          );
+          router.replace("/login");
+          return;
+        }
+
+        setUsername(savedUsername || "");
+        setIsAuthenticated(true);
+        initializeSocket(token);
+      } catch (error) {
+        console.error("Auth check error:", error);
+        Alert.alert("Error", "Failed to initialize chat");
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   const initializeSocket = (token) => {
     console.log("🔌 Initializing socket with token...");
@@ -171,9 +245,9 @@ export default function ChatScreen() {
       });
       console.log("✅ Message sent via GraphQL");
 
-         setTimeout(() => {
-           messageInputRef.current?.focus();
-         }, 100);
+      setTimeout(() => {
+        messageInputRef.current?.focus();
+      }, 100);
     } catch (err) {
       console.error("❌ Send message error:", err);
       Alert.alert("Error", "Failed to send message");
@@ -186,46 +260,44 @@ export default function ChatScreen() {
     router.replace("/login");
   };
 
-const formatTimestamp = (timestamp) => {
-  try {
-    const date = new Date(Number(timestamp));
-    if (isNaN(date.getTime())) return "Now";
+  const formatTimestamp = (timestamp) => {
+    try {
+      const date = new Date(Number(timestamp));
+      if (isNaN(date.getTime())) return "Now";
 
-    const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
-    const isYesterday =
-      new Date(now.setDate(now.getDate() - 1)).toDateString() ===
-      date.toDateString();
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      const isYesterday =
+        new Date(now.setDate(now.getDate() - 1)).toDateString() ===
+        date.toDateString();
 
-    if (isToday) {
-      // Today: show time only "2:30 PM"
-      return date.toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      });
-    } else if (isYesterday) {
-      // Yesterday: show "Yesterday 2:30 PM"
-      return `Yesterday ${date.toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      })}`;
-    } else {
-      // Older: show date "11/4 2:30 PM"
-      return `${date.toLocaleDateString([], {
-        month: "numeric",
-        day: "numeric",
-      })} ${date.toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      })}`;
+      if (isToday) {
+        return date.toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+      } else if (isYesterday) {
+        return `Yesterday ${date.toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })}`;
+      } else {
+        return `${date.toLocaleDateString([], {
+          month: "numeric",
+          day: "numeric",
+        })} ${date.toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })}`;
+      }
+    } catch {
+      return "Now";
     }
-  } catch {
-    return "Now";
-  }
-};
+  };
+
   const debugToken = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -256,7 +328,6 @@ const formatTimestamp = (timestamp) => {
         console.log("📨 New message via socket:", newMsg);
         refetch();
 
-        // Auto-scroll after refetch
         setTimeout(() => {
           scrollViewRef.current?.scrollToEnd({ animated: true });
         }, 200);
@@ -333,13 +404,11 @@ const formatTimestamp = (timestamp) => {
           scrollViewRef.current?.scrollToEnd({ animated: true })
         }
       >
-        // In the message rendering section, add:
         {messages.map((item) => (
           <View style={styles.messageContainer} key={item.id}>
             <Image
               source={{
-                uri:
-                  item.sender?.profilePhoto || "https://via.placeholder.com/40",
+                uri: item.sender?.profilePhoto || "https://via.placeholder.com/40",
               }}
               style={styles.profileImage}
             />
@@ -369,7 +438,18 @@ const formatTimestamp = (timestamp) => {
         ))}
       </ScrollView>
 
+      {/* ✅ FIXED: Only one input container */}
       <View style={styles.inputContainer}>
+        <TouchableOpacity
+          style={styles.uploadButton}
+          onPress={pickImage}
+          disabled={uploading || !socket}
+        >
+          <Text style={styles.uploadButtonText}>
+            {uploading ? "📤" : "📷"}
+          </Text>
+        </TouchableOpacity>
+
         <RNTextInput
           ref={messageInputRef}
           style={[styles.messageInput, !socket && styles.messageInputDisabled]}
@@ -380,6 +460,7 @@ const formatTimestamp = (timestamp) => {
           onSubmitEditing={sendMessage}
           editable={!!socket}
         />
+
         <TouchableOpacity
           style={[
             styles.sendButton,
@@ -396,6 +477,8 @@ const formatTimestamp = (timestamp) => {
     </View>
   );
 }
+
+
 
 const styles = StyleSheet.create({
   container: {
@@ -564,5 +647,16 @@ const styles = StyleSheet.create({
     height: 150,
     borderRadius: 8,
     marginBottom: 6,
+  },
+  uploadButton: {
+    padding: 12,
+    marginRight: 10,
+    backgroundColor: "#333333",
+    borderRadius: 25,
+    justifyContent: "center",
+  },
+  uploadButtonText: {
+    fontSize: 18,
+    color: "#00FF00",
   },
 });
