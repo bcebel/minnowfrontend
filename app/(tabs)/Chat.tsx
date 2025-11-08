@@ -32,10 +32,12 @@ const GET_MESSAGES = gql`
 `;
 
 const SEND_MESSAGE = gql`
-  mutation SendMessage($content: String!, $room: String!) {
-    sendMessage(content: $content, room: $room) {
+  mutation SendMessage($content: String!, $room: String!, $imageUrl: String) {
+    sendMessage(content: $content, room: $room, imageUrl: $imageUrl) {
       id
       content
+      imageUrl
+      videoUrl
       room
       createdAt
       sender {
@@ -329,6 +331,7 @@ const formatTimestamp = (timestamp) => {
           scrollViewRef.current?.scrollToEnd({ animated: true })
         }
       >
+        // In the message rendering section, add:
         {messages.map((item) => (
           <View style={styles.messageContainer} key={item.id}>
             <Image
@@ -342,7 +345,20 @@ const formatTimestamp = (timestamp) => {
               <Text style={styles.username}>
                 {item.sender?.username || "Unknown"}
               </Text>
-              <Text style={styles.messageText}>{item.content}</Text>
+
+              {/* Add image display here */}
+              {item.imageUrl && (
+                <Image
+                  source={{ uri: item.imageUrl }}
+                  style={styles.messageImage}
+                  resizeMode="cover"
+                />
+              )}
+
+              {item.content && (
+                <Text style={styles.messageText}>{item.content}</Text>
+              )}
+
               <Text style={styles.timestamp}>
                 {formatTimestamp(item.createdAt)}
               </Text>
@@ -540,5 +556,11 @@ const styles = StyleSheet.create({
     color: "#000000",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  messageImage: {
+    width: 200,
+    height: 150,
+    borderRadius: 8,
+    marginBottom: 6,
   },
 });
