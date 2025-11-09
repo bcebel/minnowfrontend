@@ -11,14 +11,29 @@ export const GET_NEIGHBORHOODS = gql`
       owner {
         username
         profilePhoto
+        bio
       }
       members {
         user {
           username
           profilePhoto
+          bio
         }
         role
       }
+    }
+  }
+`;
+
+// For user profile
+export const GET_USER = gql`
+  query GetUser($username: String!) {
+    user(username: $username) {
+      id
+      username
+      bio
+      profilePhoto
+      createdAt
     }
   }
 `;
