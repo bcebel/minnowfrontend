@@ -45,13 +45,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => null,
         }}
       />
-      <Tabs.Screen
-        name="sandbox"
-        options={{
-          title: "👥 Social",
-          tabBarIcon: ({ color }) => null,
-        }}
-      />
     </Tabs>
   );
 }
