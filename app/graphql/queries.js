@@ -80,3 +80,29 @@ export const LEAVE_NEIGHBORHOOD = gql`
     leaveNeighborhood(neighborhoodId: $neighborhoodId)
   }
 `;
+
+// app/graphql/queries.js - Add this
+export const GET_NEIGHBORHOOD = gql`
+  query GetNeighborhood($id: ID!) {
+    neighborhood(id: $id) {
+      id
+      name
+      description
+      type
+      rules
+      owner {
+        username
+        profilePhoto
+      }
+      members {
+        user {
+          username
+          profilePhoto
+        }
+        role
+        joinedAt
+      }
+      createdAt
+    }
+  }
+`;
