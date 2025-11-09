@@ -10,11 +10,25 @@ import {
 } from "react-native";
 import { useQuery, useMutation } from "@apollo/client";
 import { Link } from "expo-router";
-import { GET_NEIGHBORHOODS, JOIN_NEIGHBORHOOD } from "../graphql/queries";
+import {
+  GET_NEIGHBORHOODS,
+  JOIN_NEIGHBORHOOD,
+  LEAVE_NEIGHBORHOOD,
+} from "../graphql/queries";
 
 export default function NeighborhoodsScreen() {
   const { loading, error, data, refetch } = useQuery(GET_NEIGHBORHOODS);
   const [joinNeighborhood] = useMutation(JOIN_NEIGHBORHOOD);
+  const [leaveNeighborhood] = useMutation(LEAVE_NEIGHBORHOOD);
+    
+  // Check if current user is a member of a neighborhood
+  const isUserMember = (neighborhood) => {
+    // For now, let's check if user is in members array
+    // You'll need to get the current user ID from context/auth later
+    return neighborhood.members.some(
+      (member) => member.user.username === "mesteroonie" // Replace with actual current user
+    );
+  };
 
   const handleJoinNeighborhood = async (neighborhoodId) => {
     try {
@@ -22,39 +36,72 @@ export default function NeighborhoodsScreen() {
         variables: { neighborhoodId },
         refetchQueries: [{ query: GET_NEIGHBORHOODS }],
       });
-      alert("Joined neighborhood!");
+      alert("✅ Joined neighborhood!");
     } catch (err) {
-      alert(`Join failed: ${err.message}`);
+      if (err.message.includes("already a member")) {
+        alert("✅ You are already a member of this neighborhood!");
+      } else if (err.message.includes("personal neighborhoods")) {
+        alert("🔒 This is a personal neighborhood - cannot join");
+      } else {
+        alert(`Join failed: ${err.message}`);
+      }
     }
   };
+
+      const handleLeaveNeighborhood = async (neighborhoodId) => {
+        try {
+          await leaveNeighborhood({
+            variables: { neighborhoodId },
+            refetchQueries: [{ query: GET_NEIGHBORHOODS }],
+          });
+          alert("👋 Left neighborhood");
+        } catch (err) {
+          alert(`Leave failed: ${err.message}`);
+        }
+      };
+
 
   if (loading) return <ActivityIndicator size="large" style={styles.loading} />;
   if (error) return <Text style={styles.error}>Error: {error.message}</Text>;
 
-  const renderItem = ({ item }) => (
-    <View style={styles.neighborhoodItem}>
-      <Text style={styles.neighborhoodName}>{item.name}</Text>
-      <Text style={styles.neighborhoodType}>
-        {item.type} • {item.members?.length || 0} members
-      </Text>
-      <Text style={styles.neighborhoodDescription}>{item.description}</Text>
+ const renderItem = ({ item }) => {
+   const userIsMember = isUserMember(item);
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.joinButton}
-          onPress={() => handleJoinNeighborhood(item.id)}
-        >
-          <Text style={styles.joinButtonText}>Join</Text>
-        </TouchableOpacity>
+   return (
+     <View style={styles.neighborhoodItem}>
+       <Text style={styles.neighborhoodName}>{item.name}</Text>
+       <Text style={styles.neighborhoodType}>
+         {item.type} • {item.members?.length || 0} members
+         {userIsMember && " • ✅ You are a member"}
+       </Text>
+       <Text style={styles.neighborhoodDescription}>{item.description}</Text>
 
-        <Link href={`/neighborhoods/${item.id}`} asChild>
-          <TouchableOpacity style={styles.viewButton}>
-            <Text style={styles.viewButtonText}>View</Text>
-          </TouchableOpacity>
-        </Link>
-      </View>
-    </View>
-  );
+       <View style={styles.buttonContainer}>
+         {userIsMember ? (
+           <TouchableOpacity
+             style={styles.leaveButton}
+             onPress={() => handleLeaveNeighborhood(item.id)}
+           >
+             <Text style={styles.leaveButtonText}>Leave</Text>
+           </TouchableOpacity>
+         ) : (
+           <TouchableOpacity
+             style={styles.joinButton}
+             onPress={() => handleJoinNeighborhood(item.id)}
+           >
+             <Text style={styles.joinButtonText}>Join</Text>
+           </TouchableOpacity>
+         )}
+
+         <Link href={`/neighborhoods/${item.id}`} asChild>
+           <TouchableOpacity style={styles.viewButton}>
+             <Text style={styles.viewButtonText}>View</Text>
+           </TouchableOpacity>
+         </Link>
+       </View>
+     </View>
+   );
+ };
 
   return (
     <View style={styles.container}>
@@ -146,5 +193,15 @@ const styles = StyleSheet.create({
     color: "#FF4444",
     textAlign: "center",
     marginTop: 20,
+  },
+  leaveButton: {
+    backgroundColor: "#FF4444",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  leaveButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
   },
 });

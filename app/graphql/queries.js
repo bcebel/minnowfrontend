@@ -71,4 +71,12 @@ export const CREATE_NEIGHBORHOOD = gql`
       type
     }
   }
+
+  
+`;
+
+export const LEAVE_NEIGHBORHOOD = gql`
+  mutation LeaveNeighborhood($neighborhoodId: ID!) {
+    leaveNeighborhood(neighborhoodId: $neighborhoodId)
+  }
 `;
