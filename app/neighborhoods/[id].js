@@ -33,26 +33,36 @@ export default function NeighborhoodDetailScreen() {
     );
   }
 
-  const renderMember = ({ item }) => (
-    <View style={styles.memberItem}>
-      <Image
-        source={{
-          uri: item.user.profilePhoto || "https://via.placeholder.com/40",
-        }}
-        style={styles.avatar}
-      />
-      <View style={styles.memberInfo}>
-        <Text style={styles.memberName}>
-          {item.user.username}
-          {item.role === "owner" && " 👑"}
-          {item.role === "moderator" && " ⭐"}
+const renderMember = ({ item }) => (
+  <TouchableOpacity
+    style={styles.memberItem}
+    onPress={() => router.push(`/profile/${item.user.username}`)}
+  >
+    <Image
+      source={{
+        uri: item.user.profilePhoto || "https://via.placeholder.com/40",
+      }}
+      style={styles.avatar}
+    />
+    <View style={styles.memberInfo}>
+      <Text style={styles.memberName}>
+        {item.user.username}
+        {item.role === "owner" && " 👑"}
+      </Text>
+      {/* Show bio if it exists */}
+      {item.user.bio ? (
+        <Text style={styles.memberBio} numberOfLines={2}>
+          {item.user.bio}
         </Text>
-        <Text style={styles.memberRole}>
-          {item.role} • Joined {new Date(item.joinedAt).toLocaleDateString()}
-        </Text>
-      </View>
+      ) : (
+        <Text style={styles.noBio}>No bio yet</Text>
+      )}
+      <Text style={styles.memberRole}>
+        {item.role} • Joined {new Date(item.joinedAt).toLocaleDateString()}
+      </Text>
     </View>
-  );
+  </TouchableOpacity>
+);
 
   return (
     <View style={styles.container}>
@@ -227,5 +237,17 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: "#00FF00",
     fontWeight: "bold",
+  },
+  memberBio: {
+    fontSize: 14,
+    color: "#CCC",
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+  noBio: {
+    fontSize: 12,
+    color: "#666",
+    fontStyle: "italic",
+    marginBottom: 4,
   },
 });

@@ -36,6 +36,8 @@ export const GET_MY_NEIGHBORHOODS = gql`
       members {
         user {
           username
+          profilePhoto
+          bio
         }
         role
       }
@@ -93,11 +95,13 @@ export const GET_NEIGHBORHOOD = gql`
       owner {
         username
         profilePhoto
+        bio
       }
       members {
         user {
           username
           profilePhoto
+          bio
         }
         role
         joinedAt
