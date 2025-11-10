@@ -2,7 +2,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { View, Text, Image, StyleSheet } from "react-native";
 import { useQuery } from "@apollo/client";
-import { GET_USER } from "../../graphql/queries";
+import { GET_USER } from "../graphql/queries";
 
 export default function ProfileScreen() {
   const { username } = useLocalSearchParams();
