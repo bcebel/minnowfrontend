@@ -1,17 +1,17 @@
 // app/profile/[username].js
 import { useLocalSearchParams } from "expo-router";
-import { View, Text, Image, StyleSheet } from "react-native";
+import { View, Text, Image, StyleSheet, ActivityIndicator } from "react-native";
 import { useQuery } from "@apollo/client";
-import { GET_USER } from "../../graphql/queries";
+import { GET_USER_BY_USERNAME, GET_USER } from "../graphql/queries";
 
-export default function ProfileScreen() {
-  const { username } = useLocalSearchParams();
+function ProfilePage({ userId }) {
   const { loading, error, data } = useQuery(GET_USER, {
-    variables: { username },
+    variables: { id: userId },
   });
 
-  if (loading) return <Text>Loading...</Text>;
+  if (loading) return <ActivityIndicator />;
   if (error) return <Text>Error: {error.message}</Text>;
+  if (!data?.user) return <Text>User not found.</Text>;
 
   const { user } = data;
 
@@ -21,9 +21,7 @@ export default function ProfileScreen() {
         source={{
           uri:
             user.profilePhoto ||
-            "https://ui-avatars.com/api/?name=" +
-              username +
-              "&background=00FF00&color=000",
+            `https://ui-avatars.com/api/?name=${user.username}&background=00FF00&color=000`,
         }}
         style={styles.avatar}
       />
@@ -31,6 +29,19 @@ export default function ProfileScreen() {
       <Text style={styles.bio}>{user.bio}</Text>
     </View>
   );
+}
+
+export default function ProfileScreen() {
+  const { username } = useLocalSearchParams();
+  const { loading, error, data } = useQuery(GET_USER_BY_USERNAME, {
+    variables: { username },
+  });
+
+  if (loading) return <ActivityIndicator />;
+  if (error) return <Text>Error: {error.message}</Text>;
+  if (!data?.userByUsername) return <Text>User not found.</Text>;
+
+  return <ProfilePage userId={data.userByUsername.id} />;
 }
 
 const styles = StyleSheet.create({

@@ -25,10 +25,18 @@ export const GET_NEIGHBORHOODS = gql`
   }
 `;
 
+export const GET_USER_BY_USERNAME = gql`
+  query GetUserByUsername($username: String!) {
+    userByUsername(username: $username) {
+      id
+    }
+  }
+`;
+
 // For user profile
 export const GET_USER = gql`
-  query GetUser($username: String!) {
-    user(username: $username) {
+  query GetUser($id: ID!) {
+    user(id: $id) {
       id
       username
       bio
