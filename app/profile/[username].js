@@ -1,24 +1,34 @@
 // app/profile/[username].js
 import { useLocalSearchParams } from "expo-router";
 import { View, Text, Image, StyleSheet } from "react-native";
+import { useQuery } from "@apollo/client";
+import { GET_USER } from "../../graphql/queries";
 
 export default function ProfileScreen() {
   const { username } = useLocalSearchParams();
+  const { loading, error, data } = useQuery(GET_USER, {
+    variables: { username },
+  });
 
-  // For now, just show basic info - later you can query user data
+  if (loading) return <Text>Loading...</Text>;
+  if (error) return <Text>Error: {error.message}</Text>;
+
+  const { user } = data;
+
   return (
     <View style={styles.container}>
       <Image
         source={{
           uri:
+            user.profilePhoto ||
             "https://ui-avatars.com/api/?name=" +
-            username +
-            "&background=00FF00&color=000",
+              username +
+              "&background=00FF00&color=000",
         }}
         style={styles.avatar}
       />
-      <Text style={styles.username}>@{username}</Text>
-      <Text style={styles.bio}></Text> {/* Hardcoded for now */}
+      <Text style={styles.username}>@{user.username}</Text>
+      <Text style={styles.bio}>{user.bio}</Text>
     </View>
   );
 }
