@@ -1,4 +1,4 @@
-import { Link } from "expo-router";
+// app/neighborhoods/index.js
 import React from "react";
 import {
   FlatList,
@@ -6,139 +6,202 @@ import {
   Text,
   StyleSheet,
   View,
+  ActivityIndicator,
 } from "react-native";
+import { useQuery, useMutation } from "@apollo/client";
+import { Link } from "expo-router";
+import {
+  GET_NEIGHBORHOODS,
+  JOIN_NEIGHBORHOOD,
+  LEAVE_NEIGHBORHOOD,
+} from "../graphql/queries";
 
-const MEMBERS = Array.from({ length: 100 }, (_, i) => ({
-  id: i + 1,
-  name: `User${i + 1}`,
-  bio: `Short bio for User${i + 1}.`,
-  avatar: `https://i.pravatar.cc/150?img=${i + 1}`,
-  links: ["https://example.com", "https://twitter.com"],
-}));
+export default function NeighborhoodsScreen() {
+  const { loading, error, data, refetch } = useQuery(GET_NEIGHBORHOODS);
+  const [joinNeighborhood] = useMutation(JOIN_NEIGHBORHOOD);
+  const [leaveNeighborhood] = useMutation(LEAVE_NEIGHBORHOOD);
+    
+  // Check if current user is a member of a neighborhood
+  const isUserMember = (neighborhood) => {
+    // For now, let's check if user is in members array
+    // You'll need to get the current user ID from context/auth later
+    return neighborhood.members.some(
+      (member) => member.user.username === "mesteroonie" // Replace with actual current user
+    );
+  };
 
-// Define separate styles for light and dark themes
-const themeStyles = {
-  light: StyleSheet.create({
-    container: {
-      flex: 1,
-      paddingTop: 20,
-      backgroundColor: "#FFFFFF",
-    },
-    header: {
-      fontSize: 24,
-      fontWeight: "bold",
-      textAlign: "center",
-      marginBottom: 8,
-      color: "#000000",
-    },
-    subtitle: {
-      fontSize: 14,
-      textAlign: "center",
-      marginBottom: 20,
-      opacity: 0.8,
-      color: "#333333",
-    },
-    userItem: {
-      padding: 15,
-      // REMOVE or CHANGE these border properties:
-      // borderBottomWidth: 1,
-      // borderBottomColor: "#FF0000",
-      marginHorizontal: 10,
-      borderRadius: 8,
-      marginBottom: 8,
-      backgroundColor: "#FFFFFF",
-      // Add a subtle shadow or different separator instead:
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 1,
-      elevation: 1,
-    },
-    userName: {
-      fontSize: 18,
-      fontWeight: "bold",
-      marginBottom: 4,
-      color: "#000000",
-    },
-    userBio: {
-      fontSize: 14,
-      opacity: 0.7,
-      color: "#333333",
-    },
-  }),
-  dark: StyleSheet.create({
-    container: {
-      flex: 1,
-      paddingTop: 20,
-      backgroundColor: "#000000",
-    },
-    header: {
-      fontSize: 24,
-      fontWeight: "bold",
-      textAlign: "center",
-      marginBottom: 8,
-      color: "#00FF00",
-    },
-    subtitle: {
-      fontSize: 14,
-      textAlign: "center",
-      marginBottom: 20,
-      opacity: 0.8,
-      color: "#00AA00",
-    },
-    userItem: {
-      padding: 15,
-      // REMOVE or CHANGE these border properties:
-      // borderBottomWidth: 1,
-      // borderBottomColor: "#00FF00",
-      marginHorizontal: 10,
-      borderRadius: 8,
-      marginBottom: 8,
-      backgroundColor: "#000000",
-      // Add a subtle border instead:
-      borderWidth: 1,
-      borderColor: "#333333",
-    },
-    userName: {
-      fontSize: 18,
-      fontWeight: "bold",
-      marginBottom: 4,
-      color: "#00FF00",
-    },
-    userBio: {
-      fontSize: 14,
-      opacity: 0.7,
-      color: "#00AA00",
-    },
-  }),
-};
+  const handleJoinNeighborhood = async (neighborhoodId) => {
+    try {
+      await joinNeighborhood({
+        variables: { neighborhoodId },
+        refetchQueries: [{ query: GET_NEIGHBORHOODS }],
+      });
+      alert("✅ Joined neighborhood!");
+    } catch (err) {
+      if (err.message.includes("already a member")) {
+        alert("✅ You are already a member of this neighborhood!");
+      } else if (err.message.includes("personal neighborhoods")) {
+        alert("🔒 This is a personal neighborhood - cannot join");
+      } else {
+        alert(`Join failed: ${err.message}`);
+      }
+    }
+  };
 
-export default function HomeScreen() {
-  // For now, let's use light theme to avoid complexity
-  // You can add proper theme switching later
-  const styles = themeStyles.light;
+      const handleLeaveNeighborhood = async (neighborhoodId) => {
+        try {
+          await leaveNeighborhood({
+            variables: { neighborhoodId },
+            refetchQueries: [{ query: GET_NEIGHBORHOODS }],
+          });
+          alert("👋 Left neighborhood");
+        } catch (err) {
+          alert(`Leave failed: ${err.message}`);
+        }
+      };
 
-  const renderItem = ({ item }) => (
-    <Link href={`/${item.id}`} asChild>
-      <TouchableOpacity style={styles.userItem}>
-        <Text style={styles.userName}>{item.name}</Text>
-        <Text style={styles.userBio}>{item.bio}</Text>
-      </TouchableOpacity>
-    </Link>
-  );
+
+  if (loading) return <ActivityIndicator size="large" style={styles.loading} />;
+  if (error) return <Text style={styles.error}>Error: {error.message}</Text>;
+
+ const renderItem = ({ item }) => {
+   const userIsMember = isUserMember(item);
+
+   return (
+     <View style={styles.neighborhoodItem}>
+       <Text style={styles.neighborhoodName}>{item.name}</Text>
+       <Text style={styles.neighborhoodType}>
+         {item.type} • {item.members?.length || 0} members
+         {userIsMember && " • ✅ You are a member"}
+       </Text>
+       <Text style={styles.neighborhoodDescription}>{item.description}</Text>
+
+       <View style={styles.buttonContainer}>
+         {userIsMember ? (
+           <TouchableOpacity
+             style={styles.leaveButton}
+             onPress={() => handleLeaveNeighborhood(item.id)}
+           >
+             <Text style={styles.leaveButtonText}>Leave</Text>
+           </TouchableOpacity>
+         ) : (
+           <TouchableOpacity
+             style={styles.joinButton}
+             onPress={() => handleJoinNeighborhood(item.id)}
+           >
+             <Text style={styles.joinButtonText}>Join</Text>
+           </TouchableOpacity>
+         )}
+
+         <Link href={`/neighborhoods/${item.id}`} asChild>
+           <TouchableOpacity style={styles.viewButton}>
+             <Text style={styles.viewButtonText}>View</Text>
+           </TouchableOpacity>
+         </Link>
+       </View>
+     </View>
+   );
+ };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>🏠 Your Digital Neighborhood</Text>
+      <Text style={styles.header}>🏘️ Neighborhoods</Text>
       <Text style={styles.subtitle}>
-        {MEMBERS.length} neighbors in your community
+        {data?.neighborhoods?.length || 0} communities to explore
       </Text>
+
       <FlatList
-        data={MEMBERS}
-        keyExtractor={(item) => item.id.toString()}
+        data={data?.neighborhoods || []}
+        keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        style={styles.list}
+        refreshing={loading}
+        onRefresh={refetch}
       />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: "#000",
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#00FF00",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#00AA00",
+    marginBottom: 20,
+  },
+  neighborhoodItem: {
+    backgroundColor: "#111",
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#333",
+  },
+  neighborhoodName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#00FF00",
+    marginBottom: 4,
+  },
+  neighborhoodType: {
+    fontSize: 12,
+    color: "#00AA00",
+    marginBottom: 8,
+  },
+  neighborhoodDescription: {
+    fontSize: 14,
+    color: "#CCC",
+    marginBottom: 12,
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  joinButton: {
+    backgroundColor: "#00FF00",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  joinButtonText: {
+    color: "#000",
+    fontWeight: "bold",
+  },
+  viewButton: {
+    backgroundColor: "#333",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  viewButtonText: {
+    color: "#00FF00",
+    fontWeight: "bold",
+  },
+  loading: {
+    marginTop: 50,
+  },
+  error: {
+    color: "#FF4444",
+    textAlign: "center",
+    marginTop: 20,
+  },
+  leaveButton: {
+    backgroundColor: "#FF4444",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  leaveButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+  },
+});
