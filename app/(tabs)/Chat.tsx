@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput as RNTextInput,
   Alert,
+  Linking, // Ensure Linking is imported for file open/download
 } from "react-native";
 import { Text } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -14,6 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io, Socket } from "socket.io-client";
 import { gql, useQuery, useMutation } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker"; // Added for file picking
 
 // GraphQL Definitions
 const GET_MESSAGES = gql`
@@ -23,6 +25,9 @@ const GET_MESSAGES = gql`
       content
       imageUrl
       videoUrl
+      fileUrl
+      fileName
+      fileType
       room
       createdAt
       sender {
@@ -35,12 +40,29 @@ const GET_MESSAGES = gql`
 `;
 
 const SEND_MESSAGE = gql`
-  mutation SendMessage($content: String!, $room: String!, $imageUrl: String) {
-    sendMessage(content: $content, room: $room, imageUrl: $imageUrl) {
+  mutation SendMessage(
+    $content: String!
+    $room: String!
+    $imageUrl: String
+    $fileUrl: String
+    $fileName: String
+    $fileType: String
+  ) {
+    sendMessage(
+      content: $content
+      room: $room
+      imageUrl: $imageUrl
+      fileUrl: $fileUrl
+      fileName: $fileName
+      fileType: $fileType
+    ) {
       id
       content
       imageUrl
       videoUrl
+      fileUrl
+      fileName
+      fileType
       room
       createdAt
       sender {
@@ -54,15 +76,92 @@ const SEND_MESSAGE = gql`
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-// Add this helper function to detect if content is an image URL
-const isImageUrl = (text: string) => {
-  if (!text) return false;
-  return (
-    text.match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) !== null ||
-    text.includes("picsum.photos") ||
-    text.includes("placeholder.com")
-  );
+// --- UTILITY FUNCTIONS ---
+
+// File type detection
+const getFileType = (fileName: string) => {
+  if (!fileName) return "file";
+
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  if (!ext) return "file";
+
+  const imageTypes = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
+  const videoTypes = ["mp4", "mov", "avi", "mkv", "webm"];
+  const docTypes = ["pdf", "doc", "docx", "txt"];
+  const sheetTypes = ["xls", "xlsx", "csv"];
+
+  if (imageTypes.includes(ext)) return "image";
+  if (videoTypes.includes(ext)) return "video";
+  if (docTypes.includes(ext)) return "document";
+  if (sheetTypes.includes(ext)) return "spreadsheet";
+  if (ext === "zip" || ext === "rar") return "archive";
+
+  return "file";
 };
+
+const getFileIcon = (
+  fileType: string | undefined,
+  fileName: string | undefined
+) => {
+  switch (fileType) {
+    case "document":
+      if (fileName?.includes(".pdf")) return "📄";
+      return "📝";
+    case "spreadsheet":
+      return "📊";
+    case "archive":
+      return "📦";
+    case "video":
+      return "🎬";
+    case "image":
+      return "🖼️";
+    default:
+      return "📎";
+  }
+};
+
+// FIXED timestamp function
+const formatTimestamp = (timestamp: any) => {
+  try {
+    const date = new Date(
+      typeof timestamp === "string" ? parseInt(timestamp) : timestamp
+    );
+    if (isNaN(date.getTime())) return "Now";
+
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const isYesterday =
+      new Date(now.setDate(now.getDate() - 1)).toDateString() ===
+      date.toDateString();
+
+    if (isToday) {
+      return date.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } else if (isYesterday) {
+      return `Yesterday ${date.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })}`;
+    } else {
+      return `${date.toLocaleDateString([], {
+        month: "numeric",
+        day: "numeric",
+      })} ${date.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })}`;
+    }
+  } catch {
+    return "Now";
+  }
+};
+
+// --- CHAT SCREEN COMPONENT ---
 
 export default function ChatScreen() {
   const params = useLocalSearchParams();
@@ -76,6 +175,7 @@ export default function ChatScreen() {
   const [newMessage, setNewMessage] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadType, setUploadType] = useState<string | null>(null); // To distinguish image/file uploads
 
   // Only run GraphQL query when authenticated
   const { loading, error, data, refetch } = useQuery(GET_MESSAGES, {
@@ -88,10 +188,9 @@ export default function ChatScreen() {
         data?.messages?.length,
         "messages"
       );
-      console.log(
-        "🔍 GRAPHQL MESSAGES DATA:",
-        JSON.stringify(data?.messages, null, 2)
-      );
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 200);
     },
     onError: (error) => {
       console.error("❌ GraphQL Query Error:", error);
@@ -107,136 +206,7 @@ export default function ChatScreen() {
 
   const [sendMessageMutation] = useMutation(SEND_MESSAGE);
 
-  const pickImage = async () => {
-    try {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert(
-          "Permission needed",
-          "Sorry, we need camera roll permissions to upload images."
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images", "videos"],
-        quality: 0.8,
-      });
-
-      if (!result.canceled) {
-        await uploadImage(result.assets[0].uri);
-      }
-    } catch (error) {
-      console.error("Image picker error:", error);
-      Alert.alert("Error", "Failed to pick image");
-    }
-  };
-
-const uploadImage = async (imageUri: string | Request) => {
-  setUploading(true);
-
-  try {
-    const token = await AsyncStorage.getItem("token");
-
-    let blob;
-    if (typeof imageUri === "string" && imageUri.startsWith("blob:")) {
-      const response = await fetch(imageUri);
-      blob = await response.blob();
-    } else if (typeof imageUri === "string") {
-      const response = await fetch(imageUri);
-      blob = await response.blob();
-    } else {
-      throw new Error("Invalid imageUri type");
-    }
-
-    console.log("Uploading image to IPFS...");
-
-    const formData = new FormData();
-    formData.append("video", blob, `chat-image-${Date.now()}.jpg`);
-
-    // Use proper values instead of empty/default ones
-    formData.append("title", `Chat image from ${username}`);
-    formData.append("description", `Shared in ${room} chat`);
-
-    // If you want to be even more specific about it being an image:
-    // formData.append("fileType", "image");
-
-    const uploadResponse = await fetch(
-      "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/upload",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      }
-    );
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      console.error("Upload failed:", uploadResponse.status, errorText);
-      throw new Error(`Upload failed: ${uploadResponse.status}`);
-    }
-
-    const uploadResult = await uploadResponse.json();
-    console.log("IPFS Upload result:", uploadResult);
-
-    if (uploadResult.ipfsUrl) {
-        console.log("Waiting for IPFS processing...");
-        await new Promise((resolve) => setTimeout(resolve, 10000)); // 10 seconds
-        console.log("Proceeding with IPFS URL");
-      await sendMessageMutation({
-        variables: {
-          content: "",
-          room: room,
-          imageUrl: uploadResult.ipfsUrl,
-        },
-      });
-    } else {
-      throw new Error("No IPFS URL returned");
-    }
-  } catch (error) {
-    console.error("Upload error:", error);
-    const errorMessage =
-      typeof error === "object" && error !== null && "message" in error
-        ? (error as { message?: string }).message
-        : "Could not upload image";
-    Alert.alert("Upload Failed", errorMessage || "Could not upload image");
-  } finally {
-    setUploading(false);
-  }
-};
-  // Single auth check
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const token = await AsyncStorage.getItem("token");
-        const savedUsername = await AsyncStorage.getItem("username");
-
-        console.log("🔑 ChatScreen: Token exists:", !!token);
-        console.log("🔑 ChatScreen: Username:", savedUsername);
-
-        if (!token) {
-          Alert.alert(
-            "Authentication Required",
-            "Please log in to access chat"
-          );
-          router.replace("/login");
-          return;
-        }
-
-        setUsername(savedUsername || "");
-        setIsAuthenticated(true);
-        initializeSocket(token);
-      } catch (error) {
-        console.error("Auth check error:", error);
-        Alert.alert("Error", "Failed to initialize chat");
-      }
-    };
-
-    checkAuth();
-  }, []);
+  // --- HANDLERS ---
 
   const initializeSocket = (token: string) => {
     console.log("🔌 Initializing socket with token...");
@@ -301,58 +271,10 @@ const uploadImage = async (imageUri: string | Request) => {
     router.replace("/login");
   };
 
-  // FIXED timestamp function
-  const formatTimestamp = (timestamp: any) => {
-    try {
-      // Handle string timestamps that are already numeric
-      const date = new Date(
-        typeof timestamp === "string" ? parseInt(timestamp) : timestamp
-      );
-
-      if (isNaN(date.getTime())) return "Now";
-
-      const now = new Date();
-      const isToday = date.toDateString() === now.toDateString();
-      const isYesterday =
-        new Date(now.setDate(now.getDate() - 1)).toDateString() ===
-        date.toDateString();
-
-      if (isToday) {
-        return date.toLocaleTimeString([], {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        });
-      } else if (isYesterday) {
-        return `Yesterday ${date.toLocaleTimeString([], {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        })}`;
-      } else {
-        return `${date.toLocaleDateString([], {
-          month: "numeric",
-          day: "numeric",
-        })} ${date.toLocaleTimeString([], {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        })}`;
-      }
-    } catch {
-      return "Now";
-    }
-  };
-
   const debugToken = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
       const username = await AsyncStorage.getItem("username");
-
-      console.log("🔍 DEBUG Token:", token);
-      console.log("🔍 DEBUG Username:", username);
-      console.log("🔍 DEBUG Token exists:", !!token);
-      console.log("🔍 DEBUG Token length:", token?.length);
 
       Alert.alert(
         "Debug Info",
@@ -365,25 +287,280 @@ const uploadImage = async (imageUri: string | Request) => {
     }
   };
 
+  // Handle file download/open
+  const handleFilePress = (message: { fileUrl: string; fileName: any }) => {
+    if (message.fileUrl) {
+      const url = message.fileUrl.replace(
+        "ipfs.filebase.io",
+        "gateway.pinata.cloud"
+      );
+
+      Alert.alert(
+        message.fileName || "File",
+        "What would you like to do with this file?",
+        [
+          {
+            text: "Download/Open",
+            onPress: () =>
+              Linking.openURL(url).catch((err) =>
+                Alert.alert("Error", "Could not open file: " + err.message)
+              ),
+          },
+          // Clipboard import needed for this
+          // {
+          //   text: "Copy Link",
+          //   onPress: () => {
+          //     Alert.alert("Copied", "File link copied to clipboard");
+          //   },
+          // },
+          { text: "Cancel", style: "cancel" },
+        ]
+      );
+    }
+  };
+
+  // --- UPLOAD FUNCTIONS ---
+
+  // Generic file picker function (for any file type)
+  const pickFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) return;
+
+      const file = result.assets[0];
+      console.log("Selected file:", file);
+
+      await uploadFile(file);
+    } catch (error) {
+      console.error("File picker error:", error);
+      Alert.alert("Error", "Failed to pick file");
+    }
+  };
+
+  // Image/Video picker function (optimized for media library)
+  const pickImage = async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission needed",
+          "Sorry, we need camera roll permissions to upload files."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All, // Allows both images and videos
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        const asset = result.assets[0];
+        const fileType = getFileType(asset.uri); // Use URI to guess type if name is missing
+
+        if (fileType === "image" || fileType === "video") {
+          await uploadMedia(asset);
+        } else {
+          Alert.alert(
+            "Unsupported Media",
+            "Please use the '📎' button for general files."
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Image picker error:", error);
+      Alert.alert("Error", "Failed to pick media");
+    }
+  };
+
+  // Upload *NON-IMAGE* file function
+  const uploadFile = async (file: {
+    name: any;
+    size?: number | undefined;
+    uri: any;
+    mimeType?: string | undefined;
+    lastModified?: number;
+    file?: File | undefined;
+    base64?: string | undefined;
+  }) => {
+    setUploading(true);
+    setUploadType("file");
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+      console.log("Uploading file to IPFS...");
+
+      const formData = new FormData();
+      const response = await fetch(file.uri);
+      const blob = await response.blob();
+
+      formData.append("video", blob, file.name || `file-${Date.now()}`);
+      formData.append("title", `File from ${username}`);
+      formData.append("description", `Shared in ${room} chat`);
+
+      const uploadResponse = await fetch(
+        "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/upload",
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        }
+      );
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error("Upload failed:", uploadResponse.status, errorText);
+        throw new Error(`Upload failed: ${uploadResponse.status}`);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      if (uploadResult.ipfsUrl) {
+        console.log("Waiting for IPFS processing...");
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+
+        const fileType = getFileType(file.name);
+
+        await sendMessageMutation({
+          variables: {
+            content: file.name || "File Shared",
+            room: room,
+            fileUrl: uploadResult.ipfsUrl,
+            fileName: file.name || "Unknown File",
+            fileType: fileType,
+          },
+        });
+      } else {
+        throw new Error("No IPFS URL returned");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Could not upload file";
+      Alert.alert("Upload Failed", errorMessage);
+    } finally {
+      setUploading(false);
+      setUploadType(null);
+    }
+  };
+
+  // Upload *IMAGE/VIDEO* media function
+  const uploadMedia = async (asset: ImagePicker.ImagePickerAsset) => {
+    setUploading(true);
+    setUploadType(asset.type);
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+
+      let blob;
+      const response = await fetch(asset.uri);
+      blob = await response.blob();
+
+      const fileName = asset.fileName || `${asset.type}-${Date.now()}.jpg`;
+
+      console.log("Uploading media to IPFS...", fileName);
+
+      const formData = new FormData();
+      formData.append("video", blob, fileName); // Backend uses "video" field for all file uploads
+      formData.append("title", `${asset.type} from ${username}`);
+      formData.append("description", `Shared in ${room} chat`);
+
+      const uploadResponse = await fetch(
+        "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/upload",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error("Upload failed:", uploadResponse.status, errorText);
+        throw new Error(`Upload failed: ${uploadResponse.status}`);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      if (uploadResult.ipfsUrl) {
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+
+        // Determine the message fields based on asset type
+        const messageVariables = {
+          content: `${
+            asset.type.charAt(0).toUpperCase() + asset.type.slice(1)
+          } Shared`,
+          room: room,
+          imageUrl: asset.type === "image" ? uploadResult.ipfsUrl : undefined,
+          videoUrl: asset.type === "video" ? uploadResult.ipfsUrl : undefined,
+          fileUrl: undefined, // Only use fileUrl for non-media documents
+          fileName: fileName,
+          fileType: asset.type,
+        };
+
+        await sendMessageMutation({ variables: messageVariables });
+      } else {
+        throw new Error("No IPFS URL returned");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Could not upload media";
+      Alert.alert("Upload Failed", errorMessage);
+    } finally {
+      setUploading(false);
+      setUploadType(null);
+    }
+  };
+
+  // --- EFFECTS ---
+
+  // Single auth check and socket initialization
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        const savedUsername = await AsyncStorage.getItem("username");
+
+        if (!token) {
+          Alert.alert(
+            "Authentication Required",
+            "Please log in to access chat"
+          );
+          router.replace("/login");
+          return;
+        }
+
+        setUsername(savedUsername || "");
+        setIsAuthenticated(true);
+        initializeSocket(token);
+      } catch (error) {
+        console.error("Auth check error:", error);
+        Alert.alert("Error", "Failed to initialize chat");
+      }
+    };
+
+    checkAuth();
+
+    // Cleanup socket on unmount
+    return () => {
+      socket?.disconnect();
+    };
+  }, []);
+
+  // --- RENDERING ---
+
   // Get messages from GraphQL data
   const messages = data?.messages || [];
 
-  useEffect(() => {
-    if (socket) {
-      socket.on("message", (newMsg) => {
-        console.log("📨 New message via socket:", newMsg);
-        refetch();
-
-        setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd({ animated: true });
-        }, 200);
-      });
-    }
-  }, [socket]);
-
   if (!isAuthenticated) {
     return (
-      <View style={styles.container}>
+      <View style={styles.centerContainer}>
         <Text style={styles.loadingText}>Checking authentication...</Text>
       </View>
     );
@@ -391,7 +568,7 @@ const uploadImage = async (imageUri: string | Request) => {
 
   if (loading && messages.length === 0) {
     return (
-      <View style={styles.container}>
+      <View style={styles.centerContainer}>
         <Text style={styles.loadingText}>Loading chat...</Text>
       </View>
     );
@@ -399,7 +576,7 @@ const uploadImage = async (imageUri: string | Request) => {
 
   if (error) {
     return (
-      <View style={styles.container}>
+      <View style={styles.centerContainer}>
         <Text style={styles.errorText}>Error: {error.message}</Text>
         <TouchableOpacity onPress={() => refetch()} style={styles.retryButton}>
           <Text style={styles.retryText}>Retry</Text>
@@ -418,12 +595,6 @@ const uploadImage = async (imageUri: string | Request) => {
         <View style={styles.headerButtons}>
           <TouchableOpacity onPress={debugToken} style={styles.debugButton}>
             <Text style={styles.debugText}>🐛</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => refetch()}
-            style={styles.refreshButton}
-          >
-            <Text style={styles.refreshText}>🔄</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
             <Text style={styles.logoutText}>🚪</Text>
@@ -450,85 +621,153 @@ const uploadImage = async (imageUri: string | Request) => {
           scrollViewRef.current?.scrollToEnd({ animated: true })
         }
       >
-        {messages.map((item) => (
-          <View style={styles.messageContainer} key={item.id}>
-            <Image
-              source={{
-                uri:
-                  item.sender?.profilePhoto || "https://via.placeholder.com/40",
-              }}
-              style={styles.profileImage}
-            />
-            <View style={styles.messageContent}>
-              <Text style={styles.username}>
-                {item.sender?.username || "Unknown"}
-              </Text>
-
-              {/* Show image if imageUrl exists */}
-              {item.imageUrl ? (
-                <View>
-                  {/* Try to show image */}
-                  <Image
-                    source={{
-                      uri: item.imageUrl?.replace(
-                        "ipfs.filebase.io",
-                        "gateway.pinata.cloud"
-                      ),
-                    }}
-                    style={styles.messageImage}
-                    resizeMode="cover"
-                    onError={() => {
-                      // If image fails, show magnet link info
-                      console.log(
-                        "Image failed, magnet available:",
-                        item.videoUrl
-                      );
-                    }}
-                  />
-
-                  {/* Always show the magnet link as fallback */}
-                  {item.videoUrl && item.videoUrl.includes("magnet:") && (
-                    <TouchableOpacity
-                      style={styles.magnetLink}
-                      onPress={() => {
-                        Alert.alert(
-                          "Torrent Available",
-                          "This content is available via BitTorrent",
-                          [
-                            {
-                              text: "Copy Magnet",
-                              onPress: () => Clipboard.setString(item.videoUrl),
-                            },
-                            { text: "OK" },
-                          ]
-                        );
-                      }}
+        {messages.map(
+          (item: {
+            id: React.Key | null | undefined;
+            sender: { profilePhoto: any; username: any };
+            imageUrl: string;
+            videoUrl: string;
+            fileUrl: any;
+            fileType: any;
+            fileName: any;
+            content:
+              | string
+              | number
+              | bigint
+              | boolean
+              | React.ReactElement<
+                  unknown,
+                  string | React.JSXElementConstructor<any>
+                >
+              | Iterable<React.ReactNode>
+              | React.ReactPortal
+              | Promise<
+                  | string
+                  | number
+                  | bigint
+                  | boolean
+                  | React.ReactPortal
+                  | React.ReactElement<
+                      unknown,
+                      string | React.JSXElementConstructor<any>
                     >
-                      <Text style={styles.magnetText}>
-                        🧲 Torrent Available
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ) : (
-                /* Show text if no image */
-                <Text style={styles.messageText}>{item.content}</Text>
-              )}
+                  | Iterable<React.ReactNode>
+                  | null
+                  | undefined
+                >
+              | null
+              | undefined;
+            createdAt: any;
+          }) => {
+            const mediaUrl = item.imageUrl || item.videoUrl;
+            const isMedia = !!mediaUrl;
+            const isFile = !!item.fileUrl && !isMedia; // File excludes images/videos sent via separate fields
 
-              <Text style={styles.timestamp}>
-                {formatTimestamp(item.createdAt)}
-              </Text>
-            </View>
-          </View>
-        ))}
+            // Replace IPFS gateway for viewing
+            const viewableUrl = isMedia
+              ? mediaUrl?.replace("ipfs.filebase.io", "gateway.pinata.cloud")
+              : null;
+
+            return (
+              <View style={styles.messageContainer} key={item.id}>
+                <Image
+                  source={{
+                    uri:
+                      item.sender?.profilePhoto ||
+                      "https://via.placeholder.com/40",
+                  }}
+                  style={styles.profileImage}
+                />
+                <View style={styles.messageContent}>
+                  <Text style={styles.username}>
+                    {item.sender?.username || "Unknown"}
+                  </Text>
+
+                  {/* Show media (Image or Video) if imageUrl or videoUrl exists */}
+                  {viewableUrl && item.imageUrl ? (
+                    <View>
+                      <Image
+                        source={{ uri: viewableUrl }}
+                        style={styles.messageImage}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  ) : viewableUrl && item.videoUrl ? (
+                    // Note: You need a VideoView component here for video display.
+                    // Since it wasn't defined in the styles or imports, we'll display a placeholder/link for now.
+                    <TouchableOpacity
+                      style={[
+                        styles.fileContainer,
+                        { backgroundColor: "#555" },
+                      ]}
+                      onPress={() => Linking.openURL(viewableUrl)}
+                    >
+                      <Text style={styles.fileIcon}>🎬</Text>
+                      <View style={styles.fileInfo}>
+                        <Text style={styles.fileName}>
+                          Video: {item.fileName || "Click to Play"}
+                        </Text>
+                        <Text style={styles.fileType}>
+                          Video • Tap to stream
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ) : isFile ? (
+                    /* Show generic file if fileUrl exists (not image/video) */
+                    <TouchableOpacity
+                      style={styles.fileContainer}
+                      onPress={() => handleFilePress(item)}
+                    >
+                      <Text style={styles.fileIcon}>
+                        {getFileIcon(item.fileType, item.fileName)}
+                      </Text>
+                      <View style={styles.fileInfo}>
+                        <Text style={styles.fileName} numberOfLines={1}>
+                          {item.fileName || "Download File"}
+                        </Text>
+                        <Text style={styles.fileType}>
+                          {item.fileType || "File"} • Click to download
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ) : (
+                    /* Show text if no media or file */
+                    <Text style={styles.messageText}>{item.content}</Text>
+                  )}
+
+                  <Text style={styles.timestamp}>
+                    {formatTimestamp(item.createdAt)}
+                  </Text>
+                </View>
+              </View>
+            );
+          }
+        )}
       </ScrollView>
+
       <View style={styles.inputContainer}>
+        {/* File upload button */}
+        <TouchableOpacity
+          style={styles.uploadButton}
+          onPress={pickFile}
+          disabled={uploading}
+        >
+          <Text style={styles.uploadButtonText}>
+            {uploading && uploadType === "file" ? "📤" : "📎"}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Image/Video upload button */}
         <TouchableOpacity
           style={styles.uploadButton}
           onPress={pickImage}
-          disabled={uploading || !socket}
+          disabled={uploading}
         >
-          <Text style={styles.uploadButtonText}>{uploading ? "📤" : "📷"}</Text>
+          <Text style={styles.uploadButtonText}>
+            {uploading && (uploadType === "image" || uploadType === "video")
+              ? "📤"
+              : "📷"}
+          </Text>
         </TouchableOpacity>
 
         <RNTextInput
@@ -564,6 +803,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000000",
   },
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000000",
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -583,6 +828,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+  logoutButton: {
+    padding: 8,
+  },
+  logoutText: {
+    fontSize: 18,
+    color: "#FF4444",
+  },
   debugButton: {
     padding: 8,
     marginRight: 10,
@@ -591,20 +843,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#00FF00",
   },
-  refreshButton: {
-    padding: 8,
-    marginRight: 10,
+  retryButton: {
+    padding: 10,
+    backgroundColor: "#00AA00",
+    borderRadius: 5,
+    marginTop: 10,
   },
-  refreshText: {
-    fontSize: 18,
-    color: "#00FF00",
-  },
-  logoutButton: {
-    padding: 8,
-  },
-  logoutText: {
-    fontSize: 18,
-    color: "#FF4444",
+  retryText: {
+    color: "#000000",
+    fontWeight: "bold",
   },
   loadingText: {
     color: "#00FF00",
@@ -617,17 +864,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 20,
     fontSize: 16,
-  },
-  retryButton: {
-    backgroundColor: "#00FF00",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 10,
-    alignSelf: "center",
-  },
-  retryText: {
-    color: "#000000",
-    fontWeight: "bold",
   },
   userInfo: {
     fontSize: 12,
@@ -738,11 +974,32 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#00FF00",
   },
-  magnetLink: {
+  // New file styles
+  fileContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#222222",
-    padding: 8,
+    padding: 12,
     borderRadius: 8,
-    marginTop: 6,
-    alignSelf: "flex-start",
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: "#333333",
+  },
+  fileIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  fileInfo: {
+    flex: 1,
+  },
+  fileName: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  fileType: {
+    color: "#00AA00",
+    fontSize: 12,
   },
 });
