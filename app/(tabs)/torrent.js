@@ -159,7 +159,7 @@ const VideoCard = ({ video }) => {
         {video.title}
       </Text>
       <Text style={styles.description} numberOfLines={2}>
-        {video.description || "No description provided."}
+        {video.description || "No description provided"}
       </Text>
 
       <VideoView
