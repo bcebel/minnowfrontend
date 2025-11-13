@@ -9,10 +9,60 @@ import {
   useWindowDimensions,
   TouchableOpacity,
   Linking,
+  Alert,
 } from "react-native";
+import { Image } from "expo-image"; // Use the correct Image import from expo-image
 import { useVideoPlayer, VideoView } from "expo-video";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
+// --- UTILITY FUNCTIONS ---
+
+// SIMPLE file type detection
+const getFileType = (fileName) => {
+  if (!fileName) return "unknown";
+
+  // Use the fileName provided in the object, not the mediaUrl (which lacks extension)
+  fileName = fileName.toLowerCase();
+
+  // Check for video extensions
+  if (
+    fileName.endsWith(".mp4") ||
+    fileName.endsWith(".mov") ||
+    fileName.endsWith(".avi") ||
+    fileName.endsWith(".mkv") ||
+    fileName.endsWith(".webm")
+  ) {
+    return "video";
+  }
+
+  // Check for image extensions
+  if (
+    fileName.endsWith(".jpg") ||
+    fileName.endsWith(".jpeg") ||
+    fileName.endsWith(".png") ||
+    fileName.endsWith(".gif") ||
+    fileName.endsWith(".webp")
+  ) {
+    return "image";
+  }
+
+  // Check for document extensions (PDF, DOCX, etc.)
+  if (
+    fileName.endsWith(".pdf") ||
+    fileName.endsWith(".doc") ||
+    fileName.endsWith(".docx") ||
+    fileName.endsWith(".txt") ||
+    fileName.endsWith(".xlsx") ||
+    fileName.endsWith(".xls") ||
+    fileName.endsWith(".pptx") ||
+    fileName.endsWith(".ppt")
+  ) {
+    return "document";
+  }
+
+  return "unknown";
+};
 
 // Click tracking function
 const trackAffiliateClick = async (affiliateLinkId) => {
@@ -27,38 +77,28 @@ const trackAffiliateClick = async (affiliateLinkId) => {
   }
 };
 
-// Function to fetch user affiliate data
-const fetchUserAffiliateData = async (userId) => {
+// Download function for files
+const downloadFile = async (url, fileName) => {
   try {
-    const response = await fetch(`${BACKEND_URL}/graphql`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: `
-          query GetUserAffiliateLinks($userId: ID!) {
-            user(id: $userId) {
-              id
-              username
-              affiliateLinks {
-                id
-                url
-                title
-                clicks
-              }
-            }
-          }
-        `,
-        variables: { userId },
-      }),
-    });
-
-    const result = await response.json();
-    return result.data?.user;
+    if (Platform.OS === "web") {
+      // For web, create a download link
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName || "download";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      // For mobile, open in browser/app
+      await Linking.openURL(url);
+    }
   } catch (error) {
-    console.log("Failed to fetch affiliate data:", error);
-    return null;
+    console.error("Download failed:", error);
+    Alert.alert("Download Error", "Failed to download file. Please try again.");
   }
 };
+
+// --- SUB-COMPONENTS ---
 
 // Affiliate Links Component
 const AffiliateLinks = ({ user }) => {
@@ -86,72 +126,112 @@ const AffiliateLinks = ({ user }) => {
   );
 };
 
-// --- Video Card Component ---
-// --- SIMPLE Video Card Component ---
-// --- SMART Video Card Component ---
+// SIMPLE Video Player Component
+const VideoPlayer = ({ url }) => {
+  const player = useVideoPlayer(url, (player) => {
+    player.loop = false;
+  });
+
+  return (
+    <VideoView
+      player={player}
+      style={styles.videoPlayer}
+      showsControls={true}
+      contentFit="contain"
+      allowsExternalPlayback={true}
+    />
+  );
+};
+
+// SIMPLE Image Preview Component
+const ImagePreview = ({ url, onError }) => {
+  return (
+    <TouchableOpacity onPress={() => Linking.openURL(url)}>
+      <Image
+        source={{ uri: url }}
+        style={styles.imagePlayer}
+        resizeMode="contain"
+        onError={onError}
+      />
+    </TouchableOpacity>
+  );
+};
+
+// SIMPLE Document Preview Component
+const DocumentPreview = ({ url, fileName, fileType }) => {
+  return (
+    <TouchableOpacity
+      style={styles.documentContainer}
+      onPress={() => downloadFile(url, fileName)} // Uses the download helper
+    >
+      <Text style={styles.documentIcon}>
+        {fileType === "document" ? "📄" : "📁"}
+      </Text>
+      <View style={styles.documentInfo}>
+        <Text style={styles.documentTitle} numberOfLines={1}>
+          {fileName || "Download File"}
+        </Text>
+        <Text style={styles.documentSubtext}>
+          Tap to download • {fileType === "document" ? "Document" : "File"}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// --- Video/Media Card Component (Main Item Renderer) ---
+
 const VideoCard = ({ video }) => {
   const [userData, setUserData] = useState(null);
-  let ipfsUrl;
+  const [imageError, setImageError] = useState(false);
+
+  let mediaUrl = video.ipfsUrl;
 
   // URL processing logic
-  if (Platform.OS === "android") {
-    ipfsUrl = video.ipfsUrl?.replace(
-      "ipfs.filebase.io",
-      "gateway.pinata.cloud"
-    );
-  } else {
-    ipfsUrl = video.cid
-      ? `https://${video.cid}.ipfs.dweb.link/`
-      : video.ipfsUrl?.replace("ipfs.filebase.io", "gateway.pinata.cloud");
+  if (mediaUrl) {
+    if (Platform.OS === "android") {
+      mediaUrl = mediaUrl.replace("ipfs.filebase.io", "gateway.pinata.cloud");
+    } else {
+      mediaUrl = video.cid
+        ? `https://${video.cid}.ipfs.dweb.link/`
+        : mediaUrl.replace("ipfs.filebase.io", "gateway.pinata.cloud");
+    }
   }
 
-  // SIMPLIFIED: Only try to fetch affiliate data for users we know exist in GraphQL
+  // Get file type and name
+  const fileName = video.fileName || video.title || "media";
+  const fileType = getFileType(fileName); // Uses the fixed logic
+
   useEffect(() => {
-    // For now, let's just use mock data for everyone
-    // But in the future, we can conditionally fetch real data
+    // Mock user data for affiliate links demonstration
     const mockUserData = {
       username: video.user?.username || "Creator",
       affiliateLinks: [
         {
           id: "1",
           url: "https://impact.com/test",
-          title: "Amazon Products", 
-          clicks: Math.floor(Math.random() * 10)
+          title: "Amazon Products",
+          clicks: Math.floor(Math.random() * 10),
         },
         {
-          id: "2", 
+          id: "2",
           url: "https://impact.com/electronics",
           title: "Electronics",
-          clicks: Math.floor(Math.random() * 5)
-        }
-      ]
+          clicks: Math.floor(Math.random() * 5),
+        },
+      ],
     };
     setUserData(mockUserData);
-    
-    // Optional: Uncomment this later when we fix the data sync
-    // if (video.user?._id) {
-    //   fetchUserAffiliateData(video.user._id).then(data => {
-    //     if (data) {
-    //       setUserData(data); // Use real data if available
-    //     } else {
-    //       setUserData(mockUserData); // Fallback to mock
-    //     }
-    //   });
-    // }
   }, [video.user]);
 
-  if (!ipfsUrl) {
+  if (!mediaUrl) {
     return (
       <View style={styles.videoCard}>
         <Text style={styles.title}>{video.title}</Text>
-        <Text style={styles.errorText}>Video link unavailable.</Text>
+        <Text style={styles.errorText}>No media URL available.</Text>
       </View>
     );
   }
-
-  const player = useVideoPlayer(ipfsUrl, (player) => {
-    player.loop = true;
-  });
 
   return (
     <View style={styles.videoCard}>
@@ -159,18 +239,30 @@ const VideoCard = ({ video }) => {
         {video.title}
       </Text>
       <Text style={styles.description} numberOfLines={2}>
-        {video.description || "No description provided"}
+        {video.description || "No description provided."}
       </Text>
 
-      <VideoView
-        player={player}
-        style={[styles.videoPlayer]}
-        showsControls={true}
-        contentFit="contain"
-        allowsExternalPlayback={true}
-      />
+      {/* File type badge */}
+      <View style={styles.fileTypeBadge}>
+        <Text style={styles.fileTypeText}>
+          {fileType.toUpperCase()} • {fileName ? fileName : "Media"}
+        </Text>
+      </View>
 
-      {/* This will now show data (mock for now, real later) */}
+      {/* Media Rendering */}
+      {fileType === "video" ? (
+        <VideoPlayer url={mediaUrl} />
+      ) : fileType === "image" ? (
+        <ImagePreview url={mediaUrl} onError={() => setImageError(true)} />
+      ) : (
+        <DocumentPreview
+          url={mediaUrl}
+          fileName={fileName}
+          fileType={fileType}
+        />
+      )}
+
+      {/* Affiliate Links */}
       <AffiliateLinks user={userData} />
     </View>
   );
@@ -224,7 +316,7 @@ export default function App() {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading Videos...</Text>
+        <Text style={styles.loadingText}>Loading Media...</Text>
       </View>
     );
   }
@@ -248,7 +340,7 @@ export default function App() {
           Platform.OS === "web" && { maxWidth: 1200, marginHorizontal: "auto" },
         ]}
         ListHeaderComponent={
-          <Text style={styles.header}>Minnow Video Strike</Text>
+          <Text style={styles.header}>Minnow File Gallery</Text>
         }
         numColumns={numColumns}
         columnWrapperStyle={
@@ -308,6 +400,14 @@ const styles = StyleSheet.create({
     height: 250,
     backgroundColor: "#000",
     borderRadius: 4,
+    marginBottom: 10,
+  },
+  imagePlayer: {
+    width: "100%",
+    height: 300,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 8,
+    marginBottom: 10,
   },
   errorText: {
     color: "#721c24",
@@ -321,7 +421,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: "#007AFF",
   },
-  // Add affiliate styles
   affiliateSection: {
     backgroundColor: "#f5f5f5",
     padding: 12,
@@ -351,5 +450,45 @@ const styles = StyleSheet.create({
   linkClicks: {
     fontSize: 12,
     color: "#666",
+  },
+  documentContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa",
+    padding: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+    marginBottom: 10,
+  },
+  documentIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  documentInfo: {
+    flex: 1,
+  },
+  documentTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#212529",
+    marginBottom: 4,
+  },
+  documentSubtext: {
+    fontSize: 12,
+    color: "#6c757d",
+  },
+  fileTypeBadge: {
+    backgroundColor: "#e3f2fd",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: "flex-start",
+    marginBottom: 8,
+  },
+  fileTypeText: {
+    fontSize: 10,
+    color: "#1565c0",
+    fontWeight: "bold",
   },
 });
