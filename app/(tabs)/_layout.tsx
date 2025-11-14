@@ -45,6 +45,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => null,
         }}
       />
+      <Tabs.Screen
+        name="Home"
+        options={{
+          title: "👥 Home",
+          tabBarIcon: ({ color }) => null,
+        }}
+      />
     </Tabs>
   );
 }
