@@ -355,7 +355,7 @@ export default function ChatScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All, // Allows both images and videos
+        mediaTypes: ['images', 'videos'], // Allows both images and videos
         quality: 0.8,
       });
 

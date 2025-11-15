@@ -101,7 +101,11 @@ const renderMember = ({ item }) => (
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.chatButton}
-          onPress={() => router.push(`/chat?room=${neighborhood.name}`)}
+          onPress={() =>
+            router.push(
+              `/neighborhood-chat?neighborhoodId=${neighborhood.id}`
+            )
+          }
         >
           <Text style={styles.chatButtonText}>💬 Open Chat</Text>
         </TouchableOpacity>
