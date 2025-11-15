@@ -361,12 +361,22 @@ const sendMessage = async () => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.roomTitle}>🏘️ {neighborhoodName}</Text>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButton}
         >
           <Text style={styles.backText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.roomTitle}>🏘️ {neighborhoodName}</Text>
+        <TouchableOpacity
+          onPress={() =>
+            router.push(
+              `/neighborhood-members?neighborhoodId=${neighborhoodId}`
+            )
+          }
+          style={styles.membersButton}
+        >
+          <Text style={styles.membersButtonText}>👥</Text>
         </TouchableOpacity>
       </View>
 
@@ -681,5 +691,12 @@ const styles = StyleSheet.create({
   retryText: {
     color: "#000000",
     fontWeight: "bold",
+  },
+  membersButton: {
+    padding: 8,
+  },
+  membersButtonText: {
+    fontSize: 18,
+    color: "#00FF00",
   },
 });
