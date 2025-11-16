@@ -10,6 +10,7 @@ import {
   Linking, // Ensure Linking is imported for file open/download
 } from "react-native";
 import { Text } from "react-native";
+import WebTorrent from "webtorrent";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io, Socket } from "socket.io-client";
@@ -77,7 +78,96 @@ const SEND_MESSAGE = gql`
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 // --- UTILITY FUNCTIONS ---
+const startNeighborhoodStream = async () => {
+  try {
+    console.log("🎥 Requesting camera...");
 
+    // 🚨 Get camera permission FIRST
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480 },
+      audio: true,
+    });
+
+    console.log("✅ Camera access granted!");
+
+    // Show preview so user knows it's working
+    const video = document.createElement("video");
+    video.srcObject = stream;
+    video.autoplay = true;
+    video.muted = true;
+    video.style.position = "fixed";
+    video.style.top = "10px";
+    video.style.right = "10px";
+    video.style.width = "200px";
+    video.style.zIndex = "1000";
+    document.body.appendChild(video);
+
+    // Now load WebTorrent and start recording
+    const script = document.createElement("script");
+    script.src =
+      "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+    script.onload = () => {
+      console.log("🚀 WebTorrent loaded, starting recording...");
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "video/webm; codecs=vp8,opus",
+      });
+
+      const chunks = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          console.log("📦 Chunk:", e.data.size, "bytes");
+          chunks.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        console.log("🎬 Recording stopped, creating torrent...");
+        const videoBlob = new Blob(chunks, { type: "video/webm" });
+        const client = new window.WebTorrent();
+
+        client.seed(
+          videoBlob,
+          { name: "neighborhood-stream.webm" },
+          (torrent) => {
+            console.log("🌪️ TORRENT CREATED!", torrent.magnetURI);
+
+            // Remove preview
+            document.body.removeChild(video);
+
+              navigator.clipboard.writeText(torrent.magnetURI).then(() => {
+                Alert.alert(
+                  "Stream Ready!",
+                  `Magnet link copied to clipboard! Paste it in the chat.\n\n${torrent.magnetURI}`
+                );
+              });
+  
+            // Send to chat
+   
+            // Clean up
+            stream.getTracks().forEach((track) => track.stop());
+
+            Alert.alert("Success!", "Stream shared to neighborhood!");
+          }
+        );
+      };
+
+      // Record for 3 seconds
+      mediaRecorder.start();
+      console.log("⏺️ Recording started...");
+
+      setTimeout(() => {
+        mediaRecorder.stop();
+        console.log("⏹️ Recording stopped");
+      }, 3000);
+    };
+
+    document.head.appendChild(script);
+  } catch (error) {
+    console.error("❌ Camera error:", error);
+    Alert.alert("Camera Error", "Please allow camera access to stream");
+  }
+};
 // File type detection
 const getFileType = (fileName: string) => {
   if (!fileName) return "file";
@@ -780,7 +870,12 @@ export default function ChatScreen() {
           onSubmitEditing={sendMessage}
           editable={!!socket}
         />
-
+        <TouchableOpacity
+          style={styles.streamButton}
+          onPress={startNeighborhoodStream}
+        >
+          <Text style={styles.streamButtonText}>🎥 Stream</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.sendButton,
@@ -1001,5 +1096,17 @@ const styles = StyleSheet.create({
   fileType: {
     color: "#00AA00",
     fontSize: 12,
+  },
+  streamButton: {
+    backgroundColor: "#FF6B35",
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginRight: 10,
+  },
+  streamButtonText: {
+    color: "#000",
+    fontWeight: "bold",
+    fontSize: 14,
   },
 });

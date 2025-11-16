@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+</head>
+
+<body>
+    <video id="video" controls width="400"></video>
+    <button onclick="startTest()">Test WebTorrent Swarm</button>
+    <div id="status">Click button to start</div>
+
+    <script>
+        async function startTest() {
+            const status = document.getElementById('status')
+            status.textContent = 'Getting camera access...'
+
+            try {
+                const client = new WebTorrent()
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480 },
+                    audio: true
+                })
+
+                status.textContent = 'Recording 5 seconds...'
+
+                // 🚨 CRITICAL FIX: Use compatible MIME type
+                const options = {
+                    mimeType: 'video/webm; codecs=vp8,opus',
+                    videoBitsPerSecond: 1000000
+                }
+
+                const mediaRecorder = new MediaRecorder(stream, options)
+                const chunks = []
+
+                mediaRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) chunks.push(e.data)
+                }
+
+                mediaRecorder.onstop = () => {
+                    status.textContent = 'Creating torrent...'
+                    const blob = new Blob(chunks, { type: 'video/webm' })
+
+                    // SEED IT! 🚀
+                    client.seed(blob, { name: 'test-video.webm' }, torrent => {
+                        status.textContent = `Seeding! Magnet: ${torrent.magnetURI}`
+                        console.log('Magnet:', torrent.magnetURI)
+
+                        // 🚨 CRITICAL FIX: Use createObjectURL instead of .url
+                        const url = URL.createObjectURL(blob)
+                        document.getElementById('video').src = url
+
+                        // Test in another tab with this:
+                        alert(`Copy this magnet and test in another tab:\n${torrent.magnetURI}`)
+                    })
+                }
+
+                mediaRecorder.start()
+                setTimeout(() => {
+                    mediaRecorder.stop()
+                    stream.getTracks().forEach(track => track.stop())
+                }, 5000)
+
+            } catch (err) {
+                status.textContent = `Error: ${err.message}`
+                console.error(err)
+            }
+        }
+    </script>
+</body>
+
+</html>

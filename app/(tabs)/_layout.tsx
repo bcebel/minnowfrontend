@@ -18,7 +18,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="Neighborhood" // Renamed from torrent
+        name="neighborhoods/index" // Renamed from torrent
         options={{
           title: "🏠 Neighborhood",
           tabBarIcon: ({ color }) => null,
