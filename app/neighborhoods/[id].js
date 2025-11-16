@@ -103,7 +103,7 @@ const renderMember = ({ item }) => (
           style={styles.chatButton}
           onPress={() =>
             router.push(
-              `/neighborhood-chat?neighborhoodId=${neighborhood.id}`
+              `/neighborhoods/neighborhood-chat?neighborhoodId=${neighborhood.id}`
             )
           }
         >
