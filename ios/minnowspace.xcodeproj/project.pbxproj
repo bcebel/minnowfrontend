@@ -30,6 +30,7 @@
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = gigunit/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* gigunit-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "gigunit-Bridging-Header.h"; path = "gigunit/gigunit-Bridging-Header.h"; sourceTree = "<group>"; };
+		59AE3313709C41E587480DDF /* SplashScreen.storyboard */ = {isa = PBXFileReference; name = "SplashScreen.storyboard"; path = "minnowspace/SplashScreen.storyboard"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,6 +110,7 @@
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				0B2AE2790A9B2F498C24F96B /* Pods */,
 				192C1BF69A33450E1279FEDB /* ExpoModulesProviders */,
+				59AE3313709C41E587480DDF /* SplashScreen.storyboard */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -197,6 +199,7 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				4E09A0C7D7B8467647FE3E4F /* PrivacyInfo.xcprivacy in Resources */,
+				7CFD885D0C20416B8C259A6C /* SplashScreen.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -383,7 +386,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = gigunit/gigunit.entitlements;
+				CODE_SIGN_ENTITLEMENTS = minnowspace/gigunit.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -404,7 +407,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.gigunit;
-				PRODUCT_NAME = gigunit;
+				PRODUCT_NAME = "gigunit";
 				SWIFT_OBJC_BRIDGING_HEADER = "gigunit/gigunit-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -419,7 +422,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = gigunit/gigunit.entitlements;
+				CODE_SIGN_ENTITLEMENTS = minnowspace/gigunit.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = gigunit/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -435,7 +438,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.gigunit;
-				PRODUCT_NAME = gigunit;
+				PRODUCT_NAME = "gigunit";
 				SWIFT_OBJC_BRIDGING_HEADER = "gigunit/gigunit-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
