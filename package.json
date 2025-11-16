@@ -33,6 +33,7 @@
     "buffer": "^6.0.3",
     "expo": "54.0.21",
     "expo-av": "~16.0.7",
+    "expo-blob": "^0.1.6",
     "expo-blur": "~15.0.7",
     "expo-camera": "~17.0.8",
     "expo-constants": "~18.0.9",
