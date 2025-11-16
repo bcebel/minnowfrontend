@@ -13,26 +13,21 @@
       "bundleIdentifier": "com.anonymous.gigunit",
       "infoPlist": {
         "NSCameraUsageDescription": "$(PRODUCT_NAME) needs access to your Camera.",
-        "NSMicrophoneUsageDescription": "$(PRODUCT_NAME) needs access to your Microphone."
+        "NSMicrophoneUsageDescription": "$(PRODUCT_NAME) needs access to your Microphone.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "useHermes": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.anonymous.gigunit",
       "permissions": [
-        "INTERNET",
+        "android.permission.INTERNET",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
-      ],
-      "config": {
-        "android": {
-          "largeHeap": true
-        }
-      }
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -55,7 +50,6 @@
           "supportsPictureInPicture": true
         }
       ],
-
       "expo-router",
       [
         "expo-splash-screen",
@@ -66,7 +60,6 @@
           "backgroundColor": "#ffffff"
         }
       ],
-     
       "expo-video",
       "expo-secure-store",
       [

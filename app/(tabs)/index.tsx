@@ -26,7 +26,7 @@ export default function HomeScreen() {
 
         <ThemedView style={styles.titleContainer}>
           <Text style={styles.title}>GigUnit</Text>
-          <Text style={styles.subtitle}>The decentralized front</Text>
+          <Text style={styles.subtitle}>The decentralized front ☯️</Text>
           <Text style={styles.tagline}>
             Liberate your media. Power to the peers.
           </Text>
