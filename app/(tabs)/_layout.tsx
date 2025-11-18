@@ -9,23 +9,43 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <Tabs screenOptions={{}}>
+    <Tabs
+      screenOptions={{
+        // Increase tab bar height
+        tabBarStyle: {
+          height: Platform.OS === "ios" ? 100 : 80, // Adjust these values as needed
+          paddingBottom: Platform.OS === "ios" ? 30 : 10,
+          paddingTop: 10,
+          
+        },
+        // Increase font size for tab labels
+        tabBarLabelStyle: {
+          fontSize: 16, // Increase font size
+          fontWeight: "600",
+          marginBottom: Platform.OS === "ios" ? 15 : 5,
+        },
+        // Make the tab bar itself larger
+        tabBarItemStyle: {
+          minHeight: 60, // Increase minimum height of each tab item
+        },
+      }}
+    >
       <Tabs.Screen
-        name="index" // This is your welcome screen
+        name="index"
         options={{
-          title: "🌊 Welcome", // Changed from Neighborhood
+          title: "🌊 Welcome",
           tabBarIcon: ({ color }) => null,
         }}
       />
       <Tabs.Screen
-        name="neighborhoods/index" // Renamed from torrent
+        name="neighborhoods/index"
         options={{
           title: "🏠 Neighborhood",
           tabBarIcon: ({ color }) => null,
         }}
       />
       <Tabs.Screen
-        name="torrent" // This becomes Public Square
+        name="torrent"
         options={{
           title: "🎪 Public Square",
           tabBarIcon: ({ color }) => null,
