@@ -121,7 +121,7 @@ const getFileType = (fileName: string) => {
   const ext = fileName.split(".").pop()?.toLowerCase();
   if (!ext) return "unknown";
 
-  const imageTypes = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
+  const imageTypes = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "avif"];
   const videoTypes = ["mp4", "mov", "avi", "mkv", "webm"];
   const docTypes = ["pdf", "doc", "docx", "txt"];
   const sheetTypes = ["xls", "xlsx", "csv"];
