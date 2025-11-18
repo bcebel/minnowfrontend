@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Text } from "react-native";
 import { Image } from "expo-image";
-import { useVideoPlayer, VideoView } from "expo-video"; // Add expo-video
+import { useVideoPlayer, VideoView } from "expo-video";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io, Socket } from "socket.io-client";
@@ -63,6 +63,10 @@ const SEND_MESSAGE = gql`
     $fileUrl: String
     $fileName: String
     $fileType: String
+    $fileSize: Float
+    $mimeType: String
+    $ipfsHash: String
+    $ipfsData: IPFSDataInput
   ) {
     sendMessage(
       content: $content
@@ -72,6 +76,10 @@ const SEND_MESSAGE = gql`
       fileUrl: $fileUrl
       fileName: $fileName
       fileType: $fileType
+      fileSize: $fileSize
+      mimeType: $mimeType
+      ipfsHash: $ipfsHash
+      ipfsData: $ipfsData
     ) {
       id
       content
@@ -80,6 +88,16 @@ const SEND_MESSAGE = gql`
       fileUrl
       fileName
       fileType
+      fileSize
+      mimeType
+      ipfsHash
+      ipfsData {
+        cid
+        ipfsUrl
+        magnetLink
+        fileType
+        fileName
+      }
       room
       createdAt
       sender {
@@ -177,7 +195,7 @@ const VideoThumbnail = ({
     >
       <View style={styles.videoThumbnail}>
         <Image
-          source={{ uri: url }} // You might want to generate a proper thumbnail
+          source={{ uri: url }}
           style={styles.videoThumbnailImage}
           contentFit="cover"
           transition={300}
@@ -197,67 +215,60 @@ const VideoThumbnail = ({
 };
 
 // Expanded Video Player Component
-// Expanded Video Player Component
-const ExpandedVideoPlayer = ({ 
-  url, 
-  fileName, 
-  onCollapse 
-}: { 
-  url: string; 
+const ExpandedVideoPlayer = ({
+  url,
+  fileName,
+  onCollapse,
+}: {
+  url: string;
   fileName: string;
   onCollapse: () => void;
 }) => {
   const player = useVideoPlayer(url, (player) => {
     player.loop = false;
-    // Auto-play when expanded - handle potential errors safely
     try {
       const playResult = player.play();
-      // Only call catch if it returns a Promise
-      if (playResult && typeof playResult.catch === 'function') {
+      if (playResult && typeof playResult.catch === "function") {
         playResult.catch((error: any) => {
-          console.log('Auto-play failed:', error);
+          console.log("Auto-play failed:", error);
         });
       }
     } catch (error) {
-      console.log('Auto-play error:', error);
+      console.log("Auto-play error:", error);
     }
   });
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  // Handle play/pause state and errors
   useEffect(() => {
     const subscriptions = [
-      player.addListener('playingChange', ({ isPlaying }) => {
+      player.addListener("playingChange", ({ isPlaying }) => {
         setIsPlaying(isPlaying);
       }),
-      player.addListener('statusChange', ({ status, error }) => {
-        if (status === 'error') {
-          console.log('Video player error:', error);
+      player.addListener("statusChange", ({ status, error }) => {
+        if (status === "error") {
+          console.log("Video player error:", error);
           setHasError(true);
         }
-      })
+      }),
     ];
 
     return () => {
-      subscriptions.forEach(sub => sub.remove());
+      subscriptions.forEach((sub) => sub.remove());
     };
   }, [player]);
 
   return (
     <View style={styles.expandedVideoContainer}>
-      <TouchableOpacity 
-        style={styles.videoCloseButton}
-        onPress={onCollapse}
-      >
+      <TouchableOpacity style={styles.videoCloseButton} onPress={onCollapse}>
         <Text style={styles.videoCloseIcon}>✕</Text>
       </TouchableOpacity>
-      
+
       {hasError ? (
         <View style={styles.videoErrorContainer}>
           <Text style={styles.videoErrorText}>Failed to load video</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.retryButton}
             onPress={() => {
               setHasError(false);
@@ -274,11 +285,11 @@ const ExpandedVideoPlayer = ({
           nativeControls={true}
           allowsFullscreen={true}
           contentFit="contain"
-          allowsPictureInPicture={Platform.OS !== 'web'}
-          onFirstFrameRender={() => console.log('Video frame rendered')}
+          allowsPictureInPicture={Platform.OS !== "web"}
+          onFirstFrameRender={() => console.log("Video frame rendered")}
         />
       )}
-      
+
       <View style={styles.videoInfo}>
         <Text style={styles.videoFileName} numberOfLines={1}>
           {fileName || "Video"}
@@ -361,76 +372,43 @@ const uploadToIPFS = async (
       platform: Platform.OS,
     });
 
+    let blob;
     if (Platform.OS === "web") {
       const response = await fetch(fileUri);
-      const blob = await response.blob();
-
-      const formData = new FormData();
-      formData.append("video", blob, fileName);
-      formData.append("title", fileName || `Uploaded ${fileType}`);
-      formData.append("description", `Shared from app`);
-
-      const uploadResponse = await fetch(
-        "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/upload",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        }
-      );
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        throw new Error(
-          `Upload failed: ${uploadResponse.status} - ${errorText}`
-        );
-      }
-
-      const result = await uploadResponse.json();
-      console.log("✅ Web upload successful:", result);
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      return result.ipfsUrl;
+      blob = await response.blob();
     } else {
-      if (!File) {
-        throw new Error("FileSystem not available on this platform");
-      }
-
-      const file = new File(fileUri);
-      const fileInfo = await file.info();
-      console.log("📄 File info:", fileInfo);
-
-      if (!fileInfo.exists) {
-        throw new Error("File does not exist or cannot be accessed");
-      }
-
-      const formData = new FormData();
-      formData.append("video", file);
-      formData.append("title", fileName || `Uploaded ${fileType}`);
-      formData.append("description", `Shared from app`);
-
-      const response = await fetch(
-        "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/upload",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log("✅ Native upload successful:", result);
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      return result.ipfsUrl;
+      const response = await fetch(fileUri);
+      blob = await response.blob();
     }
+
+    const formData = new FormData();
+    formData.append("video", blob, fileName);
+    formData.append("title", fileName || `Uploaded ${fileType}`);
+    formData.append("description", `Shared from chat`);
+
+    const res = await fetch(
+      "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/upload",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      }
+    );
+
+    if (res.status === 503) {
+      throw new Error(
+        "Backend server is temporarily unavailable. Please try again later."
+      );
+    }
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Upload failed: ${res.status} - ${errorText}`);
+    }
+
+    const result = await res.json();
+    console.log("✅ Upload successful:", result);
+    return result.ipfsUrl;
   } catch (error) {
     console.error("❌ Upload error:", error);
     throw error;
@@ -477,7 +455,59 @@ const formatTimestamp = (timestamp: any) => {
     return "Now";
   }
 };
+// --- ENHANCED IMAGE COMPONENT ---
+const ChatImage = ({ url, fileName, style }: { url: string; fileName?: string; style: any }) => {
+  const [hasError, setHasError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Handle HEIC files
+  const isHEIC = fileName?.toLowerCase().includes('.heic') || url?.toLowerCase().includes('.heic');
+
+  if (isHEIC && Platform.OS === 'web') {
+    return (
+      <TouchableOpacity 
+        style={[style, styles.heicContainer]}
+        onPress={() => downloadFile(url, fileName || 'image.heic')}
+      >
+        <Text style={styles.heicIcon}>🖼️</Text>
+        <Text style={styles.heicText}>HEIC Image</Text>
+        <Text style={styles.heicSubtext}>Tap to download</Text>
+        <Text style={styles.heicSubtext}>HEIC format not supported in browser</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <TouchableOpacity onPress={() => Linking.openURL(url)}>
+      <Image
+        source={{ uri: url }}
+        style={style}
+        contentFit="cover"
+        transition={300}
+        onLoad={() => setIsLoading(false)}
+        onError={() => {
+          console.log("Image failed to load:", url);
+          setHasError(true);
+          setIsLoading(false);
+        }}
+      />
+      
+      {isLoading && !hasError && (
+        <View style={[style, styles.loadingOverlay]}>
+          <ActivityIndicator size="small" color="#00FF00" />
+        </View>
+      )}
+      
+      {hasError && (
+        <View style={[style, styles.imageErrorContainer]}>
+          <Text style={styles.imageErrorText}>📷</Text>
+          <Text style={styles.imageErrorSubtext}>Failed to load image</Text>
+          <Text style={styles.debugUrl}>{fileName || 'Unknown file'}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+};
 // --- CHAT SCREEN COMPONENT ---
 
 export default function ChatScreen() {
@@ -495,7 +525,6 @@ export default function ChatScreen() {
   const [uploadType, setUploadType] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Only run GraphQL query when authenticated
   const { loading, error, data, refetch } = useQuery(GET_MESSAGES, {
     variables: { room },
     fetchPolicy: "cache-and-network",
@@ -520,7 +549,6 @@ export default function ChatScreen() {
 
   const [sendMessageMutation] = useMutation(SEND_MESSAGE);
 
-  // Centralized auth error handler
   const handleAuthError = async () => {
     await AsyncStorage.multiRemove(["token", "username"]);
     setIsAuthenticated(false);
@@ -528,8 +556,6 @@ export default function ChatScreen() {
       { text: "OK", onPress: () => router.replace("/login") },
     ]);
   };
-
-  // --- HANDLERS ---
 
   const initializeSocket = (token: string) => {
     console.log("🔌 Initializing socket with token...");
@@ -607,9 +633,45 @@ export default function ChatScreen() {
     }
   };
 
-  // --- UPLOAD FUNCTIONS ---
+  const testMutation = async () => {
+    try {
+      const testData = {
+        content: "Test with metadata",
+        room: "general",
+        imageUrl: "https://example.com/test.jpg",
+        fileName: "test.jpg",
+        fileType: "image",
+        fileSize: 1024,
+        mimeType: "image/jpeg",
+        ipfsHash: "test123",
+        ipfsData: {
+          cid: "test123",
+          ipfsUrl: "https://example.com/test.jpg",
+          fileType: "image",
+          fileName: "test.jpg",
+        },
+      };
 
-  const unifiedUpload = async (asset: any, type: string) => {
+      console.log("🧪 Testing mutation with:", testData);
+
+      const result = await sendMessageMutation({
+        variables: testData,
+      });
+
+      console.log("🧪 Mutation result:", result);
+      Alert.alert("Test", "Mutation sent - check console and database");
+    } catch (error) {
+      console.error("🧪 Test mutation error:", error);
+      Alert.alert("Test Error", error.message);
+    }
+  };
+
+  const unifiedUpload = async (
+    asset: any,
+    type: string,
+    fileSize: number,
+    mimeType: string
+  ) => {
     setUploading(true);
     setUploadType(type);
 
@@ -628,28 +690,46 @@ export default function ChatScreen() {
         fileName += ".mp4";
       }
 
-      console.log("🔄 Processing upload:", {
+      console.log("🔄 Processing upload with metadata:", {
         fileUri,
         fileName,
         type,
+        fileSize,
+        mimeType,
         platform: Platform.OS,
       });
 
       const ipfsUrl = await uploadToIPFS(fileUri, fileName, type, token);
 
       if (ipfsUrl) {
+        const ipfsHash = ipfsUrl.split("/ipfs/")[1];
+
+        const ipfsData = {
+          cid: ipfsHash,
+          ipfsUrl: ipfsUrl,
+          magnetLink: null,
+          fileType: type,
+          fileName: fileName,
+        };
+
         const messageVariables = {
           content: `${type.charAt(0).toUpperCase() + type.slice(1)} Shared`,
           room: room,
-          imageUrl: type === "image" ? ipfsUrl : undefined,
-          videoUrl: type === "video" ? ipfsUrl : undefined,
-          fileUrl: type === "file" ? ipfsUrl : undefined,
+          imageUrl: type === "image" ? ipfsUrl : null,
+          videoUrl: type === "video" ? ipfsUrl : null,
+          fileUrl: type === "file" ? ipfsUrl : null,
           fileName: fileName,
           fileType: type,
+          fileSize: fileSize,
+          mimeType: mimeType,
+          ipfsHash: ipfsHash,
+          ipfsData: ipfsData,
         };
 
+        console.log("📤 Sending message with full metadata:", messageVariables);
+
         await sendMessageMutation({ variables: messageVariables });
-        console.log(`✅ ${type} uploaded and message sent`);
+        console.log(`✅ ${type} uploaded and message sent with metadata`);
       }
     } catch (error) {
       console.error(`❌ ${type} upload error:`, error);
@@ -671,7 +751,11 @@ export default function ChatScreen() {
 
       const file = result.assets[0];
       console.log("Selected file:", file);
-      await unifiedUpload(file, "file");
+
+      let fileSize = file.size || 0;
+      let mimeType = file.mimeType || "application/octet-stream";
+
+      await unifiedUpload(file, "file", fileSize, mimeType);
     } catch (error) {
       console.error("File picker error:", error);
       Alert.alert("Error", "Failed to pick file");
@@ -696,15 +780,35 @@ export default function ChatScreen() {
       if (!result.canceled) {
         const asset = result.assets[0];
         const type = asset.type === "image" ? "image" : "video";
-        await unifiedUpload(asset, type);
+
+        let fileSize = 0;
+        let mimeType = "";
+
+        try {
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          fileSize = blob.size;
+          mimeType = blob.type || `image/${asset.uri.split(".").pop()}`;
+        } catch (error) {
+          console.log("Could not get file metadata:", error);
+          fileSize = asset.fileSize || 0;
+          mimeType = asset.mimeType || "image/jpeg";
+        }
+
+        console.log("📱 Image metadata:", {
+          fileName: asset.fileName,
+          fileSize,
+          mimeType,
+          type,
+        });
+
+        await unifiedUpload(asset, type, fileSize, mimeType);
       }
     } catch (error) {
       console.error("Media picker error:", error);
       Alert.alert("Error", "Failed to pick media");
     }
   };
-
-  // --- EFFECTS ---
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -746,8 +850,6 @@ export default function ChatScreen() {
       socket?.disconnect();
     };
   }, []);
-
-  // --- RENDERING ---
 
   const messages = data?.messages || [];
 
@@ -797,6 +899,9 @@ export default function ChatScreen() {
       <View style={styles.header}>
         <Text style={styles.roomTitle}>💬 {room} Chat</Text>
         <View style={styles.headerButtons}>
+          <TouchableOpacity onPress={testMutation} style={styles.debugButton}>
+            <Text style={styles.debugText}>🧪</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={debugToken} style={styles.debugButton}>
             <Text style={styles.debugText}>🐛</Text>
           </TouchableOpacity>
@@ -826,14 +931,19 @@ export default function ChatScreen() {
         }
       >
         {messages.map((item: any) => {
-          // Check all media types properly
           const hasImage =
             !!item.imageUrl && !item.imageUrl.startsWith("blob:");
           const hasVideo =
             !!item.videoUrl && !item.videoUrl.startsWith("blob:");
           const hasFile = !!item.fileUrl && !item.fileUrl.startsWith("blob:");
-
-          const actualFileType = getFileType(item.fileName || "");
+          const actualFileType =
+            item.fileType || getFileType(item.fileName || "");
+          const fileSizeFormatted = item.fileSize
+            ? `${(item.fileSize / 1024 / 1024).toFixed(1)}MB`
+            : "";
+          const fileExtension = item.mimeType
+            ? item.mimeType.split("/")[1]?.toUpperCase()
+            : "";
 
           const imageUrl = hasImage
             ? item.imageUrl?.replace("ipfs.filebase.io", "gateway.pinata.cloud")
@@ -864,18 +974,20 @@ export default function ChatScreen() {
 
                 {/* IMAGE DISPLAY */}
                 {hasImage && imageUrl && (
-                  <TouchableOpacity onPress={() => Linking.openURL(imageUrl)}>
-                    <Image
-                      source={{ uri: imageUrl }}
+                  <View>
+                    <ChatImage
+                      url={imageUrl}
+                      fileName={item.fileName}
                       style={styles.messageImage}
-                      contentFit="cover"
-                      transition={300}
-                      placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
-                      onError={(e) =>
-                        console.log("Image load error:", e.nativeEvent.error)
-                      }
                     />
-                  </TouchableOpacity>
+
+                    {/* Show file metadata */}
+                    <View style={styles.metadataContainer}>
+                      <Text style={styles.metadataText}>
+                        {item.fileName} • {fileSizeFormatted} • {fileExtension}
+                      </Text>
+                    </View>
+                  </View>
                 )}
 
                 {/* SMART VIDEO DISPLAY */}
@@ -955,6 +1067,7 @@ export default function ChatScreen() {
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -1273,5 +1386,63 @@ const styles = StyleSheet.create({
     color: "#FF4444",
     fontSize: 16,
     marginBottom: 10,
+  },
+  metadataContainer: {
+    marginTop: 4,
+    paddingHorizontal: 8,
+  },
+  metadataText: {
+    color: "#888888",
+    fontSize: 11,
+    fontStyle: "italic",
+  },
+  heicContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#333333",
+    borderRadius: 8,
+  },
+  heicIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  heicText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  heicSubtext: {
+    color: "#00FF00",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  imageErrorContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#333333",
+    borderRadius: 8,
+  },
+  imageErrorText: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  imageErrorSubtext: {
+    color: "#888888",
+    fontSize: 12,
+  },
+  debugUrl: {
+    color: "#666666",
+    fontSize: 10,
+    marginTop: 4,
+  },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
 });
