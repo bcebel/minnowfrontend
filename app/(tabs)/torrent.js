@@ -42,7 +42,8 @@ const getFileType = (fileName) => {
     fileName.endsWith(".jpeg") ||
     fileName.endsWith(".png") ||
     fileName.endsWith(".gif") ||
-    fileName.endsWith(".webp")
+    fileName.endsWith(".webp") ||
+    filename.endswith(".avif")
   ) {
     return "image";
   }
