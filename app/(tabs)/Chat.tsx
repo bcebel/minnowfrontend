@@ -20,6 +20,7 @@ import { io, Socket } from "socket.io-client";
 import { gql, useQuery, useMutation } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
+import WebTorrentWebView from "../../components/WebTorrentPlayer";
 
 // Conditional import for FileSystem - only on native
 let File: any = null;
@@ -319,6 +320,7 @@ const SmartVideoPlayer = ({
         fileName={fileName}
         onCollapse={() => setIsExpanded(false)}
       />
+      
     );
   }
 
@@ -330,6 +332,7 @@ const SmartVideoPlayer = ({
     />
   );
 };
+
 
 // Document Preview Component
 const ChatDocumentPreview = ({
@@ -525,27 +528,35 @@ export default function ChatScreen() {
   const [uploadType, setUploadType] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
-  const { loading, error, data, refetch } = useQuery(GET_MESSAGES, {
-    variables: { room },
-    fetchPolicy: "cache-and-network",
-    skip: !isAuthenticated,
-    onCompleted: (data) => {
-      console.log(
-        "✅ GraphQL Query Success:",
-        data?.messages?.length,
-        "messages"
-      );
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 200);
-    },
-    onError: (error) => {
-      console.error("❌ GraphQL Query Error:", error);
-      if (error.message.includes("Authentication")) {
-        handleAuthError();
-      }
-    },
-  });
+const { loading, error, data, refetch } = useQuery(GET_MESSAGES, {
+  variables: { room },
+  fetchPolicy: "cache-and-network",
+  skip: !isAuthenticated,
+});
+
+// Add useEffect for successful query
+useEffect(() => {
+  if (data) {
+    console.log(
+      "✅ GraphQL Query Success:",
+      data?.messages?.length,
+      "messages"
+    );
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 200);
+  }
+}, [data]);
+
+// Add useEffect for error handling
+useEffect(() => {
+  if (error) {
+    console.error("❌ GraphQL Query Error:", error);
+    if (error.message.includes("Authentication")) {
+      handleAuthError();
+    }
+  }
+}, [error]);
 
   const [sendMessageMutation] = useMutation(SEND_MESSAGE);
 
@@ -966,33 +977,22 @@ export default function ChatScreen() {
                 <Text style={styles.username}>
                   {item.sender?.username || "Unknown"}
                 </Text>
-
+                {/* IMAGE DISPLAY */}
+                {hasVideo && videoUrl && <WebTorrentWebView video={item} />}
                 {/* IMAGE DISPLAY */}
                 {hasImage && imageUrl && (
-                  <View>
-                    <ChatImage
-                      url={imageUrl}
-                      fileName={item.fileName}
+                  <TouchableOpacity onPress={() => Linking.openURL(imageUrl)}>
+                    <Image
+                      source={{ uri: imageUrl }}
                       style={styles.messageImage}
+                      contentFit="cover"
+                      transition={300}
                     />
-
-                    {/* Show file metadata */}
-                    <View style={styles.metadataContainer}>
-                      <Text style={styles.metadataText}>
-                        {item.fileName} • {fileSizeFormatted} • {fileExtension}
-                      </Text>
-                    </View>
-                  </View>
+                    {item.content && item.content !== "Image Shared" && (
+                      <Text style={styles.captionText}>{item.content}</Text>
+                    )}
+                  </TouchableOpacity>
                 )}
-
-                {/* SMART VIDEO DISPLAY */}
-                {hasVideo && videoUrl && (
-                  <SmartVideoPlayer
-                    url={videoUrl}
-                    fileName={item.fileName || "Video"}
-                  />
-                )}
-
                 {/* FILE DISPLAY */}
                 {hasFile && fileUrl && (
                   <ChatDocumentPreview
@@ -1001,12 +1001,10 @@ export default function ChatScreen() {
                     fileType={actualFileType}
                   />
                 )}
-
                 {/* TEXT MESSAGE - Only show if no media */}
                 {!hasImage && !hasVideo && !hasFile && (
                   <Text style={styles.messageText}>{item.content}</Text>
                 )}
-
                 <Text style={styles.timestamp}>
                   {formatTimestamp(item.createdAt)}
                 </Text>
@@ -1439,5 +1437,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  captionText: {
+    fontSize: 14,
+    color: "#CCCCCC",
+    marginTop: 4,
+    fontStyle: "italic",
   },
 });

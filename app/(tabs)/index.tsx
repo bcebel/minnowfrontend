@@ -49,26 +49,10 @@ export default function HomeScreen() {
         </ThemedView>
 
         <ThemedView style={styles.features}>
-          <Text style={styles.featuresTitle}>What makes us different:</Text>
-
           <ThemedView style={styles.featureItem}>
             <Text style={styles.featureEmoji}>🏠</Text>
             <Text style={styles.featureText}>
               Digital neighborhoods, not just feeds
-            </Text>
-          </ThemedView>
-
-          <ThemedView style={styles.featureItem}>
-            <Text style={styles.featureEmoji}>🎪</Text>
-            <Text style={styles.featureText}>
-              Live events from multiple angles
-            </Text>
-          </ThemedView>
-
-          <ThemedView style={styles.featureItem}>
-            <Text style={styles.featureEmoji}>💎</Text>
-            <Text style={styles.featureText}>
-              Earn from your content, not Zuckerberg
             </Text>
           </ThemedView>
 
@@ -78,9 +62,16 @@ export default function HomeScreen() {
           </ThemedView>
 
           <ThemedView style={styles.featureItem}>
-            <Text style={styles.featureEmoji}>🌊</Text>
+            <Text style={styles.featureEmoji}>💵</Text>
             <Text style={styles.featureText}>
-              P2P technology, not corporate servers
+              You are not the product here.  In fact you can add your own affiliate links to your posts and the community pool.
+            </Text>
+          </ThemedView>
+
+          <ThemedView style={styles.featureItem}>
+            <Text style={styles.featureEmoji}>🪩</Text>
+            <Text style={styles.featureText}>
+              Its a big club.... and you ARE in it!
             </Text>
           </ThemedView>
         </ThemedView>
@@ -170,7 +161,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: "#00FF00",
+    borderColor: "#FF0000",
     borderRadius: 12,
     backgroundColor: "#111111",
   },
