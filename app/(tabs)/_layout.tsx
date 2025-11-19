@@ -11,22 +11,28 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        // Increase tab bar height
+        // Minimal height with big fonts
         tabBarStyle: {
-          height: Platform.OS === "ios" ? 100 : 80, // Adjust these values as needed
-          paddingBottom: Platform.OS === "ios" ? 30 : 10,
-          paddingTop: 10,
+          height: Platform.OS === "ios" ? 80 : 70, // Reduced height
+          paddingBottom: 0, // Remove bottom padding
+          paddingTop: 0, // Remove top padding
         },
-        // Increase font size for tab labels
+        // Big font size with minimal margins
         tabBarLabelStyle: {
-          fontSize: 18, // Increase font size
+          fontSize: 36, // Large font size
           fontWeight: "500",
-          marginBottom: Platform.OS === "ios" ? 15 : 5,
+          marginBottom: 8, // Remove bottom margin
+          marginTop: 0, // Remove top margin
           color: "#ff0000",
+          includeFontPadding: false, // Remove font padding
+          lineHeight: 40, // Match font size
         },
-        // Make the tab bar itself larger
+        // Minimal tab item styling
         tabBarItemStyle: {
-          minHeight: 70, // Increase minimum height of each tab item
+          minHeight: 0, // No minimum height
+          paddingVertical: 0, // No vertical padding
+          justifyContent: "center",
+          alignItems: "center",
         },
       }}
     >
@@ -40,7 +46,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="neighborhoods/index"
         options={{
-          title: "🏘️",
+          title: "🌎",
           tabBarIcon: ({ color }) => null,
         }}
       />
