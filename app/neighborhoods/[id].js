@@ -12,6 +12,32 @@ import {
 } from "react-native";
 import { useQuery } from "@apollo/client";
 import { GET_NEIGHBORHOOD } from "../graphql/queries";
+import StaticWebTorrentPlayer from "../../components/StaticWebTorrentPlayer"; // Add this import
+
+// ADD THIS FUNCTION - Generates static pages for each neighborhood
+export async function generateStaticParams() {
+  // You'll need to fetch neighborhood IDs from your API
+  // For now, return some sample IDs or fetch from a static list
+  const neighborhoodIds = await getNeighborhoodIds(); // You'll need to implement this
+
+  return neighborhoodIds.map((id) => ({ id }));
+}
+
+// Helper function to get neighborhood IDs (you'll need to implement this)
+async function getNeighborhoodIds() {
+  // Option 1: Hardcode some IDs for testing
+  // return ['photography', 'music', 'art', 'tech'];
+
+  // Option 2: Fetch from your API (if available during build)
+  try {
+    const response = await fetch("https://your-api.com/neighborhoods/ids");
+    const data = await response.json();
+    return data.ids;
+  } catch (error) {
+    // Fallback to hardcoded IDs
+    return ["photography", "music", "art", "tech"];
+  }
+}
 
 export default function NeighborhoodDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -33,36 +59,73 @@ export default function NeighborhoodDetailScreen() {
     );
   }
 
-const renderMember = ({ item }) => (
-  <TouchableOpacity
-    style={styles.memberItem}
-    onPress={() => router.push(`/profile/${item.user.username}`)}
-  >
-    <Image
-      source={{
-        uri: item.user.profilePhoto || "https://via.placeholder.com/40",
-      }}
-      style={styles.avatar}
-    />
-    <View style={styles.memberInfo}>
-      <Text style={styles.memberName}>
-        {item.user.username}
-        {item.role === "owner" && " 👑"}
-      </Text>
-      {/* Show bio if it exists */}
-      {item.user.bio ? (
-        <Text style={styles.memberBio} numberOfLines={2}>
-          {item.user.bio}
+  // ADD THIS - Sample neighborhood content for P2P seeding
+  const neighborhoodContent = {
+    photography: [
+      {
+        fileName: "Photography Tips Tutorial.mp4",
+        magnetLink: "magnet:?xt=urn:btih:...",
+        cid: "...",
+      },
+      {
+        fileName: "Sunset Composition Guide.mov",
+        magnetLink: "magnet:?xt=urn:btih:...",
+        cid: "...",
+      },
+    ],
+    music: [
+      {
+        fileName: "Guitar Basics Lesson.mp4",
+        magnetLink: "magnet:?xt=urn:btih:...",
+        cid: "...",
+      },
+    ],
+    art: [
+      {
+        fileName: "Digital Painting Techniques.mp4",
+        magnetLink: "magnet:?xt=urn:btih:...",
+        cid: "...",
+      },
+    ],
+    tech: [
+      {
+        fileName: "Web Development Workshop.mov",
+        magnetLink: "magnet:?xt=urn:btih:...",
+        cid: "...",
+      },
+    ],
+  };
+
+  const renderMember = ({ item }) => (
+    <TouchableOpacity
+      style={styles.memberItem}
+      onPress={() => router.push(`/profile/${item.user.username}`)}
+    >
+      <Image
+        source={{
+          uri: item.user.profilePhoto || "https://via.placeholder.com/40",
+        }}
+        style={styles.avatar}
+      />
+      <View style={styles.memberInfo}>
+        <Text style={styles.memberName}>
+          {item.user.username}
+          {item.role === "owner" && " 👑"}
         </Text>
-      ) : (
-        <Text style={styles.noBio}>No bio yet</Text>
-      )}
-      <Text style={styles.memberRole}>
-        {item.role} • Joined {new Date(item.joinedAt).toLocaleDateString()}
-      </Text>
-    </View>
-  </TouchableOpacity>
-);
+        {/* Show bio if it exists */}
+        {item.user.bio ? (
+          <Text style={styles.memberBio} numberOfLines={2}>
+            {item.user.bio}
+          </Text>
+        ) : (
+          <Text style={styles.noBio}>No bio yet</Text>
+        )}
+        <Text style={styles.memberRole}>
+          {item.role} • Joined {new Date(item.joinedAt).toLocaleDateString()}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
@@ -79,6 +142,24 @@ const renderMember = ({ item }) => (
             🗓️ Created {new Date(neighborhood.createdAt).toLocaleDateString()}
           </Text>
         </View>
+      </View>
+
+      {/* ADD THIS SECTION - Neighborhood P2P Content */}
+      <View style={styles.p2pSection}>
+        <Text style={styles.sectionTitle}>🌐 P2P Shared Content</Text>
+        <Text style={styles.p2pDescription}>
+          This neighborhood page actively seeds content to the P2P network
+        </Text>
+
+        {(neighborhoodContent[id] || []).map((video, index) => (
+          <StaticWebTorrentPlayer key={index} video={video} />
+        ))}
+
+        {(neighborhoodContent[id] || []).length === 0 && (
+          <Text style={styles.noContent}>
+            No P2P content yet for this neighborhood
+          </Text>
+        )}
       </View>
 
       {neighborhood.rules ? (
@@ -162,6 +243,28 @@ const styles = StyleSheet.create({
   stat: {
     fontSize: 14,
     color: "#00AA00",
+  },
+  // ADD THESE NEW STYLES
+  p2pSection: {
+    backgroundColor: "#111",
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#00AA00",
+  },
+  p2pDescription: {
+    fontSize: 14,
+    color: "#CCC",
+    marginBottom: 10,
+    lineHeight: 18,
+  },
+  noContent: {
+    fontSize: 14,
+    color: "#666",
+    fontStyle: "italic",
+    textAlign: "center",
+    padding: 20,
   },
   rulesSection: {
     backgroundColor: "#111",
