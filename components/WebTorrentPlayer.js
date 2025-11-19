@@ -1,10 +1,10 @@
 // components/WebTorrentPlayer.js
-import React from "react";
-import { Platform, View, StyleSheet, Dimensions } from "react-native";
-
-const { width } = Dimensions.get("window");
+import React, { useEffect, useRef } from "react";
+import { Platform, View, StyleSheet, Text } from "react-native";
 
 export default function WebTorrentPlayer({ video }) {
+  const iframeRef = useRef(null);
+
   if (Platform.OS !== "web") {
     return (
       <View style={styles.fallbackContainer}>
@@ -66,20 +66,17 @@ export default function WebTorrentPlayer({ video }) {
             border: 1px solid #333;
         }
         #status {
-            color: #00FF00;
+            color: #FFFF00;
             text-align: center;
             margin: 10px 0;
             font-size: 14px;
             min-height: 20px;
         }
-        #errorLog {
-            background: #331111;
-            color: #FF4444;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            display: none;
-            font-size: 12px;
+        #sourceInfo {
+            color: #00AAFF;
+            text-align: center;
+            margin: 8px 0;
+            font-size: 14px;
         }
         .stats {
             color: #888;
@@ -87,142 +84,291 @@ export default function WebTorrentPlayer({ video }) {
             text-align: center;
             margin: 5px 0;
         }
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00FF00, #00AAFF);
+            transition: width 0.3s;
+            width: 0%;
+        }
+        .peer-stats {
+            color: #00FF00;
+            font-size: 12px;
+            text-align: center;
+            margin: 5px 0;
+        }
+        .error {
+            color: #FF4444;
+            text-align: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: #331111;
+            border-radius: 5px;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="player-container">
         <div class="video-info">🎬 ${video.fileName || "Video"}</div>
-        <div id="status">🌐 Initializing WebTorrent...</div>
-        <video id="videoPlayer" controls></video>
-        <div class="stats" id="stats"></div>
-        <div id="errorLog"></div>
+        <div id="status">🚀 Starting WebTorrent...</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="stats" id="stats">👥 0 peers | 📥 0%</div>
+        <div class="peer-stats" id="peerStats">🌐 Connecting to swarm...</div>
+        <video id="videoPlayer" controls style="display:none;"></video>
+        <div id="sourceInfo">Source: Determining...</div>
+        <div class="error" id="errorMessage"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
     <script>
-        const client = new WebTorrent();
+        // GLOBAL SHARED WEBTORRENT CLIENT - All players on the site share this
+        if (!window.globalWebTorrentClient) {
+            console.log('🌐 Creating shared WebTorrent client for all users');
+            window.globalWebTorrentClient = new WebTorrent();
+            
+            // Log global stats periodically
+            setInterval(() => {
+                const client = window.globalWebTorrentClient;
+                console.log('🌐 Global Client - Torrents:', client.torrents.length, 
+                          'Total Peers:', client.torrents.reduce((sum, t) => sum + t.numPeers, 0));
+            }, 10000);
+        }
+        
+        const client = window.globalWebTorrentClient;
         const videoElement = document.getElementById('videoPlayer');
         const statusElement = document.getElementById('status');
+        const sourceInfo = document.getElementById('sourceInfo');
         const statsElement = document.getElementById('stats');
-        const errorElement = document.getElementById('errorLog');
+        const peerStats = document.getElementById('peerStats');
+        const progressFill = document.getElementById('progressFill');
+        const errorMessage = document.getElementById('errorMessage');
+
+        let currentTorrent = null;
+        let hasStartedPlaying = false;
 
         function updateStatus(message) {
             statusElement.textContent = message;
-            console.log('WebTorrent Status:', message);
+            console.log('Status:', message);
         }
 
-        function updateStats(peers, progress, speed) {
-            let stats = '';
-            if (peers > 0) stats += '👥 ' + peers + ' peers | ';
-            if (progress > 0) stats += '📥 ' + progress + '% | ';
-            if (speed > 0) stats += '⚡ ' + (speed / 1024 / 1024).toFixed(1) + ' MB/s';
-            statsElement.textContent = stats;
+        function updateStats(torrent) {
+            const percent = Math.round(torrent.progress * 100);
+            progressFill.style.width = percent + '%';
+            
+            statsElement.textContent = 
+                '👥 ' + torrent.numPeers + ' peers | ' +
+                '📥 ' + percent + '% | ' +
+                '⚡ ' + (torrent.downloadSpeed / 1024 / 1024).toFixed(2) + ' MB/s';
+            
+            // Update global peer stats
+            const totalTorrents = client.torrents.length;
+            const totalPeers = client.torrents.reduce((sum, t) => sum + t.numPeers, 0);
+            peerStats.textContent = 
+                '🌐 Site-wide: ' + totalTorrents + ' active torrents, ' + totalPeers + ' total peers';
         }
 
         function showError(message) {
-            errorElement.style.display = 'block';
-            errorElement.innerHTML = '<strong>Error:</strong> ' + message;
-            updateStatus('❌ ' + message);
+            errorMessage.style.display = 'block';
+            errorMessage.textContent = message;
+            console.error('Error:', message);
         }
 
-        function fallbackToPinata() {
-            const pinataUrl = 'https://gateway.pinata.cloud/ipfs/${cid}';
-            updateStatus('📡 Using Pinata gateway');
-            videoElement.src = pinataUrl;
-            statsElement.textContent = 'Direct IPFS streaming';
-        }
-
-        function playVideo() {
+        function usePinataFallback() {
             ${
-              magnetLink
+              cid
                 ? `
-            // Try WebTorrent first with magnet link
-            updateStatus('🔗 Connecting via WebTorrent...');
-            
-            console.log('Adding torrent with magnet:', '${magnetLink}');
-            const torrent = client.add('${magnetLink}', {
-                announce: [
-                    'wss://tracker.btorrent.xyz',
-                    'wss://tracker.openwebtorrent.com',
-                    'wss://tracker.files.fm:7073/announce'
-                ]
-            });
-
-            torrent.on('error', (err) => {
-                console.error('Torrent error:', err);
-                showError('WebTorrent failed: ' + err.message);
-                fallbackToPinata();
-            });
-
-            torrent.on('metadata', () => {
-                updateStatus('📦 Found metadata - ' + torrent.files.length + ' files');
-            });
-
-            torrent.on('download', (bytes) => {
-                updateStatus('📥 Downloading from swarm...');
-                updateStats(
-                    torrent.numPeers,
-                    Math.round(torrent.progress * 100),
-                    torrent.downloadSpeed
-                );
-            });
-
-            torrent.on('done', () => {
-                updateStatus('✅ Ready - Streaming from ' + torrent.numPeers + ' peers');
-                updateStats(torrent.numPeers, 100, torrent.downloadSpeed);
-                
-                // Find and play the video file
-                const file = torrent.files.find(f => 
-                    f.name.endsWith('.mp4') || 
-                    f.name.endsWith('.mov') ||
-                    f.name.endsWith('.webm') ||
-                    f.name.endsWith('.mkv')
-                );
-                
-                if (file) {
-                    console.log('Rendering video file:', file.name);
-                    file.renderTo(videoElement);
-                } else {
-                    showError('No video file found in torrent');
-                    fallbackToPinata();
-                }
-            });
-
-            // Fallback after 15 seconds if no progress
-            setTimeout(() => {
-                if (torrent.progress === 0) {
-                    showError('No peers found - using fallback');
-                    fallbackToPinata();
-                    torrent.destroy();
-                }
-            }, 15000);
+            updateStatus('📡 Using Pinata Gateway');
+            sourceInfo.textContent = 'Source: Pinata IPFS Gateway';
+            videoElement.src = 'https://gateway.pinata.cloud/ipfs/${cid}';
+            videoElement.style.display = 'block';
             `
                 : `
-            // No magnet link, use Pinata directly
-            console.log('No magnet link, using Pinata fallback');
-            fallbackToPinata();
+            updateStatus('❌ No video source available');
+            sourceInfo.textContent = 'Source: Not available';
             `
             }
         }
 
-        // Start when page loads
-        videoElement.addEventListener('error', (e) => {
-            console.error('Video element error:', e);
-            showError('Video playback failed');
-            fallbackToPinata();
-        });
+        function startWebTorrent() {
+            ${
+              magnetLink
+                ? `
+            // Clean magnet link
+            const magnetLink = '${magnetLink}'.replace('magnet:?magnet:', 'magnet:?');
+            
+            console.log('🔗 Magnet link:', magnetLink);
+            updateStatus('🔍 Checking for existing torrent...');
 
-        videoElement.addEventListener('loadstart', () => {
-            console.log('Video load started');
+            // Check if torrent already exists in shared client
+            currentTorrent = client.get(magnetLink);
+            
+            if (currentTorrent) {
+                console.log('✅ Found existing torrent in shared client!');
+                console.log('📊 Existing torrent - Peers:', currentTorrent.numPeers, 'Progress:', currentTorrent.progress);
+                updateStatus('✅ Using shared torrent (' + currentTorrent.numPeers + ' peers)');
+                setupTorrentEvents(currentTorrent);
+                
+                // If already downloaded, play immediately
+                if (currentTorrent.progress > 0) {
+                    playVideoFromTorrent(currentTorrent);
+                }
+            } else {
+                // Add new torrent to shared client
+                updateStatus('🔄 Adding to shared WebTorrent client...');
+                console.log('🆕 Adding new torrent to shared client');
+                
+                currentTorrent = client.add(magnetLink, {
+                    announce: [
+                        'wss://tracker.openwebtorrent.com',
+                        'wss://tracker.btorrent.xyz',
+                        'wss://tracker.webtorrent.dev'
+                    ]
+                });
+
+                setupTorrentEvents(currentTorrent);
+            }
+
+            function setupTorrentEvents(torrent) {
+                torrent.on('error', (err) => {
+                    console.error('Torrent error:', err);
+                    showError('WebTorrent failed: ' + err.message);
+                    usePinataFallback();
+                });
+
+                torrent.on('warning', (err) => {
+                    console.warn('Torrent warning:', err);
+                });
+
+                torrent.on('metadata', () => {
+                    console.log('📦 Metadata loaded. Files:', torrent.files.length);
+                    torrent.files.forEach(file => {
+                        console.log('   -', file.name, '(' + file.length + ' bytes)');
+                    });
+                    updateStatus('📦 Found ' + torrent.files.length + ' files');
+                });
+
+                torrent.on('ready', () => {
+                    console.log('✅ Torrent ready');
+                });
+
+                torrent.on('download', (bytes) => {
+                    updateStats(torrent);
+                    
+                    // Start playing once we have some data
+                    if (torrent.progress >= 0.05 && !hasStartedPlaying) {
+                        playVideoFromTorrent(torrent);
+                    }
+                    
+                    if (torrent.progress < 1) {
+                        updateStatus('📥 Downloading: ' + Math.round(torrent.progress * 100) + '% - ' + torrent.numPeers + ' peers');
+                    }
+                });
+
+                torrent.on('done', () => {
+                    updateStatus('✅ Complete! Seeding to ' + torrent.numPeers + ' peers');
+                    sourceInfo.textContent = 'Source: WebTorrent (Seeding to ' + torrent.numPeers + ' peers)';
+                    progressFill.style.background = '#00FF00';
+                });
+
+                torrent.on('peer', () => {
+                    console.log('👥 New peer connected! Total:', torrent.numPeers);
+                });
+
+                // Update stats every second
+                const statsInterval = setInterval(() => {
+                    if (torrent.destroyed) {
+                        clearInterval(statsInterval);
+                        return;
+                    }
+                    updateStats(torrent);
+                }, 1000);
+            }
+
+            function playVideoFromTorrent(torrent) {
+                if (hasStartedPlaying) return;
+                
+                console.log('🎬 Looking for video file...');
+                const videoFile = torrent.files.find(file => {
+                    const name = file.name.toLowerCase();
+                    return name.includes('.mp4') || 
+                           name.includes('.mov') ||
+                           name.includes('.webm');
+                });
+
+                if (videoFile) {
+                    console.log('✅ Found video:', videoFile.name);
+                    updateStatus('🎬 Rendering: ' + videoFile.name);
+                    
+                    videoFile.renderTo(videoElement, (err, elem) => {
+                        if (err) {
+                            console.error('Render error:', err);
+                            showError('Video render failed: ' + err.message);
+                            usePinataFallback();
+                        } else {
+                            console.log('✅ Video rendered successfully');
+                            videoElement.style.display = 'block';
+                            hasStartedPlaying = true;
+                            sourceInfo.textContent = 'Source: WebTorrent (' + torrent.numPeers + ' peers)';
+                            updateStatus('✅ Playing! Sharing with ' + torrent.numPeers + ' peers');
+                            
+                            // Try to play (autoplay might be blocked)
+                            videoElement.play().catch(e => {
+                                console.log('Autoplay blocked, waiting for user interaction');
+                            });
+                        }
+                    });
+                } else {
+                    console.error('❌ No video file found');
+                    showError('No video file found in torrent');
+                    usePinataFallback();
+                }
+            }
+
+            `
+                : `
+            // No magnet link, use IPFS directly
+            console.log('🔗 No magnet link, using IPFS fallback');
+            usePinataFallback();
+            `
+            }
+        }
+
+        // Video event listeners
+        videoElement.addEventListener('loadeddata', () => {
+            console.log('✅ Video loaded successfully');
         });
 
         videoElement.addEventListener('canplay', () => {
-            console.log('Video can play');
-            updateStatus('✅ Video ready to play');
+            console.log('🎵 Video ready to play');
         });
 
-        // Start playback
-        playVideo();
+        videoElement.addEventListener('play', () => {
+            console.log('▶️ Playback started');
+        });
+
+        videoElement.addEventListener('error', (e) => {
+            console.error('❌ Video error:', e);
+            if (videoElement.error) {
+                showError('Video error: ' + videoElement.error.message);
+            }
+        });
+
+        // Start the WebTorrent process
+        console.log('🚀 Starting True P2P WebTorrent Player');
+        console.log('File: ${video.fileName}');
+        console.log('Magnet: ${magnetLink}');
+        console.log('CID: ${cid}');
+        startWebTorrent();
     </script>
 </body>
 </html>
@@ -231,6 +377,7 @@ export default function WebTorrentPlayer({ video }) {
   return (
     <View style={styles.container}>
       <iframe
+        ref={iframeRef}
         srcDoc={htmlContent}
         style={styles.iframe}
         sandbox="allow-scripts allow-same-origin"
@@ -251,7 +398,7 @@ const styles = StyleSheet.create({
   },
   iframe: {
     width: "100%",
-    height: 320,
+    height: 500, // Slightly taller for better stats display
     border: "none",
     backgroundColor: "#000",
   },
