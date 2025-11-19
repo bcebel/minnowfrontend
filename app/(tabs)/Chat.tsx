@@ -1225,8 +1225,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   messageImage: {
-    width: 200,
-    height: 150,
+    width: 400,
+    height: 300,
     borderRadius: 8,
     marginBottom: 6,
   },
@@ -1235,11 +1235,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   videoThumbnail: {
-    width: 200,
-    height: 120,
+    width: 400,
+    height: 240,
     borderRadius: 8,
     overflow: "hidden",
-    backgroundColor: "#333333",
+    backgroundColor: "#00ff00",
     position: "relative",
   },
   videoThumbnailImage: {
@@ -1310,7 +1310,7 @@ const styles = StyleSheet.create({
   },
   expandedVideoPlayer: {
     width: "100%",
-    height: 200,
+    height: 500,
     borderRadius: 6,
   },
   videoInfo: {
