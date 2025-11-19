@@ -20,55 +20,56 @@ export default function TabLayout() {
         },
         // Increase font size for tab labels
         tabBarLabelStyle: {
-          fontSize: 16, // Increase font size
-          fontWeight: "600",
+          fontSize: 18, // Increase font size
+          fontWeight: "500",
           marginBottom: Platform.OS === "ios" ? 15 : 5,
+          color: "#ff0000",
         },
         // Make the tab bar itself larger
         tabBarItemStyle: {
-          minHeight: 60, // Increase minimum height of each tab item
+          minHeight: 70, // Increase minimum height of each tab item
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "🌊 Welcome",
+          title: "Welcome",
           tabBarIcon: ({ color }) => null,
         }}
       />
       <Tabs.Screen
         name="neighborhoods/index"
         options={{
-          title: "🏠 Neighborhood",
+          title: "Neighborhood",
           tabBarIcon: ({ color }) => null,
         }}
       />
       <Tabs.Screen
         name="torrent"
         options={{
-          title: "🎪 Public Square",
+          title: "Feed",
           tabBarIcon: ({ color }) => null,
         }}
       />
       <Tabs.Screen
         name="videos"
         options={{
-          title: "📹 Studio",
+          title: "Studio",
           tabBarIcon: ({ color }) => null,
         }}
       />
       <Tabs.Screen
         name="Chat"
         options={{
-          title: "👥 Social",
+          title: "Chat",
           tabBarIcon: ({ color }) => null,
         }}
       />
       <Tabs.Screen
         name="Home"
         options={{
-          title: "👥 Home",
+          title: "Home",
           tabBarIcon: ({ color }) => null,
         }}
       />

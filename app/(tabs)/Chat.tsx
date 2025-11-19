@@ -899,14 +899,9 @@ export default function ChatScreen() {
       <View style={styles.header}>
         <Text style={styles.roomTitle}>💬 {room} Chat</Text>
         <View style={styles.headerButtons}>
-          <TouchableOpacity onPress={testMutation} style={styles.debugButton}>
-            <Text style={styles.debugText}>🧪</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={debugToken} style={styles.debugButton}>
-            <Text style={styles.debugText}>🐛</Text>
-          </TouchableOpacity>
+      
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Text style={styles.logoutText}>🚪</Text>
+            <Text style={styles.logoutText}>Log Out 🚪</Text>
           </TouchableOpacity>
         </View>
       </View>
