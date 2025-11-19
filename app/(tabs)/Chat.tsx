@@ -1225,8 +1225,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   messageImage: {
-    width: 400,
-    height: 300,
+    width: 300,
+    height: 225,
     borderRadius: 8,
     marginBottom: 6,
   },
@@ -1235,8 +1235,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   videoThumbnail: {
-    width: 400,
-    height: 240,
+    width: 300,
+    height: 180,
     borderRadius: 8,
     overflow: "hidden",
     backgroundColor: "#00ff00",

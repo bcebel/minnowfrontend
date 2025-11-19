@@ -16,7 +16,6 @@ export default function TabLayout() {
           height: Platform.OS === "ios" ? 100 : 80, // Adjust these values as needed
           paddingBottom: Platform.OS === "ios" ? 30 : 10,
           paddingTop: 10,
-          
         },
         // Increase font size for tab labels
         tabBarLabelStyle: {
@@ -34,42 +33,42 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Welcome",
+          title: "👋",
           tabBarIcon: ({ color }) => null,
         }}
       />
       <Tabs.Screen
         name="neighborhoods/index"
         options={{
-          title: "Neighborhood",
+          title: "🏘️",
           tabBarIcon: ({ color }) => null,
         }}
       />
       <Tabs.Screen
         name="torrent"
         options={{
-          title: "Feed",
+          title: "🎬",
           tabBarIcon: ({ color }) => null,
         }}
       />
       <Tabs.Screen
         name="videos"
         options={{
-          title: "Studio",
+          title: "🎨",
           tabBarIcon: ({ color }) => null,
         }}
       />
       <Tabs.Screen
         name="Chat"
         options={{
-          title: "Chat",
+          title: "📢",
           tabBarIcon: ({ color }) => null,
         }}
       />
       <Tabs.Screen
         name="Home"
         options={{
-          title: "Home",
+          title: "🏠",
           tabBarIcon: ({ color }) => null,
         }}
       />
