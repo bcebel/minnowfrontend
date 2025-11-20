@@ -191,11 +191,11 @@ const VideoCard = ({ video }) => {
   // URL processing logic
   if (mediaUrl) {
     if (Platform.OS === "android") {
-      mediaUrl = mediaUrl.replace("ipfs.filebase.io", "gateway.pinata.cloud");
+      mediaUrl = mediaUrl.replace("ipfs.filebase.io", PINATA_GATEWAY);
     } else {
       mediaUrl = video.cid
         ? `https://${video.cid}.ipfs.dweb.link/`
-        : mediaUrl.replace("ipfs.filebase.io", "gateway.pinata.cloud");
+        : mediaUrl.replace("ipfs.filebase.io", PINATA_GATEWAY);
     }
   }
 

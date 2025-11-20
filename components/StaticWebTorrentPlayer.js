@@ -1,7 +1,7 @@
 // components/StaticWebTorrentPlayer.js
 import React from "react";
 import { Platform, View, Text, StyleSheet } from "react-native";
-
+const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 export default function StaticWebTorrentPlayer({ video }) {
   const staticHTML = `
     <!-- Your WebTorrent HTML from earlier -->
@@ -10,12 +10,14 @@ export default function StaticWebTorrentPlayer({ video }) {
 
   if (Platform.OS === "web") {
     return (
-      <iframe
-        srcDoc={staticHTML}
-        style={{ width: "100%", height: 500, border: "none", borderRadius: 12 }}
-        title={`P2P Player - ${video.fileName}`}
-        sandbox="allow-scripts allow-same-origin"
-      />
+      <View style={styles.container}>
+        <video
+          controls
+          style={styles.video}
+          src={`https://${PINATA_GATEWAY}/ipfs/${video.cid}`}
+      
+        />
+      </View>
     );
   }
 

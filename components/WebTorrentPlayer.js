@@ -1,6 +1,7 @@
 // components/WebTorrentPlayer.js
 import React, { useEffect, useRef } from "react";
 import { Platform, View, StyleSheet, Text } from "react-native";
+const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
 export default function WebTorrentPlayer({ video }) {
   const iframeRef = useRef(null);
@@ -189,7 +190,7 @@ export default function WebTorrentPlayer({ video }) {
                 ? `
             updateStatus('📡 Using Pinata Gateway');
             sourceInfo.textContent = 'Source: Pinata IPFS Gateway';
-            videoElement.src = 'https://gateway.pinata.cloud/ipfs/${cid}';
+            videoElement.src = 'https://${PINATA_GATEWAY}/ipfs/${cid}';
             videoElement.style.display = 'block';
             `
                 : `
@@ -380,7 +381,6 @@ export default function WebTorrentPlayer({ video }) {
         ref={iframeRef}
         srcDoc={htmlContent}
         style={styles.iframe}
-        sandbox="allow-scripts allow-same-origin"
         title={`WebTorrent Player - ${video.fileName || "Video"}`}
       />
     </View>

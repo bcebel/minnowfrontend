@@ -22,6 +22,8 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import WebTorrentWebView from "../../components/WebTorrentPlayer";
 
+const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
+
 // Conditional import for FileSystem - only on native
 let File: any = null;
 if (Platform.OS !== "web") {
@@ -320,7 +322,6 @@ const SmartVideoPlayer = ({
         fileName={fileName}
         onCollapse={() => setIsExpanded(false)}
       />
-      
     );
   }
 
@@ -332,7 +333,6 @@ const SmartVideoPlayer = ({
     />
   );
 };
-
 
 // Document Preview Component
 const ChatDocumentPreview = ({
@@ -459,23 +459,35 @@ const formatTimestamp = (timestamp: any) => {
   }
 };
 // --- ENHANCED IMAGE COMPONENT ---
-const ChatImage = ({ url, fileName, style }: { url: string; fileName?: string; style: any }) => {
+const ChatImage = ({
+  url,
+  fileName,
+  style,
+}: {
+  url: string;
+  fileName?: string;
+  style: any;
+}) => {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Handle HEIC files
-  const isHEIC = fileName?.toLowerCase().includes('.heic') || url?.toLowerCase().includes('.heic');
+  const isHEIC =
+    fileName?.toLowerCase().includes(".heic") ||
+    url?.toLowerCase().includes(".heic");
 
-  if (isHEIC && Platform.OS === 'web') {
+  if (isHEIC && Platform.OS === "web") {
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[style, styles.heicContainer]}
-        onPress={() => downloadFile(url, fileName || 'image.heic')}
+        onPress={() => downloadFile(url, fileName || "image.heic")}
       >
         <Text style={styles.heicIcon}>🖼️</Text>
         <Text style={styles.heicText}>HEIC Image</Text>
         <Text style={styles.heicSubtext}>Tap to download</Text>
-        <Text style={styles.heicSubtext}>HEIC format not supported in browser</Text>
+        <Text style={styles.heicSubtext}>
+          HEIC format not supported in browser
+        </Text>
       </TouchableOpacity>
     );
   }
@@ -494,18 +506,18 @@ const ChatImage = ({ url, fileName, style }: { url: string; fileName?: string; s
           setIsLoading(false);
         }}
       />
-      
+
       {isLoading && !hasError && (
         <View style={[style, styles.loadingOverlay]}>
           <ActivityIndicator size="small" color="#00FF00" />
         </View>
       )}
-      
+
       {hasError && (
         <View style={[style, styles.imageErrorContainer]}>
           <Text style={styles.imageErrorText}>📷</Text>
           <Text style={styles.imageErrorSubtext}>Failed to load image</Text>
-          <Text style={styles.debugUrl}>{fileName || 'Unknown file'}</Text>
+          <Text style={styles.debugUrl}>{fileName || "Unknown file"}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -528,35 +540,35 @@ export default function ChatScreen() {
   const [uploadType, setUploadType] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
-const { loading, error, data, refetch } = useQuery(GET_MESSAGES, {
-  variables: { room },
-  fetchPolicy: "cache-and-network",
-  skip: !isAuthenticated,
-});
+  const { loading, error, data, refetch } = useQuery(GET_MESSAGES, {
+    variables: { room },
+    fetchPolicy: "cache-and-network",
+    skip: !isAuthenticated,
+  });
 
-// Add useEffect for successful query
-useEffect(() => {
-  if (data) {
-    console.log(
-      "✅ GraphQL Query Success:",
-      data?.messages?.length,
-      "messages"
-    );
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 200);
-  }
-}, [data]);
-
-// Add useEffect for error handling
-useEffect(() => {
-  if (error) {
-    console.error("❌ GraphQL Query Error:", error);
-    if (error.message.includes("Authentication")) {
-      handleAuthError();
+  // Add useEffect for successful query
+  useEffect(() => {
+    if (data) {
+      console.log(
+        "✅ GraphQL Query Success:",
+        data?.messages?.length,
+        "messages"
+      );
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 200);
     }
-  }
-}, [error]);
+  }, [data]);
+
+  // Add useEffect for error handling
+  useEffect(() => {
+    if (error) {
+      console.error("❌ GraphQL Query Error:", error);
+      if (error.message.includes("Authentication")) {
+        handleAuthError();
+      }
+    }
+  }, [error]);
 
   const [sendMessageMutation] = useMutation(SEND_MESSAGE);
 
@@ -910,7 +922,6 @@ useEffect(() => {
       <View style={styles.header}>
         <Text style={styles.roomTitle}>💬 {room} Chat</Text>
         <View style={styles.headerButtons}>
-      
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
             <Text style={styles.logoutText}>Log Out 🚪</Text>
           </TouchableOpacity>
@@ -952,13 +963,13 @@ useEffect(() => {
             : "";
 
           const imageUrl = hasImage
-            ? item.imageUrl?.replace("ipfs.filebase.io", "gateway.pinata.cloud")
+            ? item.imageUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY)
             : null;
           const videoUrl = hasVideo
-            ? item.videoUrl?.replace("ipfs.filebase.io", "gateway.pinata.cloud")
+            ? item.videoUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY)
             : null;
           const fileUrl = hasFile
-            ? item.fileUrl?.replace("ipfs.filebase.io", "gateway.pinata.cloud")
+            ? item.fileUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY)
             : null;
 
           return (
@@ -1060,7 +1071,6 @@ useEffect(() => {
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {

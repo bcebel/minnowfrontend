@@ -18,6 +18,7 @@ import { io } from "socket.io-client";
 import { gql, useQuery, useMutation } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
+const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
 // GraphQL Queries - FIXED VERSION
 const GET_NEIGHBORHOOD_MESSAGES = gql`
@@ -63,7 +64,6 @@ const GET_NEIGHBORHOOD_INFO = gql`
     }
   }
 `;
-
 
 const SEND_NEIGHBORHOOD_MESSAGE = gql`
   mutation SendNeighborhoodMessage($content: String!, $neighborhoodId: ID!) {
@@ -236,39 +236,36 @@ export default function NeighborhoodChatScreen() {
   };
 
   // Send Message
-const sendMessage = async () => {
-  if (!newMessage.trim() || !socket) return;
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !socket) return;
 
-  const messageContent = newMessage.trim();
-  setNewMessage("");
+    const messageContent = newMessage.trim();
+    setNewMessage("");
 
-  try {
-    await sendMessageMutation({
-      variables: {
-        content: messageContent,
-        neighborhoodId: neighborhoodId, // Make sure this is passed
-        // Remove room since we're using fixed "neighborhood" value
-      },
-    });
-    console.log("✅ Neighborhood message sent");
+    try {
+      await sendMessageMutation({
+        variables: {
+          content: messageContent,
+          neighborhoodId: neighborhoodId, // Make sure this is passed
+          // Remove room since we're using fixed "neighborhood" value
+        },
+      });
+      console.log("✅ Neighborhood message sent");
 
-    setTimeout(() => {
-      messageInputRef.current?.focus();
-    }, 100);
-  } catch (err) {
-    console.error("❌ Send message error:", err);
-    Alert.alert("Error", "Failed to send message");
-    setNewMessage(messageContent);
-  }
-};
+      setTimeout(() => {
+        messageInputRef.current?.focus();
+      }, 100);
+    } catch (err) {
+      console.error("❌ Send message error:", err);
+      Alert.alert("Error", "Failed to send message");
+      setNewMessage(messageContent);
+    }
+  };
 
   // File Handling
   const handleFilePress = (message) => {
     if (message.fileUrl) {
-      const url = message.fileUrl.replace(
-        "ipfs.filebase.io",
-        "gateway.pinata.cloud"
-      );
+      const url = message.fileUrl.replace("ipfs.filebase.io", PINATA_GATEWAY);
       Alert.alert(message.fileName || "File", "What would you like to do?", [
         {
           text: "Open",
@@ -400,7 +397,7 @@ const sendMessage = async () => {
           const isMedia = !!mediaUrl;
           const isFile = !!item.fileUrl && !isMedia;
           const viewableUrl = isMedia
-            ? mediaUrl?.replace("ipfs.filebase.io", "gateway.pinata.cloud")
+            ? mediaUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY)
             : null;
 
           return (
