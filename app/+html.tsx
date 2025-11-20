@@ -1,5 +1,5 @@
 import { ScrollViewStyleReset }
-  from 'expo-router/html':
+  from 'expo-router/html';
 import { type  PropswithChildren } 
   from 'react';
 
