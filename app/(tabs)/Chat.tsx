@@ -46,6 +46,7 @@ const GET_MESSAGES = gql`
       fileUrl
       fileName
       fileType
+      magnetLink
       room
       createdAt
       sender {
@@ -66,6 +67,7 @@ const SEND_MESSAGE = gql`
     $fileUrl: String
     $fileName: String
     $fileType: String
+    $magnetLink: String
     $fileSize: Float
     $mimeType: String
     $ipfsHash: String
@@ -78,6 +80,7 @@ const SEND_MESSAGE = gql`
       videoUrl: $videoUrl
       fileUrl: $fileUrl
       fileName: $fileName
+      magnetLink: $magnetLink
       fileType: $fileType
       fileSize: $fileSize
       mimeType: $mimeType
@@ -92,6 +95,7 @@ const SEND_MESSAGE = gql`
       fileName
       fileType
       fileSize
+      magnetLink
       mimeType
       ipfsHash
       ipfsData {
@@ -726,11 +730,16 @@ export default function ChatScreen() {
 
       if (ipfsUrl) {
         const ipfsHash = ipfsUrl.split("/ipfs/")[1];
+            const videoResponse = await fetch(
+              `${BACKEND_URL}/api/videos?cid=${ipfsHash}`
+            );
+            const videos = await videoResponse.json();
+            const videoWithMagnet = videos.find((v) => v.cid === ipfsHash);
 
         const ipfsData = {
           cid: ipfsHash,
           ipfsUrl: ipfsUrl,
-          magnetLink: null,
+          magnetLink: videoWithMagnet?.magnetLink || null,
           fileType: type,
           fileName: fileName,
         };
@@ -747,8 +756,13 @@ export default function ChatScreen() {
           mimeType: mimeType,
           ipfsHash: ipfsHash,
           ipfsData: ipfsData,
+          magnetLink: type === "video" ? ipfsUrl : null,
         };
 
+          console.log("📤 Sending message with magnetLink:", {
+            hasIpfsDataMagnet: !!ipfsData.magnetLink,
+            hasDirectMagnet: !!messageVariables.magnetLink,
+          });
         console.log("📤 Sending message with full metadata:", messageVariables);
 
         await sendMessageMutation({ variables: messageVariables });
@@ -962,6 +976,14 @@ export default function ChatScreen() {
             ? item.mimeType.split("/")[1]?.toUpperCase()
             : "";
 
+          // 🔥 ADD THIS: Check for magnet links
+          const hasMagnetLink =
+            !!item.magnetLink || !!item.ipfsData?.magnetLink;
+          const magnetLink = item.magnetLink || item.ipfsData?.magnetLink;
+
+          // Get CID for fallback
+          const cid = item.ipfsData?.cid || item.ipfsHash;
+
           const imageUrl = hasImage
             ? item.imageUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY)
             : null;
@@ -971,6 +993,20 @@ export default function ChatScreen() {
           const fileUrl = hasFile
             ? item.fileUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY)
             : null;
+
+          // 🔥 ADD DEBUG LOGGING
+          console.log("🎬 Message debug:", {
+            id: item.id,
+            content: item.content,
+            fileName: item.fileName,
+            fileType: item.fileType,
+            hasVideo: hasVideo,
+            hasMagnetLink: hasMagnetLink,
+            magnetLink: magnetLink,
+            hasIpfsData: !!item.ipfsData,
+            ipfsData: item.ipfsData,
+            cid: cid,
+          });
 
           return (
             <View style={styles.messageContainer} key={item.id}>
@@ -988,8 +1024,23 @@ export default function ChatScreen() {
                 <Text style={styles.username}>
                   {item.sender?.username || "Unknown"}
                 </Text>
-                {/* IMAGE DISPLAY */}
-                {hasVideo && videoUrl && <WebTorrentWebView video={item} />}
+
+                {/* 🔥 UPDATED: Use WebTorrent for videos with magnet links */}
+                {hasVideo && hasMagnetLink ? (
+                  <WebTorrentWebView
+                    video={{
+                      ...item,
+                      magnetLink: magnetLink,
+                      cid: cid,
+                      fileName: item.fileName,
+                      videoUrl: videoUrl,
+                    }}
+                  />
+                ) : hasVideo ? (
+                  // Fallback to regular video player if no magnet link
+                  <SmartVideoPlayer url={videoUrl} fileName={item.fileName} />
+                ) : null}
+
                 {/* IMAGE DISPLAY */}
                 {hasImage && imageUrl && (
                   <TouchableOpacity onPress={() => Linking.openURL(imageUrl)}>
@@ -1004,6 +1055,7 @@ export default function ChatScreen() {
                     )}
                   </TouchableOpacity>
                 )}
+
                 {/* FILE DISPLAY */}
                 {hasFile && fileUrl && (
                   <ChatDocumentPreview
@@ -1012,10 +1064,22 @@ export default function ChatScreen() {
                     fileType={actualFileType}
                   />
                 )}
+
                 {/* TEXT MESSAGE - Only show if no media */}
                 {!hasImage && !hasVideo && !hasFile && (
                   <Text style={styles.messageText}>{item.content}</Text>
                 )}
+
+                {/* 🔥 ADD METADATA DEBUG INFO */}
+                {(hasVideo || hasMagnetLink) && (
+                  <View style={styles.metadataContainer}>
+                    <Text style={styles.metadataText}>
+                      {hasMagnetLink ? "🧲 P2P Available" : "🌐 Direct IPFS"}
+                      {cid ? ` • CID: ${cid.substring(0, 8)}...` : ""}
+                    </Text>
+                  </View>
+                )}
+
                 <Text style={styles.timestamp}>
                   {formatTimestamp(item.createdAt)}
                 </Text>

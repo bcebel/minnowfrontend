@@ -236,16 +236,22 @@ export default function WebTorrentPlayer({ video }) {
             }
         }
 
-        function setupTorrentEvents(torrent) {
-            torrent.startTime = Date.now();
-            
-            torrent.on('error', (err) => {
-                console.error('Torrent error:', err);
-                if (!pinataFallbackUsed) {
-                    showError('P2P failed: ' + err.message);
-                    usePinataFallbackWithReseed();
-                }
-            });
+function setupTorrentEvents(torrent) {
+  torrent.startTime = Date.now();
+  
+  torrent.on('error', (err) => {
+    console.error('Torrent error:', err);
+    // Don't fallback immediately for metadata parsing errors
+    if (err.message.includes('Data too short') || err.message.includes('Invalid data')) {
+      console.log('⚠️ Metadata parsing error, continuing playback...');
+      return; // Continue with playback
+    }
+    
+    if (!pinataFallbackUsed) {
+      showError('P2P failed: ' + err.message);
+      usePinataFallbackWithReseed();
+    }
+  });
 
             torrent.on('metadata', () => {
                 console.log('📦 Metadata loaded:', torrent.files.length + ' files');
@@ -293,39 +299,65 @@ export default function WebTorrentPlayer({ video }) {
             }, 2000);
         }
 
-        function playVideoFromTorrent(torrent) {
-            if (hasStartedPlaying || pinataFallbackUsed) return;
-            
-            const videoFile = torrent.files.find(file => {
-                const name = file.name.toLowerCase();
-                return name.includes('.mp4') || name.includes('.mov') || name.includes('.webm');
-            });
+function playVideoFromTorrent(torrent) {
+  if (hasStartedPlaying || pinataFallbackUsed) return;
+  
+  console.log('🔍 Looking for video files in torrent:', torrent.files.map(f => ({
+    name: f.name,
+    length: f.length,
+    type: f.name.split('.').pop()
+  })));
 
-            if (videoFile) {
-                console.log('🎬 Playing:', videoFile.name);
-                updateStatus('🎬 Playing from ' + torrent.numPeers + ' peers');
-                
-                videoFile.renderTo(videoElement, (err) => {
-                    if (err) {
-                        console.error('Render error:', err);
-                        if (!pinataFallbackUsed) {
-                            usePinataFallbackWithReseed();
-                        }
-                    } else {
-                        videoElement.style.display = 'block';
-                        hasStartedPlaying = true;
-                        videoElement.play().catch(e => {
-                            console.log('Autoplay blocked');
-                        });
-                    }
-                });
-            } else if (!pinataFallbackUsed) {
-                usePinataFallbackWithReseed();
-            }
+  const videoFile = torrent.files.find(file => {
+    const name = file.name.toLowerCase();
+    return name.includes('.mp4') || name.includes('.mov') || name.includes('.webm') || name.includes('.mkv');
+  });
+
+  if (videoFile) {
+    console.log('🎬 Found video file:', videoFile.name, 'size:', videoFile.length);
+    updateStatus('🎬 Loading video from ' + torrent.numPeers + ' peers...');
+    
+    // Create a blob URL instead of direct rendering
+    videoFile.getBlobURL((err, url) => {
+      if (err) {
+        console.error('❌ Blob URL error:', err);
+        if (!pinataFallbackUsed) {
+          usePinataFallbackWithReseed();
         }
+        return;
+      }
+      
+      console.log('✅ Blob URL created:', url);
+      videoElement.src = url;
+      videoElement.style.display = 'block';
+      hasStartedPlaying = true;
+      
+      videoElement.addEventListener('loadeddata', () => {
+        console.log('✅ Video data loaded');
+        updateStatus('🎬 Playing from ' + torrent.numPeers + ' peers');
+        videoElement.play().catch(e => {
+          console.log('⚠️ Autoplay blocked, waiting for user interaction');
+        });
+      });
+      
+      videoElement.addEventListener('error', (e) => {
+        console.error('❌ Video element error:', e);
+        if (!pinataFallbackUsed) {
+          usePinataFallbackWithReseed();
+        }
+      });
+    });
+    
+  } else if (!pinataFallbackUsed) {
+    console.log('❌ No video file found in torrent');
+    usePinataFallbackWithReseed();
+  }
+}
 
         // MAIN EXECUTION
-        ${magnetLink ? `
+        ${
+          magnetLink
+            ? `
         const cleanMagnet = '${magnetLink}'.replace('magnet:?magnet:', 'magnet:?');
         console.log('🚀 Starting P2P for:', '${video.fileName}');
         
@@ -349,10 +381,12 @@ export default function WebTorrentPlayer({ video }) {
             });
             setupTorrentEvents(currentTorrent);
         }
-        ` : `
+        `
+            : `
         console.log('❌ No magnet link');
         usePinataFallbackWithReseed();
-        `}
+        `
+        }
 
         // Cleanup
         window.addEventListener('beforeunload', () => {
