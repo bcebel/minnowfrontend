@@ -756,13 +756,14 @@ export default function ChatScreen() {
           mimeType: mimeType,
           ipfsHash: ipfsHash,
           ipfsData: ipfsData,
-          magnetLink: type === "video" ? ipfsUrl : null,
+          magnetLink: type === "video" ? videoWithMagnet?.magnetLink : null,
         };
 
-          console.log("📤 Sending message with magnetLink:", {
-            hasIpfsDataMagnet: !!ipfsData.magnetLink,
-            hasDirectMagnet: !!messageVariables.magnetLink,
-          });
+       console.log("📤 Sending message with magnetLink:", {
+         hasIpfsDataMagnet: !!ipfsData.magnetLink,
+         hasDirectMagnet: !!messageVariables.magnetLink,
+         magnetLink: messageVariables.magnetLink,
+       });
         console.log("📤 Sending message with full metadata:", messageVariables);
 
         await sendMessageMutation({ variables: messageVariables });
