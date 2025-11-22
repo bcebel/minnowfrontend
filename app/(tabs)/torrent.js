@@ -333,6 +333,7 @@ export default function App() {
   return (
     <View style={styles.container}>
       <FlatList
+        key={`flatlist-${numColumns}`}
         data={videos}
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => <VideoCard video={item} />}

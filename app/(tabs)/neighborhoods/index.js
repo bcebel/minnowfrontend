@@ -112,11 +112,7 @@ export default function NeighborhoodsScreen() {
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.joinButton}
-          onPress={() =>
-            router.push(
-              `../neighborhoods/create`
-            )
-          }
+          onPress={() => router.push(`../neighborhoods/create`)}
         >
           <Text style={styles.chatButtonText}>💬 Create New Neighborhood</Text>
         </TouchableOpacity>
@@ -126,6 +122,7 @@ export default function NeighborhoodsScreen() {
       </Text>
 
       <FlatList
+        key={`flatlist-${numColumns}`}
         data={data?.neighborhoods || []}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}

@@ -27,10 +27,11 @@ export default function HomeScreen() {
           <Text style={[styles.heroTitle, { color: theme.link }]}>
             🫧 bubblebase.app 🫧
           </Text>
-          <Text style={[styles.heroSubtitle, { color: theme.tint }]}>
-            time to bubble up
+          <Text style={[styles.heroTagline, { color: theme.tint }]}>
+            bubbly & based
           </Text>
-          <Text style={[styles.heroTagline, { color: theme.link }]}>
+
+          <Text style={[styles.heroSubtitle, { color: theme.link }]}>
             its poppin in here
           </Text>
         </View>
@@ -41,15 +42,16 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        
         {/* Rest of your content */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={[styles.primaryButton, { backgroundColor: theme.tint }]}
             onPress={() => router.push("/register")}
           >
-            <Text style={[styles.primaryButtonText, { color: theme.background }]}>
-              Join the Neighborhood
+            <Text
+              style={[styles.primaryButtonText, { color: theme.background }]}
+            >
+              New User? Join the Bubble
             </Text>
           </TouchableOpacity>
 
@@ -62,25 +64,27 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-        
-        <View style={[styles.features, { backgroundColor: theme.foreground, borderColor: theme.tint }]}>
+
+        <View
+          style={[
+            styles.features,
+            { backgroundColor: theme.foreground, borderColor: theme.tint },
+          ]}
+        >
           {/* Your feature items */}
-                    <View style={styles.featureItem}>
-            <Text style={styles.featureEmoji}>🏠</Text>
+
+          <View style={styles.featureItem}>
+            <Text style={[styles.featureText, { color: theme.typography }]}>
+              Share your media with only those in your bubble, or send it out to the universe but you get to decide.
+            </Text>
+          </View>
+          <View style={styles.featureItem}>
             <Text style={[styles.featureText, { color: theme.typography }]}>
               Digital neighborhoods, not just feeds
             </Text>
           </View>
 
           <View style={styles.featureItem}>
-            <Text style={styles.featureEmoji}>🔒</Text>
-            <Text style={[styles.featureText, { color: theme.typography }]}>
-              You control your privacy
-            </Text>
-          </View>
-
-          <View style={styles.featureItem}>
-            <Text style={styles.featureEmoji}>💵</Text>
             <Text style={[styles.featureText, { color: theme.typography }]}>
               You are not the product here. In fact you can add your own
               affiliate links to your posts and the community pool.
@@ -88,7 +92,6 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.featureItem}>
-            <Text style={styles.featureEmoji}>🪩</Text>
             <Text style={[styles.featureText, { color: theme.typography }]}>
               Its a big club.... and you ARE in it!
             </Text>

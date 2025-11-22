@@ -33,6 +33,7 @@ const App = () => {
 
   return (
     <FlatList
+      key={`flatlist-${numColumns}`}
       data={data}
       renderItem={({ item }) => (
         <View style={styles.verticalItem}>
@@ -40,6 +41,7 @@ const App = () => {
 
           {/* Horizontal FlatList inside each vertical item */}
           <FlatList
+            key={`flatlist-${numColumns}`}
             data={horizontalData}
             renderItem={({ item }) => (
               <View style={styles.horizontalItem}>

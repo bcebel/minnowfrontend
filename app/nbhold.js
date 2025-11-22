@@ -134,6 +134,7 @@ export default function HomeScreen() {
         {MEMBERS.length} neighbors in your community
       </Text>
       <FlatList
+        key={`flatlist-${numColumns}`}
         data={MEMBERS}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
