@@ -134,7 +134,6 @@ const styles = StyleSheet.create({
   heroTitle: {
     borderRadius: 20, // Rounded edges
     position: "relative",
-    top: -20,
     fontSize: 32,
     fontWeight: "bold",
     textAlign: "center",
