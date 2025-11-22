@@ -88,6 +88,16 @@ export default function HomeScreen() {
             >
               🫧 leave big tech out of YOUR bubble 🫧
             </Text>
+            <Text
+              style={[styles.heroSubtitle, { backgroundColor: accents.banana }]}
+            >
+              🫧 its a big club... and you're in it 🫧
+            </Text>
+            <Text
+              style={[styles.heroTagline, { backgroundColor: accents.storm }]}
+            >
+              🫧 bubble up 🫧
+            </Text>
           </View>
         </View>
       </ScrollView>
