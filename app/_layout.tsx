@@ -3,6 +3,7 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
+ import { StyleSheet } from "react-native-unistyles";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -16,6 +17,7 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     Montserrat: require("../assets/fonts/Montserrat-Medium.ttf"),
