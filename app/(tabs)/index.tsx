@@ -5,91 +5,148 @@ import {
   TouchableOpacity,
   Text,
   ScrollView,
+  View,
 } from "react-native";
-import { ThemedView } from "@/components/ThemedView";
 import { useRouter } from "expo-router";
+import { themes } from "../theme";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const theme = themes.bubblefusion.dark;
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Hero Section with Bubble Background */}
+      <View style={styles.heroSection}>
+        <Image
+          source={require("@/assets/images/bubble.jpg")}
+          style={styles.heroBubble}
+          resizeMode="cover"
+        />
+        <View style={styles.heroOverlay}>
+          <Text style={[styles.heroTitle, { color: theme.link }]}>
+            🫧 bubblebase.app 🫧
+          </Text>
+          <Text style={[styles.heroSubtitle, { color: theme.tint }]}>
+            time to bubble up
+          </Text>
+          <Text style={[styles.heroTagline, { color: theme.link }]}>
+            its poppin in here
+          </Text>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Image
-          source={require("@/assets/images/gigunit.png")}
-          style={styles.headerImage}
-        />
-
-        <ThemedView style={styles.titleContainer}>
-          <Text style={styles.title}>🫧 bubblebase.app🫧</Text>
-          <Text style={styles.subtitle}>
-            🫧 its time to bubble up 🫧
-          </Text>
-          <Text style={styles.tagline}>bubbly & based</Text>
-        </ThemedView>
-        <ThemedView style={styles.actionsContainer}>
+        
+        {/* Rest of your content */}
+        <View style={styles.actionsContainer}>
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[styles.primaryButton, { backgroundColor: theme.tint }]}
             onPress={() => router.push("/register")}
           >
-            <Text style={styles.primaryButtonText}>Join the Neighborhood</Text>
+            <Text style={[styles.primaryButtonText, { color: theme.background }]}>
+              Join the Neighborhood
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.secondaryButton}
+            style={[styles.secondaryButton, { borderColor: theme.tint }]}
             onPress={() => router.push("/login")}
           >
-            <Text style={styles.secondaryButtonText}>Sign In</Text>
+            <Text style={[styles.secondaryButtonText, { color: theme.tint }]}>
+              Sign In
+            </Text>
           </TouchableOpacity>
-        </ThemedView>
-        <ThemedView style={styles.features}>
-          <ThemedView style={styles.featureItem}>
+        </View>
+        
+        <View style={[styles.features, { backgroundColor: theme.foreground, borderColor: theme.tint }]}>
+          {/* Your feature items */}
+                    <View style={styles.featureItem}>
             <Text style={styles.featureEmoji}>🏠</Text>
-            <Text style={styles.featureText}>
+            <Text style={[styles.featureText, { color: theme.typography }]}>
               Digital neighborhoods, not just feeds
             </Text>
-          </ThemedView>
+          </View>
 
-          <ThemedView style={styles.featureItem}>
+          <View style={styles.featureItem}>
             <Text style={styles.featureEmoji}>🔒</Text>
-            <Text style={styles.featureText}>You control your privacy</Text>
-          </ThemedView>
+            <Text style={[styles.featureText, { color: theme.typography }]}>
+              You control your privacy
+            </Text>
+          </View>
 
-          <ThemedView style={styles.featureItem}>
+          <View style={styles.featureItem}>
             <Text style={styles.featureEmoji}>💵</Text>
-            <Text style={styles.featureText}>
+            <Text style={[styles.featureText, { color: theme.typography }]}>
               You are not the product here. In fact you can add your own
               affiliate links to your posts and the community pool.
             </Text>
-          </ThemedView>
+          </View>
 
-          <ThemedView style={styles.featureItem}>
+          <View style={styles.featureItem}>
             <Text style={styles.featureEmoji}>🪩</Text>
-            <Text style={styles.featureText}>
+            <Text style={[styles.featureText, { color: theme.typography }]}>
               Its a big club.... and you ARE in it!
             </Text>
-          </ThemedView>
-        </ThemedView>
+          </View>
+        </View>
       </ScrollView>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
   },
-  scrollView: {
+    scrollView: {
     flex: 1,
   },
+  heroSection: {
+    height: 300, // Adjust based on your image
+    position: 'relative',
+  },
+  heroBubble: {
+    width: '100%',
+    height: '100%',
+  },
+  heroOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)', // Dark overlay for text readability
+    paddingHorizontal: 20,
+  },
+  heroTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  heroSubtitle: {
+    fontSize: 20,
+    textAlign: 'center',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  heroTagline: {
+    fontSize: 16,
+    textAlign: 'center',
+    opacity: 0.9,
+  },
+
+
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40, // Extra padding at bottom for scroll
+    paddingBottom: 40,
   },
   headerImage: {
     width: "100%",
@@ -107,20 +164,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#00FF00",
     textAlign: "center",
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 18,
-    color: "#00FF00",
     textAlign: "center",
     fontWeight: "600",
     marginBottom: 8,
   },
   tagline: {
     fontSize: 14,
-    color: "#00AA00",
     textAlign: "center",
     opacity: 0.9,
   },
@@ -131,20 +185,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   primaryButton: {
-    backgroundColor: "#00FF00",
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 12,
     alignItems: "center",
   },
   primaryButtonText: {
-    color: "#000000",
     fontSize: 16,
     fontWeight: "bold",
   },
   secondaryButton: {
     borderWidth: 2,
-    borderColor: "#00FF00",
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 12,
@@ -152,7 +203,6 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   secondaryButtonText: {
-    color: "#00FF00",
     fontSize: 16,
     fontWeight: "bold",
   },
@@ -160,16 +210,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: "#FF0000",
     borderRadius: 12,
-    backgroundColor: "#111111",
-  },
-  featuresTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#00FF00",
-    marginBottom: 16,
-    textAlign: "center",
   },
   featureItem: {
     flexDirection: "row",
@@ -184,8 +225,37 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 14,
-    color: "#00AA00",
     flex: 1,
     lineHeight: 18,
   },
+  accentShowcase: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  accentTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 12,
+  },
+  accentGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    width: "100%",
+  },
+  accentCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  accentText: {
+    fontSize: 16,
+  },
+  // ... rest of your styles
 });
+
+

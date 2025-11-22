@@ -33,7 +33,7 @@ export default function HomeScreen() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Use ONE theme directly
-  const theme = themes.earth.light;
+  const theme = themes.bubblefusion2.dark;
 
   // Auth check
   useEffect(() => {

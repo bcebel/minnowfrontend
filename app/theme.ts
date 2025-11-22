@@ -89,12 +89,255 @@ export const themes = {
       },
     },
   },
+  // NEW BUBBLE THEMES
+  bubblegum: {
+    light: {
+      background: "#FFF0F5", // Very light pink
+      foreground: "#FFE4EC", // Light pink
+      typography: "#8B008B", // Deep magenta
+      tint: "#FF69B4", // Hot pink
+      link: "#00FF00", // Your bright green
+      accents: {
+        banana: "#FFD700", // Gold
+        pumpkin: "#FF8C00", // Dark orange
+        apple: "#FF0000", // Your bright red
+        grass: "#00FF00", // Your bright green
+        storm: "#9370DB", // Medium purple
+      },
+    },
+    dark: {
+      background: "#4B0082", // Deep indigo
+      foreground: "#8A2BE2", // Blue violet
+      typography: "#FFB6C1", // Light pink
+      tint: "#FF1493", // Deep pink
+      link: "#00FF00", // Bright green
+      accents: {
+        banana: "#FFD700",
+        pumpkin: "#FF4500", // Orange red
+        apple: "#FF0000",
+        grass: "#00FF00",
+        storm: "#BA55D3", // Medium orchid
+      },
+    },
+  },
+  aqua: {
+    light: {
+      background: "#acd2ffff", // Azure
+      foreground: "#b8f7f7ff", // Light cyan
+      typography: "#008080", // Teal
+      tint: "#20B2AA", // Light sea green
+      link: "#00FF00", // Bright green
+      accents: {
+        banana: "#FFD700",
+        pumpkin: "#FFA500", // Orange
+        apple: "#FF0000",
+        grass: "#00FF00",
+        storm: "#4682B4", // Steel blue
+      },
+    },
+    dark: {
+      background: "#004964ff", // Dark green
+      foreground: "#008080", // Teal
+      typography: "#E0FFFF", // Light cyan
+      tint: "#00CED1", // Dark turquoise
+      link: "#00FF00",
+      accents: {
+        banana: "#FFD700",
+        pumpkin: "#FF8C00",
+        apple: "#FF0000",
+        grass: "#00FF00",
+        storm: "#4169E1", // Royal blue
+      },
+    },
+  },
+  bubblefusion: {
+    light: {
+      background: "#F0F8FF", // Light azure (cleaning bubble blue)
+      foreground: "#FFE4EC", // Light pink (bubblegum)
+      typography: "#2F4F4F", // Dark slate gray (good contrast)
+      tint: "#20B2AA", // Light sea green (aqua bubble)
+      link: "#FF69B4", // Hot pink (bubblegum accent)
+      accents: {
+        banana: "#FFD700", // Gold
+        pumpkin: "#FF8C00", // Dark orange
+        apple: "#FF0000", // Your bright red
+        grass: "#00FF00", // Your bright green
+        storm: "#9370DB", // Medium purple (bubblegum)
+      },
+    },
+    dark: {
+      background: "#191970", // Midnight blue (deep ocean)
+      foreground: "#8A2BE2", // Blue violet (purple bubble)
+      typography: "#E0FFFF", // Light cyan (cleaning bubble)
+      tint: "#00CED1", // Dark turquoise (aqua glow)
+      link: "#FF1493", // Deep pink (bubblegum pop)
+      accents: {
+        banana: "#FFD700", // Gold
+        pumpkin: "#FF4500", // Orange red
+        apple: "#FF0000", // Your bright red
+        grass: "#00FF00", // Your bright green
+        storm: "#BA55D3", // Medium orchid (purple bubble)
+      },
+    },
+  },
+  bubblefusion2: {
+    light: {
+      background: "#F5F0FF", // Very light lavender-blue fusion
+      foreground: "#E8F4F8", // Light cyan-pink fusion
+      typography: "#4A4A8A", // Deep blue-purple
+      tint: "#48D1CC", // Medium turquoise (aqua)
+      link: "#DA70D6", // Orchid (pink-purple)
+      accents: {
+        banana: "#FFD700",
+        pumpkin: "#FF8C00",
+        apple: "#FF0000",
+        grass: "#00FF00",
+        storm: "#9370DB", // Medium purple
+      },
+    },
+    dark: {
+      background: "#2C3E50", // Deep blue-gray (ocean night)
+      foreground: "#8E44AD", // Deep purple (bubblegum)
+      typography: "#AED6F1", // Light blue (cleaning bubble)
+      tint: "#1ABC9C", // Light sea green (aqua)
+      link: "#E74C3C", // Soft red-pink fusion
+      accents: {
+        banana: "#FFD700",
+        pumpkin: "#FF4500",
+        apple: "#FF0000",
+        grass: "#00FF00",
+        storm: "#9B59B6", // Amethyst purple
+      },
+    },
+  },
+  neon: {
+    light: {
+      background: "#000000", // Black for contrast
+      foreground: "#1A1A1A", // Dark gray
+      typography: "#FFFFFF", // White
+      tint: "#00FF00", // Your bright green as main tint
+      link: "#00FF00",
+      accents: {
+        banana: "#FFFF00", // Bright yellow
+        pumpkin: "#FFA500", // Orange
+        apple: "#FF0000",
+        grass: "#00FF00",
+        storm: "#FF00FF", // Magenta
+      },
+    },
+    dark: {
+      background: "#0A0A0A", // Very dark gray
+      foreground: "#1F1F1F", // Dark gray
+      typography: "#00FF00", // Green text
+      tint: "#00FF00",
+      link: "#00FF00",
+      accents: {
+        banana: "#FFFF00",
+        pumpkin: "#FF4500", // Orange red
+        apple: "#FF0000",
+        grass: "#00FF00",
+        storm: "#FF00FF",
+      },
+    },
+  },
+  bubbles: {
+    light: {
+      background: "#000000", // Black for contrast
+      foreground: "#1A1A1A", // Dark gray
+      typography: "#FFFFFF", // White
+      tint: "#00FF00", // Your bright green as main tint
+      link: "#00FF00",
+      accents: {
+        banana: "#FFFF00", // Bright yellow
+        pumpkin: "#FFA500", // Orange
+        apple: "#FF0000",
+        grass: "#00FF00",
+        storm: "#FF00FF", // Magenta
+      },
+    },
+    dark: {
+      background: "#0A0A0A", // Very dark gray
+      foreground: "#1F1F1F", // Dark gray
+      typography: "#FF00FF", // Magenta text
+      tint: "#00FF00",
+      link: "#00FF00",
+      accents: {
+        banana: "#FFFF00",
+        pumpkin: "#FF4500", // Orange red
+        apple: "#FF0000",
+        grass: "#00FF00",
+        storm: "#FF00FF",
+      },
+    },
+  },
+  coral: {
+    light: {
+      background: "#FFF5EE", // Seashell
+      foreground: "#FFE4E1", // Misty rose
+      typography: "#B22222", // Firebrick
+      tint: "#FF7F50", // Coral
+      link: "#00FF00",
+      accents: {
+        banana: "#FFD700",
+        pumpkin: "#FF6347", // Tomato
+        apple: "#FF0000",
+        grass: "#00FF00",
+        storm: "#6495ED", // Cornflower blue
+      },
+    },
+    dark: {
+      background: "#8B0000", // Dark red
+      foreground: "#DC143C", // Crimson
+      typography: "#FFE4E1", // Misty rose
+      tint: "#FF6347", // Tomato
+      link: "#00FF00",
+      accents: {
+        banana: "#FFD700",
+        pumpkin: "#FF4500",
+        apple: "#FF0000",
+        grass: "#00FF00",
+        storm: "#1E90FF", // Dodger blue
+      },
+    },
+  },
+  lavender: {
+    light: {
+      background: "#E6E6FA", // Ghost white
+      foreground: "#d6d6f9ff", // Lavender
+      typography: "#4B0082", // Indigo
+      tint: "#9370DB", // Medium purple
+      link: "#00FF00",
+      accents: {
+        banana: "#FFD700",
+        pumpkin: "#DA70D6", // Orchid
+        apple: "#FF0000",
+        grass: "#00FF00",
+        storm: "#6A5ACD", // Slate blue
+      },
+    },
+    dark: {
+      background: "#473d8b9b", // Dark slate blue
+      foreground: "#695acd8f", // Slate blue
+      typography: "#E6E6FA", // Lavender
+      tint: "#BA55D3", // Medium orchid
+      link: "#00FF00",
+      accents: {
+        banana: "#FFD700",
+        pumpkin: "#EE82EE", // Violet
+        apple: "#FF0000",
+        grass: "#00FF00",
+        storm: "#7c68ee9a", // Medium slate blue
+      },
+    },
+  },
 };
 
-// FIXED: Make sure this returns the theme object, not a number
-export const useTheme = (scheme: keyof typeof themes = "earth") => {
-  // Return the light theme of the selected scheme
-  return themes[scheme].light; // ← This should return an object, not a number
+// Simple direct access - no hooks until we figure out the issue
+export const useTheme = (
+  scheme: keyof typeof themes = "earth",
+  mode: "light" | "dark" = "light"
+) => {
+  return themes[scheme][mode];
 };
 
 // Alternative if you want dark mode:
