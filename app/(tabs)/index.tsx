@@ -25,13 +25,12 @@ export default function HomeScreen() {
         />
 
         <ThemedView style={styles.titleContainer}>
-          <Text style={styles.title}>GigUnit</Text>
-          <Text style={styles.subtitle}>The decentralized front ☯️</Text>
-          <Text style={styles.tagline}>
-            Liberate your media. Power to the peers.
+          <Text style={styles.title}>🫧 bubblebase.app🫧</Text>
+          <Text style={styles.subtitle}>
+            🫧 its time to bubble up 🫧
           </Text>
+          <Text style={styles.tagline}>bubbly & based</Text>
         </ThemedView>
-
         <ThemedView style={styles.actionsContainer}>
           <TouchableOpacity
             style={styles.primaryButton}
@@ -47,7 +46,6 @@ export default function HomeScreen() {
             <Text style={styles.secondaryButtonText}>Sign In</Text>
           </TouchableOpacity>
         </ThemedView>
-
         <ThemedView style={styles.features}>
           <ThemedView style={styles.featureItem}>
             <Text style={styles.featureEmoji}>🏠</Text>
@@ -64,7 +62,8 @@ export default function HomeScreen() {
           <ThemedView style={styles.featureItem}>
             <Text style={styles.featureEmoji}>💵</Text>
             <Text style={styles.featureText}>
-              You are not the product here.  In fact you can add your own affiliate links to your posts and the community pool.
+              You are not the product here. In fact you can add your own
+              affiliate links to your posts and the community pool.
             </Text>
           </ThemedView>
 

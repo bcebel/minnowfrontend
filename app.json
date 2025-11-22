@@ -44,7 +44,7 @@
         }
       ],
       [
-    "expo-file-system",
+        "expo-file-system",
         {
           "supportsOpeningDocumentsInPlace": true,
           "enableFileSharing": true
@@ -76,7 +76,8 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "react-native-edge-to-edge"
     ],
     "experiments": {
       "typedRoutes": true
