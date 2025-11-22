@@ -3,9 +3,9 @@ import {
   StyleSheet,
   Platform,
   TouchableOpacity,
+  Text,
   ScrollView,
 } from "react-native";
-import { Text } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { useRouter } from "expo-router";
 

@@ -4,6 +4,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  Text,
   TextInput as RNTextInput,
   Alert,
   Linking,
@@ -11,7 +12,7 @@ import {
   Platform,
   Dimensions,
 } from "react-native";
-import { Text } from "react-native";
+
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useLocalSearchParams, useRouter } from "expo-router";

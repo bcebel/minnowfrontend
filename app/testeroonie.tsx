@@ -1,123 +1,147 @@
-import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
-import "../unistyles";
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { useTheme, useThemeWithMode } from "./theme";
 
 export default function Test() {
-  // Check if theme is available
-  if (!StyleSheet.theme?.colors) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text>Loading themes...</Text>
-      </View>
-    );
-  }
-
-  const theme = StyleSheet.theme;
+  const [currentScheme, setCurrentScheme] = useState<
+    "earth" | "ocean" | "forest"
+  >("earth");
+  const theme = useTheme(currentScheme);
 
   return (
     <View
       style={{
         flex: 1,
-        backgroundColor: theme.colors.background,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: theme.gap(3),
+        backgroundColor: theme.background,
+        padding: 20,
       }}
     >
       <Text
         style={{
-          color: theme.colors.typography,
-          fontSize: 20,
-          marginBottom: theme.gap(2),
+          color: theme.typography,
+          fontSize: 28,
+          fontWeight: "bold",
+          marginBottom: 20,
         }}
       >
-        It works!
+        Multiple Color Schemes!
       </Text>
 
-      {/* Card with foreground color */}
+      {/* Scheme selector */}
+      <View style={{ flexDirection: "row", gap: 10, marginBottom: 20 }}>
+        <TouchableOpacity
+          style={{
+            backgroundColor:
+              currentScheme === "earth" ? theme.tint : theme.foreground,
+            padding: 10,
+            borderRadius: 8,
+          }}
+          onPress={() => setCurrentScheme("earth")}
+        >
+          <Text style={{ color: theme.typography }}>Earth</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{
+            backgroundColor:
+              currentScheme === "ocean" ? theme.tint : theme.foreground,
+            padding: 10,
+            borderRadius: 8,
+          }}
+          onPress={() => setCurrentScheme("ocean")}
+        >
+          <Text style={{ color: theme.typography }}>Ocean</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{
+            backgroundColor:
+              currentScheme === "forest" ? theme.tint : theme.foreground,
+            padding: 10,
+            borderRadius: 8,
+          }}
+          onPress={() => setCurrentScheme("forest")}
+        >
+          <Text style={{ color: theme.typography }}>Forest</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Theme demo */}
       <View
         style={{
-          backgroundColor: theme.colors.foreground,
-          padding: theme.gap(3),
+          backgroundColor: theme.foreground,
+          padding: 16,
           borderRadius: 12,
-          marginBottom: theme.gap(2),
+          marginBottom: 16,
         }}
       >
-        <Text style={{ color: theme.colors.typography }}>
-          This uses foreground color
+        <Text style={{ color: theme.typography }}>
+          Current scheme: {currentScheme}
         </Text>
       </View>
 
-      {/* Button with tint color */}
       <TouchableOpacity
         style={{
-          backgroundColor: theme.colors.tint,
-          padding: theme.gap(2),
+          backgroundColor: theme.tint,
+          padding: 16,
           borderRadius: 8,
-          marginBottom: theme.gap(2),
+          alignItems: "center",
+          marginBottom: 16,
         }}
       >
-        <Text style={{ color: theme.colors.background, fontWeight: "bold" }}>
-          Tint Button
+        <Text style={{ color: theme.background, fontWeight: "bold" }}>
+          Button with {currentScheme} colors
         </Text>
       </TouchableOpacity>
 
-      {/* Link color */}
-      <Text style={{ color: theme.colors.link, marginBottom: theme.gap(2) }}>
-        This is a link
+      <Text style={{ color: theme.link, marginBottom: 20 }}>
+        Link color in {currentScheme} scheme
       </Text>
 
-      {/* Accent colors demo */}
-      <View style={{ flexDirection: "row", gap: theme.gap(1) }}>
+      {/* Accent colors */}
+      <View style={{ flexDirection: "row", gap: 8, marginBottom: 20 }}>
         <View
           style={{
-            width: 20,
-            height: 20,
-            backgroundColor: theme.colors.accents.banana,
+            width: 30,
+            height: 30,
+            backgroundColor: theme.accents.banana,
+            borderRadius: 4,
           }}
         />
         <View
           style={{
-            width: 20,
-            height: 20,
-            backgroundColor: theme.colors.accents.pumpkin,
+            width: 30,
+            height: 30,
+            backgroundColor: theme.accents.pumpkin,
+            borderRadius: 4,
           }}
         />
         <View
           style={{
-            width: 20,
-            height: 20,
-            backgroundColor: theme.colors.accents.apple,
+            width: 30,
+            height: 30,
+            backgroundColor: theme.accents.apple,
+            borderRadius: 4,
           }}
         />
         <View
           style={{
-            width: 20,
-            height: 20,
-            backgroundColor: theme.colors.accents.grass,
+            width: 30,
+            height: 30,
+            backgroundColor: theme.accents.grass,
+            borderRadius: 4,
           }}
         />
         <View
           style={{
-            width: 20,
-            height: 20,
-            backgroundColor: theme.colors.accents.storm,
+            width: 30,
+            height: 30,
+            backgroundColor: theme.accents.storm,
+            borderRadius: 4,
           }}
         />
       </View>
-
-      {/* Gap system demo */}
-      <Text
-        style={{
-          color: theme.colors.typography,
-          marginTop: theme.gap(3),
-          fontSize: 12,
-          opacity: 0.7,
-        }}
-      >
-        Gap demo: {theme.gap(1)} | {theme.gap(2)} | {theme.gap(3)}
-      </Text>
     </View>
   );
 }
+

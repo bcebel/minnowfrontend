@@ -3,17 +3,18 @@ import {
   View,
   Text,
   ScrollView,
-  StyleSheet,
   Image,
   TouchableOpacity,
   Alert,
+  StyleSheet,
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { gql, useQuery } from "@apollo/client";
+import { themes } from "../theme";
 
-// GraphQL Query - using the same pattern as chat
+// GraphQL Query
 const GET_MY_PROFILE = gql`
   query GetMyProfile {
     me {
@@ -31,7 +32,10 @@ export default function HomeScreen() {
   const [username, setUsername] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Auth check - same pattern as chat
+  // Use ONE theme directly
+  const theme = themes.earth.light;
+
+  // Auth check
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -56,13 +60,13 @@ export default function HomeScreen() {
     checkAuth();
   }, []);
 
-  // GraphQL query - only run when authenticated
+  // GraphQL query
   const { loading, error, data, refetch } = useQuery(GET_MY_PROFILE, {
-    skip: !isAuthenticated, // Same pattern as chat
+    skip: !isAuthenticated,
     fetchPolicy: "cache-and-network",
   });
 
-  // Handle logout - same pattern as chat
+  // Handle logout
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(["token", "username"]);
     router.replace("/login");
@@ -71,9 +75,13 @@ export default function HomeScreen() {
   // Not authenticated yet
   if (!isAuthenticated) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#00FF00" />
-        <Text style={styles.loadingText}>Checking authentication...</Text>
+      <View
+        style={[styles.centerContainer, { backgroundColor: theme.background }]}
+      >
+        <ActivityIndicator size="large" color={theme.tint} />
+        <Text style={[styles.loadingText, { color: theme.typography }]}>
+          Checking authentication...
+        </Text>
       </View>
     );
   }
@@ -81,11 +89,17 @@ export default function HomeScreen() {
   // Loading state
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#00FF00" />
-        <Text style={styles.loadingText}>Loading your profile...</Text>
+      <View
+        style={[styles.centerContainer, { backgroundColor: theme.background }]}
+      >
+        <ActivityIndicator size="large" color={theme.tint} />
+        <Text style={[styles.loadingText, { color: theme.typography }]}>
+          Loading your profile...
+        </Text>
         {username && (
-          <Text style={styles.welcomeText}>Welcome back, @{username}! 👋</Text>
+          <Text style={[styles.welcomeText, { color: theme.typography }]}>
+            Welcome back, @{username}! 👋
+          </Text>
         )}
       </View>
     );
@@ -95,7 +109,6 @@ export default function HomeScreen() {
   if (error) {
     console.error("Home GraphQL Error:", error);
 
-    // Handle auth errors like chat does
     if (error.message.includes("Authentication")) {
       AsyncStorage.multiRemove(["token", "username"]).then(() => {
         Alert.alert("Session Expired", "Please log in again", [
@@ -106,14 +119,33 @@ export default function HomeScreen() {
     }
 
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Error loading profile</Text>
-        <Text style={styles.errorDetail}>{error.message}</Text>
-        <TouchableOpacity onPress={() => refetch()} style={styles.retryButton}>
-          <Text style={styles.retryText}>Retry</Text>
+      <View
+        style={[styles.centerContainer, { backgroundColor: theme.background }]}
+      >
+        <Text style={[styles.errorText, { color: theme.accents.apple }]}>
+          Error loading profile
+        </Text>
+        <Text style={[styles.errorDetail, { color: theme.typography }]}>
+          {error.message}
+        </Text>
+        <TouchableOpacity
+          onPress={() => refetch()}
+          style={[styles.retryButton, { backgroundColor: theme.tint }]}
+        >
+          <Text style={[styles.retryText, { color: theme.background }]}>
+            Retry
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
+        <TouchableOpacity
+          onPress={handleLogout}
+          style={[
+            styles.logoutButton,
+            { backgroundColor: theme.accents.apple },
+          ]}
+        >
+          <Text style={[styles.logoutButtonText, { color: theme.background }]}>
+            Logout
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -122,10 +154,19 @@ export default function HomeScreen() {
   // No data state
   if (!data?.me) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>No profile data found</Text>
-        <TouchableOpacity onPress={() => refetch()} style={styles.retryButton}>
-          <Text style={styles.retryText}>Retry</Text>
+      <View
+        style={[styles.centerContainer, { backgroundColor: theme.background }]}
+      >
+        <Text style={[styles.errorText, { color: theme.accents.apple }]}>
+          No profile data found
+        </Text>
+        <TouchableOpacity
+          onPress={() => refetch()}
+          style={[styles.retryButton, { backgroundColor: theme.tint }]}
+        >
+          <Text style={[styles.retryText, { color: theme.background }]}>
+            Retry
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -152,88 +193,136 @@ export default function HomeScreen() {
   );
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={{ flex: 1, backgroundColor: theme.background }}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.foreground }]}>
         <View style={styles.profileHeader}>
           <Image
             source={{ uri: safeUser.profilePhoto }}
             style={styles.profileImage}
           />
           <View style={styles.profileInfo}>
-            <Text style={styles.welcome}>Welcome back,</Text>
-            <Text style={styles.username}>@{safeUser.username}</Text>
-            <Text style={styles.email}>{safeUser.email}</Text>
+            <Text style={[styles.welcome, { color: theme.typography }]}>
+              Welcome back,
+            </Text>
+            <Text style={[styles.username, { color: theme.tint }]}>
+              @{safeUser.username}
+            </Text>
+            <Text style={[styles.email, { color: theme.typography }]}>
+              {safeUser.email}
+            </Text>
           </View>
         </View>
 
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
+        <TouchableOpacity
+          onPress={handleLogout}
+          style={[
+            styles.logoutButton,
+            { backgroundColor: theme.accents.apple },
+          ]}
+        >
+          <Text style={[styles.logoutButtonText, { color: theme.background }]}>
+            Logout
+          </Text>
         </TouchableOpacity>
       </View>
 
       {/* Bio */}
       {safeUser.bio && (
-        <View style={styles.section}>
-          <Text style={styles.bio}>{safeUser.bio}</Text>
+        <View style={[styles.section, { backgroundColor: theme.foreground }]}>
+          <Text style={[styles.bio, { color: theme.typography }]}>
+            {safeUser.bio}
+          </Text>
         </View>
       )}
 
       {/* Stats Grid */}
-      <View style={styles.statsGrid}>
+      <View style={[styles.statsGrid, { backgroundColor: theme.foreground }]}>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{safeUser.videos.length}</Text>
-          <Text style={styles.statLabel}>Videos</Text>
+          <Text style={[styles.statNumber, { color: theme.tint }]}>
+            {safeUser.videos.length}
+          </Text>
+          <Text style={[styles.statLabel, { color: theme.typography }]}>
+            Videos
+          </Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{safeUser.posts.length}</Text>
-          <Text style={styles.statLabel}>Posts</Text>
+          <Text style={[styles.statNumber, { color: theme.tint }]}>
+            {safeUser.posts.length}
+          </Text>
+          <Text style={[styles.statLabel, { color: theme.typography }]}>
+            Posts
+          </Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{safeUser.groups.length}</Text>
-          <Text style={styles.statLabel}>Groups</Text>
+          <Text style={[styles.statNumber, { color: theme.tint }]}>
+            {safeUser.groups.length}
+          </Text>
+          <Text style={[styles.statLabel, { color: theme.typography }]}>
+            Groups
+          </Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{totalLinkClicks}</Text>
-          <Text style={styles.statLabel}>Link Clicks</Text>
+          <Text style={[styles.statNumber, { color: theme.tint }]}>
+            {totalLinkClicks}
+          </Text>
+          <Text style={[styles.statLabel, { color: theme.typography }]}>
+            Link Clicks
+          </Text>
         </View>
       </View>
 
       {/* Quick Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
+      <View style={[styles.section, { backgroundColor: theme.foreground }]}>
+        <Text style={[styles.sectionTitle, { color: theme.tint }]}>
+          Quick Actions
+        </Text>
         <View style={styles.quickActions}>
           <TouchableOpacity
-            style={styles.actionButton}
+            style={[styles.actionButton, { backgroundColor: theme.background }]}
             onPress={() => router.push("/upload")}
           >
             <Text style={styles.actionIcon}>🎥</Text>
-            <Text style={styles.actionText}>Upload Video</Text>
+            <Text style={[styles.actionText, { color: theme.typography }]}>
+              Upload Video
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.actionButton}
+            style={[styles.actionButton, { backgroundColor: theme.background }]}
             onPress={() => router.push("/create-post")}
           >
             <Text style={styles.actionIcon}>📝</Text>
-            <Text style={styles.actionText}>Create Post</Text>
+            <Text style={[styles.actionText, { color: theme.typography }]}>
+              Create Post
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.actionButton}
+            style={[styles.actionButton, { backgroundColor: theme.background }]}
             onPress={() => router.push("/go-live")}
           >
             <Text style={styles.actionIcon}>🔴</Text>
-            <Text style={styles.actionText}>Go Live</Text>
+            <Text style={[styles.actionText, { color: theme.typography }]}>
+              Go Live
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Recent Videos */}
       {safeUser.videos.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Videos</Text>
+        <View style={[styles.section, { backgroundColor: theme.foreground }]}>
+          <Text style={[styles.sectionTitle, { color: theme.tint }]}>
+            Recent Videos
+          </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {safeUser.videos.slice(0, 5).map((video) => (
-              <TouchableOpacity key={video.id} style={styles.videoCard}>
+              <TouchableOpacity
+                key={video.id}
+                style={[
+                  styles.videoCard,
+                  { backgroundColor: theme.background },
+                ]}
+              >
                 <Image
                   source={{
                     uri:
@@ -244,7 +333,10 @@ export default function HomeScreen() {
                   }}
                   style={styles.videoThumbnail}
                 />
-                <Text style={styles.videoTitle} numberOfLines={2}>
+                <Text
+                  style={[styles.videoTitle, { color: theme.typography }]}
+                  numberOfLines={2}
+                >
                   {video.title}
                 </Text>
               </TouchableOpacity>
@@ -257,35 +349,26 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000000",
-  },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000000",
     padding: 20,
   },
   loadingText: {
-    color: "#00FF00",
     marginTop: 10,
     fontSize: 16,
   },
   welcomeText: {
-    color: "#FFFFFF",
     marginTop: 10,
     fontSize: 16,
   },
   errorText: {
-    color: "#FF4444",
     fontSize: 18,
     textAlign: "center",
     marginBottom: 10,
   },
   errorDetail: {
-    color: "#FF8888",
     fontSize: 14,
     textAlign: "center",
     marginBottom: 20,
@@ -295,9 +378,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 20,
-    backgroundColor: "#111111",
-    borderBottomWidth: 1,
-    borderBottomColor: "#00FF00",
   },
   profileHeader: {
     flexDirection: "row",
@@ -309,53 +389,42 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     marginRight: 15,
-    backgroundColor: "#333333",
   },
   profileInfo: {
     flex: 1,
   },
   welcome: {
-    color: "#888888",
     fontSize: 14,
   },
   username: {
-    color: "#00FF00",
     fontSize: 20,
     fontWeight: "bold",
   },
   email: {
-    color: "#888888",
     fontSize: 12,
     marginTop: 2,
   },
   logoutButton: {
-    backgroundColor: "#FF4444",
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 15,
   },
   logoutButtonText: {
-    color: "#FFFFFF",
     fontWeight: "bold",
     fontSize: 12,
   },
   section: {
-    backgroundColor: "#111111",
     margin: 10,
     padding: 15,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#333333",
   },
   bio: {
     fontSize: 16,
     lineHeight: 22,
-    color: "#FFFFFF",
   },
   statsGrid: {
     flexDirection: "row",
     padding: 15,
-    backgroundColor: "#111111",
     margin: 10,
     borderRadius: 12,
   },
@@ -365,19 +434,16 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   statNumber: {
-    color: "#00FF00",
     fontSize: 20,
     fontWeight: "bold",
   },
   statLabel: {
-    color: "#888888",
     fontSize: 12,
     marginTop: 4,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#00FF00",
     marginBottom: 12,
   },
   quickActions: {
@@ -385,7 +451,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   actionButton: {
-    backgroundColor: "#222222",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
@@ -397,35 +462,32 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   actionText: {
-    color: "#FFFFFF",
     fontSize: 12,
     textAlign: "center",
   },
   videoCard: {
     width: 160,
     marginRight: 12,
+    padding: 8,
+    borderRadius: 8,
   },
   videoThumbnail: {
     width: 160,
     height: 100,
     borderRadius: 8,
-    backgroundColor: "#333333",
   },
   videoTitle: {
     marginTop: 8,
     fontSize: 12,
-    color: "#FFFFFF",
     fontWeight: "500",
   },
   retryButton: {
-    backgroundColor: "#00FF00",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
     marginTop: 10,
   },
   retryText: {
-    color: "#000000",
     fontWeight: "bold",
   },
 });
