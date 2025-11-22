@@ -26,19 +26,7 @@ export default function HomeScreen() {
         />
         <View style={styles.heroOverlay}>
           <Text style={[styles.heroTitle, { backgroundColor: theme.tint }]}>
-            🫧 bubblebase.app 🫧
-          </Text>
-
-          <Text
-            style={[styles.heroTagline, { backgroundColor: accents.storm }]}
-          >
-            🫧 bubbly & based 🫧
-          </Text>
-
-          <Text
-            style={[styles.heroSubtitle, { backgroundColor: accents.banana }]}
-          >
-            🫧 its poppin in here 🫧
+            bubblebase.app
           </Text>
         </View>
       </View>
@@ -80,27 +68,25 @@ export default function HomeScreen() {
           {/* Your feature items */}
 
           <View style={styles.featureItem}>
-            <Text style={[styles.featureText, { color: theme.typography }]}>
-              🫧 Share your media with only those in your bubble, or send it out
-              to the universe but you get to decide.
+            <Text
+              style={[styles.heroSubtitle, { backgroundColor: accents.banana }]}
+            >
+              🫧 its poppin in here 🫧
             </Text>
-          </View>
-          <View style={styles.featureItem}>
-            <Text style={[styles.featureText, { color: theme.typography }]}>
-              🫧 Digital neighborhoods, not just feeds
+            <Text
+              style={[styles.heroTagline, { backgroundColor: accents.storm }]}
+            >
+              🫧 bubbly & based 🫧
             </Text>
-          </View>
-
-          <View style={styles.featureItem}>
-            <Text style={[styles.featureText, { color: theme.typography }]}>
-              🫧 You are not the product here. In fact you can add your own
-              affiliate links to your posts and the community pool.
+            <Text
+              style={[styles.heroSubtitle, { backgroundColor: accents.banana }]}
+            >
+              🫧 Network with and for your peers 🫧
             </Text>
-          </View>
-
-          <View style={styles.featureItem}>
-            <Text style={[styles.featureText, { color: theme.typography }]}>
-              🫧 Its a big club.... and you ARE in it!
+            <Text
+              style={[styles.heroTagline, { backgroundColor: accents.storm }]}
+            >
+              🫧 leave big tech out of YOUR bubble 🫧
             </Text>
           </View>
         </View>
@@ -117,7 +103,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroSection: {
-    height: 200, // Adjust based on your image
+    height: 250, // Adjust based on your image
     position: "relative",
   },
   heroBubble: {
@@ -136,15 +122,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   heroTitle: {
-    backgroundColor: "000000",
     borderRadius: 20, // Rounded edges
     position: "relative",
     top: -20,
     fontSize: 32,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 4,
     alignSelf: "center",
+    padding: 3,
   },
   heroSubtitle: {
     fontSize: 20,
@@ -236,7 +222,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   featureItem: {
-    flexDirection: "row",
+
     alignItems: "center",
     marginBottom: 12,
     paddingHorizontal: 8,
