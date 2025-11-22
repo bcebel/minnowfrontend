@@ -13,6 +13,7 @@ import { themes } from "../theme";
 export default function HomeScreen() {
   const router = useRouter();
   const theme = themes.bubblefusion.dark;
+  const accents = themes.bubblefusion.dark.accents;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -24,15 +25,20 @@ export default function HomeScreen() {
           resizeMode="cover"
         />
         <View style={styles.heroOverlay}>
-          <Text style={[styles.heroTitle, { color: theme.link }]}>
+          <Text style={[styles.heroTitle, { backgroundColor: theme.tint }]}>
             🫧 bubblebase.app 🫧
           </Text>
-          <Text style={[styles.heroTagline, { color: theme.tint }]}>
-            bubbly & based
+
+          <Text
+            style={[styles.heroTagline, { backgroundColor: accents.storm }]}
+          >
+            🫧 bubbly & based 🫧
           </Text>
 
-          <Text style={[styles.heroSubtitle, { color: theme.link }]}>
-            its poppin in here
+          <Text
+            style={[styles.heroSubtitle, { backgroundColor: accents.banana }]}
+          >
+            🫧 its poppin in here 🫧
           </Text>
         </View>
       </View>
@@ -75,25 +81,26 @@ export default function HomeScreen() {
 
           <View style={styles.featureItem}>
             <Text style={[styles.featureText, { color: theme.typography }]}>
-              Share your media with only those in your bubble, or send it out to the universe but you get to decide.
+              🫧 Share your media with only those in your bubble, or send it out
+              to the universe but you get to decide.
             </Text>
           </View>
           <View style={styles.featureItem}>
             <Text style={[styles.featureText, { color: theme.typography }]}>
-              Digital neighborhoods, not just feeds
+              🫧 Digital neighborhoods, not just feeds
             </Text>
           </View>
 
           <View style={styles.featureItem}>
             <Text style={[styles.featureText, { color: theme.typography }]}>
-              You are not the product here. In fact you can add your own
+              🫧 You are not the product here. In fact you can add your own
               affiliate links to your posts and the community pool.
             </Text>
           </View>
 
           <View style={styles.featureItem}>
             <Text style={[styles.featureText, { color: theme.typography }]}>
-              Its a big club.... and you ARE in it!
+              🫧 Its a big club.... and you ARE in it!
             </Text>
           </View>
         </View>
@@ -106,46 +113,59 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-    scrollView: {
+  scrollView: {
     flex: 1,
   },
   heroSection: {
-    height: 300, // Adjust based on your image
-    position: 'relative',
+    height: 200, // Adjust based on your image
+    position: "relative",
   },
   heroBubble: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   heroOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)', // Dark overlay for text readability
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.3)", // Dark overlay for text readability
     paddingHorizontal: 20,
   },
   heroTitle: {
+    backgroundColor: "000000",
+    borderRadius: 20, // Rounded edges
+    position: "relative",
+    top: -20,
     fontSize: 32,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 8,
+    alignSelf: "center",
   },
   heroSubtitle: {
     fontSize: 20,
-    textAlign: 'center',
-    fontWeight: '600',
+    borderRadius: 20, // Rounded edges
+    textAlign: "center",
+    fontWeight: "600",
     marginBottom: 4,
+    alignSelf: "center",
+    padding: 5,
+    margin: 2,
   },
   heroTagline: {
+    borderRadius: 20, // Rounded edges
+    backgroundColor: "theme.link",
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     opacity: 0.9,
+    alignSelf: "center",
+    padding: 5,
+    margin: 2,
   },
-
 
   scrollContent: {
     flexGrow: 1,
