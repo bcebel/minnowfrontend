@@ -1,79 +1,73 @@
-import { StyleSheet } from "react-native-unistyles";
-import { Text } from "react-native";
-const sharedColors = {
-  barbie: "#ff9ff3",
-  oak: "#1dd1a1",
-  sky: "#48dbfb",
-  fog: "#c8d6e5",
-  aloes: "#00d2d3",
-  blood: "#ff6b6b",
-};
+import { StyleSheet } from 'react-native-unistyles'
 
 const lightTheme = {
-  colors: {
-    ...sharedColors,
-    backgroundColor: "#ffffff",
-    typography: "#000000",
-    red: "#ff6b81",
-    blue: "#3498db",
-    accent: sharedColors.blood,
-  },
-  gap: (v: number) => v * 8,
-};
+    colors: {
+        background: '#FCFAF8',
+        foreground: '#EDEAE6',
+        typography: '#1B140C',
+        dimmed: '#ECE8E4',
+        tint: '#9A734C',
+        activeTint: '#1B140C',
+        link: '#1E3799',
+        accents: {
+            banana: '#F6E58D',
+            pumpkin: '#FFBE76',
+            apple: '#FF7979',
+            grass: '#BADC58',
+            storm: '#686DE0'
+        }
+    },
+    gap: (v: number) => v * 8,
+} as const
 
 const darkTheme = {
-  colors: {
-    ...sharedColors,
-    backgroundColor: "#000000",
-    typography: "#ffffff",
-    red: "#c23616",
-    blue: "#341f97",
-    accent: sharedColors.barbie,
-  },
-  gap: (v: number) => v * 8,
-};
+    colors: {
+        background: '#221A11',
+        foreground: '#332618',
+        typography: '#FFFFFF',
+        dimmed: '#A8A198',
+        tint: '#C9AD92',
+        activeTint: '#FFFFFF',
+        link: '#0C2461',
+        accents: {
+            banana: '#f9CA24',
+            pumpkin: '#F0932B',
+            apple: '#EB4D4B',
+            grass: '#6AB04C',
+            storm: '#4834D4'
+        }
+    },
+    gap: (v: number) => v * 8,
+} as const
 
-const premiumTheme = {
-  colors: {
-    ...sharedColors,
-    backgroundColor: sharedColors.barbie,
-    typography: "#76278f",
-    red: "#c0392b",
-    blue: "#2980b9",
-    accent: "#000000",
-  },
-  gap: (v: number) => v * 8,
-};
+const appThemes = {
+    light: lightTheme,
+    dark: darkTheme
+}
 
 const breakpoints = {
-  xs: 0,
-  sm: 300,
-  md: 500,
-  lg: 800,
-  xl: 1200,
-};
+    xs: 0,
+    sm: 300,
+    md: 500,
+    lg: 800,
+    xl: 1200,
+}
 
-type AppBreakpoints = typeof breakpoints;
-type AppThemes = {
-  light: typeof lightTheme;
-  dark: typeof darkTheme;
-  premium: typeof premiumTheme;
-};
+type AppBreakpoints = typeof breakpoints
+type AppThemes = typeof appThemes
 
-declare module "react-native-unistyles" {
-  export interface UnistylesThemes extends AppThemes {}
-
-  export interface UnistylesBreakpoints extends AppBreakpoints {}
+declare module 'react-native-unistyles' {
+    export interface UnistylesThemes extends AppThemes {}
+    export interface UnistylesBreakpoints extends AppBreakpoints {}
 }
 
 StyleSheet.configure({
-  settings: {
-    adaptiveThemes: true,
-  },
-  breakpoints,
-  themes: {
-    light: lightTheme,
-    dark: darkTheme,
-    premium: premiumTheme,
-  },
-});
+    settings: {
+        adaptiveThemes: true
+    },
+    themes: {
+        light: lightTheme,
+        dark: darkTheme,
+    },
+    breakpoints,
+})
