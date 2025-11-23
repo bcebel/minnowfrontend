@@ -40,7 +40,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta property="og:locale" content="en_US" />
         <meta
           name="aliaffiliate-site-verification"
-          content="YuEJ/FbwusSL6F15hIDo8JuBUBPk1/lVh7EGjDtaNo7KEWSU1tEGkw=="
+          content="lvnAxw0UhYgjF3kq4GKccyigEEVkHXkKTHntmIXRGvJ9aIHkiVw4Kg=="
         />
         {/* Twitter */}
         <meta property="twitter:card" content="summary_large_image" />
