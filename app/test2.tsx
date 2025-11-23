@@ -79,13 +79,7 @@ export default function StreamScreen() {
 
 const startRecording = async () => {
   // Check if we're on a device that supports camera
-  if (!Device.isDevice && Device.osName !== "web") {
-    Alert.alert(
-      "Not Supported",
-      "Camera recording is only supported on real devices"
-    );
-    return;
-  }
+
 
   try {
     // FIRST: Check and request permissions on iOS
