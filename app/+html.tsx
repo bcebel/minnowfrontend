@@ -1,5 +1,6 @@
 import { ScrollViewStyleReset } from "expo-router/html";
 import { type PropsWithChildren } from "react";
+import VerificationText from "../components/verification";
 
 export default function Root({ children }: PropsWithChildren) {
   const title = "BubbleBase - Digital Neighborhoods, Not Just Feeds";
@@ -37,7 +38,10 @@ export default function Root({ children }: PropsWithChildren) {
         <meta property="og:image" content={image} />
         <meta property="og:site_name" content="BubbleBase" />
         <meta property="og:locale" content="en_US" />
-
+        <meta
+          name="aliaffiliate-site-verification"
+          content="YuEJ/FbwusSL6F15hIDo8JuBUBPk1/lVh7EGjDtaNo7KEWSU1tEGkw=="
+        />
         {/* Twitter */}
         <meta property="twitter:card" content="summary_large_image" />
         <meta property="twitter:url" content={url} />
@@ -150,7 +154,11 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Canonical URL */}
         <link rel="canonical" href={url} />
       </head>
-      <body>{children}</body>
+
+      <body>
+        <VerificationText />
+        {children}
+      </body>
     </html>
   );
 }
