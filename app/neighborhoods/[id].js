@@ -172,7 +172,6 @@ export default function NeighborhoodDetailScreen() {
       <View style={styles.membersSection}>
         <Text style={styles.sectionTitle}>👥 Members</Text>
         <FlatList
-          key={`flatlist-${numColumns}`}
           data={neighborhood.members}
           keyExtractor={(item) => item.user.username}
           renderItem={renderMember}
