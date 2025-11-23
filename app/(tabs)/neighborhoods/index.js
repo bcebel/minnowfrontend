@@ -122,7 +122,6 @@ export default function NeighborhoodsScreen() {
       </Text>
 
       <FlatList
-        key={`flatlist-${numColumns}`}
         data={data?.neighborhoods || []}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
