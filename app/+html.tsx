@@ -39,7 +39,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta property="og:site_name" content="BubbleBase" />
         <meta property="og:locale" content="en_US" />
         <meta
-          name="aliaffiliate-site-verification"
+          name="root.txt"
           content="lvnAxw0UhYgjF3kq4GKccyigEEVkHXkKTHntmIXRGvJ9aIHkiVw4Kg=="
         />
         {/* Twitter */}
@@ -156,7 +156,6 @@ export default function Root({ children }: PropsWithChildren) {
       </head>
 
       <body>
-        <VerificationText />
         {children}
       </body>
     </html>
