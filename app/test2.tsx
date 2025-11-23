@@ -82,22 +82,6 @@ const startRecording = async () => {
 
 
   try {
-    // FIRST: Check and request permissions on iOS
-    if (Device.osName === "iOS") {
-      // Check current permission status
-      const cameraPermission = await Camera.requestCameraPermissionsAsync();
-      const microphonePermission = await Audio.requestPermissionsAsync();
-
-      if (!cameraPermission.granted || !microphonePermission.granted) {
-        Alert.alert(
-          "Permissions Required",
-          "Please allow camera and microphone access to stream to your neighborhood",
-          [{ text: "OK" }]
-        );
-        return;
-      }
-    }
-
     // NOW set recording state to true (UI will update to red)
     setRecording(true);
 
