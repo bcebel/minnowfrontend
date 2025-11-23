@@ -1,4 +1,4 @@
-// app/camera/stream.tsx - WORKING VERSION
+// app/camera/stream.tsx - FIXED VERSION
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -10,10 +10,28 @@ import {
 } from "react-native";
 import * as Device from "expo-device";
 
+const getBrowserInfo = () => {
+  const userAgent = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+  const isChrome = /chrome|chromium|crios/i.test(userAgent);
+
+  return {
+    isIOS,
+    isSafari,
+    isChrome,
+    isIOSChrome: isIOS && isChrome,
+    isIOSSafari: isIOS && isSafari,
+    userAgent,
+  };
+};
+
 export default function StreamScreen() {
+  const [browserInfo, setBrowserInfo] = useState<any>(null);
   const [recording, setRecording] = useState(false);
   const [magnetUri, setMagnetUri] = useState<string | null>(null);
   const [webTorrentLoaded, setWebTorrentLoaded] = useState(false);
+  const [cameraAvailable, setCameraAvailable] = useState(true); // ADD THIS LINE!
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -21,6 +39,8 @@ export default function StreamScreen() {
   // Load WebTorrent on component mount
   useEffect(() => {
     loadWebTorrent();
+    checkCameraSupport();
+    setBrowserInfo(getBrowserInfo());
   }, []);
 
   const loadWebTorrent = async () => {
@@ -50,8 +70,41 @@ export default function StreamScreen() {
     }
   };
 
+  // Update the checkCameraSupport function
+  const checkCameraSupport = () => {
+    const browser = getBrowserInfo();
+    console.log("🌐 Browser detection:", browser);
+
+    if (browser.isIOSChrome) {
+      Alert.alert(
+        "Use Safari for Camera",
+        "iOS Chrome doesn't support camera access. Please use Safari browser to record videos.",
+        [{ text: "OK" }]
+      );
+      setCameraAvailable(false);
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraAvailable(false);
+      return;
+    }
+
+    setCameraAvailable(true);
+  };
+
   const startRecording = async () => {
     console.log("🎥 Start recording pressed on:", Platform.OS);
+
+    // ADD CAMERA AVAILABLE CHECK
+    if (!cameraAvailable) {
+      Alert.alert(
+        "Camera Not Available",
+        "Camera access is not supported in your current browser. Please use Safari on iOS.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
 
     try {
       setRecording(true);
@@ -257,21 +310,55 @@ export default function StreamScreen() {
           <Text style={styles.deviceText}>
             📱 {getDeviceInfo().model} • {getDeviceInfo().os} • {Platform.OS}
           </Text>
+          <Text style={styles.deviceText}>
+            Camera: {cameraAvailable ? "✅ Available" : "❌ Unavailable"}
+          </Text>
         </View>
       </View>
+
+      {/* Browser-specific messages */}
+      {browserInfo?.isIOSChrome && (
+        <View style={styles.browserWarning}>
+          <Text style={styles.browserWarningTitle}>📱 Switch to Safari</Text>
+          <Text style={styles.browserWarningText}>
+            iOS Chrome doesn't support camera access.{"\n"}
+            Please open this page in Safari to record videos.
+          </Text>
+          <TouchableOpacity
+            style={styles.browserButton}
+            onPress={() => {
+              // Try to open in Safari
+              const url = window.location.href;
+              window.open(url, "_system");
+            }}
+          >
+            <Text style={styles.browserButtonText}>Open in Safari</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {browserInfo?.isIOSSafari && (
+        <View style={styles.browserSuccess}>
+          <Text style={styles.browserSuccessText}>
+            ✅ Using Safari - Camera should work!
+          </Text>
+        </View>
+      )}
 
       <TouchableOpacity
         style={[
           styles.button,
           recording && styles.recordingButton,
-          !webTorrentLoaded && styles.disabledButton,
+          (!webTorrentLoaded || !cameraAvailable) && styles.disabledButton, // UPDATE THIS LINE
         ]}
         onPress={recording ? stopRecording : startRecording}
-        disabled={!webTorrentLoaded}
+        disabled={!webTorrentLoaded || !cameraAvailable} // UPDATE THIS LINE
       >
         <Text style={styles.buttonText}>
           {!webTorrentLoaded
             ? "🔄 Loading WebTorrent..."
+            : !cameraAvailable // ADD THIS CONDITION
+            ? "❌ Camera Not Available"
             : recording
             ? "⏹️ Recording... (10s)"
             : "🎥 Start Neighborhood Stream"}
@@ -312,12 +399,14 @@ export default function StreamScreen() {
             : "🔄 Loading P2P Engine..."}
         </Text>
         <Text style={styles.statusSubtext}>
-          Platform: {Platform.OS} | OS: {Device.osName}
+          Platform: {Platform.OS} | OS: {Device.osName} | Camera:{" "}
+          {cameraAvailable ? "✅" : "❌"}
         </Text>
       </View>
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -436,5 +525,47 @@ const styles = StyleSheet.create({
   statusSubtext: {
     color: "#666",
     fontSize: 12,
+  },
+  browserWarning: {
+    backgroundColor: "#ffebee",
+    padding: 15,
+    borderRadius: 10,
+    margin: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: "#f44336",
+  },
+  browserWarningTitle: {
+    color: "#c62828",
+    fontWeight: "bold",
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  browserWarningText: {
+    color: "#c62828",
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  browserButton: {
+    backgroundColor: "#f44336",
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+    alignItems: "center",
+  },
+  browserButtonText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+  browserSuccess: {
+    backgroundColor: "#e8f5e8",
+    padding: 10,
+    borderRadius: 10,
+    margin: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: "#4caf50",
+  },
+  browserSuccessText: {
+    color: "#2e7d32",
+    fontWeight: "bold",
   },
 });
