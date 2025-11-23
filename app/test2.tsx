@@ -324,16 +324,7 @@ export default function StreamScreen() {
             iOS Chrome doesn't support camera access.{"\n"}
             Please open this page in Safari to record videos.
           </Text>
-          <TouchableOpacity
-            style={styles.browserButton}
-            onPress={() => {
-              // Try to open in Safari
-              const url = window.location.href;
-              window.open(url, "_system");
-            }}
-          >
-            <Text style={styles.browserButtonText}>Open in Safari</Text>
-          </TouchableOpacity>
+  
         </View>
       )}
 
