@@ -77,103 +77,118 @@ export default function StreamScreen() {
     document.head.appendChild(script);
   };
 
-  const startRecording = async () => {
-    // Check if we're on a device that supports camera
-    if (!Device.isDevice && Device.osName !== "web") {
-      Alert.alert(
-        "Not Supported",
-        "Camera recording is only supported on real devices"
-      );
-      return;
+const startRecording = async () => {
+  // Check if we're on a device that supports camera
+  if (!Device.isDevice && Device.osName !== "web") {
+    Alert.alert(
+      "Not Supported",
+      "Camera recording is only supported on real devices"
+    );
+    return;
+  }
+
+  try {
+    // FIRST: Check and request permissions on iOS
+    if (Device.osName === "iOS") {
+      // Check current permission status
+      const cameraPermission = await Camera.requestCameraPermissionsAsync();
+      const microphonePermission = await Audio.requestPermissionsAsync();
+
+      if (!cameraPermission.granted || !microphonePermission.granted) {
+        Alert.alert(
+          "Permissions Required",
+          "Please allow camera and microphone access to stream to your neighborhood",
+          [{ text: "OK" }]
+        );
+        return;
+      }
     }
 
-    try {
-      setRecording(true);
+    // NOW set recording state to true (UI will update to red)
+    setRecording(true);
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: true,
-      });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: true,
+    });
 
-      const options = {
-        mimeType: "video/webm; codecs=vp8,opus",
-        videoBitsPerSecond: 2500000, // Better quality for neighborhood streaming
-      };
+    const options = {
+      mimeType: "video/webm; codecs=vp8,opus",
+      videoBitsPerSecond: 2500000,
+    };
 
-      const mediaRecorder = new MediaRecorder(stream, options);
-      const chunks: Blob[] = [];
+    const mediaRecorder = new MediaRecorder(stream, options);
+    const chunks: Blob[] = [];
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
 
-      mediaRecorder.onstop = async () => {
-        try {
-          const blob = new Blob(chunks, { type: "video/webm" });
+    mediaRecorder.onstop = async () => {
+      try {
+        const blob = new Blob(chunks, { type: "video/webm" });
 
-          // Ensure WebTorrent is loaded
-          if (!webTorrentLoaded) {
-            await loadWebTorrent();
+        // Ensure WebTorrent is loaded
+        if (!webTorrentLoaded) {
+          await loadWebTorrent();
+        }
+
+        const client = new (window as any).WebTorrent();
+
+        client.seed(
+          blob,
+          {
+            name: `neighborhood-${Date.now()}.webm`,
+            announce: [
+              "wss://tracker.openwebtorrent.com",
+              "wss://tracker.btorrent.xyz",
+              "wss://tracker.files.fm:7073/announce",
+            ],
+          },
+          (torrent: any) => {
+            console.log("🌪️ Torrent created:", torrent.magnetURI);
+            setMagnetUri(torrent.magnetURI);
+
+            const videoUrl = URL.createObjectURL(blob);
+            createVideoPlayback(videoUrl);
+            copyToClipboard(torrent.magnetURI);
+
+            Alert.alert(
+              "Ready for Neighborhood!",
+              "Magnet link copied to clipboard. Share it in your neighborhood chat!",
+              [{ text: "OK", style: "default" }]
+            );
           }
+        );
+      } catch (error) {
+        console.error("Torrent creation error:", error);
+        Alert.alert("Error", "Failed to create torrent");
+      } finally {
+        stream.getTracks().forEach((track) => track.stop());
+        setRecording(false);
+      }
+    };
 
-          const client = new (window as any).WebTorrent();
+    mediaRecorder.start();
 
-          client.seed(
-            blob,
-            {
-              name: `neighborhood-${Date.now()}.webm`,
-              // Add trackers for better peer discovery
-              announce: [
-                "wss://tracker.openwebtorrent.com",
-                "wss://tracker.btorrent.xyz",
-                "wss://tracker.files.fm:7073/announce",
-              ],
-            },
-            (torrent: any) => {
-              console.log("🌪️ Torrent created:", torrent.magnetURI);
-              setMagnetUri(torrent.magnetURI);
-
-              // Create playback and auto-copy to clipboard
-              const videoUrl = URL.createObjectURL(blob);
-              createVideoPlayback(videoUrl);
-              copyToClipboard(torrent.magnetURI);
-
-              Alert.alert(
-                "Ready for Neighborhood!",
-                "Magnet link copied to clipboard. Share it in your neighborhood chat!",
-                [{ text: "OK", style: "default" }]
-              );
-            }
-          );
-        } catch (error) {
-          console.error("Torrent creation error:", error);
-          Alert.alert("Error", "Failed to create torrent");
-        } finally {
-          stream.getTracks().forEach((track) => track.stop());
-          setRecording(false);
-        }
-      };
-
-      mediaRecorder.start();
-
-      // Auto-stop after 10 seconds for neighborhood clips
-      setTimeout(() => {
-        if (mediaRecorder.state === "recording") {
-          mediaRecorder.stop();
-        }
-      }, 10000);
-    } catch (err) {
-      console.error("Recording error:", err);
-      Alert.alert(
-        "Camera Error",
-        "Please allow camera access to stream to your neighborhood"
-      );
-      setRecording(false);
-    }
-  };
+    // Auto-stop after 10 seconds for neighborhood clips
+    setTimeout(() => {
+      if (mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+      }
+    }, 10000);
+  } catch (err) {
+    console.error("Recording error:", err);
+    Alert.alert(
+      "Camera Error",
+      "Please allow camera access to stream to your neighborhood"
+    );
+    setRecording(false); // Reset recording state on error
+  }
+};
 
   const createVideoPlayback = (videoUrl: string) => {
     // Remove existing video if any
