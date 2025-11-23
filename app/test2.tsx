@@ -1,5 +1,5 @@
-// app/camera/stream.tsx
-import React, { useState } from "react";
+// app/camera/stream.tsx - UPDATED
+import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Alert, StyleSheet } from "react-native";
 import * as Device from "expo-device";
 
@@ -8,34 +8,73 @@ export default function StreamScreen() {
   const [magnetUri, setMagnetUri] = useState<string | null>(null);
   const [webTorrentLoaded, setWebTorrentLoaded] = useState(false);
 
-  // Load WebTorrent on component mount for web
-  React.useEffect(() => {
-    if (Device.platformApiLevel === null) {
-      // This means we're on web/iOS
-      loadWebTorrent();
-    }
+  // Load WebTorrent on component mount
+  useEffect(() => {
+    loadWebTorrent();
   }, []);
 
   const loadWebTorrent = async () => {
+    // Check if already loaded
     if ((window as any).WebTorrent) {
+      console.log("✅ WebTorrent already loaded");
       setWebTorrentLoaded(true);
       return;
     }
 
-    return new Promise((resolve) => {
+    try {
+      // Method 1: Try to load from our public loader
       const script = document.createElement("script");
-      script.src =
-        "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+      script.src = "/webtorrent/webtorrent-loader.js";
       script.onload = () => {
-        setWebTorrentLoaded(true);
-        resolve(true);
+        console.log("🌪️ WebTorrent loader script loaded");
+
+        // Listen for the loaded event
+        window.addEventListener("webtorrent-loaded", () => {
+          setWebTorrentLoaded(true);
+        });
+
+        // Fallback: check every 500ms if WebTorrent loaded
+        const checkInterval = setInterval(() => {
+          if ((window as any).WebTorrent) {
+            setWebTorrentLoaded(true);
+            clearInterval(checkInterval);
+          }
+        }, 500);
+
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          if (!webTorrentLoaded) {
+            clearInterval(checkInterval);
+            loadWebTorrentFallback();
+          }
+        }, 10000);
       };
+
       script.onerror = () => {
-        Alert.alert("Error", "Failed to load WebTorrent");
-        resolve(false);
+        console.log("❌ Failed to load from public folder, using fallback");
+        loadWebTorrentFallback();
       };
+
       document.head.appendChild(script);
-    });
+    } catch (error) {
+      console.error("Error loading WebTorrent:", error);
+      loadWebTorrentFallback();
+    }
+  };
+
+  const loadWebTorrentFallback = () => {
+    // Direct CDN fallback
+    const script = document.createElement("script");
+    script.src =
+      "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+    script.onload = () => {
+      console.log("✅ WebTorrent loaded via CDN fallback");
+      setWebTorrentLoaded(true);
+    };
+    script.onerror = () => {
+      Alert.alert("Error", "Failed to load WebTorrent");
+    };
+    document.head.appendChild(script);
   };
 
   const startRecording = async () => {
