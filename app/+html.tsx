@@ -18,7 +18,7 @@ export default function Root({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
         />
         <ScrollViewStyleReset />
-
+<meta name='impact-site-verification' value='6430b649-d08d-495d-8ef7-5f05702bf594'>
         {/* Primary Meta Tags */}
         <title>{title}</title>
         <meta name="title" content={title} />
