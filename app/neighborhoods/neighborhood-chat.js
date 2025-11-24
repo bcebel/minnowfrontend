@@ -10,6 +10,7 @@ import {
   Alert,
   Linking,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { Text } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -20,184 +21,99 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentWebView from "../../components/WebTorrentPlayer";
+
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
-const VideoThumbnail = ({ url, fileName, onExpand }) => {
-  return (
-    <TouchableOpacity
-      style={styles.videoThumbnailContainer}
-      onPress={onExpand}
-      activeOpacity={0.8}
-    >
-      <View style={styles.videoThumbnail}>
-        <Image
-          source={{ uri: url }}
-          style={styles.videoThumbnailImage}
-          contentFit="cover"
-          transition={300}
-        />
-        <View style={styles.videoPlayOverlay}>
-          <Text style={styles.videoPlayIcon}>▶</Text>
-        </View>
-        <View style={styles.videoDurationBadge}>
-          <Text style={styles.videoDurationText}>VIDEO</Text>
-        </View>
-      </View>
-      <Text style={styles.videoCaption} numberOfLines={1}>
-        {fileName || "Tap to play video"}
-      </Text>
-    </TouchableOpacity>
-  );
-};
-const getVideoCompatibility = (url) => {
-  const extension = url.split(".").pop()?.toLowerCase();
-  const isMOV = extension === "mov";
-  const isQuickTime = isMOV || url.includes("quicktime");
-  const isMP4 = ["mp4", "m4v"].includes(extension);
-  const isHLS = url.includes(".m3u8");
-  const isWebM = extension === "webm";
-
-  // QuickTime has limited cross-platform support
-  const isExpoSupported = isHLS || isMP4;
-  const hasPlatformLimitations = isMOV;
-
-  console.log("🎬 Video compatibility:", {
-    url,
-    extension,
-    isQuickTime,
-    isMOV,
-    isMP4,
-    isHLS,
-    isWebM,
-    isExpoSupported,
-    hasPlatformLimitations,
-  });
-
-  return {
-    isExpoSupported,
-    hasPlatformLimitations,
-    format: isMOV ? "QuickTime" : extension?.toUpperCase(),
-    recommendedAction: isMOV ? "convert_to_mp4" : null,
-  };
-};
-
-// Special fallback for QuickTime videos
-const QuickTimeFallback = ({ url, fileName }) => {
-  return (
-    <TouchableOpacity 
-      style={[styles.fileContainer, { backgroundColor: "#3366CC" }]}
-      onPress={() => Linking.openURL(url)}
-    >
-      <Text style={styles.fileIcon}>🎬</Text>
-      <View style={styles.fileInfo}>
-        <Text style={styles.fileName}>
-          {fileName || "QuickTime Video"}
-        </Text>
-        <Text style={styles.fileType}>
-          QuickTime • Tap to open
-        </Text>
-        <Text style={styles.quicktimeWarning}>
-          🍎 Best viewed on Apple devices
-        </Text>
-        <Text style={styles.formatSuggestion}>
-          Convert to MP4 for better cross-platform support
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-};
-// Expanded Video Player Component
-const ExpandedVideoPlayer = ({ url, fileName, onCollapse }) => {
+// Simple Video Player Component
+const SimpleVideoPlayer = ({ url, fileName }) => {
   const player = useVideoPlayer(url, (player) => {
     player.loop = false;
   });
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [hasError, setHasError] = useState(false);
-
-  useEffect(() => {
-    const subscriptions = [
-      player.addListener("playingChange", ({ isPlaying }) => {
-        setIsPlaying(isPlaying);
-      }),
-      player.addListener("statusChange", ({ status, error }) => {
-        if (status === "error") {
-          console.log("Video player error:", error);
-          setHasError(true);
-        }
-      }),
-    ];
-
-    return () => {
-      subscriptions.forEach((sub) => sub.remove());
-    };
-  }, [player]);
-
   return (
-    <View style={styles.expandedVideoContainer}>
-      <TouchableOpacity style={styles.videoCloseButton} onPress={onCollapse}>
-        <Text style={styles.videoCloseIcon}>✕</Text>
-      </TouchableOpacity>
-
-      {hasError ? (
-        <View style={styles.videoErrorContainer}>
-          <Text style={styles.videoErrorText}>Failed to load video</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => {
-              setHasError(false);
-              player.replaceAsync(url).catch(console.error);
-            }}
-          >
-            <Text style={styles.retryText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <VideoView
-          player={player}
-          style={styles.expandedVideoPlayer}
-          nativeControls={true}
-          allowsFullscreen={true}
-          contentFit="contain"
-        />
+    <TouchableOpacity
+      style={styles.videoContainer}
+      onPress={() => player.play()}
+    >
+      <VideoView
+        player={player}
+        style={styles.videoPlayer}
+        showsControls={true}
+        contentFit="contain"
+        allowsExternalPlayback={true}
+      />
+      {fileName && (
+        <Text style={styles.videoCaption} numberOfLines={1}>
+          {fileName}
+        </Text>
       )}
-
-      <View style={styles.videoInfo}>
-        <Text style={styles.videoFileName} numberOfLines={1}>
-          {fileName || "Video"}
-        </Text>
-        <Text style={styles.videoStatus}>
-          {hasError ? "Error" : isPlaying ? "Playing" : "Paused"}
-        </Text>
-      </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
-// Smart Video Component (manages expanded/collapsed state)
-const SmartVideoPlayer = ({ url, fileName }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+// Unified Media Renderer
+const ChatMediaRenderer = ({ message }) => {
+  const { imageUrl, videoUrl, fileUrl, magnetLink, fileName, fileType } =
+    message;
 
-  if (isExpanded) {
+  const viewableUrl = imageUrl || videoUrl || fileUrl;
+  const processedUrl = viewableUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY);
+
+  // Image
+  if (imageUrl) {
     return (
-      <ExpandedVideoPlayer
-        url={url}
-        fileName={fileName}
-        onCollapse={() => setIsExpanded(false)}
+      <Image
+        source={{ uri: processedUrl }}
+        style={styles.messageImage}
+        resizeMode="cover"
       />
     );
   }
 
-  return (
-    <VideoThumbnail
-      url={url}
-      fileName={fileName}
-      onExpand={() => setIsExpanded(true)}
-    />
-  );
+  // Video with magnet link - WebTorrent
+  if (magnetLink && (videoUrl || fileType === "video")) {
+    return <WebTorrentWebView video={message} />;
+  }
+
+  // Direct video URL - Simple Video Player
+  if (videoUrl) {
+    return (
+      <SimpleVideoPlayer url={processedUrl} fileName={fileName || "Video"} />
+    );
+  }
+
+  // Files
+  if (fileUrl) {
+    return (
+      <TouchableOpacity
+        style={styles.fileContainer}
+        onPress={() => handleFilePress(message)}
+      >
+        <Text style={styles.fileIcon}>
+          {fileType === "document"
+            ? "📄"
+            : fileType === "image"
+            ? "🖼️"
+            : fileType === "video"
+            ? "🎬"
+            : "📎"}
+        </Text>
+        <View style={styles.fileInfo}>
+          <Text style={styles.fileName} numberOfLines={1}>
+            {fileName || "File"}
+          </Text>
+          <Text style={styles.fileType}>
+            {fileType || "File"} • Tap to download
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  return null;
 };
 
-// GraphQL Queries - FIXED VERSION
+// GraphQL Queries
 const GET_NEIGHBORHOOD_MESSAGES = gql`
   query GetNeighborhoodMessages($neighborhoodId: ID!) {
     neighborhoodMessages(neighborhoodId: $neighborhoodId) {
@@ -206,24 +122,20 @@ const GET_NEIGHBORHOOD_MESSAGES = gql`
       room
       createdAt
       imageUrl
-      videoUrl 
-      fileUrl 
-      fileName 
-      fileType 
-      magnetLink 
+      videoUrl
+      fileUrl
+      fileName
+      fileType
+      magnetLink
       sender {
         id
         username
         profilePhoto
       }
-      # Temporarily remove neighborhood to test
-      # neighborhood {
-      #   id
-      #   name
-      # }
     }
   }
 `;
+
 const GET_NEIGHBORHOOD_INFO = gql`
   query GetNeighborhood($id: ID!) {
     neighborhood(id: $id) {
@@ -296,47 +208,28 @@ const SEND_NEIGHBORHOOD_MESSAGE = gql`
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 // Utility Functions
-const getFileType = (fileName) => {
-  if (!fileName) return "file";
-  const ext = fileName.split(".").pop()?.toLowerCase();
-  if (!ext) return "file";
-
-  const imageTypes = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
-  const videoTypes = ["mp4", "mov", "avi", "mkv", "webm"];
-  const docTypes = ["pdf", "doc", "docx", "txt"];
-  const sheetTypes = ["xls", "xlsx", "csv"];
-
-  if (imageTypes.includes(ext)) return "image";
-  if (videoTypes.includes(ext)) return "video";
-  if (docTypes.includes(ext)) return "document";
-  if (sheetTypes.includes(ext)) return "spreadsheet";
-  if (ext === "zip" || ext === "rar") return "archive";
-  return "file";
-};
-
-const getFileIcon = (fileType, fileName) => {
-  switch (fileType) {
-    case "document":
-      return fileName?.includes(".pdf") ? "📄" : "📝";
-    case "spreadsheet":
-      return "📊";
-    case "archive":
-      return "📦";
-    case "video":
-      return "🎬";
-    case "image":
-      return "🖼️";
-    default:
-      return "📎";
-  }
-};
-
 const formatTimestamp = (timestamp) => {
   try {
     const date = new Date(parseInt(timestamp));
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   } catch {
     return "Now";
+  }
+};
+
+const handleFilePress = (message) => {
+  if (message.fileUrl) {
+    const url = message.fileUrl.replace("ipfs.filebase.io", PINATA_GATEWAY);
+    Alert.alert(message.fileName || "File", "What would you like to do?", [
+      {
+        text: "Open",
+        onPress: () =>
+          Linking.openURL(url).catch((err) =>
+            Alert.alert("Error", "Could not open file")
+          ),
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
   }
 };
 
@@ -445,8 +338,7 @@ export default function NeighborhoodChatScreen() {
       await sendMessageMutation({
         variables: {
           content: messageContent,
-          neighborhoodId: neighborhoodId, // Make sure this is passed
-          // Remove room since we're using fixed "neighborhood" value
+          neighborhoodId: neighborhoodId,
         },
       });
       console.log("✅ Neighborhood message sent");
@@ -461,93 +353,149 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  // File Handling
-  const handleFilePress = (message) => {
-    if (message.fileUrl) {
-      const url = message.fileUrl.replace("ipfs.filebase.io", PINATA_GATEWAY);
-      Alert.alert(message.fileName || "File", "What would you like to do?", [
-        {
-          text: "Open",
-          onPress: () =>
-            Linking.openURL(url).catch((err) =>
-              Alert.alert("Error", "Could not open file")
-            ),
-        },
-        { text: "Cancel", style: "cancel" },
-      ]);
+  // File Upload Functions
+  const pickFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled) {
+        const file = result.assets[0];
+        await unifiedUpload(
+          file,
+          "file",
+          file.size || 0,
+          file.mimeType || "application/octet-stream"
+        );
+      }
+    } catch (error) {
+      console.error("File picker error:", error);
+      Alert.alert("Error", "Failed to pick file");
     }
   };
 
-const pickFile = async () => {
-  try {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: "*/*",
-      copyToCacheDirectory: true,
-    });
-
-    if (!result.canceled) {
-      const file = result.assets[0];
-      console.log("File picked:", file);
-
-      let fileSize = file.size || 0;
-      let mimeType = file.mimeType || "application/octet-stream";
-
-      // Call unifiedUpload with the file
-      await unifiedUpload(file, "file", fileSize, mimeType);
-    }
-  } catch (error) {
-    console.error("File picker error:", error);
-    Alert.alert("Error", "Failed to pick file");
-  }
-};
-
-const pickImage = async () => {
-  try {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission needed", "Camera roll permissions required");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images", "videos"],
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      const asset = result.assets[0];
-      const type = asset.type === "image" ? "image" : "video";
-
-      let fileSize = 0;
-      let mimeType = "";
-
-      try {
-        const response = await fetch(asset.uri);
-        const blob = await response.blob();
-        fileSize = blob.size;
-        mimeType = blob.type || `image/${asset.uri.split(".").pop()}`;
-      } catch (error) {
-        console.log("Could not get file metadata:", error);
-        fileSize = asset.fileSize || 0;
-        mimeType = asset.mimeType || "image/jpeg";
+  const pickImage = async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Camera roll permissions required");
+        return;
       }
 
-      console.log("📱 Media metadata:", {
-        fileName: asset.fileName,
-        fileSize,
-        mimeType,
-        type,
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images", "videos"],
+        quality: 0.8,
       });
 
-      // Call unifiedUpload with the media asset
-      await unifiedUpload(asset, type, fileSize, mimeType);
+      if (!result.canceled) {
+        const asset = result.assets[0];
+        const type = asset.type === "image" ? "image" : "video";
+
+        let fileSize = 0;
+        let mimeType = "";
+
+        try {
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          fileSize = blob.size;
+          mimeType = blob.type || `image/${asset.uri.split(".").pop()}`;
+        } catch (error) {
+          console.log("Could not get file metadata:", error);
+          fileSize = asset.fileSize || 0;
+          mimeType = asset.mimeType || "image/jpeg";
+        }
+
+        await unifiedUpload(asset, type, fileSize, mimeType);
+      }
+    } catch (error) {
+      console.error("Media picker error:", error);
+      Alert.alert("Error", "Failed to pick media");
     }
-  } catch (error) {
-    console.error("Media picker error:", error);
-    Alert.alert("Error", "Failed to pick media");
-  }
-};
-  // Add this function to your neighborhood-chat.js
+  };
+
+  const unifiedUpload = async (asset, type, fileSize, mimeType) => {
+    setUploading(true);
+    setUploadType(type);
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      let fileUri = asset.uri;
+      let fileName = asset.name || asset.fileName || `${type}-${Date.now()}`;
+
+      // Add file extension if missing
+      if (type === "image" && !fileName.includes(".")) {
+        fileName += ".jpg";
+      } else if (type === "video" && !fileName.includes(".")) {
+        fileName += ".mp4";
+      }
+
+      console.log("🔄 Processing upload for neighborhood:", {
+        fileName,
+        type,
+        neighborhoodId,
+      });
+
+      const ipfsUrl = await uploadToIPFS(fileUri, fileName, type, token);
+
+      if (ipfsUrl) {
+        const messageVariables = {
+          content: `${type.charAt(0).toUpperCase() + type.slice(1)} Shared`,
+          neighborhoodId: neighborhoodId,
+          imageUrl: type === "image" ? ipfsUrl : null,
+          videoUrl: type === "video" ? ipfsUrl : null,
+          fileUrl: type === "file" ? ipfsUrl : null,
+          fileName: fileName,
+          fileType: type,
+        };
+
+        await sendMessageMutation({ variables: messageVariables });
+        console.log(`✅ ${type} uploaded to neighborhood chat`);
+      }
+    } catch (error) {
+      console.error(`❌ ${type} upload error:`, error);
+      Alert.alert("Upload Failed", error.message);
+    } finally {
+      setUploading(false);
+      setUploadType(null);
+    }
+  };
+
+  const uploadToIPFS = async (fileUri, fileName, fileType, token) => {
+    try {
+      const response = await fetch(fileUri);
+      const blob = await response.blob();
+
+      const formData = new FormData();
+      formData.append("video", blob, fileName);
+      formData.append("title", fileName || `Uploaded ${fileType}`);
+      formData.append("description", `Shared in neighborhood chat`);
+
+      const res = await fetch(`${BACKEND_URL}/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Upload failed: ${res.status} - ${errorText}`);
+      }
+
+      const result = await res.json();
+      return result.ipfsUrl;
+    } catch (error) {
+      console.error("❌ Upload error:", error);
+      throw error;
+    }
+  };
+
   const startNeighborhoodStream = async () => {
     try {
       console.log("🎥 Starting neighborhood stream...");
@@ -682,91 +630,7 @@ const pickImage = async () => {
       );
     }
   };
-  // Add this to your neighborhood-chat.js
-  const unifiedUpload = async (asset, type, fileSize, mimeType) => {
-    setUploading(true);
-    setUploadType(type);
 
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
-      let fileUri = asset.uri;
-      let fileName = asset.name || asset.fileName || `${type}-${Date.now()}`;
-
-      // Add file extension if missing
-      if (type === "image" && !fileName.includes(".")) {
-        fileName += ".jpg";
-      } else if (type === "video" && !fileName.includes(".")) {
-        fileName += ".mp4";
-      }
-
-      console.log("🔄 Processing upload for neighborhood:", {
-        fileName,
-        type,
-        neighborhoodId,
-      });
-
-      const ipfsUrl = await uploadToIPFS(fileUri, fileName, type, token);
-
-      if (ipfsUrl) {
-        const messageVariables = {
-          content: `${type.charAt(0).toUpperCase() + type.slice(1)} Shared`,
-          neighborhoodId: neighborhoodId,
-          imageUrl: type === "image" ? ipfsUrl : null,
-          videoUrl: type === "video" ? ipfsUrl : null,
-          fileUrl: type === "file" ? ipfsUrl : null,
-          fileName: fileName,
-          fileType: type,
-        };
-
-        await sendMessageMutation({ variables: messageVariables });
-        console.log(`✅ ${type} uploaded to neighborhood chat`);
-      }
-    } catch (error) {
-      console.error(`❌ ${type} upload error:`, error);
-      Alert.alert("Upload Failed", error.message);
-    } finally {
-      setUploading(false);
-      setUploadType(null);
-    }
-  };
-
-  // Add the uploadToIPFS function (same as your general chat)
-  const uploadToIPFS = async (fileUri, fileName, fileType, token) => {
-    try {
-      const response = await fetch(fileUri);
-      const blob = await response.blob();
-
-      const formData = new FormData();
-      formData.append("video", blob, fileName);
-      formData.append("title", fileName || `Uploaded ${fileType}`);
-      formData.append("description", `Shared in neighborhood chat`);
-
-      const res = await fetch(
-        `${BACKEND_URL}/upload`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        }
-      );
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Upload failed: ${res.status} - ${errorText}`);
-      }
-
-      const result = await res.json();
-      return result.ipfsUrl;
-    } catch (error) {
-      console.error("❌ Upload error:", error);
-      throw error;
-    }
-  };
-  
   // Render Logic
   const messages = data?.neighborhoodMessages || [];
   const neighborhoodName =
@@ -840,98 +704,34 @@ const pickImage = async () => {
           scrollViewRef.current?.scrollToEnd({ animated: true })
         }
       >
-        {messages.map((item) => {
-          // ADD DEBUG LOGGING
-          console.log("💬 Chat Message Debug:", {
-            id: item.id,
-            content: item.content,
-            imageUrl: item.imageUrl,
-            videoUrl: item.videoUrl,
-            fileUrl: item.fileUrl,
-            fileType: item.fileType,
-            hasImage: !!item.imageUrl,
-            hasVideo: !!item.videoUrl,
-            hasFile: !!item.fileUrl,
-          });
+        {messages.map((item) => (
+          <View style={styles.messageContainer} key={item.id}>
+            <Image
+              source={{
+                uri:
+                  item.sender?.profilePhoto || "https://via.placeholder.com/40",
+              }}
+              style={styles.profileImage}
+            />
+            <View style={styles.messageContent}>
+              <Text style={styles.username}>
+                {item.sender?.username || "Unknown"}
+              </Text>
 
-          const mediaUrl = item.imageUrl || item.videoUrl;
-          const isMedia = !!mediaUrl;
-          const isFile = !!item.fileUrl && !isMedia;
-          const viewableUrl = isMedia
-            ? mediaUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY)
-            : null;
+              {/* Unified Media Renderer - One line for all media! */}
+              <ChatMediaRenderer message={item} />
 
-          console.log("🖼️ Processed URLs:", {
-            originalMediaUrl: mediaUrl,
-            viewableUrl: viewableUrl,
-            isMedia,
-            isFile,
-          });
-          return (
-            <View style={styles.messageContainer} key={item.id}>
-              <Image
-                source={{
-                  uri:
-                    item.sender?.profilePhoto ||
-                    "https://via.placeholder.com/40",
-                }}
-                style={styles.profileImage}
-              />
-              <View style={styles.messageContent}>
-                <Text style={styles.username}>
-                  {item.sender?.username || "Unknown"}
-                </Text>
+              {/* Text content if no media */}
+              {!item.imageUrl && !item.videoUrl && !item.fileUrl && (
+                <Text style={styles.messageText}>{item.content}</Text>
+              )}
 
-{viewableUrl && item.imageUrl ? (
-  <Image
-    source={{ uri: viewableUrl }}
-    style={styles.messageImage}
-    resizeMode="cover"
-  />
-) : viewableUrl && item.videoUrl ? (
-  // Check for magnet links first, then fallback to direct video
-  item.magnetLink ? (
-    <WebTorrentWebView
-      video={{
-        ...item,
-        magnetLink: item.magnetLink,
-        videoUrl: viewableUrl,
-        fileName: item.fileName,
-      }}
-    />
-  ) : (
-    <SmartVideoPlayer 
-      url={viewableUrl} 
-      fileName={item.fileName || "Neighborhood Video"} 
-    />
-  )
-) : isFile ? (  // ← This was missing the closing parenthesis for the previous condition
-  <TouchableOpacity
-    style={styles.fileContainer}
-    onPress={() => handleFilePress(item)}
-  >
-                    <Text style={styles.fileIcon}>
-                      {getFileIcon(item.fileType, item.fileName)}
-                    </Text>
-                    <View style={styles.fileInfo}>
-                      <Text style={styles.fileName} numberOfLines={1}>
-                        {item.fileName || "File"}
-                      </Text>
-                      <Text style={styles.fileType}>
-                        {item.fileType || "File"}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ) : (
-                  <Text style={styles.messageText}>{item.content}</Text>
-                )}
-                <Text style={styles.timestamp}>
-                  {formatTimestamp(item.createdAt)}
-                </Text>
-              </View>
+              <Text style={styles.timestamp}>
+                {formatTimestamp(item.createdAt)}
+              </Text>
             </View>
-          );
-        })}
+          </View>
+        ))}
       </ScrollView>
 
       {/* Input Area */}
@@ -951,6 +751,7 @@ const pickImage = async () => {
         >
           <Text style={styles.streamButtonText}>{uploading ? "🔄" : "🎥"}</Text>
         </TouchableOpacity>
+
         <TextInput
           ref={messageInputRef}
           style={[styles.messageInput, !socket && styles.messageInputDisabled]}
@@ -1185,119 +986,21 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "bold",
   },
-  // Video Thumbnail Styles
-  videoThumbnailContainer: {
+  // Video Player Styles
+  videoContainer: {
     marginBottom: 6,
-  },
-  videoThumbnail: {
-    width: 300,
-    height: 180,
     borderRadius: 8,
     overflow: "hidden",
-    backgroundColor: "#00ff00",
-    position: "relative",
   },
-  videoThumbnailImage: {
+  videoPlayer: {
     width: "100%",
-    height: "100%",
-    opacity: 0.7,
-  },
-  videoPlayOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
-  },
-  videoPlayIcon: {
-    fontSize: 32,
-    color: "#FFFFFF",
-    fontWeight: "bold",
-  },
-  videoDurationBadge: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  videoDurationText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "bold",
+    height: 200,
+    backgroundColor: "#000",
   },
   videoCaption: {
     color: "#FFFFFF",
     fontSize: 12,
     marginTop: 4,
-    textAlign: "left",
-  },
-
-  // Expanded Video Player Styles
-  expandedVideoContainer: {
-    marginBottom: 6,
-    backgroundColor: "#111111",
-    borderRadius: 8,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: "#00FF00",
-  },
-  videoCloseButton: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    zIndex: 10,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  videoCloseIcon: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-  expandedVideoPlayer: {
-    width: "100%",
-    height: 300,
-    borderRadius: 6,
-  },
-  videoInfo: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 8,
     paddingHorizontal: 4,
   },
-  videoFileName: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    flex: 1,
-  },
-  videoStatus: {
-    color: "#00AA00",
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  videoErrorContainer: {
-    width: "100%",
-    height: 200,
-    backgroundColor: "#333333",
-    borderRadius: 6,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  videoErrorText: {
-    color: "#FF4444",
-    fontSize: 16,
-    marginBottom: 10,
-  },
 });
-

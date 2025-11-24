@@ -1,6 +1,6 @@
 // app/homebase.tsx
 import { View, Text } from "react-native";
-import StaticWebTorrentPlayer from "../components/StaticWebTorrentPlayer";
+import WebTorrentPlayer from "../components/WebTorrentPlayer";
 
 export default function HomeBase() {
   const personalVideos = [
@@ -27,7 +27,7 @@ export default function HomeBase() {
       </Text>
 
       {personalVideos.map((video, index) => (
-        <StaticWebTorrentPlayer key={index} video={video} />
+        <WebTorrentPlayer key={index} video={video} />
       ))}
     </View>
   );

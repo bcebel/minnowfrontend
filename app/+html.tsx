@@ -137,10 +137,43 @@ export default function Root({ children }: PropsWithChildren) {
         />
 
         {/* WebTorrent Script */}
-        <script src="https://cdn.jsdelivr.net/npm/webrtorrent@latest/webtorrent.min.js" />
+        <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `if (!window.globalWebTorrentClient) {window.globalWebTorrentClient = new WebTorrent();}`,
+            __html: `
+      // Global WebTorrent client for cross-component seeding
+      if (!window.globalWebTorrentClient) {
+        console.log('🌪️ Initializing global WebTorrent client for P2P seeding');
+        window.globalWebTorrentClient = new WebTorrent();
+        
+        // Optimize for seeding
+        window.globalWebTorrentClient.on('torrent', (torrent) => {
+          console.log('🌱 Seeding torrent:', torrent.name);
+          console.log('📊 Info Hash:', torrent.infoHash);
+        });
+        
+        // Track swarm stats
+        window.globalWebTorrentClient.on('download', (bytes) => {
+          // Global swarm statistics
+          const stats = {
+            downloadSpeed: window.globalWebTorrentClient.downloadSpeed,
+            uploadSpeed: window.globalWebTorrentClient.uploadSpeed,
+            progress: window.globalWebTorrentClient.progress,
+            ratio: window.globalWebTorrentClient.ratio
+          };
+          window.globalTorrentStats = stats;
+        });
+      }
+      
+      // Pre-load common trackers for better P2P discovery
+      window.enhancedTrackers = [
+        'wss://tracker.openwebtorrent.com',
+        'wss://tracker.btorrent.xyz', 
+        'wss://tracker.files.fm:7073/announce',
+        'udp://tracker.opentrackr.org:1337/announce',
+        'udp://open.tracker.cl:1337/announce'
+      ];
+    `,
           }}
         />
 
@@ -155,9 +188,7 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="canonical" href={url} />
       </head>
 
-      <body>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

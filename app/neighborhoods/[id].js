@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useQuery } from "@apollo/client";
 import { GET_NEIGHBORHOOD } from "../graphql/queries";
-import StaticWebTorrentPlayer from "../../components/StaticWebTorrentPlayer"; // Add this import
+import WebTorrentPlayer from "../../components/WebTorrentPlayer"; // Add this import
 
 // ADD THIS FUNCTION - Generates static pages for each neighborhood
 export async function generateStaticParams() {
@@ -152,7 +152,7 @@ export default function NeighborhoodDetailScreen() {
         </Text>
 
         {(neighborhoodContent[id] || []).map((video, index) => (
-          <StaticWebTorrentPlayer key={index} video={video} />
+          <WebTorrentPlayer key={index} video={video} />
         ))}
 
         {(neighborhoodContent[id] || []).length === 0 && (
