@@ -51,14 +51,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="torrent"
+        name="gallery"
         options={{
           title: "🎬",
           tabBarIcon: ({ color }) => null,
         }}
       />
       <Tabs.Screen
-        name="videos"
+        name="test2"
         options={{
           title: "🎨",
           tabBarIcon: ({ color }) => null,
