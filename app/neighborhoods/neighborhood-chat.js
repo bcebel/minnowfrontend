@@ -49,7 +49,63 @@ const VideoThumbnail = ({ url, fileName, onExpand }) => {
     </TouchableOpacity>
   );
 };
+const getVideoCompatibility = (url) => {
+  const extension = url.split(".").pop()?.toLowerCase();
+  const isMOV = extension === "mov";
+  const isQuickTime = isMOV || url.includes("quicktime");
+  const isMP4 = ["mp4", "m4v"].includes(extension);
+  const isHLS = url.includes(".m3u8");
+  const isWebM = extension === "webm";
 
+  // QuickTime has limited cross-platform support
+  const isExpoSupported = isHLS || isMP4;
+  const hasPlatformLimitations = isMOV;
+
+  console.log("🎬 Video compatibility:", {
+    url,
+    extension,
+    isQuickTime,
+    isMOV,
+    isMP4,
+    isHLS,
+    isWebM,
+    isExpoSupported,
+    hasPlatformLimitations,
+  });
+
+  return {
+    isExpoSupported,
+    hasPlatformLimitations,
+    format: isMOV ? "QuickTime" : extension?.toUpperCase(),
+    recommendedAction: isMOV ? "convert_to_mp4" : null,
+  };
+};
+
+// Special fallback for QuickTime videos
+const QuickTimeFallback = ({ url, fileName }) => {
+  return (
+    <TouchableOpacity 
+      style={[styles.fileContainer, { backgroundColor: "#3366CC" }]}
+      onPress={() => Linking.openURL(url)}
+    >
+      <Text style={styles.fileIcon}>🎬</Text>
+      <View style={styles.fileInfo}>
+        <Text style={styles.fileName}>
+          {fileName || "QuickTime Video"}
+        </Text>
+        <Text style={styles.fileType}>
+          QuickTime • Tap to open
+        </Text>
+        <Text style={styles.quicktimeWarning}>
+          🍎 Best viewed on Apple devices
+        </Text>
+        <Text style={styles.formatSuggestion}>
+          Convert to MP4 for better cross-platform support
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
 // Expanded Video Player Component
 const ExpandedVideoPlayer = ({ url, fileName, onCollapse }) => {
   const player = useVideoPlayer(url, (player) => {

@@ -13,16 +13,15 @@ export default function TabLayout() {
       screenOptions={{
         // Minimal height with big fonts
         tabBarStyle: {
-          height: Platform.OS === "ios" ? 80 : 70, // Reduced height
-          paddingBottom: 0, // Remove bottom padding
+          height: Platform.OS === "ios" ? 80 : 80, // Reduced height
+          paddingBottom:0, // Remove bottom padding
           paddingTop: 0, // Remove top padding
         },
         // Big font size with minimal margins
         tabBarLabelStyle: {
           fontSize: 36, // Large font size
           fontWeight: "500",
-          marginBottom: 8, // Remove bottom margin
-          marginTop: 0, // Remove top margin
+          marginTop: -30, // Remove top margin
           color: "#ff0000",
           includeFontPadding: false, // Remove font padding
           lineHeight: 40, // Match font size
