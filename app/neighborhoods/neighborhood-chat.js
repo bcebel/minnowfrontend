@@ -18,7 +18,128 @@ import { io } from "socket.io-client";
 import { gql, useQuery, useMutation } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
+import { useVideoPlayer, VideoView } from "expo-video";
+import WebTorrentWebView from "../../components/WebTorrentPlayer";
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
+
+const VideoThumbnail = ({ url, fileName, onExpand }) => {
+  return (
+    <TouchableOpacity
+      style={styles.videoThumbnailContainer}
+      onPress={onExpand}
+      activeOpacity={0.8}
+    >
+      <View style={styles.videoThumbnail}>
+        <Image
+          source={{ uri: url }}
+          style={styles.videoThumbnailImage}
+          contentFit="cover"
+          transition={300}
+        />
+        <View style={styles.videoPlayOverlay}>
+          <Text style={styles.videoPlayIcon}>▶</Text>
+        </View>
+        <View style={styles.videoDurationBadge}>
+          <Text style={styles.videoDurationText}>VIDEO</Text>
+        </View>
+      </View>
+      <Text style={styles.videoCaption} numberOfLines={1}>
+        {fileName || "Tap to play video"}
+      </Text>
+    </TouchableOpacity>
+  );
+};
+
+// Expanded Video Player Component
+const ExpandedVideoPlayer = ({ url, fileName, onCollapse }) => {
+  const player = useVideoPlayer(url, (player) => {
+    player.loop = false;
+  });
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    const subscriptions = [
+      player.addListener("playingChange", ({ isPlaying }) => {
+        setIsPlaying(isPlaying);
+      }),
+      player.addListener("statusChange", ({ status, error }) => {
+        if (status === "error") {
+          console.log("Video player error:", error);
+          setHasError(true);
+        }
+      }),
+    ];
+
+    return () => {
+      subscriptions.forEach((sub) => sub.remove());
+    };
+  }, [player]);
+
+  return (
+    <View style={styles.expandedVideoContainer}>
+      <TouchableOpacity style={styles.videoCloseButton} onPress={onCollapse}>
+        <Text style={styles.videoCloseIcon}>✕</Text>
+      </TouchableOpacity>
+
+      {hasError ? (
+        <View style={styles.videoErrorContainer}>
+          <Text style={styles.videoErrorText}>Failed to load video</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              setHasError(false);
+              player.replaceAsync(url).catch(console.error);
+            }}
+          >
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <VideoView
+          player={player}
+          style={styles.expandedVideoPlayer}
+          nativeControls={true}
+          allowsFullscreen={true}
+          contentFit="contain"
+        />
+      )}
+
+      <View style={styles.videoInfo}>
+        <Text style={styles.videoFileName} numberOfLines={1}>
+          {fileName || "Video"}
+        </Text>
+        <Text style={styles.videoStatus}>
+          {hasError ? "Error" : isPlaying ? "Playing" : "Paused"}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+// Smart Video Component (manages expanded/collapsed state)
+const SmartVideoPlayer = ({ url, fileName }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (isExpanded) {
+    return (
+      <ExpandedVideoPlayer
+        url={url}
+        fileName={fileName}
+        onCollapse={() => setIsExpanded(false)}
+      />
+    );
+  }
+
+  return (
+    <VideoThumbnail
+      url={url}
+      fileName={fileName}
+      onExpand={() => setIsExpanded(true)}
+    />
+  );
+};
 
 // GraphQL Queries - FIXED VERSION
 const GET_NEIGHBORHOOD_MESSAGES = gql`
@@ -28,6 +149,12 @@ const GET_NEIGHBORHOOD_MESSAGES = gql`
       content
       room
       createdAt
+      imageUrl
+      videoUrl 
+      fileUrl 
+      fileName 
+      fileType 
+      magnetLink 
       sender {
         id
         username
@@ -66,11 +193,26 @@ const GET_NEIGHBORHOOD_INFO = gql`
 `;
 
 const SEND_NEIGHBORHOOD_MESSAGE = gql`
-  mutation SendNeighborhoodMessage($content: String!, $neighborhoodId: ID!) {
+  mutation SendNeighborhoodMessage(
+    $content: String!
+    $neighborhoodId: ID!
+    $imageUrl: String
+    $videoUrl: String
+    $fileUrl: String
+    $fileName: String
+    $fileType: String
+    $magnetLink: String
+  ) {
     sendMessage(
       content: $content
       neighborhoodId: $neighborhoodId
-      room: "neighborhood" # Required field
+      room: "neighborhood"
+      imageUrl: $imageUrl
+      videoUrl: $videoUrl
+      fileUrl: $fileUrl
+      fileName: $fileName
+      fileType: $fileType
+      magnetLink: $magnetLink
     ) {
       id
       content
@@ -79,6 +221,7 @@ const SEND_NEIGHBORHOOD_MESSAGE = gql`
       fileUrl
       fileName
       fileType
+      magnetLink
       room
       neighborhood {
         id
@@ -279,46 +422,295 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  const pickFile = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: "*/*",
-        copyToCacheDirectory: true,
-      });
-      if (!result.canceled) {
-        // Add upload logic here
-        console.log("File picked:", result.assets[0]);
-      }
-    } catch (error) {
-      console.error("File picker error:", error);
-      Alert.alert("Error", "Failed to pick file");
-    }
-  };
+const pickFile = async () => {
+  try {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: "*/*",
+      copyToCacheDirectory: true,
+    });
 
-  const pickImage = async () => {
+    if (!result.canceled) {
+      const file = result.assets[0];
+      console.log("File picked:", file);
+
+      let fileSize = file.size || 0;
+      let mimeType = file.mimeType || "application/octet-stream";
+
+      // Call unifiedUpload with the file
+      await unifiedUpload(file, "file", fileSize, mimeType);
+    }
+  } catch (error) {
+    console.error("File picker error:", error);
+    Alert.alert("Error", "Failed to pick file");
+  }
+};
+
+const pickImage = async () => {
+  try {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Camera roll permissions required");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images", "videos"],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      const type = asset.type === "image" ? "image" : "video";
+
+      let fileSize = 0;
+      let mimeType = "";
+
+      try {
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        fileSize = blob.size;
+        mimeType = blob.type || `image/${asset.uri.split(".").pop()}`;
+      } catch (error) {
+        console.log("Could not get file metadata:", error);
+        fileSize = asset.fileSize || 0;
+        mimeType = asset.mimeType || "image/jpeg";
+      }
+
+      console.log("📱 Media metadata:", {
+        fileName: asset.fileName,
+        fileSize,
+        mimeType,
+        type,
+      });
+
+      // Call unifiedUpload with the media asset
+      await unifiedUpload(asset, type, fileSize, mimeType);
+    }
+  } catch (error) {
+    console.error("Media picker error:", error);
+    Alert.alert("Error", "Failed to pick media");
+  }
+};
+  // Add this function to your neighborhood-chat.js
+  const startNeighborhoodStream = async () => {
     try {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission needed", "Camera roll permissions required");
+      console.log("🎥 Starting neighborhood stream...");
+
+      // Check platform compatibility
+      if (Platform.OS !== "web") {
+        Alert.alert(
+          "Web Only",
+          "Live streaming is currently available on web browsers only",
+          [{ text: "OK" }]
+        );
         return;
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images", "videos"], // Allows both images and videos
-        quality: 0.8,
+      // Check camera permissions
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: true,
       });
 
-      if (!result.canceled) {
-        // Add upload logic here
-        console.log("Image picked:", result.assets[0]);
+      console.log("✅ Camera access granted!");
+
+      // Show preview
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.muted = true;
+      video.style.position = "fixed";
+      video.style.top = "10px";
+      video.style.right = "10px";
+      video.style.width = "200px";
+      video.style.zIndex = "1000";
+      video.style.border = "2px solid #00FF00";
+      video.style.borderRadius = "8px";
+      document.body.appendChild(video);
+
+      // Load WebTorrent
+      const script = document.createElement("script");
+      script.src =
+        "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+      script.onload = () => {
+        console.log("🚀 WebTorrent loaded, starting recording...");
+
+        const mediaRecorder = new MediaRecorder(stream, {
+          mimeType: "video/webm; codecs=vp8,opus",
+          videoBitsPerSecond: 2500000,
+        });
+
+        const chunks = [];
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            chunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          console.log("🎬 Recording stopped, creating torrent...");
+          const videoBlob = new Blob(chunks, { type: "video/webm" });
+          const client = new window.WebTorrent();
+
+          client.seed(
+            videoBlob,
+            {
+              name: `neighborhood-stream-${Date.now()}.webm`,
+              announce: [
+                "wss://tracker.openwebtorrent.com",
+                "wss://tracker.btorrent.xyz",
+                "wss://tracker.files.fm:7073/announce",
+              ],
+            },
+            async (torrent) => {
+              console.log("🌪️ Torrent created:", torrent.magnetURI);
+
+              // Remove preview
+              document.body.removeChild(video);
+
+              try {
+                // Copy to clipboard
+                await navigator.clipboard.writeText(torrent.magnetURI);
+
+                // Send to neighborhood chat
+                await sendMessageMutation({
+                  variables: {
+                    content: "🔴 Live Neighborhood Stream",
+                    neighborhoodId: neighborhoodId,
+                    magnetLink: torrent.magnetURI,
+                    fileName: `neighborhood-stream-${Date.now()}.webm`,
+                    fileType: "video",
+                  },
+                });
+
+                Alert.alert(
+                  "Stream Shared!",
+                  "Your live stream has been shared to the neighborhood chat with P2P magnet link!",
+                  [{ text: "OK" }]
+                );
+              } catch (error) {
+                console.error("Error sharing stream:", error);
+                Alert.alert(
+                  "Stream Ready",
+                  `Magnet link copied to clipboard! Paste it manually:\n\n${torrent.magnetURI}`
+                );
+              }
+
+              // Clean up
+              stream.getTracks().forEach((track) => track.stop());
+            }
+          );
+        };
+
+        // Record for 10 seconds (neighborhood clip)
+        mediaRecorder.start();
+        console.log("⏺️ Recording started...");
+
+        setTimeout(() => {
+          if (mediaRecorder.state === "recording") {
+            mediaRecorder.stop();
+            console.log("⏹️ Recording stopped");
+          }
+        }, 10000);
+      };
+
+      document.head.appendChild(script);
+    } catch (error) {
+      console.error("❌ Stream error:", error);
+      Alert.alert(
+        "Camera Error",
+        "Please allow camera access to start a neighborhood stream"
+      );
+    }
+  };
+  // Add this to your neighborhood-chat.js
+  const unifiedUpload = async (asset, type, fileSize, mimeType) => {
+    setUploading(true);
+    setUploadType(type);
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      let fileUri = asset.uri;
+      let fileName = asset.name || asset.fileName || `${type}-${Date.now()}`;
+
+      // Add file extension if missing
+      if (type === "image" && !fileName.includes(".")) {
+        fileName += ".jpg";
+      } else if (type === "video" && !fileName.includes(".")) {
+        fileName += ".mp4";
+      }
+
+      console.log("🔄 Processing upload for neighborhood:", {
+        fileName,
+        type,
+        neighborhoodId,
+      });
+
+      const ipfsUrl = await uploadToIPFS(fileUri, fileName, type, token);
+
+      if (ipfsUrl) {
+        const messageVariables = {
+          content: `${type.charAt(0).toUpperCase() + type.slice(1)} Shared`,
+          neighborhoodId: neighborhoodId,
+          imageUrl: type === "image" ? ipfsUrl : null,
+          videoUrl: type === "video" ? ipfsUrl : null,
+          fileUrl: type === "file" ? ipfsUrl : null,
+          fileName: fileName,
+          fileType: type,
+        };
+
+        await sendMessageMutation({ variables: messageVariables });
+        console.log(`✅ ${type} uploaded to neighborhood chat`);
       }
     } catch (error) {
-      console.error("Image picker error:", error);
-      Alert.alert("Error", "Failed to pick media");
+      console.error(`❌ ${type} upload error:`, error);
+      Alert.alert("Upload Failed", error.message);
+    } finally {
+      setUploading(false);
+      setUploadType(null);
     }
   };
 
+  // Add the uploadToIPFS function (same as your general chat)
+  const uploadToIPFS = async (fileUri, fileName, fileType, token) => {
+    try {
+      const response = await fetch(fileUri);
+      const blob = await response.blob();
+
+      const formData = new FormData();
+      formData.append("video", blob, fileName);
+      formData.append("title", fileName || `Uploaded ${fileType}`);
+      formData.append("description", `Shared in neighborhood chat`);
+
+      const res = await fetch(
+        `${BACKEND_URL}/upload`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        }
+      );
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Upload failed: ${res.status} - ${errorText}`);
+      }
+
+      const result = await res.json();
+      return result.ipfsUrl;
+    } catch (error) {
+      console.error("❌ Upload error:", error);
+      throw error;
+    }
+  };
+  
   // Render Logic
   const messages = data?.neighborhoodMessages || [];
   const neighborhoodName =
@@ -393,6 +785,19 @@ export default function NeighborhoodChatScreen() {
         }
       >
         {messages.map((item) => {
+          // ADD DEBUG LOGGING
+          console.log("💬 Chat Message Debug:", {
+            id: item.id,
+            content: item.content,
+            imageUrl: item.imageUrl,
+            videoUrl: item.videoUrl,
+            fileUrl: item.fileUrl,
+            fileType: item.fileType,
+            hasImage: !!item.imageUrl,
+            hasVideo: !!item.videoUrl,
+            hasFile: !!item.fileUrl,
+          });
+
           const mediaUrl = item.imageUrl || item.videoUrl;
           const isMedia = !!mediaUrl;
           const isFile = !!item.fileUrl && !isMedia;
@@ -400,6 +805,12 @@ export default function NeighborhoodChatScreen() {
             ? mediaUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY)
             : null;
 
+          console.log("🖼️ Processed URLs:", {
+            originalMediaUrl: mediaUrl,
+            viewableUrl: viewableUrl,
+            isMedia,
+            isFile,
+          });
           return (
             <View style={styles.messageContainer} key={item.id}>
               <Image
@@ -415,30 +826,34 @@ export default function NeighborhoodChatScreen() {
                   {item.sender?.username || "Unknown"}
                 </Text>
 
-                {viewableUrl && item.imageUrl ? (
-                  <Image
-                    source={{ uri: viewableUrl }}
-                    style={styles.messageImage}
-                    resizeMode="cover"
-                  />
-                ) : viewableUrl && item.videoUrl ? (
-                  <TouchableOpacity
-                    style={[styles.fileContainer, { backgroundColor: "#555" }]}
-                    onPress={() => Linking.openURL(viewableUrl)}
-                  >
-                    <Text style={styles.fileIcon}>🎬</Text>
-                    <View style={styles.fileInfo}>
-                      <Text style={styles.fileName}>
-                        Video: {item.fileName || "Click to Play"}
-                      </Text>
-                      <Text style={styles.fileType}>Tap to stream</Text>
-                    </View>
-                  </TouchableOpacity>
-                ) : isFile ? (
-                  <TouchableOpacity
-                    style={styles.fileContainer}
-                    onPress={() => handleFilePress(item)}
-                  >
+{viewableUrl && item.imageUrl ? (
+  <Image
+    source={{ uri: viewableUrl }}
+    style={styles.messageImage}
+    resizeMode="cover"
+  />
+) : viewableUrl && item.videoUrl ? (
+  // Check for magnet links first, then fallback to direct video
+  item.magnetLink ? (
+    <WebTorrentWebView
+      video={{
+        ...item,
+        magnetLink: item.magnetLink,
+        videoUrl: viewableUrl,
+        fileName: item.fileName,
+      }}
+    />
+  ) : (
+    <SmartVideoPlayer 
+      url={viewableUrl} 
+      fileName={item.fileName || "Neighborhood Video"} 
+    />
+  )
+) : isFile ? (  // ← This was missing the closing parenthesis for the previous condition
+  <TouchableOpacity
+    style={styles.fileContainer}
+    onPress={() => handleFilePress(item)}
+  >
                     <Text style={styles.fileIcon}>
                       {getFileIcon(item.fileType, item.fileName)}
                     </Text>
@@ -454,7 +869,6 @@ export default function NeighborhoodChatScreen() {
                 ) : (
                   <Text style={styles.messageText}>{item.content}</Text>
                 )}
-
                 <Text style={styles.timestamp}>
                   {formatTimestamp(item.createdAt)}
                 </Text>
@@ -474,6 +888,13 @@ export default function NeighborhoodChatScreen() {
           <Text style={styles.uploadButtonText}>📷</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.streamButton}
+          onPress={startNeighborhoodStream}
+          disabled={uploading}
+        >
+          <Text style={styles.streamButtonText}>{uploading ? "🔄" : "🎥"}</Text>
+        </TouchableOpacity>
         <TextInput
           ref={messageInputRef}
           style={[styles.messageInput, !socket && styles.messageInputDisabled]}
@@ -696,4 +1117,131 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#00FF00",
   },
+  streamButton: {
+    padding: 12,
+    marginRight: 10,
+    backgroundColor: "#FF4444",
+    borderRadius: 25,
+    justifyContent: "center",
+  },
+  streamButtonText: {
+    fontSize: 18,
+    color: "#FFFFFF",
+    fontWeight: "bold",
+  },
+  // Video Thumbnail Styles
+  videoThumbnailContainer: {
+    marginBottom: 6,
+  },
+  videoThumbnail: {
+    width: 300,
+    height: 180,
+    borderRadius: 8,
+    overflow: "hidden",
+    backgroundColor: "#00ff00",
+    position: "relative",
+  },
+  videoThumbnailImage: {
+    width: "100%",
+    height: "100%",
+    opacity: 0.7,
+  },
+  videoPlayOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+  },
+  videoPlayIcon: {
+    fontSize: 32,
+    color: "#FFFFFF",
+    fontWeight: "bold",
+  },
+  videoDurationBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  videoDurationText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  videoCaption: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: "left",
+  },
+
+  // Expanded Video Player Styles
+  expandedVideoContainer: {
+    marginBottom: 6,
+    backgroundColor: "#111111",
+    borderRadius: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#00FF00",
+  },
+  videoCloseButton: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    zIndex: 10,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  videoCloseIcon: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  expandedVideoPlayer: {
+    width: "100%",
+    height: 300,
+    borderRadius: 6,
+  },
+  videoInfo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  videoFileName: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    flex: 1,
+  },
+  videoStatus: {
+    color: "#00AA00",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  videoErrorContainer: {
+    width: "100%",
+    height: 200,
+    backgroundColor: "#333333",
+    borderRadius: 6,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  videoErrorText: {
+    color: "#FF4444",
+    fontSize: 16,
+    marginBottom: 10,
+  },
 });
+
