@@ -186,7 +186,7 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* Canonical URL */}
         <link rel="canonical" href={url} />
-        <meta name='impact-site-verification' value='6430b649-d08d-495d-8ef7-5f05702bf594'>
+        <meta name='impact-site-verification' value='6430b649-d08d-495d-8ef7-5f05702bf594' />
       </head>
 
       <body>{children}</body>
