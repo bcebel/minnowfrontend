@@ -344,6 +344,7 @@ const styles = StyleSheet.create({
   },
   galleryContainer: {
     padding: 10,
+    alignItems: "center", // Center all items in the gallery
   },
   videoCard: {
     borderWidth: 1,
@@ -353,31 +354,40 @@ const styles = StyleSheet.create({
     backgroundColor: "#f9f9f9",
     flex: 1,
     margin: 5,
+    width: "95%", // 95% of screen width
+    alignSelf: "center", // Center each card
+    maxWidth: 800, // Optional: prevent cards from getting too wide on large screens
   },
   title: {
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 5,
     color: "#333",
+    textAlign: "center", // Center title
   },
   description: {
     fontSize: 14,
     color: "#666",
     marginBottom: 10,
+    textAlign: "center", // Center description
   },
   videoPlayer: {
     width: "100%",
-    height: 250,
+    height: undefined, // Variable height
+    aspectRatio: 16 / 9, // Maintain aspect ratio
     backgroundColor: "#000",
     borderRadius: 4,
     marginBottom: 10,
+    alignSelf: "center", // Center video player
   },
   imagePlayer: {
     width: "100%",
-    height: 300,
+    height: undefined, // Variable height
+    aspectRatio: 4 / 3, // Maintain aspect ratio
     backgroundColor: "#f0f0f0",
     borderRadius: 8,
     marginBottom: 10,
+    alignSelf: "center", // Center image
   },
   errorText: {
     color: "#721c24",
@@ -408,6 +418,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e9ecef",
     marginBottom: 10,
+    width: "100%", // Full width of card
+    alignSelf: "center", // Center document container
   },
   documentIcon: {
     fontSize: 24,
@@ -421,17 +433,19 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#212529",
     marginBottom: 4,
+    textAlign: "center", // Center document title
   },
   documentSubtext: {
     fontSize: 12,
     color: "#6c757d",
+    textAlign: "center", // Center document subtext
   },
   fileTypeBadge: {
     backgroundColor: "#e3f2fd",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    alignSelf: "flex-start",
+    alignSelf: "center", // Center badge
     marginBottom: 8,
   },
   fileTypeText: {
@@ -444,29 +458,35 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: "#eee",
+    alignItems: "center", // Center metadata
   },
   userInfo: {
     fontSize: 12,
     color: "#666",
     marginBottom: 2,
+    textAlign: "center", // Center user info
   },
   neighborhoodInfo: {
     fontSize: 12,
     color: "#666",
     marginBottom: 2,
+    textAlign: "center", // Center neighborhood info
   },
   timestamp: {
     fontSize: 12,
     color: "#999",
+    textAlign: "center", // Center timestamp
   },
   emptyContainer: {
     alignItems: "center",
     padding: 40,
+    width: "100%", // Full width for empty state
   },
   emptyText: {
     fontSize: 18,
     color: "#666",
     marginBottom: 8,
+    textAlign: "center",
   },
   emptySubtext: {
     fontSize: 14,
@@ -478,6 +498,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginTop: 10,
+    alignSelf: "center", // Center retry button
   },
   retryText: {
     color: "white",
