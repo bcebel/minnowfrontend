@@ -14,6 +14,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const theme = themes.bubblefusion.dark;
   const accents = themes.bubblefusion.dark.accents;
+  const light = themes.bubblefusion.light;
+  const lightaccents =themes.bubblefusion.light.accents;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -62,7 +64,7 @@ export default function HomeScreen() {
         <View
           style={[
             styles.features,
-            { backgroundColor: theme.foreground, borderColor: theme.tint },
+            { backgroundColor: light.foreground, borderColor: theme.tint },
           ]}
         >
           {/* Your feature items */}
