@@ -1,4 +1,4 @@
-// components/WebTorrentPlayer.js - P2P MAXIMIZED
+
 import React, { useEffect, useRef } from "react";
 import { Platform, View, StyleSheet, Text } from "react-native";
 
