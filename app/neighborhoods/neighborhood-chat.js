@@ -23,7 +23,15 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentWebView from "../../components/WebTorrentPlayer";
 
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
-
+const getFileType = (fileName) => {
+  if (!fileName) return 'unknown';
+  const ext =
+    fileName.split('.').pop()?.toLowerCase();
+  if
+    (['mp4','mov','webm'].includes(ext)) return 'image';
+  if (['pdf','doc', 'docx'].includes(ext)) return 'document';
+  return 'unknown';
+}
 // Simple Video Player Component
 const SimpleVideoPlayer = ({ url, fileName }) => {
   const player = useVideoPlayer(url, (player) => {
@@ -377,6 +385,8 @@ export default function NeighborhoodChatScreen() {
   };
 
   const pickImage = async () => {
+    await unifiedUpload(asset, type, fileSize, mimeType);
+    await unifiedUpload({ ...asset, name: safeFileName(asset) }, type, fileSize, mimeType);
     try {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
