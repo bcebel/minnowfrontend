@@ -422,26 +422,8 @@ safeFileName(asset) }, type, 0, '');
         const asset = result.assets[0];
         const type = asset.type === "image" ? "image" : "video";
 
-        let fileSize = 0;
-        let mimeType = "";
-
-        try {
-          const response = await fetch(asset.uri);
-          const blob = await response.blob();
-          fileSize = blob.size;
-          mimeType = blob.type || `image/${asset.uri.split(".").pop()}`;
-        } catch (error) {
-          console.log("Could not get file metadata:", error);
-          fileSize = asset.fileSize || 0;
-          mimeType = asset.mimeType || "image/jpeg";
-        }
-const safeName=asset.fileName || asset.uri.split('/').pop() || `${type}-${Date.now()}.${type === 'image' ? 'jpg' : 'mp4'}`
-    await unifiedUpload({ ...asset, name: safeFileName(asset) }, type, fileSize, mimeType);
+    await unifiedUpload({ ...asset, name: safeFileName(asset) }, type, 0, '');
       }
-    } catch (error) {
-      console.error("Media picker error:", error);
-      Alert.alert("Error", "Failed to pick media");
-    }
   };
 
   const unifiedUpload = async (asset, type, fileSize, mimeType) => {
