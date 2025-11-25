@@ -350,8 +350,8 @@ export default function NeighborhoodChatScreen() {
                            const type = asset.type === 'image' ? 'image' : 'video';
 
                            await unifiedUpload({
-                             ...asset, name;
-(asset) }, type, 0, '');
+                             ...asset, name:
+safeFileName(asset) }, type, 0, '');
                                                 }
   };
                            
