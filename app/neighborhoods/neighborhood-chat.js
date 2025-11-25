@@ -334,6 +334,43 @@ export default function NeighborhoodChatScreen() {
 
     setSocket(newSocket);
   };
+const takeCameraMedia = async () => {
+  setUploading(true);
+  setUploadType('camera');
+  try {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Camera access required.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,   // photo + video
+      quality: 0.8,
+    });
+
+    if (result.canceled) return;                     // user hit cancel
+
+    const asset = result.assets[0];
+    const type = asset.type === 'image' ? 'image' : 'video';
+
+    // same fallback chain as pickFile
+    const fileName =
+      asset.fileName ||
+      asset.uri.split('/').pop() ||
+      `${type}-${Date.now()}.${type === 'image' ? 'jpg' : 'mp4'}`;
+
+    // identical call signature to unifiedUpload in pickFile
+    await unifiedUpload({ uri: asset.uri, name: fileName }, type, 0, '');
+  } catch (error) {
+    console.error('Camera capture error:', error);
+    Alert.alert('Error', 'Failed to capture media');
+  } finally {
+    setUploading(false);
+    setUploadType(null);
+  }
+};
+  
 // open camera
   const openCamera = async () => {
     const { status } = await
