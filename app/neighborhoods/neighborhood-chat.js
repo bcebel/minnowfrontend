@@ -407,7 +407,7 @@ export default function NeighborhoodChatScreen() {
           fileSize = asset.fileSize || 0;
           mimeType = asset.mimeType || "image/jpeg";
         }
-
+const safeName=asset.fileName || asset.uri.split('/').pop() || `${type}-${Date.now()}.${type === 'image' ? 'jpg' : 'mp4'}`
         await unifiedUpload(asset, type, fileSize, mimeType);
       }
     } catch (error) {
