@@ -424,6 +424,8 @@ safeFileName(asset) }, type, 0, '');
 
     await unifiedUpload({ ...asset, name: safeFileName(asset) }, type, 0, '');
       }
+  } catch (error){Alert.alert('Error', 'Failed to pick media');
+                 }
   };
 
   const unifiedUpload = async (asset, type, fileSize, mimeType) => {
