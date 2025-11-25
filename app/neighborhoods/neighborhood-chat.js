@@ -339,7 +339,7 @@ export default function NeighborhoodChatScreen() {
     const { status } = await
     ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera access required.';
+      Alert.alert('Permission needed', 'Camera access required.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
