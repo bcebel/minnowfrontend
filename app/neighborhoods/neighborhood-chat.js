@@ -334,8 +334,28 @@ export default function NeighborhoodChatScreen() {
 
     setSocket(newSocket);
   };
+// open camera
+  const openCamera = async () => {
+    const { status } = await
+    ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Camera access required.';
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images','videos'],
+      quality: 0.8,
+    });
+    if (!result.canceled) {const asset = result.assets[0];
+                           const type = asset.type === 'image' ? 'image' : 'video';
 
-  // Send Message
+                           await unifiedUpload({
+                             ...asset, name;
+(asset) }, type, 0, '');
+                                                }
+  };
+                           
+                           // Send Message
   const sendMessage = async () => {
     if (!newMessage.trim() || !socket) return;
 
@@ -748,7 +768,7 @@ const safeName=asset.fileName || asset.uri.split('/').pop() || `${type}-${Date.n
           <Text style={styles.uploadButtonText}>📎</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
+        <TouchableOpacity style={styles.uploadButton} onPress={openCamera}>
           <Text style={styles.uploadButtonText}>📷</Text>
         </TouchableOpacity>
 
