@@ -385,8 +385,6 @@ export default function NeighborhoodChatScreen() {
   };
 
   const pickImage = async () => {
-    await unifiedUpload(asset, type, fileSize, mimeType);
-    await unifiedUpload({ ...asset, name: safeFileName(asset) }, type, fileSize, mimeType);
     try {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -418,7 +416,7 @@ export default function NeighborhoodChatScreen() {
           mimeType = asset.mimeType || "image/jpeg";
         }
 const safeName=asset.fileName || asset.uri.split('/').pop() || `${type}-${Date.now()}.${type === 'image' ? 'jpg' : 'mp4'}`
-        await unifiedUpload(asset, type, fileSize, mimeType);
+    await unifiedUpload({ ...asset, name: safeFileName(asset) }, type, fileSize, mimeType);
       }
     } catch (error) {
       console.error("Media picker error:", error);
