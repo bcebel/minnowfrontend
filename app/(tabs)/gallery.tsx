@@ -273,7 +273,7 @@ export default function GraphQLGallery() {
         key={`flatlist-${numColumns}`}
         data={videos}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => < video={item} />}
+        renderItem={({ item }) => <videoCard video={item} />}
         contentContainerStyle={[
           styles.galleryContainer,
           Platform.OS === "web" && { maxWidth: 1200, marginHorizontal: "auto" },
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     padding: 10,
     alignItems: "center", // Center all items in the gallery
   },
-  : {
+  videoCard: {
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 8,
