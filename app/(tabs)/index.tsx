@@ -62,7 +62,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
                        <ImageBackground
-          source={require("@/assets/images/pexels-pixabay-270873.jpg")} resizeMode="cover" style={{ flex: 1 }}>
+          source={require("@/assets/images/pexels-pixabay-270873.jpg")} resizeMode="cover" style={styles.footerBubbles}>
         <View
           style={styles.features} >
           {/* Your feature items */}
@@ -163,7 +163,10 @@ const styles = StyleSheet.create({
     padding: 5,
     margin: 2,
   },
-
+footerBubbles: {
+  flex: 1,
+  width: "100%"
+},
   scrollContent: {
     flexGrow: 1,
     paddingBottom: 40,
