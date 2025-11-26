@@ -64,7 +64,10 @@ export default function HomeScreen() {
         <View
           style={[
             styles.features,
-            { backgroundColor: light.foreground, borderColor: theme.tint },
+        <Image
+          source={require("@/assets/images/pexels-pixabay-270873.jpg")}
+          resizeMode="cover"
+        />
           ]}
         >
           {/* Your feature items */}
