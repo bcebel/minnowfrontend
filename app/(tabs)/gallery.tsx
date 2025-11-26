@@ -272,7 +272,7 @@ export default function GraphQLGallery() {
 
   console.log("📹 Gallery Data:", {
     videoCount: videos.length,
-    videos: videos.map((v) => ({ id: v.id, : v. })),
+      videos: videos.map((v) => ({ id: v.id, title: v.title })),
   });
 
   return (
