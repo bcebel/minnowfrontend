@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     textAlign: "center", // Center description
   },
   videoPlayer: {
-    width: "100%",
+    width: 100,
     height: undefined, // Variable height
     backgroundColor: "#000",
     borderRadius: 4,
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start", // Center video player
   },
   imagePlayer: {
-    width: "100%",
+    width: 100,
     height: undefined, // Variable height
     backgroundColor: "#f0f0f0",
     borderRadius: 8,
