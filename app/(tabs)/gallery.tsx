@@ -209,6 +209,15 @@ const VideoCard = ({ video }: { video: any }) => {
       </View>
 
       {/* Media Rendering */}
+      {video.magnetLink ? (
+fileType === 'video' ? (
+      <WebTorrentPlayer video=
+      {video} />
+):(
+      <WebTorrentImage image={video}
+      />
+)
+      ) : (
       {fileType === "video" ? (
         <VideoPlayer url={mediaUrl} />
       ) : fileType === "image" ? (
