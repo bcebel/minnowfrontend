@@ -222,7 +222,7 @@ fileType === 'video' ? (
       ) : (
       fileType === "video" ? (
         <VideoPlayer url={mediaUrl} />
-      ) : fileType === "image" ? (
+      ) : ( fileType === "image" ? (
         <ImagePreview url={mediaUrl} onError={() => setImageError(true)} />
 )
       )}
