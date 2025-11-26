@@ -305,7 +305,7 @@ export default function GraphQLGallery() {
         }
         numColumns={numColumns}
         columnWrapperStyle={
-          numColumns > 1 ? { justifyContent: "space-between" } : null
+          numColumns > 1 ? { justifyContent: "flex-start" } : null
         }
         refreshing={loading}
         onRefresh={refetch}
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
   centerContainer: {
     flex: 1,
     justifyContent: "flex-start",
-    alignItems: "center",
+    alignItems: "flex-start",
     padding: 2,
   },
   header: {
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   },
   galleryContainer: {
     padding: 1,
-    alignItems: "center", // Center all items in the gallery
+    alignItems: "flex-start", // Center all items in the gallery
   },
   videoCard: {
     borderWidth: 1,
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     flex: 1,
     margin: 5,
     width: "95%", // 95% of screen width
-    alignSelf: "center", // Center each card
+    alignSelf: "flex-start", // Center each card
     maxWidth: 800, // Optional: prevent cards from getting too wide on large screens
   },
   title: {
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
     borderRadius: 4,
     marginBottom: 1,
-    alignSelf: "center", // Center video player
+    alignSelf: "flex-start", // Center video player
   },
   imagePlayer: {
     width: "100%",
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
     borderRadius: 8,
     marginBottom: 1,
-    alignSelf: "center", // Center image
+    alignSelf: "flex-start", // Center image
   },
   errorText: {
     color: "#721c24",
