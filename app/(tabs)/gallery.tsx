@@ -313,46 +313,6 @@ export default function GraphQLGallery() {
     </View>
   );
 }
-const styles = StyleSheet.create({
-  /* ---------- container ---------- */
-  container: { flex: 1, backgroundColor: '#000' },
-
-  /* ---------- grid ---------- */
-  galleryContainer: {
-    padding: 0,                       // no outer spacing
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-
-  /* ---------- card (shared) ---------- */
-  videoCard: {
-    width: '100%',                    // mobile → full width
-    aspectRatio: 1,                   // square tiles (change to 16/9 if you want)
-    backgroundColor: '#111',          // thin black letter-box
-  },
-
-  /* ---------- media inside card ---------- */
-  videoPlayer: { width: '100%', height: '100%' },
-  imagePlayer: { width: '100%', height: '100%' },
-
-  /* ---------- desktop break ---------- */
-  ...(Platform.OS === 'web' && {
-    videoCard: {
-      width: '33.33%',               // 3-up gallery
-      aspectRatio: 1,
-    },
-  }),
-
-  /* ---------- kill everything else ---------- */
-  title: { display: 'none' },
-  description: { display: 'none' },
-  metadata: { display: 'none' },
-  fileTypeBadge: { display: 'none' },
-  neighborhoodInfo: { display: 'none' },
-  timestamp: { display: 'none' },
-});
-
-/*
 
 const styles = StyleSheet.create({
   container: {
@@ -550,6 +510,3 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
-*/
-
-
