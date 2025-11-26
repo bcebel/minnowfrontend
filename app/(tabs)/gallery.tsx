@@ -272,7 +272,7 @@ export default function GraphQLGallery() {
 
   console.log("📹 Gallery Data:", {
     videoCount: videos.length,
-    videos: videos.map((v) => ({ id: v.id, title: v.title })),
+    videos: videos.map((v) => ({ id: v.id, : v. })),
   });
 
   return (
@@ -441,6 +441,7 @@ const styles = StyleSheet.create({
     textAlign: "center", // Center document subtext
   },
   fileTypeBadge: {
+    display: "none",
     backgroundColor: "#e3f2fd",
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -449,6 +450,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   fileTypeText: {
+    display: "none",
     fontSize: 10,
     color: "#1565c0",
     fontWeight: "bold",
@@ -467,12 +469,14 @@ const styles = StyleSheet.create({
     textAlign: "center", // Center user info
   },
   neighborhoodInfo: {
+    display: "none",
     fontSize: 12,
     color: "#666",
     marginBottom: 2,
     textAlign: "center", // Center neighborhood info
   },
   timestamp: {
+    display: "none",
     fontSize: 12,
     color: "#999",
     textAlign: "center", // Center timestamp
