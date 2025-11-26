@@ -323,10 +323,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    padding: 2,
   },
   header: {
-    padding: 20,
+    padding: 2,
     alignItems: "center",
     backgroundColor: "#f8f9fa",
     borderBottomWidth: 1,
@@ -343,14 +343,14 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   galleryContainer: {
-    padding: 10,
+    padding: 1,
     alignItems: "center", // Center all items in the gallery
   },
   videoCard: {
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 8,
-    padding: 10,
+    padding: 1,
     backgroundColor: "#f9f9f9",
     flex: 1,
     margin: 5,
@@ -359,6 +359,7 @@ const styles = StyleSheet.create({
     maxWidth: 800, // Optional: prevent cards from getting too wide on large screens
   },
   title: {
+    display: "none",
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 5,
@@ -368,7 +369,7 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 14,
     color: "#666",
-    marginBottom: 10,
+    marginBottom: 1,
     textAlign: "center", // Center description
   },
   videoPlayer: {
@@ -377,7 +378,7 @@ const styles = StyleSheet.create({
     aspectRatio: 16 / 9, // Maintain aspect ratio
     backgroundColor: "#000",
     borderRadius: 4,
-    marginBottom: 10,
+    marginBottom: 1,
     alignSelf: "center", // Center video player
   },
   imagePlayer: {
@@ -386,13 +387,13 @@ const styles = StyleSheet.create({
     aspectRatio: 4 / 3, // Maintain aspect ratio
     backgroundColor: "#f0f0f0",
     borderRadius: 8,
-    marginBottom: 10,
+    marginBottom: 1,
     alignSelf: "center", // Center image
   },
   errorText: {
     color: "#721c24",
     backgroundColor: "#f8d7da",
-    padding: 10,
+    padding: 1,
     borderRadius: 5,
     margin: 10,
     textAlign: "center",
