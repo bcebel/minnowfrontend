@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f9f9f9",
     flex: 1,
     margin: 5,
-    width: "100%", // 95% of screen width
+    width: "95%", // 95% of screen width
     alignSelf: "center", // Center each card
     maxWidth: 800, // Optional: prevent cards from getting too wide on large screens
   },
@@ -374,16 +374,18 @@ const styles = StyleSheet.create({
     textAlign: "center", // Center description
   },
   videoPlayer: {
-    width: "100%",
+    width: 100,
     height: undefined, // Variable height
+
     backgroundColor: "#000",
     borderRadius: 4,
     marginBottom: 1,
     alignSelf: "center", // Center video player
   },
   imagePlayer: {
-    width: "100%",
+    width: 100,
     height: undefined, // Variable height
+
     backgroundColor: "#f0f0f0",
     borderRadius: 8,
     marginBottom: 1,
@@ -413,11 +415,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f8f9fa",
-    padding: 1.5,
+    padding: 15,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#e9ecef",
-    marginBottom: 1,
+    marginBottom: 10,
     width: "100%", // Full width of card
     alignSelf: "center", // Center document container
   },
