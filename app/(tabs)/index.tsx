@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroSection: {
-    height: 250, // Adjust based on your image
+    height: 200, // Adjust based on your image
     position: "relative",
   },
   heroBubble: {
