@@ -375,7 +375,6 @@ const styles = StyleSheet.create({
   videoPlayer: {
     width: "100%",
     height: undefined, // Variable height
-    aspectRatio: 16 / 9, // Maintain aspect ratio
     backgroundColor: "#000",
     borderRadius: 4,
     marginBottom: 1,
@@ -384,7 +383,6 @@ const styles = StyleSheet.create({
   imagePlayer: {
     width: "100%",
     height: undefined, // Variable height
-    aspectRatio: 4 / 3, // Maintain aspect ratio
     backgroundColor: "#f0f0f0",
     borderRadius: 8,
     marginBottom: 1,
