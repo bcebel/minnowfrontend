@@ -414,11 +414,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f8f9fa",
-    padding: 15,
+    padding: 1.5,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#e9ecef",
-    marginBottom: 10,
+    marginBottom: 1,
     width: "100%", // Full width of card
     alignSelf: "center", // Center document container
   },
@@ -444,8 +444,8 @@ const styles = StyleSheet.create({
   fileTypeBadge: {
     display: "none",
     backgroundColor: "#e3f2fd",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 1,
+    paddingVertical: 1,
     borderRadius: 4,
     alignSelf: "center", // Center badge
     marginBottom: 8,
@@ -457,8 +457,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   metadata: {
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: 1,
+    paddingTop: 1,
     borderTopWidth: 1,
     borderTopColor: "#eee",
     alignItems: "center", // Center metadata
