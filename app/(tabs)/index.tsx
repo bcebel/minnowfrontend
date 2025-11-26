@@ -62,8 +62,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
                        <ImageBackground
-          source={require("@/assets/images/pexels-pixabay-270873.jpg") resizeMode="cover" style={{ flex: 1 }}
-        >
+          source={require("@/assets/images/pexels-pixabay-270873.jpg")} resizeMode="cover" style={{ flex: 1 }}>
         <View
           style={styles.features} >
           {/* Your feature items */}
