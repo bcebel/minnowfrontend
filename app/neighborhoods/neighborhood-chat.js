@@ -800,7 +800,8 @@ console.log (' mutation vars:', messageVariables)
         >
           <Text style={styles.streamButtonText}>{uploading ? "🔄" : "🎥"}</Text>
         </TouchableOpacity>
-
+      </View>
+      <View>
         <TextInput
           ref={messageInputRef}
           style={[styles.messageInput, !socket && styles.messageInputDisabled]}
