@@ -62,15 +62,13 @@ export default function HomeScreen() {
         </View>
 
         <View
-          style={[
-            styles.features,
-        <Image
+          style={styles.features} >
+          <Image
           source={require("@/assets/images/pexels-pixabay-270873.jpg")}
            style={styles.heroBubble}
           resizeMode="cover"
         />
-          ]}
-        >
+    
           {/* Your feature items */}
 
           <View style={styles.featureItem}>
