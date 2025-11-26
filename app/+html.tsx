@@ -145,7 +145,7 @@ export default function Root({ children }: PropsWithChildren) {
       if (!window.globalWebTorrentClient) {
         console.log('🌪️ Initializing global WebTorrent client for P2P seeding');
         window.globalWebTorrentClient = new WebTorrent();
-        
+        a
         // Optimize for seeding
         window.globalWebTorrentClient.on('torrent', (torrent) => {
           console.log('🌱 Seeding torrent:', torrent.name);

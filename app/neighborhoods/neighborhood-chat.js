@@ -21,7 +21,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentWebView from "../../components/WebTorrentPlayer";
-
+const safeFileName = (asset) => asset.name || asset.fileName || asset.uri.split('/').pop() || 'media';
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const getFileType = (fileName) => {
   if (!fileName) return 'unknown';
@@ -345,7 +345,7 @@ const takeCameraMedia = async () => {
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,   // photo + video
+      mediaTypes: ImagePicker.MediaType.All,   // photo + video
       quality: 0.8,
     });
 
@@ -386,9 +386,9 @@ const takeCameraMedia = async () => {
     if (!result.canceled) {const asset = result.assets[0];
                            const type = asset.type === 'image' ? 'image' : 'video';
 
-                           await unifiedUpload({
-                             ...asset, name:
-safeFileName(asset) }, type, 0, '');
+                           await unifiedUpload(
+                             { uri: asset.uri, name: asset.fileName || asset.uri.split('/').pop() ||
+'camera-media' }, type, 0, '');
                                                 }
   };
                            
@@ -500,10 +500,10 @@ safeFileName(asset) }, type, 0, '');
           imageUrl: type === "image" ? ipfsUrl : null,
           videoUrl: type === "video" ? ipfsUrl : null,
           fileUrl: type === "file" ? ipfsUrl : null,
-          fileName: fileName,
+          fileName: asset.name || asset.fileName || 'media',
           fileType: type,
         };
-
+console.log (' mutation vars:', messageVariables)
         await sendMessageMutation({ variables: messageVariables });
         console.log(`✅ ${type} uploaded to neighborhood chat`);
       }
