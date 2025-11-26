@@ -318,7 +318,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    width: "100%",
   },
   centerContainer: {
     flex: 1,
@@ -374,18 +373,18 @@ const styles = StyleSheet.create({
     textAlign: "center", // Center description
   },
   videoPlayer: {
-    width: 100,
+    width: "100%",
     height: undefined, // Variable height
-
+    aspectRatio: 16 / 9, // Maintain aspect ratio
     backgroundColor: "#000",
     borderRadius: 4,
     marginBottom: 1,
     alignSelf: "center", // Center video player
   },
   imagePlayer: {
-    width: 100,
+    width: "100%",
     height: undefined, // Variable height
-
+    aspectRatio: 4 / 3, // Maintain aspect ratio
     backgroundColor: "#f0f0f0",
     borderRadius: 8,
     marginBottom: 1,
