@@ -6,6 +6,7 @@ import {
   Text,
   ScrollView,
   View,
+  ImageBackground,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { themes } from "../theme";
@@ -60,17 +61,15 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-
+                       <ImageBackground
+          source={require("@/assets/images/pexels-pixabay-270873.jpg") resizeMode="cover" style={{ flex: 1 }}
+        />
         <View
           style={styles.features} >
           {/* Your feature items */}
 
           <View style={styles.featureItem}>
-                              <Image
-          source={require("@/assets/images/pexels-pixabay-270873.jpg")}
-           style={styles.heroBubble}
-          resizeMode="cover"
-        />
+       
             <Text
               style={[styles.heroSubtitle, { backgroundColor: accents.banana }]}
             >
@@ -103,6 +102,7 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
+      </ImageBackground>
       </ScrollView>
     </View>
   );
