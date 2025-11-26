@@ -230,7 +230,7 @@ fileType === 'video' ? (
           fileName={fileName}
           fileType={fileType}
         />
-      ,)}
+      ),}
 
       {/* Video metadata */}
       <View style={styles.metadata}>
