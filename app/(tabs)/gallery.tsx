@@ -119,8 +119,6 @@ const ImagePreview = ({
     <TouchableOpacity onPress={() => Linking.openURL(url)}>
       <Image
         source={{ uri: url }}
-        style={styles.imagePlayer}
-        resizeMode="contain"
         onError={onError}
       />
     </TouchableOpacity>
