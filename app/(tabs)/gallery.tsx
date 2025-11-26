@@ -194,19 +194,11 @@ const VideoCard = ({ video }: { video: any }) => {
 
   return (
     <View style={styles.videoCard}>
-      <Text style={styles.title} numberOfLines={1}>
-        {video.title}
-      </Text>
+  
       <Text style={styles.description} numberOfLines={2}>
         {video.description || "No description provided."}
       </Text>
 
-      {/* File type badge */}
-      <View style={styles.fileTypeBadge}>
-        <Text style={styles.fileTypeText}>
-          {fileType.toUpperCase()} • {fileName ? fileName : "Media"}
-        </Text>
-      </View>
 
       {/* Media Rendering */}
       {fileType === "video" ? (
@@ -281,7 +273,7 @@ export default function GraphQLGallery() {
         key={`flatlist-${numColumns}`}
         data={videos}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <VideoCard video={item} />}
+        renderItem={({ item }) => < video={item} />}
         contentContainerStyle={[
           styles.galleryContainer,
           Platform.OS === "web" && { maxWidth: 1200, marginHorizontal: "auto" },
@@ -346,7 +338,7 @@ const styles = StyleSheet.create({
     padding: 10,
     alignItems: "center", // Center all items in the gallery
   },
-  videoCard: {
+  : {
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 8,
