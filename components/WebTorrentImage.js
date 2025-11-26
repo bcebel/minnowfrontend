@@ -13,11 +13,11 @@ export default function WebTorrentImage({ image }) {
 
   if (Platform.OS !== "web") {
     return (
-      <View style={styles.fallbackContainer}>
-        <Text style={styles.fallbackText}>
+      <View>
+        <Text>
           P2P Image: {image.fileName || "Image"}
         </Text>
-        <Text style={styles.fallbackSubtext}>(P2P only available on web)</Text>
+        <Text>(P2P only available on web)</Text>
       </View>
     );
   }
@@ -255,7 +255,7 @@ export default function WebTorrentImage({ image }) {
   `;
 
   return (
-    <View style={styles.container}>
+    <View>
       <iframe
         ref={iframeRef}
         srcDoc={htmlContent}

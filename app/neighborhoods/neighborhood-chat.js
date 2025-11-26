@@ -21,17 +21,21 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentWebView from "../../components/WebTorrentPlayer";
-const safeFileName = (asset) => asset.name || asset.fileName || asset.uri.split('/').pop() || 'media';
+import WebTorrentImage from "../../components/WebTorrentImage";
+import { themes } from "../theme";
+
+const theme = themes.bubblefusion2.dark;
+const accents = themes.bubblefusion2.dark.accents;
+const light = themes.bubblefusion2.light;
+const lightaccents = themes.bubblefusion2.light.accents;
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const getFileType = (fileName) => {
-  if (!fileName) return 'unknown';
-  const ext =
-    fileName.split('.').pop()?.toLowerCase();
-  if
-    (['mp4','mov','webm'].includes(ext)) return 'image';
-  if (['pdf','doc', 'docx'].includes(ext)) return 'document';
-  return 'unknown';
-}
+  if (!fileName) return "unknown";
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  if (["mp4", "mov", "webm"].includes(ext)) return "image";
+  if (["pdf", "doc", "docx"].includes(ext)) return "document";
+  return "unknown";
+};
 // Simple Video Player Component
 const SimpleVideoPlayer = ({ url, fileName }) => {
   const player = useVideoPlayer(url, (player) => {
@@ -67,6 +71,10 @@ const ChatMediaRenderer = ({ message }) => {
   const viewableUrl = imageUrl || videoUrl || fileUrl;
   const processedUrl = viewableUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY);
 
+  // Video with magnet link - WebTorrent
+  if (magnetLink && (imageUrl || fileType === "image")) {
+    return <WebTorrentImage video={message} />;
+  }
   // Image
   if (imageUrl) {
     return (
@@ -334,65 +342,71 @@ export default function NeighborhoodChatScreen() {
 
     setSocket(newSocket);
   };
-const takeCameraMedia = async () => {
-  setUploading(true);
-  setUploadType('camera');
-  try {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera access required.');
-      return;
+  const takeCameraMedia = async () => {
+    setUploading(true);
+    setUploadType("camera");
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Camera access required.");
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaType.All, // photo + video
+        quality: 0.8,
+      });
+
+      if (result.canceled) return; // user hit cancel
+
+      const asset = result.assets[0];
+      const type = asset.type === "image" ? "image" : "video";
+
+      // same fallback chain as pickFile
+      const fileName =
+        asset.fileName ||
+        asset.uri.split("/").pop() ||
+        `${type}-${Date.now()}.${type === "image" ? "jpg" : "mp4"}`;
+
+      // identical call signature to unifiedUpload in pickFile
+      await unifiedUpload({ uri: asset.uri, name: fileName }, type, 0, "");
+    } catch (error) {
+      console.error("Camera capture error:", error);
+      Alert.alert("Error", "Failed to capture media");
+    } finally {
+      setUploading(false);
+      setUploadType(null);
     }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaType.All,   // photo + video
-      quality: 0.8,
-    });
-
-    if (result.canceled) return;                     // user hit cancel
-
-    const asset = result.assets[0];
-    const type = asset.type === 'image' ? 'image' : 'video';
-
-    // same fallback chain as pickFile
-    const fileName =
-      asset.fileName ||
-      asset.uri.split('/').pop() ||
-      `${type}-${Date.now()}.${type === 'image' ? 'jpg' : 'mp4'}`;
-
-    // identical call signature to unifiedUpload in pickFile
-    await unifiedUpload({ uri: asset.uri, name: fileName }, type, 0, '');
-  } catch (error) {
-    console.error('Camera capture error:', error);
-    Alert.alert('Error', 'Failed to capture media');
-  } finally {
-    setUploading(false);
-    setUploadType(null);
-  }
-};
-  
-// open camera
-  const openCamera = async () => {
-    const { status } = await
-    ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera access required.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images','videos'],
-      quality: 0.8,
-    });
-    if (!result.canceled) {const asset = result.assets[0];
-                           const type = asset.type === 'image' ? 'image' : 'video';
-
-                           await unifiedUpload(
-                             { uri: asset.uri, name: asset.fileName || asset.uri.split('/').pop() ||
-'camera-media' }, type, 0, '');
-                                                }
   };
-                           
-                           // Send Message
+
+  // open camera
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Camera access required.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images", "videos"],
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      const type = asset.type === "image" ? "image" : "video";
+
+      await unifiedUpload(
+        {
+          uri: asset.uri,
+          name: asset.fileName || asset.uri.split("/").pop() || "camera-media",
+        },
+        type,
+        0,
+        ""
+      );
+    }
+  };
+
+  // Send Message
   const sendMessage = async () => {
     if (!newMessage.trim() || !socket) return;
 
@@ -459,10 +473,16 @@ const takeCameraMedia = async () => {
         const asset = result.assets[0];
         const type = asset.type === "image" ? "image" : "video";
 
-    await unifiedUpload({ ...asset, name: safeFileName(asset) }, type, 0, '');
+        await unifiedUpload(
+          { ...asset, name: safeFileName(asset) },
+          type,
+          0,
+          ""
+        );
       }
-  } catch (error){Alert.alert('Error', 'Failed to pick media');
-                 }
+    } catch (error) {
+      Alert.alert("Error", "Failed to pick media");
+    }
   };
 
   const unifiedUpload = async (asset, type, fileSize, mimeType) => {
@@ -500,10 +520,10 @@ const takeCameraMedia = async () => {
           imageUrl: type === "image" ? ipfsUrl : null,
           videoUrl: type === "video" ? ipfsUrl : null,
           fileUrl: type === "file" ? ipfsUrl : null,
-          fileName: asset.name || asset.fileName || 'media',
+          fileName: asset.name || asset.fileName || "media",
           fileType: type,
         };
-console.log (' mutation vars:', messageVariables)
+        console.log(" mutation vars:", messageVariables);
         await sendMessageMutation({ variables: messageVariables });
         console.log(`✅ ${type} uploaded to neighborhood chat`);
       }
@@ -524,7 +544,10 @@ console.log (' mutation vars:', messageVariables)
       const formData = new FormData();
       formData.append("video", blob, fileName);
       formData.append("title", fileName || `Uploaded ${fileType}`);
-      formData.append("description", `Shared in neighborhood chat`);
+      formData.append(
+        "description",
+        `Shared in neighborhood chatShared in neighborhood chat`
+      );
 
       const res = await fetch(`${BACKEND_URL}/upload`, {
         method: "POST",
@@ -581,7 +604,7 @@ console.log (' mutation vars:', messageVariables)
       video.style.width = "200px";
       video.style.zIndex = "1000";
       video.style.border = "2px solid #00FF00";
-      video.style.borderRadius = "8px";
+      video.style.borderRadius = "20px";
       document.body.appendChild(video);
 
       // Load WebTorrent
@@ -801,7 +824,7 @@ console.log (' mutation vars:', messageVariables)
           <Text style={styles.streamButtonText}>{uploading ? "🔄" : "🎥"}</Text>
         </TouchableOpacity>
       </View>
-      <View>
+      <View style={styles.inputContainer}>
         <TextInput
           ref={messageInputRef}
           style={[styles.messageInput, !socket && styles.messageInputDisabled]}
@@ -831,7 +854,7 @@ console.log (' mutation vars:', messageVariables)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: light.typography,
   },
   centerContainer: {
     flex: 1,
@@ -863,7 +886,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#111111",
     borderBottomWidth: 1,
-    borderBottomColor: "#00FF00",
+    borderBottomColor: theme.tint,
     paddingHorizontal: 15,
     paddingVertical: 10,
   },
@@ -894,13 +917,13 @@ const styles = StyleSheet.create({
   messageContainer: {
     flexDirection: "row",
     padding: 12,
-    borderBottomWidth: 1,
+
     borderBottomColor: "#333333",
   },
   profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: "15vw",
+    height: "15vw",
+    borderRadius: "50%",
     marginRight: 12,
     backgroundColor: "#333333",
   },
@@ -909,7 +932,7 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: "bold",
-    color: "#00FF00",
+    color: theme.typography,
     marginBottom: 4,
     fontSize: 14,
   },
@@ -925,9 +948,9 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   messageImage: {
-    width: 200,
-    height: 150,
-    borderRadius: 8,
+    width: "70%",
+    backgroundColor: theme.background,
+    borderRadius: 20,
     marginBottom: 6,
   },
   fileContainer: {
@@ -935,7 +958,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#222222",
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 20,
     marginBottom: 6,
     borderWidth: 1,
     borderColor: "#333333",
@@ -961,7 +984,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 15,
     borderTopWidth: 1,
-    borderTopColor: "#00FF00",
+    borderTopColor: accents.storm,
     backgroundColor: "#111111",
     alignItems: "center",
   },
@@ -979,7 +1002,7 @@ const styles = StyleSheet.create({
   },
   messageInputDisabled: {
     borderColor: "#333333",
-    color: "#666666",
+    color: accents.banana,
   },
   sendButton: {
     backgroundColor: "#00FF00",
@@ -998,7 +1021,7 @@ const styles = StyleSheet.create({
   },
   uploadButton: {
     padding: 12,
-    marginRight: 10,
+    marginRight: "33%",
     backgroundColor: "#333333",
     borderRadius: 25,
     justifyContent: "center",
@@ -1039,12 +1062,12 @@ const styles = StyleSheet.create({
   // Video Player Styles
   videoContainer: {
     marginBottom: 6,
-    borderRadius: 8,
+    borderRadius: 20,
     overflow: "hidden",
   },
   videoPlayer: {
-    width: "100%",
-    height: 200,
+    width: "70%",
+
     backgroundColor: "#000",
   },
   videoCaption: {
