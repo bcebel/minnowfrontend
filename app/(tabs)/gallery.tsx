@@ -224,13 +224,8 @@ fileType === 'video' ? (
         <VideoPlayer url={mediaUrl} />
       ) : fileType === "image" ? (
         <ImagePreview url={mediaUrl} onError={() => setImageError(true)} />
-      ) : (
-        <DocumentPreview
-          url={mediaUrl}
-          fileName={fileName}
-          fileType={fileType}
-        />
-      ),}
+)
+      )}
 
       {/* Video metadata */}
       <View style={styles.metadata}>
