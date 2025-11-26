@@ -15,7 +15,7 @@ import {
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { gql, useQuery } from "@apollo/client";
-import WebtorrentPlayer from '../../components/WebTorrentPlayer';
+import WebTorrentPlayer from '../../components/WebTorrentPlayer';
   import WebTorrentImage from '../../components/WebTorrentImage';
 
 // GraphQL Query
