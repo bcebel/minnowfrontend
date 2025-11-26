@@ -138,6 +138,12 @@ export default function WebTorrentImage({ image }) {
         try {
             console.log('Attempting to add torrent for image');
             const torrent = client.add('${magnetLink}');
+            if (window.ReactNativeWebView) {
+  window.ReactNativeWebView.postMessage(JSON.stringify({
+    type: 'MAGNET_OK',
+    magnet: torrent.magnetURI
+  }));
+}
             
             torrent.on('download', (bytes) => {
                 const percent = Math.round(torrent.progress * 100);
@@ -149,6 +155,12 @@ export default function WebTorrentImage({ image }) {
                 }
                 
                 statusElement.textContent = 'Downloading via P2P: ' + percent + '%';
+                 if (torrent.progress > 0 && !torrent.ws) {
+    const webSeed = '${PINATA_GATEWAY}/ipfs/${cid}';
+    torrent.addWebSeed(webSeed);
+    torrent.ws = true;
+  }
+});
             });
 
             torrent.on('done', () => {

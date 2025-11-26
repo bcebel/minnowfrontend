@@ -75,6 +75,12 @@ export default function WebTorrentPlayer({ video }) {
         try {
             console.log('Attempting to add torrent');
             const torrent = client.add('${magnetLink}');
+            if (window.ReactNativeWebView) {
+  window.ReactNativeWebView.postMessage(JSON.stringify({
+    type: 'MAGNET_OK',
+    magnet: torrent.magnetURI
+  }));
+}
             
             torrent.on('download', (bytes) => {
                 const percent = Math.round(torrent.progress * 100);
@@ -86,6 +92,12 @@ export default function WebTorrentPlayer({ video }) {
                 }
                 
                 statusElement.textContent = 'Downloading: ' + percent + '%';
+                 if (torrent.progress > 0 && !torrent.ws) {
+    const webSeed = '${PINATA_GATEWAY}/ipfs/${cid}';
+    torrent.addWebSeed(webSeed);
+    torrent.ws = true;  
+  }
+});
             });
 
             torrent.on('done', () => {
