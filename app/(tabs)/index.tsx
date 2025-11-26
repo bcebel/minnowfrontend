@@ -66,6 +66,7 @@ export default function HomeScreen() {
             styles.features,
         <Image
           source={require("@/assets/images/pexels-pixabay-270873.jpg")}
+           style={styles.heroBubble}
           resizeMode="cover"
         />
           ]}
