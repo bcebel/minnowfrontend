@@ -210,23 +210,23 @@ const VideoCard = ({ video }: { video: any }) => {
         </Text>
       </View>
 
-      {/* Media Rendering */}
-      {video.magnetLink ? (
-fileType === 'video' ? (
-      <WebTorrentPlayer video=
-      {video} />
-):(
-      <WebTorrentImage image={video}
-      />
-)
+      {video.magnetLink ? ( 
+      fileType === 'video' ? (
+        <WebTorrentPlayer video = {video} />
+        ) : (
+        <WebTorrentImage image={video}
+          />
+        )
       ) : (
-      fileType === "video" ? (
+      fileType === 'video' ? (
         <VideoPlayer url={mediaUrl} />
-      ) : ( fileType === "image" ? (
-        <ImagePreview url={mediaUrl} onError={() => setImageError(true)} />
-)
+        ) : (
+        <ImagePReview url={mediaUrl}
+          onError={() =>
+            setImageError(true)} />
+        )
       )}
-
+      
       {/* Video metadata */}
       <View style={styles.metadata}>
         <Text style={styles.userInfo}>
