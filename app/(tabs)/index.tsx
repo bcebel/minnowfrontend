@@ -38,6 +38,11 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+                  <Image
+          source={require("@/assets/images/pexels-pixabay-270873.jpg")}
+           style={styles.heroBubble}
+          resizeMode="cover"
+        />
         {/* Rest of your content */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity
@@ -63,12 +68,6 @@ export default function HomeScreen() {
 
         <View
           style={styles.features} >
-          <Image
-          source={require("@/assets/images/pexels-pixabay-270873.jpg")}
-           style={styles.heroBubble}
-          resizeMode="cover"
-        />
-    
           {/* Your feature items */}
 
           <View style={styles.featureItem}>
