@@ -21,13 +21,8 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentWebView from "../../components/WebTorrentPlayer";
-import WebTorrentImage from "../../components/WebTorrentImage";
-import { themes } from "../theme";
-
-const theme = themes.bubblefusion2.dark;
-const accents = themes.bubblefusion2.dark.accents;
-const light = themes.bubblefusion2.light;
-const lightaccents = themes.bubblefusion2.light.accents;
+const safeFileName = (asset) =>
+  asset.name || asset.fileName || asset.uri.split("/").pop() || "media";
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const getFileType = (fileName) => {
   if (!fileName) return "unknown";
@@ -71,10 +66,6 @@ const ChatMediaRenderer = ({ message }) => {
   const viewableUrl = imageUrl || videoUrl || fileUrl;
   const processedUrl = viewableUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY);
 
-  // Video with magnet link - WebTorrent
-  if (magnetLink && (imageUrl || fileType === "image")) {
-    return <WebTorrentImage video={message} />;
-  }
   // Image
   if (imageUrl) {
     return (
@@ -544,10 +535,7 @@ export default function NeighborhoodChatScreen() {
       const formData = new FormData();
       formData.append("video", blob, fileName);
       formData.append("title", fileName || `Uploaded ${fileType}`);
-      formData.append(
-        "description",
-        `Shared in neighborhood chatShared in neighborhood chat`
-      );
+      formData.append("description", `Shared in neighborhood chat`);
 
       const res = await fetch(`${BACKEND_URL}/upload`, {
         method: "POST",
@@ -604,7 +592,7 @@ export default function NeighborhoodChatScreen() {
       video.style.width = "200px";
       video.style.zIndex = "1000";
       video.style.border = "2px solid #00FF00";
-      video.style.borderRadius = "20px";
+      video.style.borderRadius = "8px";
       document.body.appendChild(video);
 
       // Load WebTorrent
@@ -824,7 +812,7 @@ export default function NeighborhoodChatScreen() {
           <Text style={styles.streamButtonText}>{uploading ? "🔄" : "🎥"}</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.inputContainer}>
+      <View>
         <TextInput
           ref={messageInputRef}
           style={[styles.messageInput, !socket && styles.messageInputDisabled]}
@@ -854,7 +842,7 @@ export default function NeighborhoodChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: light.typography,
+    backgroundColor: "#000000",
   },
   centerContainer: {
     flex: 1,
@@ -886,7 +874,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#111111",
     borderBottomWidth: 1,
-    borderBottomColor: theme.tint,
+    borderBottomColor: "#00FF00",
     paddingHorizontal: 15,
     paddingVertical: 10,
   },
@@ -917,13 +905,13 @@ const styles = StyleSheet.create({
   messageContainer: {
     flexDirection: "row",
     padding: 12,
-
+    borderBottomWidth: 1,
     borderBottomColor: "#333333",
   },
   profileImage: {
-    width: "15vw",
-    height: "15vw",
-    borderRadius: "50%",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     marginRight: 12,
     backgroundColor: "#333333",
   },
@@ -932,7 +920,7 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: "bold",
-    color: theme.typography,
+    color: "#00FF00",
     marginBottom: 4,
     fontSize: 14,
   },
@@ -948,9 +936,9 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   messageImage: {
-    width: "70%",
-    backgroundColor: theme.background,
-    borderRadius: 20,
+    width: 200,
+    height: 150,
+    borderRadius: 8,
     marginBottom: 6,
   },
   fileContainer: {
@@ -958,7 +946,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#222222",
     padding: 12,
-    borderRadius: 20,
+    borderRadius: 8,
     marginBottom: 6,
     borderWidth: 1,
     borderColor: "#333333",
@@ -984,7 +972,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 15,
     borderTopWidth: 1,
-    borderTopColor: accents.storm,
+    borderTopColor: "#00FF00",
     backgroundColor: "#111111",
     alignItems: "center",
   },
@@ -1002,7 +990,7 @@ const styles = StyleSheet.create({
   },
   messageInputDisabled: {
     borderColor: "#333333",
-    color: accents.banana,
+    color: "#666666",
   },
   sendButton: {
     backgroundColor: "#00FF00",
@@ -1021,7 +1009,7 @@ const styles = StyleSheet.create({
   },
   uploadButton: {
     padding: 12,
-    marginRight: "33%",
+    marginRight: 10,
     backgroundColor: "#333333",
     borderRadius: 25,
     justifyContent: "center",
@@ -1062,12 +1050,12 @@ const styles = StyleSheet.create({
   // Video Player Styles
   videoContainer: {
     marginBottom: 6,
-    borderRadius: 20,
+    borderRadius: 8,
     overflow: "hidden",
   },
   videoPlayer: {
-    width: "70%",
-
+    width: "100%",
+    height: 200,
     backgroundColor: "#000",
   },
   videoCaption: {
