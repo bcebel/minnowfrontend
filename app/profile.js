@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 30,
   },
   bioInput: {
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   saveButton: {
-    backgroundColor: "#00FF00",
+    backgroundColor: "#00ffff",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",

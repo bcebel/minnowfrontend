@@ -22,7 +22,7 @@ export default function ProfileScreen() {
         source={{
           uri:
             user.profilePhoto ||
-            `https://ui-avatars.com/api/?name=${username}&background=00FF00&color=000`,
+            `https://ui-avatars.com/api/?name=${username}&background=00ffff&color=000`,
         }}
         style={styles.avatar}
       />
@@ -65,12 +65,12 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     marginBottom: 20,
     borderWidth: 3,
-    borderColor: "#00FF00",
+    borderColor: "#00ffff",
   },
   username: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 20,
   },
   bioSection: {
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   bioLabel: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 10,
   },
   bio: {
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   createButton: {
     backgroundColor: "#333",
     borderWidth: 2,
-    borderColor: "#00FF00",
+    borderColor: "#00ffff",
     borderStyle: "dashed",
     paddingVertical: 16,
     paddingHorizontal: 20,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   createButtonText: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontSize: 16,
     fontWeight: "bold",
   },

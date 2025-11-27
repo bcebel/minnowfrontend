@@ -514,7 +514,7 @@ const ChatImage = ({
 
       {isLoading && !hasError && (
         <View style={[style, styles.loadingOverlay]}>
-          <ActivityIndicator size="small" color="#00FF00" />
+          <ActivityIndicator size="small" color="#00ffff" />
         </View>
       )}
 
@@ -731,11 +731,11 @@ export default function ChatScreen() {
 
       if (ipfsUrl) {
         const ipfsHash = ipfsUrl.split("/ipfs/")[1];
-            const videoResponse = await fetch(
-              `${BACKEND_URL}/api/videos?cid=${ipfsHash}`
-            );
-            const videos = await videoResponse.json();
-            const videoWithMagnet = videos.find((v) => v.cid === ipfsHash);
+        const videoResponse = await fetch(
+          `${BACKEND_URL}/api/videos?cid=${ipfsHash}`
+        );
+        const videos = await videoResponse.json();
+        const videoWithMagnet = videos.find((v) => v.cid === ipfsHash);
 
         const ipfsData = {
           cid: ipfsHash,
@@ -760,11 +760,11 @@ export default function ChatScreen() {
           magnetLink: type === "video" ? videoWithMagnet?.magnetLink : null,
         };
 
-       console.log("📤 Sending message with magnetLink:", {
-         hasIpfsDataMagnet: !!ipfsData.magnetLink,
-         hasDirectMagnet: !!messageVariables.magnetLink,
-         magnetLink: messageVariables.magnetLink,
-       });
+        console.log("📤 Sending message with magnetLink:", {
+          hasIpfsDataMagnet: !!ipfsData.magnetLink,
+          hasDirectMagnet: !!messageVariables.magnetLink,
+          magnetLink: messageVariables.magnetLink,
+        });
         console.log("📤 Sending message with full metadata:", messageVariables);
 
         await sendMessageMutation({ variables: messageVariables });
@@ -895,7 +895,7 @@ export default function ChatScreen() {
   if (!authChecked) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#00FF00" />
+        <ActivityIndicator size="large" color="#00ffff" />
         <Text style={styles.loadingText}>Checking authentication...</Text>
       </View>
     );
@@ -904,7 +904,7 @@ export default function ChatScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#00FF00" />
+        <ActivityIndicator size="large" color="#00ffff" />
         <Text style={styles.loadingText}>Redirecting to login...</Text>
       </View>
     );
@@ -913,7 +913,7 @@ export default function ChatScreen() {
   if (loading && messages.length === 0) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#00FF00" />
+        <ActivityIndicator size="large" color="#00ffff" />
         <Text style={styles.loadingText}>Loading chat...</Text>
       </View>
     );
@@ -1156,12 +1156,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#111111",
     borderBottomWidth: 1,
-    borderBottomColor: "#00FF00",
+    borderBottomColor: "#00ffff",
     paddingHorizontal: 15,
   },
   roomTitle: {
     fontSize: 18,
-    color: "#00FF00",
+    color: "#00ffff",
     paddingVertical: 15,
     fontWeight: "bold",
   },
@@ -1182,7 +1182,7 @@ const styles = StyleSheet.create({
   },
   debugText: {
     fontSize: 18,
-    color: "#00FF00",
+    color: "#00ffff",
   },
   retryButton: {
     padding: 10,
@@ -1195,7 +1195,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   loadingText: {
-    color: "#00FF00",
+    color: "#00ffff",
     textAlign: "center",
     marginTop: 20,
     fontSize: 16,
@@ -1244,7 +1244,7 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 4,
     fontSize: 14,
   },
@@ -1263,7 +1263,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 15,
     borderTopWidth: 1,
-    borderTopColor: "#00FF00",
+    borderTopColor: "#00ffff",
     backgroundColor: "#111111",
     alignItems: "center",
   },
@@ -1271,11 +1271,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000000",
     borderWidth: 2,
-    borderColor: "#00FF00",
+    borderColor: "#00ffff",
     borderRadius: 25,
     paddingHorizontal: 15,
     paddingVertical: 12,
-    color: "#00FF00",
+    color: "#00ffff",
     marginRight: 10,
     fontSize: 16,
   },
@@ -1284,7 +1284,7 @@ const styles = StyleSheet.create({
     color: "#666666",
   },
   sendButton: {
-    backgroundColor: "#00FF00",
+    backgroundColor: "#00ffff",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 25,
@@ -1313,7 +1313,7 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 8,
     overflow: "hidden",
-    backgroundColor: "#00ff00",
+    backgroundColor: "#00ffff",
     position: "relative",
   },
   videoThumbnailImage: {
@@ -1363,7 +1363,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 8,
     borderWidth: 1,
-    borderColor: "#00FF00",
+    borderColor: "#00ffff",
   },
   videoCloseButton: {
     position: "absolute",
@@ -1441,7 +1441,7 @@ const styles = StyleSheet.create({
   },
   uploadButtonText: {
     fontSize: 18,
-    color: "#00FF00",
+    color: "#00ffff",
   },
   videoErrorContainer: {
     width: "100%",
@@ -1481,7 +1481,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   heicSubtext: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontSize: 12,
     marginTop: 4,
   },

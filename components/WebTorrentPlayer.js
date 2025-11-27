@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   playButton: {
-    backgroundColor: "#00FF00",
+    backgroundColor: "#00ffff",
   },
   stopButton: {
     backgroundColor: "#FF4444",
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   peerText: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontSize: 12,
   },
   loadingContainer: {
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   progress: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontSize: 14,
     marginBottom: 12,
   },
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: "100%",
-    backgroundColor: "#00FF00",
+    backgroundColor: "#00ffff",
     borderRadius: 3,
   },
   videoInfo: {
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   magnetHint: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontSize: 12,
     marginTop: 4,
   },

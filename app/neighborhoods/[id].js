@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 8,
   },
   type: {
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 10,
   },
   rules: {
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   memberName: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 4,
   },
   memberRole: {
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   chatButton: {
-    backgroundColor: "#00FF00",
+    backgroundColor: "#00ffff",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   backButtonText: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontWeight: "bold",
   },
   memberBio: {

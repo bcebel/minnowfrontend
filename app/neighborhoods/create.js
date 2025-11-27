@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     textAlign: "center",
     marginBottom: 8,
   },
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 8,
   },
   input: {
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   typeOptionSelected: {
-    borderColor: "#00FF00",
+    borderColor: "#00ffff",
     backgroundColor: "#1a2a1a",
   },
   typeText: {
@@ -188,11 +188,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   typeTextSelected: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontWeight: "bold",
   },
   createButton: {
-    backgroundColor: "#00FF00",
+    backgroundColor: "#00ffff",
     padding: 18,
     borderRadius: 12,
     alignItems: "center",

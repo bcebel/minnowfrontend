@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   loadingText: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontSize: 16,
   },
   errorText: {
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#111111",
     borderBottomWidth: 1,
-    borderBottomColor: "#00FF00",
+    borderBottomColor: "#00ffff",
     paddingHorizontal: 15,
     paddingVertical: 10,
   },
@@ -300,11 +300,11 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 16,
-    color: "#00FF00",
+    color: "#00ffff",
   },
   title: {
     fontSize: 18,
-    color: "#00FF00",
+    color: "#00ffff",
     fontWeight: "bold",
   },
   headerSpacer: {
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginHorizontal: 15,
     marginVertical: 10,
   },
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   retryButton: {
-    backgroundColor: "#00FF00",
+    backgroundColor: "#00ffff",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,

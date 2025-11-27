@@ -145,9 +145,7 @@ const styles = StyleSheet.create({
     maxWidth: 800, // Maximum size
     backgroundColor: "#000",
     borderRadius: 12,
-    overflow: "hidden",
-    alignSelf: "center", // Center in parent
-  },
+    overflow: "hidden",  },
   image: {
     width: "100%",
     height: undefined,
@@ -156,13 +154,10 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     height: 400, // Larger placeholder
-    justifyContent: "center",
-    alignItems: "center",
     backgroundColor: "#111",
   },
   status: {
     color: "#fff",
-    textAlign: "center",
     marginBottom: 12,
     fontSize: 16,
   },

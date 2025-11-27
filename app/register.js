@@ -64,8 +64,8 @@ const RegistrationScreen = () => {
         await AsyncStorage.setItem("token", token);
         await AsyncStorage.setItem("username", user.username);
 
-          console.log("✅ Registration - Token saved to AsyncStorage");
-          console.log("✅ Registration - Username saved:", user.username);
+        console.log("✅ Registration - Token saved to AsyncStorage");
+        console.log("✅ Registration - Username saved:", user.username);
 
         Alert.alert(
           "Welcome!",
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     textAlign: "center",
     marginBottom: 8,
   },
@@ -207,21 +207,21 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 16,
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 8,
     fontWeight: "600",
   },
   input: {
     borderWidth: 2,
-    borderColor: "#00FF00",
+    borderColor: "#00ffff",
     borderRadius: 12,
     backgroundColor: "#111111",
     padding: 15,
     fontSize: 16,
-    color: "#00FF00",
+    color: "#00ffff",
   },
   button: {
-    backgroundColor: "#00FF00",
+    backgroundColor: "#00ffff",
     padding: 18,
     borderRadius: 12,
     alignItems: "center",
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   linkText: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontWeight: "bold",
     fontSize: 16,
   },
@@ -253,14 +253,14 @@ const styles = StyleSheet.create({
     marginTop: 30,
     padding: 20,
     borderWidth: 1,
-    borderColor: "#00FF00",
+    borderColor: "#00ffff",
     borderRadius: 8,
     backgroundColor: "#111111",
   },
   featuresTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 10,
   },
   feature: {

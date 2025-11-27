@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     textAlign: "center",
     marginBottom: 8,
   },
@@ -161,21 +161,21 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 8,
     fontWeight: "600",
   },
   input: {
     borderWidth: 2,
-    borderColor: "#00FF00",
+    borderColor: "#00ffff",
     borderRadius: 12,
     backgroundColor: "#111111",
     padding: 15,
     fontSize: 16,
-    color: "#00FF00",
+    color: "#00ffff",
   },
   button: {
-    backgroundColor: "#00FF00",
+    backgroundColor: "#00ffff",
     padding: 18,
     borderRadius: 12,
     alignItems: "center",
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   linkText: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontSize: 16,
     fontWeight: "600",
   },

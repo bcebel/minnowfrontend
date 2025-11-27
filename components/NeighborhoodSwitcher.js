@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#111111",
   },
   title: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontSize: 16,
     fontWeight: "bold",
     marginBottom: 10,
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     borderColor: "#333333",
   },
   active: {
-    borderColor: "#00FF00",
+    borderColor: "#00ffff",
     backgroundColor: "#1a331a",
   },
   neighborhoodName: {

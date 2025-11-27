@@ -615,7 +615,7 @@ export default function NeighborhoodChatScreen() {
       video.style.right = "10px";
       video.style.width = "200px";
       video.style.zIndex = "1000";
-      video.style.border = "2px solid #00FF00";
+      video.style.border = "2px solid #00ffff";
       video.style.borderRadius = "8px";
       document.body.appendChild(video);
 
@@ -664,18 +664,18 @@ export default function NeighborhoodChatScreen() {
                 await navigator.clipboard.writeText(torrent.magnetURI);
 
                 // Send to neighborhood chat
-            await sendMessageMutation({
-              variables: {
-                content: "🔴 Live Neighborhood Stream",
-                neighborhoodId: neighborhoodId,
-                magnetLink: torrent.magnetURI,
-                fileName: `neighborhood-stream-${Date.now()}.webm`,
-                fileType: "video",
-                // Add these for better display:
-                videoUrl: null, // Force use of magnet link
-                imageUrl: null,
-              },
-            });
+                await sendMessageMutation({
+                  variables: {
+                    content: "🔴 Live Neighborhood Stream",
+                    neighborhoodId: neighborhoodId,
+                    magnetLink: torrent.magnetURI,
+                    fileName: `neighborhood-stream-${Date.now()}.webm`,
+                    fileType: "video",
+                    // Add these for better display:
+                    videoUrl: null, // Force use of magnet link
+                    imageUrl: null,
+                  },
+                });
 
                 Alert.alert(
                   "Stream Shared!",
@@ -726,7 +726,7 @@ export default function NeighborhoodChatScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#00FF00" />
+        <ActivityIndicator size="large" color="#00ffff" />
         <Text style={styles.loadingText}>Checking authentication...</Text>
       </View>
     );
@@ -735,7 +735,7 @@ export default function NeighborhoodChatScreen() {
   if (loading && messages.length === 0) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#00FF00" />
+        <ActivityIndicator size="large" color="#00ffff" />
         <Text style={styles.loadingText}>Loading neighborhood chat...</Text>
       </View>
     );
@@ -886,7 +886,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   loadingText: {
-    color: "#00FF00",
+    color: "#00ffff",
     marginTop: 10,
     fontSize: 16,
   },
@@ -908,13 +908,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#111111",
     borderBottomWidth: 1,
-    borderBottomColor: "#00FF00",
+    borderBottomColor: "#00ffff",
     paddingHorizontal: 15,
     paddingVertical: 10,
   },
   roomTitle: {
     fontSize: 18,
-    color: "#00FF00",
+    color: "#00ffff",
     fontWeight: "bold",
   },
   backButton: {
@@ -922,7 +922,7 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 16,
-    color: "#00FF00",
+    color: "#00ffff",
   },
   connectionWarning: {
     backgroundColor: "#331100",
@@ -954,7 +954,7 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 8,
     fontSize: 14,
   },
@@ -1012,7 +1012,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 15,
     borderTopWidth: 1,
-    borderTopColor: "#00FF00",
+    borderTopColor: "#00ffff",
     backgroundColor: "#111111",
     alignItems: "center",
   },
@@ -1020,11 +1020,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000000",
     borderWidth: 2,
-    borderColor: "#00FF00",
+    borderColor: "#00ffff",
     borderRadius: 25,
     paddingHorizontal: 15,
     paddingVertical: 12,
-    color: "#00FF00",
+    color: "#00ffff",
     marginRight: 10,
     fontSize: 16,
   },
@@ -1033,7 +1033,7 @@ const styles = StyleSheet.create({
     color: "#666666",
   },
   sendButton: {
-    backgroundColor: "#00FF00",
+    backgroundColor: "#00ffff",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 25,
@@ -1056,10 +1056,10 @@ const styles = StyleSheet.create({
   },
   uploadButtonText: {
     fontSize: 18,
-    color: "#00FF00",
+    color: "#00ffff",
   },
   retryButton: {
-    backgroundColor: "#00FF00",
+    backgroundColor: "#00ffff",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
@@ -1073,7 +1073,7 @@ const styles = StyleSheet.create({
   },
   membersButtonText: {
     fontSize: 18,
-    color: "#00FF00",
+    color: "#00ffff",
   },
   streamButton: {
     padding: 12,

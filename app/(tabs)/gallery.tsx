@@ -516,12 +516,9 @@ const styles = StyleSheet.create({
     minHeight: 600, // Even larger minimum height
     width: "100%", // Full width
     maxWidth: 1000, // Maximum card width
-    alignSelf: "center", // Center cards
   },
   placeholderCard: {
     minHeight: 300, // Larger placeholder
-    justifyContent: "center",
-    alignItems: "center",
     backgroundColor: "#f0f0f0",
   },
   placeholderContent: {
@@ -579,7 +576,6 @@ const styles = StyleSheet.create({
     borderColor: "#e9ecef",
     marginBottom: 12,
     width: "100%",
-    alignSelf: "center",
   },
   documentIcon: {
     fontSize: 32, // Larger icon
@@ -638,7 +634,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   emptyContainer: {
-    alignItems: "center",
     padding: 60, // More padding
     width: "100%",
   },

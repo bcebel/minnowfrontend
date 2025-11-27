@@ -31,7 +31,7 @@ export default function ProfileScreen() {
     variables: { username },
   });
 
-  if (loading) return <ActivityIndicator size="large" color="#00FF00" />;
+  if (loading) return <ActivityIndicator size="large" color="#00ffff" />;
 
   if (error) {
     return (
@@ -61,7 +61,7 @@ export default function ProfileScreen() {
         source={{
           uri:
             user.profilePhoto ||
-            `https://ui-avatars.com/api/?name=${user.username}&background=00FF00&color=000`,
+            `https://ui-avatars.com/api/?name=${user.username}&background=00ffff&color=000`,
         }}
         style={styles.avatar}
       />
@@ -103,12 +103,12 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     marginBottom: 20,
     borderWidth: 2,
-    borderColor: "#00FF00",
+    borderColor: "#00ffff",
   },
   username: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 10,
   },
   bio: {
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 5,
   },
   statLabel: {

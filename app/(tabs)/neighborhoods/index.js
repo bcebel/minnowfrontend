@@ -18,7 +18,7 @@ import {
   LEAVE_NEIGHBORHOOD,
 } from "../../graphql/queries";
 
-  const router = useRouter();
+const router = useRouter();
 export default function NeighborhoodsScreen() {
   const { loading, error, data, refetch } = useQuery(GET_NEIGHBORHOODS);
   const [joinNeighborhood] = useMutation(JOIN_NEIGHBORHOOD);
@@ -71,7 +71,6 @@ export default function NeighborhoodsScreen() {
 
     return (
       <View style={styles.neighborhoodItem}>
-
         <Text style={styles.neighborhoodName}>{item.name}</Text>
         <Text style={styles.neighborhoodType}>
           {item.type} • {item.members?.length || 0} members
@@ -96,7 +95,10 @@ export default function NeighborhoodsScreen() {
             </TouchableOpacity>
           )}
 
-          <Link href={`/neighborhoods/${item.id}`} asChild>
+          <Link
+            href={`/neighborhoods/neighborhood-chat?neighborhoodId=${item.id}`}
+            asChild
+          >
             <TouchableOpacity style={styles.viewButton}>
               <Text style={styles.viewButtonText}>View</Text>
             </TouchableOpacity>
@@ -141,7 +143,7 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 8,
   },
   subtitle: {
@@ -160,7 +162,7 @@ const styles = StyleSheet.create({
   neighborhoodName: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 4,
   },
   neighborhoodType: {
@@ -178,7 +180,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   joinButton: {
-    backgroundColor: "#00FF00",
+    backgroundColor: "#00ffff",
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 6,
@@ -194,7 +196,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   viewButtonText: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontWeight: "bold",
   },
   loading: {

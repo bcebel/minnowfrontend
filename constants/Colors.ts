@@ -3,7 +3,7 @@
  */
 
 const tintColorLight = "#FF0000"; // Pure red
-const tintColorDark = "#00FF00"; // Pure green
+const tintColorDark = "#00ffff"; // Pure green
 
 export const Colors = {
   light: {
@@ -15,11 +15,11 @@ export const Colors = {
     tabIconSelected: "#FF0000", // Bright red for selected
   },
   dark: {
-    text: "#00FF00", // Pure green text
+    text: "#00ffff", // Pure green text
     background: "#000000", // Pure black background
     tint: tintColorDark, // Pure green
-    icon: "#00FF00", // Green icons
+    icon: "#00ffff", // Green icons
     tabIconDefault: "#00AA00", // Darker green for unselected
-    tabIconSelected: "#00FF00", // Bright green for selected
+    tabIconSelected: "#00ffff", // Bright green for selected
   },
 };

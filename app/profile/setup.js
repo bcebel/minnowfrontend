@@ -277,7 +277,7 @@ export default function ProfileSetupScreen() {
           >
             {uploading ? (
               <View style={[styles.avatar, styles.uploadingAvatar]}>
-                <ActivityIndicator size="large" color="#00FF00" />
+                <ActivityIndicator size="large" color="#00ffff" />
                 <Text style={styles.uploadingText}>Uploading to IPFS...</Text>
               </View>
             ) : (
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     textAlign: "center",
     marginBottom: 8,
   },
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 8,
   },
   stepDescription: {
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
     borderRadius: 75,
     marginBottom: 10,
     borderWidth: 3,
-    borderColor: "#00FF00",
+    borderColor: "#00ffff",
   },
   uploadingAvatar: {
     justifyContent: "center",
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   uploadingText: {
-    color: "#00FF00",
+    color: "#00ffff",
     marginTop: 10,
     fontSize: 12,
   },
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    color: "#00FF00",
+    color: "#00ffff",
     marginBottom: 8,
     marginTop: 15,
   },
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
     borderColor: "#00AA00",
   },
   addButtonText: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontWeight: "bold",
   },
   buttonContainer: {
@@ -528,12 +528,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   backButtonText: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontWeight: "bold",
   },
   nextButton: {
     flex: 2,
-    backgroundColor: "#00FF00",
+    backgroundColor: "#00ffff",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",

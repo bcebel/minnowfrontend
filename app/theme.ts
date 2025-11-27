@@ -96,12 +96,12 @@ export const themes = {
       foreground: "#FFE4EC", // Light pink
       typography: "#8B008B", // Deep magenta
       tint: "#FF69B4", // Hot pink
-      link: "#00FF00", // Your bright green
+      link: "#00ffff", // Your bright green
       accents: {
         banana: "#FFD700", // Gold
         pumpkin: "#FF8C00", // Dark orange
         apple: "#FF0000", // Your bright red
-        grass: "#00FF00", // Your bright green
+        grass: "#00ffff", // Your bright green
         storm: "#9370DB", // Medium purple
       },
     },
@@ -110,12 +110,12 @@ export const themes = {
       foreground: "#8A2BE2", // Blue violet
       typography: "#FFB6C1", // Light pink
       tint: "#FF1493", // Deep pink
-      link: "#00FF00", // Bright green
+      link: "#00ffff", // Bright green
       accents: {
         banana: "#FFD700",
         pumpkin: "#FF4500", // Orange red
         apple: "#FF0000",
-        grass: "#00FF00",
+        grass: "#00ffff",
         storm: "#BA55D3", // Medium orchid
       },
     },
@@ -126,12 +126,12 @@ export const themes = {
       foreground: "#b8f7f7ff", // Light cyan
       typography: "#008080", // Teal
       tint: "#20B2AA", // Light sea green
-      link: "#00FF00", // Bright green
+      link: "#00ffff", // Bright green
       accents: {
         banana: "#FFD700",
         pumpkin: "#FFA500", // Orange
         apple: "#FF0000",
-        grass: "#00FF00",
+        grass: "#00ffff",
         storm: "#4682B4", // Steel blue
       },
     },
@@ -140,12 +140,12 @@ export const themes = {
       foreground: "#008080", // Teal
       typography: "#E0FFFF", // Light cyan
       tint: "#00CED1", // Dark turquoise
-      link: "#00FF00",
+      link: "#00ffff",
       accents: {
         banana: "#FFD700",
         pumpkin: "#FF8C00",
         apple: "#FF0000",
-        grass: "#00FF00",
+        grass: "#00ffff",
         storm: "#4169E1", // Royal blue
       },
     },
@@ -161,7 +161,7 @@ export const themes = {
         banana: "#FFD700", // Gold
         pumpkin: "#FF8C00", // Dark orange
         apple: "#FF0000", // Your bright red
-        grass: "#00FF00", // Your bright green
+        grass: "#00ffff", // Your bright green
         storm: "#9370DB", // Medium purple (bubblegum)
       },
     },
@@ -175,7 +175,7 @@ export const themes = {
         banana: "#FFD700", // Gold
         pumpkin: "#FF4500", // Orange red
         apple: "#FF0000", // Your bright red
-        grass: "#00FF00", // Your bright green
+        grass: "#00ffff", // Your bright green
         storm: "#BA55D3", // Medium orchid (purple bubble)
       },
     },
@@ -191,7 +191,7 @@ export const themes = {
         banana: "#FFD700",
         pumpkin: "#FF8C00",
         apple: "#FF0000",
-        grass: "#00FF00",
+        grass: "#00ffff",
         storm: "#9370DB", // Medium purple
       },
     },
@@ -205,7 +205,7 @@ export const themes = {
         banana: "#FFD700",
         pumpkin: "#FF4500",
         apple: "#FF0000",
-        grass: "#00FF00",
+        grass: "#00ffff",
         storm: "#9B59B6", // Amethyst purple
       },
     },
@@ -215,27 +215,27 @@ export const themes = {
       background: "#000000", // Black for contrast
       foreground: "#1A1A1A", // Dark gray
       typography: "#FFFFFF", // White
-      tint: "#00FF00", // Your bright green as main tint
-      link: "#00FF00",
+      tint: "#00ffff", // Your bright green as main tint
+      link: "#00ffff",
       accents: {
         banana: "#FFFF00", // Bright yellow
         pumpkin: "#FFA500", // Orange
         apple: "#FF0000",
-        grass: "#00FF00",
+        grass: "#00ffff",
         storm: "#FF00FF", // Magenta
       },
     },
     dark: {
       background: "#0A0A0A", // Very dark gray
       foreground: "#1F1F1F", // Dark gray
-      typography: "#00FF00", // Green text
-      tint: "#00FF00",
-      link: "#00FF00",
+      typography: "#00ffff", // Green text
+      tint: "#00ffff",
+      link: "#00ffff",
       accents: {
         banana: "#FFFF00",
         pumpkin: "#FF4500", // Orange red
         apple: "#FF0000",
-        grass: "#00FF00",
+        grass: "#00ffff",
         storm: "#FF00FF",
       },
     },
@@ -245,13 +245,13 @@ export const themes = {
       background: "#000000", // Black for contrast
       foreground: "#1A1A1A", // Dark gray
       typography: "#FFFFFF", // White
-      tint: "#00FF00", // Your bright green as main tint
-      link: "#00FF00",
+      tint: "#00ffff", // Your bright green as main tint
+      link: "#00ffff",
       accents: {
         banana: "#FFFF00", // Bright yellow
         pumpkin: "#FFA500", // Orange
         apple: "#FF0000",
-        grass: "#00FF00",
+        grass: "#00ffff",
         storm: "#FF00FF", // Magenta
       },
     },
@@ -259,13 +259,13 @@ export const themes = {
       background: "#0A0A0A", // Very dark gray
       foreground: "#1F1F1F", // Dark gray
       typography: "#FF00FF", // Magenta text
-      tint: "#00FF00",
-      link: "#00FF00",
+      tint: "#00ffff",
+      link: "#00ffff",
       accents: {
         banana: "#FFFF00",
         pumpkin: "#FF4500", // Orange red
         apple: "#FF0000",
-        grass: "#00FF00",
+        grass: "#00ffff",
         storm: "#FF00FF",
       },
     },
@@ -276,12 +276,12 @@ export const themes = {
       foreground: "#FFE4E1", // Misty rose
       typography: "#B22222", // Firebrick
       tint: "#FF7F50", // Coral
-      link: "#00FF00",
+      link: "#00ffff",
       accents: {
         banana: "#FFD700",
         pumpkin: "#FF6347", // Tomato
         apple: "#FF0000",
-        grass: "#00FF00",
+        grass: "#00ffff",
         storm: "#6495ED", // Cornflower blue
       },
     },
@@ -290,12 +290,12 @@ export const themes = {
       foreground: "#DC143C", // Crimson
       typography: "#FFE4E1", // Misty rose
       tint: "#FF6347", // Tomato
-      link: "#00FF00",
+      link: "#00ffff",
       accents: {
         banana: "#FFD700",
         pumpkin: "#FF4500",
         apple: "#FF0000",
-        grass: "#00FF00",
+        grass: "#00ffff",
         storm: "#1E90FF", // Dodger blue
       },
     },
@@ -306,12 +306,12 @@ export const themes = {
       foreground: "#d6d6f9ff", // Lavender
       typography: "#4B0082", // Indigo
       tint: "#9370DB", // Medium purple
-      link: "#00FF00",
+      link: "#00ffff",
       accents: {
         banana: "#FFD700",
         pumpkin: "#DA70D6", // Orchid
         apple: "#FF0000",
-        grass: "#00FF00",
+        grass: "#00ffff",
         storm: "#6A5ACD", // Slate blue
       },
     },
@@ -320,12 +320,12 @@ export const themes = {
       foreground: "#695acd8f", // Slate blue
       typography: "#E6E6FA", // Lavender
       tint: "#BA55D3", // Medium orchid
-      link: "#00FF00",
+      link: "#00ffff",
       accents: {
         banana: "#FFD700",
         pumpkin: "#EE82EE", // Violet
         apple: "#FF0000",
-        grass: "#00FF00",
+        grass: "#00ffff",
         storm: "#7c68ee9a", // Medium slate blue
       },
     },

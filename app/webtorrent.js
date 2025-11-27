@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from "react";
 import { Platform, View, StyleSheet, Text } from "react-native";
 
@@ -33,12 +32,12 @@ export default function WebTorrentPlayer({ video }) {
     <title>P2P Video Player</title>
     <style>
         body { margin: 0; padding: 15px; background: #1a1a1a; color: white; font-family: Arial, sans-serif; }
-        .p2p-badge { background: #00FF00; color: black; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-bottom: 10px; display: inline-block; }
+        .p2p-badge { background: #00ffff; color: black; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-bottom: 10px; display: inline-block; }
         .seeding-stats { background: rgba(0, 255, 0, 0.1); padding: 10px; border-radius: 8px; margin: 10px 0; font-size: 12px; }
         video { width: 100%; max-height: 400px; background: #000; border-radius: 8px; }
         #status { color: #FFFF00; text-align: center; margin: 10px 0; font-size: 14px; }
         .progress-bar { width: 100%; height: 6px; background: #333; border-radius: 3px; margin: 10px 0; overflow: hidden; }
-        .progress-fill { height: 100%; background: #00FF00; transition: width 0.3s; width: 0%; }
+        .progress-fill { height: 100%; background: #00ffff; transition: width 0.3s; width: 0%; }
     </style>
 </head>
 <body>
@@ -167,7 +166,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     borderWidth: 2,
-    borderColor: "#00FF00",
+    borderColor: "#00ffff",
   },
   iframe: {
     width: "100%",
@@ -196,7 +195,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   seedingInfo: {
-    color: "#00FF00",
+    color: "#00ffff",
     fontSize: 12,
     textAlign: "center",
   },

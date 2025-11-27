@@ -324,7 +324,6 @@ export default function StreamScreen() {
             iOS Chrome doesn't support camera access.{"\n"}
             Please open this page in Safari to record videos.
           </Text>
-  
         </View>
       )}
 
@@ -398,7 +397,6 @@ export default function StreamScreen() {
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -411,7 +409,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    color: "#00ff00",
+    color: "#00ffff",
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 8,
@@ -461,13 +459,13 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: "#00ff00",
+    borderColor: "#00ffff",
     marginBottom: 20,
   },
   magnetLabel: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#00ff00",
+    color: "#00ffff",
     marginBottom: 8,
     textAlign: "center",
   },
@@ -485,10 +483,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#00ff00",
+    borderColor: "#00ffff",
   },
   copyButtonText: {
-    color: "#00ff00",
+    color: "#00ffff",
     fontWeight: "bold",
     fontSize: 16,
   },
@@ -508,7 +506,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   statusText: {
-    color: "#00ff00",
+    color: "#00ffff",
     fontSize: 14,
     fontWeight: "bold",
     marginBottom: 4,
