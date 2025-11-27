@@ -1,10 +1,12 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react"; // ADDED useState
 import { Platform, View, StyleSheet, Text } from "react-native";
 
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
-export default function WebTorrentImage({ image }) {
+// ACCEPT isFocused prop for dynamic timeout and loadedViaP2P state
+export default function WebTorrentImage({ image, isFocused }) {
   const iframeRef = useRef(null);
+  const [loadedViaP2P, setLoadedViaP2P] = useState(false); // State for the border/shadow
 
   if (Platform.OS !== "web") {
     return (
@@ -13,7 +15,7 @@ export default function WebTorrentImage({ image }) {
       </View>
     );
   }
-
+const TIMEOUT_DURATION = isFocused ? 5000 : 30000;
   // Define WSS Trackers (REQUIRED for browser-based torrenting)
   const trackers = [
     "wss://tracker.openwebtorrent.com",
@@ -30,7 +32,31 @@ export default function WebTorrentImage({ image }) {
     ? `${image.magnetLink}${announceList}`
     : null;
   const webSeedUrl = `https://${PINATA_GATEWAY}/ipfs/${image.cid}`;
+useEffect(() => {
+  if (Platform.OS === "web" && iframeRef.current) {
+    const handleMessage = (event) => {
+      // Ensure message comes from our iframe and is the correct type
+      if (event.source === iframeRef.current.contentWindow) {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "P2P_LOAD_SUCCESS" && data.id === image.id) {
+            setLoadedViaP2P(true);
+          }
+        } catch (e) {
+          // Silently fail if message is not JSON or not the one we look for
+        }
+      }
+    };
 
+    window.addEventListener("message", handleMessage);
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      // Clean up when component unmounts
+    };
+  }
+}, [image.id]);
+  
   const htmlContent = `
 <!DOCTYPE html>
 <html>
@@ -86,6 +112,12 @@ export default function WebTorrentImage({ image }) {
         const peerEl = document.getElementById('peers');
         const progEl = document.getElementById('progress-bar');
 
+        // -- INJECTED VALUES --
+        const INJECTED_WEBSEED = '${webSeedUrl}';
+        const INJECTED_MAGNET = '${cleanMagnet}';
+        const INJECTED_TIMEOUT = ${TIMEOUT_DURATION};
+        const INJECTED_ID = '${image.id}';
+
         // -- STATE --
         let client = null;
         let isLoaded = false;
@@ -106,17 +138,15 @@ export default function WebTorrentImage({ image }) {
             log('Falling back to HTTP: ' + reason, 'yellow');
             loadText.textContent = 'Switching to HTTP...';
             
-            imgEl.src = '${webSeedUrl}';
+           imgEl.src = INJECTED_WEBSEED;
             imgEl.style.display = 'block';
             
             imgEl.onload = () => {
                 loader.classList.add('hidden');
-                log('Loaded via IPFS Gateway', 'green');
+                log('Loaded via IPFS Gateway', 'gray');
             };
             
-            if (client) {
-                try { client.destroy(); } catch(e) {}
-            }
+      
         }
 
         // -- MAIN LOGIC --
@@ -124,129 +154,136 @@ export default function WebTorrentImage({ image }) {
             if (typeof WebTorrent === 'undefined') {
                 throw new Error('WebTorrent lib failed to load');
             }
-
+client = window.parent.globalWebTorrentClient;
             log('Node started', 'gray');
-            client = new WebTorrent();
+            
 
-            // 1. TIMEOUT SAFETY NET
-            // If image isn't visible in 5 seconds, give up and use HTTP
+     // 1. DYNAMIC TIMEOUT SAFETY NET
             setTimeout(() => {
                 if (!isLoaded) {
-                    forceHttpFallback('Timeout (5s)');
+                    forceHttpFallback('Timeout (' + INJECTED_TIMEOUT / 1000 + 's)');
                 }
-            }, 5000);
+            }, INJECTED_TIMEOUT);
 
-            const magnet = '${cleanMagnet}';
-
-            if (!magnet) {
+            if (!INJECTED_MAGNET) {
                 forceHttpFallback('No magnet link');
             } else {
                 log('Adding torrent...', 'gray');
                 
-                // 2. ADD TORRENT
-                client.add(magnet, {
-                    announce: [
-                        "wss://tracker.openwebtorrent.com",
-                        "wss://tracker.btorrent.xyz",
-                        "wss://tracker.webtorrent.dev"
-                    ]
-                }, (torrent) => {
+                // Check if torrent already exists in the global client
+                let torrent = client.get(INJECTED_MAGNET);
+                
+                if (!torrent) {
+                    torrent = client.add(INJECTED_MAGNET, {
+                        // Announce options will be inherited from the global client setup
+                    });
+                } else {
+                    log('Torrent already active in background.', 'gray');
+                }
+                
+                // Immediately add the WebSeed as a "peer" to guarantee hybrid loading
+                torrent.addWebSeed(INJECTED_WEBSEED);
+
+ // --- HANDLERS ---
+                torrent.on('ready', () => {
                     log('Metadata received!', 'green');
                     
-                    // Immediately add the WebSeed as a "peer" to guarantee speed
-                    // This makes the swarm "hybrid" instantly
-                    torrent.addWebSeed('${webSeedUrl}');
-
                     const file = torrent.files.find(f => f.name.match(/\\.(jpg|jpeg|png|gif|webp)$/i));
 
                     if (!file) {
                         forceHttpFallback('No image file in torrent');
                         return;
                     }
-
+                    
                     // 3. RENDER STREAM
                     file.renderTo(imgEl, (err, elem) => {
                         if (err) {
                             forceHttpFallback('Render error');
                             return;
                         }
-                        // Render started - hide loader immediately
-                        // We don't wait for 100%, we show the stream
+                        
+                        // RENDER SUCCESS - This confirms P2P/WebSeed streaming has started
                         isLoaded = true;
                         loader.classList.add('hidden');
                         imgEl.style.display = 'block';
                         log('Streaming P2P...', 'green');
-                    });
-
-                    torrent.on('download', () => {
-                        const p = Math.round(torrent.progress * 100);
-                        progEl.style.width = p + '%';
-                        peerEl.textContent = '👥 ' + torrent.numPeers;
                         
-                        if (p >= 100) {
-                             log('Swarm Complete (100%)', 'green');
+                        // *** P2P SUCCESS MESSAGE ***
+                        if (window.parent && window.parent.postMessage) {
+                            window.parent.postMessage(JSON.stringify({ type: 'P2P_LOAD_SUCCESS', id: INJECTED_ID }), '*');
                         }
                     });
+                }); // End torrent.on('ready')
+
+                torrent.on('download', () => {
+                    const p = Math.round(torrent.progress * 100);
+                    progEl.style.width = p + '%';
+                    peerEl.textContent = '👥 ' + torrent.numPeers;
                     
-                    torrent.on('error', (err) => {
-                        forceHttpFallback('Torrent Error: ' + err.message);
-                    });
+                    if (p >= 100) {
+                         log('Swarm Complete (100%)', 'green');
+                    }
+                });
+                
+                torrent.on('error', (err) => {
+                    forceHttpFallback('Torrent Error: ' + err.message);
                 });
             }
 
         } catch (e) {
-            forceHttpFallback('Script Error: ' + e.message);
+            forceHttpFallback('Script/Client Error: ' + e.message);
         }
-            function playVideo() { // Renamed from loadImage for consistency
-                    if (isLoaded) return;
-                    
-                    const file = torrent.files.find(f => f.name.match(/\\.(jpg|jpeg|png|gif|webp)$/i));
-                    if (file) {
-                        isLoaded = true;
-                        
-                        file.renderTo(imgEl, (err, elem) => {
-                            if (err) {
-                                console.error("RenderTo error:", err);
-                                isLoaded = false;
-                                return;
-                            }
-                            imgEl.style.display = 'block';
-                            statusElement.textContent = '🖼️ Now streaming - ' + torrent.numPeers + ' peers';
-                            
-                            // *** NEW: Send message to parent that P2P succeeded ***
-                            if (window.parent && window.parent.postMessage) {
-                                window.parent.postMessage(JSON.stringify({ type: 'P2P_LOAD_SUCCESS', id: '${image.id}' }), '*');
-                            }
-                        });
-                    }
-                }
     </script>
 </body>
 </html>
   `;
 
-  return (
-    <View style={styles.container}>
+return (
+    <View 
+      style={[
+        styles.container,
+        loadedViaP2P && styles.p2pContainerBorder // <--- Apply the conditional style here
+      ]}
+    >
       <iframe
         ref={iframeRef}
         srcDoc={htmlContent}
-        style={styles.iframe}
+        style={styles.iframe} // <--- Keep the iframe style simple and fixed
         sandbox="allow-scripts allow-same-origin allow-forms"
         title="WebTorrent"
       />
     </View>
-  );
+);
 }
-
 const styles = StyleSheet.create({
   container: {
     marginVertical: 10,
     backgroundColor: "#000",
     borderRadius: 8,
+    // Add border properties that will be overridden by p2pContainerBorder
+    borderWidth: 0,
     overflow: "hidden",
     height: 350,
     width: "100%",
   },
+
+  // *** NEW STYLE FOR P2P SUCCESS (Applied to the container) ***
+  p2pContainerBorder: {
+    borderColor: "#00FF00", // Green border
+    borderWidth: 2,
+
+    // Standard React Native shadow props for a glow effect
+    shadowColor: "#00FF00",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1, // Must be 1 for a solid glow
+    shadowRadius: 10,
+
+    // Crucially, include the specific CSS property for web compatibility
+    // Use Webkit and box-shadow standard for maximum compatibility
+    // Note: The structure below might vary based on your exact Expo/RNW version.
+    boxShadow: "0px 0px 10px rgba(0, 255, 0, 0.7)",
+  },
+
   iframe: {
     width: "100%",
     height: "100%",

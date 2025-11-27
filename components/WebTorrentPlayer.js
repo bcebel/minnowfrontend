@@ -29,6 +29,7 @@ export default function WebTorrentPlayer({ video, isFocused }) {
   const cid = video.cid || video.ipfsData?.cid;
   const magnetLink = video.magnetLink || video.ipfsData?.magnetLink;
 
+  const TIMEOUT_DURATION = isFocused ? 8000 : 45000; // 8s if focused, 45s if in background
   console.log("🔧 Extracted values:", { cid, magnetLink });
   useEffect(() => {
     // Only set up listener if on web and iframe is ready
@@ -60,19 +61,7 @@ export default function WebTorrentPlayer({ video, isFocused }) {
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebTorrent Player</title>
-    <style>
-        body { margin: 0; padding: 15px; background: #1a1a1a; color: white; font-family: Arial, sans-serif; }
-        .video-info { color: #00FF00; margin-bottom: 10px; font-size: 14px; text-align: center; }
-        video { width: 100%; max-height: 400px; background: #000; border-radius: 8px; }
-        #status { color: #FFFF00; text-align: center; margin: 10px 0; font-size: 14px; }
-        .stats { color: #888; font-size: 12px; text-align: center; margin: 5px 0; }
-        .progress-bar { width: 100%; height: 6px; background: #333; border-radius: 3px; margin: 10px 0; overflow: hidden; }
-        .progress-fill { height: 100%; background: #00FF00; transition: width 0.3s; width: 0%; }
-    </style>
-</head>
+    </head>
 <body>
     <div class="video-info">🎬 ${video.fileName || "Video"}</div>
     <div id="status">Loading video...</div>
@@ -91,6 +80,10 @@ export default function WebTorrentPlayer({ video, isFocused }) {
         const magnet = '${magnetLink}';
         const cid = '${cid}';
         const webSeedUrl = 'https://${PINATA_GATEWAY}/ipfs/' + cid;
+        
+        // INJECTED DYNAMIC TIMEOUT
+        const INJECTED_TIMEOUT = ${TIMEOUT_DURATION};
+        const INJECTED_ID = '${video.id}';
 
         let torrent = null;
         let isLoaded = false;
@@ -104,7 +97,7 @@ export default function WebTorrentPlayer({ video, isFocused }) {
             videoElement.style.display = 'block';
             progressFill.style.width = '100%';
             
-            // Clean up if torrent was initialized
+            // Note: We don't destroy the global client
             if (torrent) torrent.destroy(); 
         }
 
@@ -116,17 +109,51 @@ export default function WebTorrentPlayer({ video, isFocused }) {
             console.log('🔗 Connected to global WebTorrent client.');
         } catch (e) {
             console.error('Failed to access global client. Using local.', e);
-            // Fallback: If global client access fails, create a new local one.
-            client = new WebTorrent(); 
+            
+            // FALLBACK: Create a local client if global fails. Requires WebTorrent to be loaded in the PARENT window.
+            if (window.parent.WebTorrent) {
+                 client = new window.parent.WebTorrent(); 
+            } else {
+                 forceHttpFallback('WebTorrent library not available.');
+                 return; // Exit script if client cannot be initialized
+            }
+        }
+        
+        // --- CORE P2P STREAMING FUNCTION (Only defined once) ---
+        function playVideo() {
+            if (isLoaded) return;
+            
+            const file = torrent.files.find(f => f.name.match(/\.(mp4|mov|webm|ogg)$/i));
+            if (file) {
+                isLoaded = true;
+                
+                file.renderTo(videoElement, (err, elem) => {
+                    if (err) {
+                        console.error("RenderTo error:", err);
+                        isLoaded = false;
+                        return;
+                    }
+                    videoElement.style.display = 'block';
+                    statusElement.textContent = '🎬 Now playing - ' + torrent.numPeers + ' peers';
+                    videoElement.play().catch(e => {
+                        console.log('Autoplay blocked');
+                    });
+
+                    // *** P2P SUCCESS MESSAGE ***
+                    if (window.parent && window.parent.postMessage) {
+                        window.parent.postMessage(JSON.stringify({ type: 'P2P_LOAD_SUCCESS', id: INJECTED_ID }), '*');
+                    }
+                });
+            }
         }
 
 
-        // 2. TIMEOUT SAFETY NET
+        // 2. TIMEOUT SAFETY NET (Uses dynamic INJECTED_TIMEOUT)
         setTimeout(() => {
             if (!isLoaded) {
-                forceHttpFallback('P2P Timeout (8s)');
+                forceHttpFallback('P2P Timeout (' + INJECTED_TIMEOUT / 1000 + 's)');
             }
-        }, 8000); // Increased timeout slightly for video
+        }, INJECTED_TIMEOUT); 
 
         // 3. ADD TORRENT
         if (magnet && client) {
@@ -140,9 +167,8 @@ export default function WebTorrentPlayer({ video, isFocused }) {
                     torrent = client.add(magnet);
                 }
 
-                // If not already added (e.g., first client to request this)
                 if (cid) {
-                    torrent.addWebSeed(webSeedUrl); // Ensure reliable WebSeed
+                    torrent.addWebSeed(webSeedUrl); 
                 }
                 
                 torrent.on('download', (bytes) => {
@@ -151,8 +177,8 @@ export default function WebTorrentPlayer({ video, isFocused }) {
                     statsElement.textContent = '👥 ' + torrent.numPeers + ' peers | 📥 ' + percent + '%';
                     statusElement.textContent = 'Downloading: ' + percent + '%';
                     
-                    if (percent >= 1) { // Start streaming as soon as 1% is buffered
-                        playVideo();
+                    if (percent >= 1) { 
+                        playVideo(); // Starts streaming as soon as 1% is buffered
                     }
                 });
 
@@ -166,28 +192,8 @@ export default function WebTorrentPlayer({ video, isFocused }) {
                     forceHttpFallback('Torrent Error: ' + err.message);
                 });
 
-                function playVideo() {
-                    if (isLoaded) return;
-                    
-                    const file = torrent.files.find(f => f.name.match(/\.(mp4|mov|webm|ogg)$/i));
-                    if (file) {
-                        isLoaded = true;
-                        
-                        // Use renderTo for streaming, similar to the image component
-                        file.renderTo(videoElement, (err, elem) => {
-                            if (err) {
-                                console.error("RenderTo error:", err);
-                                isLoaded = false;
-                                return;
-                            }
-                            videoElement.style.display = 'block';
-                            statusElement.textContent = '🎬 Now playing - ' + torrent.numPeers + ' peers';
-                            videoElement.play().catch(e => {
-                                console.log('Autoplay blocked');
-                            });
-                        });
-                    }
-                }
+                // No need for torrent.on('ready') since client.add handles metadata fetch.
+                
             } catch (err) {
                 console.error('Torrent operation failed:', err);
                 forceHttpFallback('Client Add Failed');
@@ -196,40 +202,11 @@ export default function WebTorrentPlayer({ video, isFocused }) {
             forceHttpFallback('No magnet link or client');
         }
 
-        // Cleanup function for unmount
+        // Cleanup function for unmount (optional but good practice)
         window.cleanup = function() {
-            // Note: We don't destroy the torrent from the client, as it may be needed by another component.
-            // We just clear the local video element references.
             torrent = null;
         };
-function playVideo() {
-                    if (isLoaded) return;
-                    
-                    const file = torrent.files.find(f => f.name.match(/\.(mp4|mov|webm|ogg)$/i));
-                    if (file) {
-                        isLoaded = true;
-                        
-                        file.renderTo(videoElement, (err, elem) => {
-                            if (err) {
-                                console.error("RenderTo error:", err);
-                                isLoaded = false;
-                                return;
-                            }
-                            videoElement.style.display = 'block';
-                            statusElement.textContent = '🎬 Now playing - ' + torrent.numPeers + ' peers';
-                            videoElement.play().catch(e => {
-                                console.log('Autoplay blocked');
-                            });
 
-                            // *** NEW: Send message to parent that P2P succeeded ***
-                            if (window.parent && window.parent.postMessage) {
-                                window.parent.postMessage(JSON.stringify({ type: 'P2P_LOAD_SUCCESS', id: '${
-                                  video.id
-                                }' }), '*');
-                            }
-                        });
-                    }
-                }
     </script>
 </body>
 </html>
@@ -250,7 +227,6 @@ function playVideo() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "#1a1a1a",
