@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Platform, View, Image, StyleSheet, Text } from "react-native";
 
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
@@ -12,7 +12,7 @@ export default function WebTorrentImage({ image, isFocused }) {
 
   useEffect(() => {
     if (Platform.OS !== "web") {
-      // Fallback for native
+      // For native, use direct IPFS URL
       setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
       return;
     }
@@ -21,15 +21,16 @@ export default function WebTorrentImage({ image, isFocused }) {
       try {
         const client = window.globalWebTorrentClient;
 
-        if (!client) {
-          throw new Error("Global WebTorrent client not found");
-        }
-
+        // If no magnet link (like profile photos), use direct IPFS
         if (!image.magnetLink) {
-          // No magnet, use direct IPFS
+          console.log("🖼️ No magnet link, using direct IPFS for image");
           setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
           setStatus("Loaded via IPFS");
           return;
+        }
+
+        if (!client) {
+          throw new Error("Global WebTorrent client not found");
         }
 
         setStatus("Connecting to swarm...");
@@ -56,17 +57,28 @@ export default function WebTorrentImage({ image, isFocused }) {
         torrent.on("ready", () => {
           setStatus("Finding image file...");
 
+          // Look for image files in the torrent
           const file = torrent.files.find((f) =>
             f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i)
           );
 
           if (!file) {
-            throw new Error("No image file found in torrent");
+            console.warn(
+              "❌ No image file found in torrent, using IPFS fallback"
+            );
+            setStatus("No image in torrent, using IPFS");
+            setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
+            return;
           }
 
           // Create blob URL for the image
           file.getBlobURL((err, url) => {
-            if (err) throw err;
+            if (err) {
+              console.error("❌ Blob URL error:", err);
+              setStatus("P2P failed, using IPFS");
+              setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
+              return;
+            }
 
             setImageUrl(url);
             setStatus("Loaded via P2P");
@@ -76,7 +88,7 @@ export default function WebTorrentImage({ image, isFocused }) {
 
         torrent.on("error", (err) => {
           console.error("Torrent error:", err);
-          setStatus("P2P failed, using IPFS fallback");
+          setStatus("P2P failed, using IPFS");
           setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
         });
 
@@ -88,7 +100,7 @@ export default function WebTorrentImage({ image, isFocused }) {
               setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
             }
           },
-          isFocused ? 4000 : 15000
+          isFocused ? 8000 : 30000
         );
       } catch (error) {
         console.error("Error loading image:", error);
@@ -121,8 +133,9 @@ export default function WebTorrentImage({ image, isFocused }) {
           source={{ uri: imageUrl }}
           style={styles.image}
           resizeMode="contain"
-          onLoad={() => console.log("Image loaded")}
+          onLoad={() => console.log("✅ Image loaded")}
           onError={() => {
+            console.log("❌ Image load failed, falling back to IPFS");
             setStatus("Image load failed");
             setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
           }}
@@ -141,23 +154,28 @@ export default function WebTorrentImage({ image, isFocused }) {
 
 const styles = StyleSheet.create({
   container: {
-    width: "100%", // Take full available width
-    maxWidth: 800, // Maximum size
+    width: "100%",
+    maxWidth: 800,
     backgroundColor: "#000",
     borderRadius: 12,
-    overflow: "hidden",  },
+    overflow: "hidden",
+    alignSelf: "center",
+  },
   image: {
     width: "100%",
     height: undefined,
-    aspectRatio: 4 / 3, // Maintain aspect ratio
-    minHeight: 300, // Minimum height
+    aspectRatio: 4 / 3,
+    minHeight: 300,
   },
   placeholder: {
-    height: 400, // Larger placeholder
+    height: 400,
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: "#111",
   },
   status: {
     color: "#fff",
+    textAlign: "center",
     marginBottom: 12,
     fontSize: 16,
   },

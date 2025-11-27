@@ -176,6 +176,7 @@ const VideoCard = ({
   const [imageError, setImageError] = useState(false);
   const [shouldLoad, setShouldLoad] = useState(priority); // High priority items load immediately
 
+
   useEffect(() => {
     if ((isVisible || inBuffer) && !shouldLoad) {
       setShouldLoad(true);
@@ -203,6 +204,11 @@ const VideoCard = ({
 
   const fileName = video.fileName || video.title || "media";
   const fileType = getFileType(fileName);
+  const isProfilePhoto =
+    !video.magnetLink &&
+    video.cid &&
+    (video.fileName?.includes("profile-photo") ||
+      video.title?.includes("Profile Photo"));
 
   if (!mediaUrl) {
     return (
@@ -240,7 +246,7 @@ const VideoCard = ({
         </Text>
       </View>
 
-      {video.magnetLink ? (
+      {video.magnetLink && !isProfilePhoto ? (
         fileType === "video" ? (
           <WebTorrentPlayer video={video} isFocused={isFocused} />
         ) : (
@@ -576,6 +582,7 @@ const styles = StyleSheet.create({
     borderColor: "#e9ecef",
     marginBottom: 12,
     width: "100%",
+    alignSelf: "center",
   },
   documentIcon: {
     fontSize: 32, // Larger icon
