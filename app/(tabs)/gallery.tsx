@@ -1,5 +1,4 @@
-// app/media/gallery.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,12 +10,14 @@ import {
   TouchableOpacity,
   Linking,
   Alert,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { gql, useQuery, useMutation } from "@apollo/client";
-import WebTorrentPlayer from '../../components/WebTorrentPlayer';
-  import WebTorrentImage from '../../components/WebTorrentImage';
+import WebTorrentPlayer from "../../components/WebTorrentPlayer";
+import WebTorrentImage from "../../components/WebTorrentImage";
 
 // GraphQL Query
 const GET_MY_VIDEOS = gql`
@@ -159,13 +160,27 @@ const DocumentPreview = ({
   );
 };
 
-// Video Card Component
-const VideoCard = ({ video }: { video: any }) => {
+const VideoCard = ({
+  video,
+  isVisible,
+  priority,
+}: {
+  video: any;
+  isVisible: boolean;
+  priority: boolean;
+}) => {
   const [imageError, setImageError] = useState(false);
+  const [shouldLoad, setShouldLoad] = useState(priority); // High priority items load immediately
+
+  useEffect(() => {
+    if (isVisible && !shouldLoad) {
+      setShouldLoad(true);
+    }
+  }, [isVisible]);
 
   let mediaUrl = video.ipfsUrl;
 
-  // URL processing logic
+  // URL processing logic (keep your existing logic)
   if (mediaUrl) {
     if (Platform.OS === "android") {
       mediaUrl = mediaUrl.replace(
@@ -194,6 +209,17 @@ const VideoCard = ({ video }: { video: any }) => {
     );
   }
 
+  // Don't render heavy content if not visible and not priority
+  if (!shouldLoad) {
+    return (
+      <View style={[styles.videoCard, styles.placeholderCard]}>
+        <View style={styles.placeholderContent}>
+          <Text style={styles.placeholderText}>Loading...</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.videoCard}>
       <Text style={styles.title} numberOfLines={1}>
@@ -210,23 +236,18 @@ const VideoCard = ({ video }: { video: any }) => {
         </Text>
       </View>
 
-      {video.magnetLink ? ( 
-      fileType === 'video' ? (
-        <WebTorrentPlayer video = {video} />
+      {video.magnetLink ? (
+        fileType === "video" ? (
+          <WebTorrentPlayer video={video} />
         ) : (
-        <WebTorrentImage image={video}
-          />
+          <WebTorrentImage image={video} />
         )
-      ) : (
-      fileType === 'video' ? (
+      ) : fileType === "video" ? (
         <VideoPlayer url={mediaUrl} />
-        ) : (
-        <ImagePReview url={mediaUrl}
-          onError={() =>
-            setImageError(true)} />
-        )
+      ) : (
+        <ImagePreview url={mediaUrl} onError={() => setImageError(true)} />
       )}
-      
+
       {/* Video metadata */}
       <View style={styles.metadata}>
         <Text style={styles.userInfo}>
@@ -245,9 +266,9 @@ const VideoCard = ({ video }: { video: any }) => {
   );
 };
 
-// Main Gallery Component
+// Main Gallery Component - UPDATED WITH LAZY LOADING
 export default function GraphQLGallery() {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [attachMagnetMutation] = useMutation(gql`
     mutation AttachMagnet($id: ID!, $magnetLink: String!) {
       attachMagnet(id: $id, magnetLink: $magnetLink) {
@@ -258,7 +279,90 @@ export default function GraphQLGallery() {
   `);
   const { loading, error, data, refetch } = useQuery(GET_MY_VIDEOS);
 
-  const numColumns = Platform.OS === "web" && width > 900 ? 3 : 1;
+  // Lazy loading state
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 3 }); // Start with just 3
+  const flatListRef = useRef<FlatList>(null);
+
+  const numColumns = Platform.OS === "web" && width > 900 ? 2 : 1; // Reduced columns for larger items
+
+  // Sort videos for optimal loading
+  const sortedVideos = React.useMemo(() => {
+    if (!data?.getMyVideos) return [];
+
+    return [...data.getMyVideos].sort((a, b) => {
+      // Priority 1: Images before videos (images load faster)
+      const aType = getFileType(a.fileName);
+      const bType = getFileType(b.fileName);
+
+      if (aType === "image" && bType !== "image") return -1;
+      if (bType === "image" && aType !== "image") return 1;
+
+      // Priority 2: Files with CID before magnet-only
+      if (a.cid && !b.cid) return -1;
+      if (!a.cid && b.cid) return 1;
+
+      // Priority 3: Newer content first
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [data?.getMyVideos]);
+
+  // Handle scroll for lazy loading
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (Platform.OS === "web") {
+      // Web-specific scroll handling
+      const scrollY = event.nativeEvent.contentOffset.y;
+      const windowHeight = height;
+
+      // Calculate which items should be visible
+      const itemHeight = 600; // Approximate card height
+      const startIndex = Math.max(0, Math.floor(scrollY / itemHeight) - 1);
+      const endIndex = Math.min(
+        sortedVideos.length - 1,
+        startIndex + Math.ceil(windowHeight / itemHeight) + 3 // Buffer of 3 items
+      );
+
+      setVisibleRange({ start: startIndex, end: endIndex });
+    }
+  };
+
+  // Web-specific intersection observer for more precise lazy loading
+  useEffect(() => {
+    if (Platform.OS !== "web" || !sortedVideos.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const index = parseInt(
+              entry.target.getAttribute("data-index") || "0"
+            );
+            setVisibleRange((prev) => ({
+              start: Math.min(prev.start, index - 2), // Load 2 before
+              end: Math.max(prev.end, index + 3), // Load 3 after
+            }));
+          }
+        });
+      },
+      {
+        rootMargin: "200px 0px", // Start loading 200px before they become visible
+        threshold: 0.1,
+      }
+    );
+
+    // Observe all video cards
+    const cards = document.querySelectorAll("[data-video-index]");
+    cards.forEach((card) => observer.observe(card));
+
+    return () => observer.disconnect();
+  }, [sortedVideos.length]);
+
+  // Load more items when near the end
+  const loadMore = () => {
+    setVisibleRange((prev) => ({
+      start: 0,
+      end: Math.min(sortedVideos.length - 1, prev.end + 5),
+    }));
+  };
 
   if (loading) {
     return (
@@ -282,23 +386,43 @@ export default function GraphQLGallery() {
     );
   }
 
-  const videos = data?.getMyVideos || [];
+  const videos = sortedVideos;
 
   console.log("📹 Gallery Data:", {
     videoCount: videos.length,
-      videos: videos.map((v) => ({ id: v.id, title: v.title })),
+    visibleRange,
+    videos: videos.map((v) => ({ id: v.id, title: v.title })),
   });
+
+  const renderItem = ({ item, index }: { item: any; index: number }) => {
+    const isVisible = index >= visibleRange.start && index <= visibleRange.end;
+    const priority = index < 3; // First 3 items get high priority
+
+    return (
+      <View
+        data-video-index={index} // For web intersection observer
+        style={{ width: numColumns > 1 ? "50%" : "100%" }}
+      >
+        <VideoCard video={item} isVisible={isVisible} priority={priority} />
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
       <FlatList
+        ref={flatListRef}
         key={`flatlist-${numColumns}`}
         data={videos}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <VideoCard video={item} />}
+        renderItem={renderItem}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
         contentContainerStyle={[
           styles.galleryContainer,
-          Platform.OS === "web" && { maxWidth: 1200, marginHorizontal: "auto" },
+          Platform.OS === "web" && { maxWidth: 1000, marginHorizontal: "auto" },
         ]}
         ListHeaderComponent={
           <View style={styles.header}>
@@ -306,6 +430,11 @@ export default function GraphQLGallery() {
             <Text style={styles.headerSubtitle}>
               {videos.length} item{videos.length !== 1 ? "s" : ""} in your
               collection
+              {Platform.OS === "web" &&
+                ` • Showing ${Math.min(
+                  visibleRange.end - visibleRange.start + 1,
+                  videos.length
+                )}`}
             </Text>
           </View>
         }
@@ -318,15 +447,14 @@ export default function GraphQLGallery() {
           </View>
         }
         numColumns={numColumns}
-        columnWrapperStyle={
-          numColumns > 1 ? { justifyContent: "flex-start" } : null
-        }
+        columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : null}
         refreshing={loading}
         onRefresh={refetch}
       />
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -358,51 +486,49 @@ const styles = StyleSheet.create({
   },
   galleryContainer: {
     padding: 1,
-    alignItems: "flex-start", // Center all items in the gallery
+  },
+  columnWrapper: {
+    justifyContent: "space-between",
+    gap: 10,
   },
   videoCard: {
     borderWidth: 1,
     borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 1,
+    borderRadius: 12, // More rounded for larger feel
+    padding: 16, // More padding for larger cards
     backgroundColor: "#f9f9f9",
-    flex: 1,
-    margin: 5,
-    width: "95%", // 95% of screen width
-    alignSelf: "flex-start", // Center each card
-    maxWidth: 800, // Optional: prevent cards from getting too wide on large screens
+    margin: 8, // More margin for separation
+    minHeight: 500, // Minimum height for substantial presence
   },
-  title: {
-    display: "none",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 5,
-    color: "#333",
-    textAlign: "center", // Center title
+  placeholderCard: {
+    minHeight: 200, // Smaller placeholder
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f0f0f0",
   },
-  description: {
-    fontSize: 14,
+  placeholderContent: {
+    alignItems: "center",
+  },
+  placeholderText: {
     color: "#666",
-    marginBottom: 1,
-    textAlign: "center", // Center description
+    fontSize: 14,
   },
+  // ... keep your existing styles but consider increasing sizes for larger cards
   videoPlayer: {
     width: "100%",
-    height: undefined, // Variable height
-    aspectRatio: 16 / 9, // Maintain aspect ratio
+    height: undefined,
+    aspectRatio: 16 / 9,
     backgroundColor: "#000",
-    borderRadius: 4,
-    marginBottom: 1,
-    alignSelf: "flex-start", // Center video player
+    borderRadius: 8, // More rounded
+    marginBottom: 12,
   },
   imagePlayer: {
     width: "100%",
-    height: undefined, // Variable height
-    aspectRatio: 4 / 3, // Maintain aspect ratio
+    height: undefined,
+    aspectRatio: 4 / 3,
     backgroundColor: "#f0f0f0",
     borderRadius: 8,
-    marginBottom: 1,
-    alignSelf: "flex-start", // Center image
+    marginBottom: 12,
   },
   errorText: {
     color: "#721c24",
