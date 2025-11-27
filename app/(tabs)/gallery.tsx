@@ -1,5 +1,5 @@
 // app/media/gallery.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { gql, useQuery } from "@apollo/client";
+import { gql, useQuery, useMutation } from "@apollo/client";
 import WebTorrentPlayer from '../../components/WebTorrentPlayer';
   import WebTorrentImage from '../../components/WebTorrentImage';
 
@@ -248,6 +248,14 @@ const VideoCard = ({ video }: { video: any }) => {
 // Main Gallery Component
 export default function GraphQLGallery() {
   const { width } = useWindowDimensions();
+  const [attachMagnetMutation] = useMutation(gql`
+    mutation AttachMagnet($id: ID!, $magnetLink: String!) {
+      attachMagnet(id: $id, magnetLink: $magnetLink) {
+        id
+        magnetLink
+      }
+    }
+  `);
   const { loading, error, data, refetch } = useQuery(GET_MY_VIDEOS);
 
   const numColumns = Platform.OS === "web" && width > 900 ? 3 : 1;

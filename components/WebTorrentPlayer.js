@@ -74,12 +74,20 @@ export default function WebTorrentPlayer({ video }) {
             ? `
         try {
             console.log('Attempting to add torrent');
-            const torrent = client.add('${magnetLink}');
-            if (window.ReactNativeWebView) {
+            const torrent = client.add('${magnetLink}');          
+  if (window.ReactNativeWebView) {
   window.ReactNativeWebView.postMessage(JSON.stringify({
-    type: 'MAGNET_OK',
-    magnet: torrent.magnetURI
+    type: 'MAGNET_READY',
+    magnet: torrent.magnetURI,
+    fileName: torrent.name,          // torrent object HAS the name
+    fileType: torrent.files[0]?.name?.split('.').pop() || 'unknown'
   }));
+}
+}
+catch (err) {
+  console.error('Torrent failed', err);
+  // fallback to IPFS here if you like
+}
 }
             
             torrent.on('download', (bytes) => {
@@ -190,25 +198,22 @@ export default function WebTorrentPlayer({ video }) {
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 8,
+
     backgroundColor: "#1a1a1a",
-    borderRadius: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#333",
+ 
   },
   iframe: {
-    width: "100%",
+    width: 100,
     height: 450,
     border: "none",
     backgroundColor: "#000",
   },
   fallbackContainer: {
-    marginVertical: 8,
+
     backgroundColor: "#1a1a1a",
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 1,
+
+
+  
     borderColor: "#333",
     alignItems: "center",
   },

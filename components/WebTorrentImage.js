@@ -13,11 +13,11 @@ export default function WebTorrentImage({ image }) {
 
   if (Platform.OS !== "web") {
     return (
-      <View>
-        <Text>
+      <View style={styles.fallbackContainer}>
+        <Text style={styles.fallbackText}>
           P2P Image: {image.fileName || "Image"}
         </Text>
-        <Text>(P2P only available on web)</Text>
+        <Text style={styles.fallbackSubtext}>(P2P only available on web)</Text>
       </View>
     );
   }
@@ -44,6 +44,7 @@ export default function WebTorrentImage({ image }) {
             display: flex;
             flex-direction: column;
             align-items: center;
+            min-height: 400px;
         }
         .image-info { 
             color: #00FF00; 
@@ -106,6 +107,11 @@ export default function WebTorrentImage({ image }) {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .error {
+            color: #ff4444;
+            text-align: center;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -118,12 +124,14 @@ export default function WebTorrentImage({ image }) {
         </div>
         <div class="stats" id="stats">👥 0 peers | 📥 0%</div>
         <img id="imageElement" alt="${image.fileName || "P2P Image"}" />
+        <div id="error" class="error" style="display: none;"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
     <script>
         console.log('🔧 Starting WebTorrent image loader');
         console.log('🔧 Magnet link:', '${magnetLink}');
+        console.log('🔧 CID:', '${cid}');
         
         const client = new WebTorrent();
         const imageElement = document.getElementById('imageElement');
@@ -131,36 +139,75 @@ export default function WebTorrentImage({ image }) {
         const statsElement = document.getElementById('stats');
         const progressFill = document.getElementById('progressFill');
         const spinner = document.getElementById('spinner');
+        const errorElement = document.getElementById('error');
+
+        let torrent = null;
+        let hasLoadedImage = false;
+        let fallbackTimeout = null;
+
+        function showError(message) {
+            console.error('WebTorrent Error:', message);
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            statusElement.textContent = 'Error loading image';
+            spinner.style.display = 'none';
+        }
+
+        function loadFallback() {
+            if (hasLoadedImage) return;
+            
+            ${
+              cid
+                ? `
+            console.log('Using IPFS fallback for image');
+            imageElement.src = 'https://${PINATA_GATEWAY}/ipfs/${cid}';
+            imageElement.style.display = 'block';
+            spinner.style.display = 'none';
+            statusElement.textContent = 'Using IPFS fallback';
+            progressFill.style.width = '100%';
+            hasLoadedImage = true;
+            `
+                : `
+            showError('No image source available');
+            `
+            }
+        }
 
         ${
           magnetLink
             ? `
         try {
             console.log('Attempting to add torrent for image');
-            const torrent = client.add('${magnetLink}');
+            torrent = client.add('${magnetLink}');
+            
+            // Notify React Native if available
             if (window.ReactNativeWebView) {
-  window.ReactNativeWebView.postMessage(JSON.stringify({
-    type: 'MAGNET_OK',
-    magnet: torrent.magnetURI
-  }));
-}
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'MAGNET_READY',
+                    magnet: torrent.magnetURI,
+                    fileName: torrent.name,
+                    fileType: torrent.files[0]?.name?.split('.').pop() || 'unknown'
+                }));
+            }
             
             torrent.on('download', (bytes) => {
                 const percent = Math.round(torrent.progress * 100);
                 progressFill.style.width = percent + '%';
                 statsElement.textContent = '👥 ' + torrent.numPeers + ' peers | 📥 ' + percent + '%';
                 
-                if (percent >= 2) { // Lower threshold for images
+                if (percent >= 2 && !hasLoadedImage) {
                     loadImage();
                 }
                 
                 statusElement.textContent = 'Downloading via P2P: ' + percent + '%';
-                 if (torrent.progress > 0 && !torrent.ws) {
-    const webSeed = '${PINATA_GATEWAY}/ipfs/${cid}';
-    torrent.addWebSeed(webSeed);
-    torrent.ws = true;
-  }
-});
+                
+                // Add web seed if no progress after a bit
+                if (torrent.progress > 0 && !torrent.ws) {
+                    const webSeed = 'https://${PINATA_GATEWAY}/ipfs/${cid}';
+                    torrent.addWebSeed(webSeed);
+                    console.log('Added web seed:', webSeed);
+                    torrent.ws = true;
+                }
             });
 
             torrent.on('done', () => {
@@ -168,16 +215,26 @@ export default function WebTorrentImage({ image }) {
                 spinner.style.display = 'none';
             });
 
+            torrent.on('error', (err) => {
+                console.error('Torrent error:', err);
+                showError('Torrent error: ' + err.message);
+            });
+
             function loadImage() {
+                if (!torrent || !torrent.files.length) {
+                    console.log('No files in torrent yet');
+                    return;
+                }
+                
                 const file = torrent.files.find(f => 
-                    f.name.includes('.jpg') || 
-                    f.name.includes('.jpeg') || 
-                    f.name.includes('.png') || 
-                    f.name.includes('.gif') ||
-                    f.name.includes('.webp')
+                    f.name.endsWith('.jpg') || 
+                    f.name.endsWith('.jpeg') || 
+                    f.name.endsWith('.png') || 
+                    f.name.endsWith('.gif') ||
+                    f.name.endsWith('.webp')
                 );
                 
-                if (file && !window.hasLoadedImage) {
+                if (file && !hasLoadedImage) {
                     console.log('Loading image file:', file.name);
                     
                     file.getBlobURL((err, url) => {
@@ -193,48 +250,35 @@ export default function WebTorrentImage({ image }) {
                         imageElement.onload = () => {
                             spinner.style.display = 'none';
                             statusElement.textContent = '✅ Image loaded via P2P';
+                            hasLoadedImage = true;
+                            if (fallbackTimeout) {
+                                clearTimeout(fallbackTimeout);
+                            }
                         };
                         imageElement.onerror = () => {
-                            statusElement.textContent = '❌ Failed to load image';
-                            spinner.style.display = 'none';
+                            console.log('Image load error, retrying...');
+                            setTimeout(() => loadImage(), 1000);
                         };
-                        window.hasLoadedImage = true;
                     });
                 }
             }
             
-            // Fallback after 8 seconds if no P2P progress
-            setTimeout(() => {
-                if (torrent.progress === 0) {
-                    ${
-                      cid
-                        ? `
-                    console.log('Falling back to IPFS for image');
-                    imageElement.src = 'https://${PINATA_GATEWAY}/ipfs/${cid}';
-                    imageElement.style.display = 'block';
-                    spinner.style.display = 'none';
-                    statusElement.textContent = 'Using IPFS fallback';
-                    `
-                        : "statusElement.textContent = 'No P2P peers found';"
-                    }
+            // Set fallback timeout
+            fallbackTimeout = setTimeout(() => {
+                if (!hasLoadedImage && torrent && torrent.progress === 0) {
+                    console.log('Fallback triggered - no P2P progress');
+                    loadFallback();
                 }
             }, 8000);
             
         } catch (err) {
             console.error('Torrent add failed:', err);
-            ${
-              cid
-                ? `
-            imageElement.src = 'https://${PINATA_GATEWAY}/ipfs/${cid}';
-            imageElement.style.display = 'block';
-            spinner.style.display = 'none';
-            statusElement.textContent = 'P2P failed - using IPFS';
-            `
-                : "statusElement.textContent = 'Failed to load image';"
-            }
+            showError('Failed to start torrent: ' + err.message);
+            loadFallback();
         }
         `
             : `
+        // No magnet link, use IPFS directly
         ${
           cid
             ? `
@@ -244,18 +288,44 @@ export default function WebTorrentImage({ image }) {
         spinner.style.display = 'none';
         statusElement.textContent = 'Loaded from IPFS';
         progressFill.style.width = '100%';
+        hasLoadedImage = true;
         `
-            : "statusElement.textContent = 'No image source available';"
+            : `
+        showError('No magnet link or CID provided');
+        `
         }
         `
         }
+        
+        // Cleanup function
+        window.cleanupTorrent = function() {
+            if (torrent) {
+                client.remove(torrent);
+            }
+            if (fallbackTimeout) {
+                clearTimeout(fallbackTimeout);
+            }
+        };
     </script>
 </body>
 </html>
   `;
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (iframeRef.current && iframeRef.current.contentWindow) {
+        try {
+          iframeRef.current.contentWindow.cleanupTorrent?.();
+        } catch (err) {
+          console.log("Cleanup error:", err);
+        }
+      }
+    };
+  }, []);
+
   return (
-    <View>
+    <View style={styles.container}>
       <iframe
         ref={iframeRef}
         srcDoc={htmlContent}
@@ -271,37 +341,34 @@ const styles = StyleSheet.create({
   container: {
     marginVertical: 8,
     backgroundColor: "#1a1a1a",
-    borderRadius: 12,
     overflow: "hidden",
-    borderWidth: 1,
     borderColor: "#333",
-    width: "95%",
-    alignSelf: "center",
+    width: "100%",
+    borderRadius: 8,
   },
   iframe: {
     width: "100%",
-    height: 500, // Slightly taller to accommodate image loading states
+    height: 500,
     border: "none",
     backgroundColor: "#000",
   },
   fallbackContainer: {
-    marginVertical: 8,
     backgroundColor: "#1a1a1a",
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 1,
     borderColor: "#333",
-    alignItems: "center",
-    width: "95%",
+    padding: 16,
+    borderRadius: 8,
+    width: "100%",
     alignSelf: "center",
   },
   fallbackText: {
     color: "#FFFFFF",
     fontSize: 14,
     marginBottom: 5,
+    textAlign: "center",
   },
   fallbackSubtext: {
     color: "#888",
     fontSize: 12,
+    textAlign: "center",
   },
 });
