@@ -223,6 +223,29 @@ const formatTimestamp = (timestamp) => {
     return "Now";
   }
 };
+const getProfilePhotoUrl = (profilePhoto) => {
+  if (!profilePhoto) {
+    return "https://via.placeholder.com/40";
+  }
+
+  // If it's already a full URL (http:// or https://), use it directly
+  if (profilePhoto.startsWith("http")) {
+    return profilePhoto;
+  }
+
+  // If it's a blob URL, use it directly (backward compatibility)
+  if (profilePhoto.startsWith("blob:")) {
+    return profilePhoto;
+  }
+
+  // If it's an IPFS CID (starts with Qm or bafy), construct the IPFS URL
+  if (profilePhoto.startsWith("Qm") || profilePhoto.startsWith("baf")) {
+    return `https://${PINATA_GATEWAY}/ipfs/${profilePhoto}`;
+  }
+
+  // If it's just a string that doesn't match above, assume it's a CID
+  return `https://${PINATA_GATEWAY}/ipfs/${profilePhoto}`;
+};
 
 const handleFilePress = (message) => {
   if (message.fileUrl) {
@@ -640,15 +663,18 @@ export default function NeighborhoodChatScreen() {
                 await navigator.clipboard.writeText(torrent.magnetURI);
 
                 // Send to neighborhood chat
-                await sendMessageMutation({
-                  variables: {
-                    content: "🔴 Live Neighborhood Stream",
-                    neighborhoodId: neighborhoodId,
-                    magnetLink: torrent.magnetURI,
-                    fileName: `neighborhood-stream-${Date.now()}.webm`,
-                    fileType: "video",
-                  },
-                });
+            await sendMessageMutation({
+              variables: {
+                content: "🔴 Live Neighborhood Stream",
+                neighborhoodId: neighborhoodId,
+                magnetLink: torrent.magnetURI,
+                fileName: `neighborhood-stream-${Date.now()}.webm`,
+                fileType: "video",
+                // Add these for better display:
+                videoUrl: null, // Force use of magnet link
+                imageUrl: null,
+              },
+            });
 
                 Alert.alert(
                   "Stream Shared!",
@@ -768,10 +794,17 @@ export default function NeighborhoodChatScreen() {
           <View style={styles.messageContainer} key={item.id}>
             <Image
               source={{
-                uri:
-                  item.sender?.profilePhoto || "https://via.placeholder.com/40",
+                uri: getProfilePhotoUrl(item.sender?.profilePhoto),
               }}
               style={styles.profileImage}
+              onError={(e) => {
+                console.log(
+                  "Profile photo load failed for:",
+                  item.sender?.profilePhoto
+                );
+                // Fallback to placeholder
+                e.currentTarget.src = "https://via.placeholder.com/40";
+              }}
             />
             <View style={styles.messageContent}>
               <Text style={styles.username}>

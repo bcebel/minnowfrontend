@@ -13,7 +13,11 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "components/Chat.js",
-    "app/(tabs)/Home.js",
-    "components/ImagePicker.js"
-, "app/webcamponent.js", "app/(tabs)/webcam.tsx", "app/(tabs)/index.tsx", "components/WebTorrentPlayer.js"  ]
+    "app/home.js",
+    "components/ImagePicker.js",
+    "app/webcamponent.js",
+    "app/(tabs)/webcam.tsx",
+    "app/(tabs)/index.tsx",
+    "components/WebTorrentPlayer.js"
+  ]
 }

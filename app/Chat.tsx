@@ -21,7 +21,7 @@ import { io, Socket } from "socket.io-client";
 import { gql, useQuery, useMutation } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
-import WebTorrentWebView from "../../components/WebTorrentPlayer";
+import WebTorrentWebView from "../components/WebTorrentPlayer";
 
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 

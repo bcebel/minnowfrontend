@@ -71,7 +71,7 @@ const RegistrationScreen = () => {
           "Welcome!",
           `🎉 Welcome to the club, ${user.username}! You've been automatically logged in.`
         );
-        router.replace("/(tabs)/Chat"); // Use replace so they can't go back to registration
+        router.replace("/(tabs)/neighborhoods"); // Use replace so they can't go back to registration
       } else {
         // Handle GraphQL errors
         const errorMessage =

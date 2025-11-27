@@ -63,20 +63,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => null,
         }}
       />
-      <Tabs.Screen
-        name="Chat"
-        options={{
-          title: "📢",
-          tabBarIcon: ({ color }) => null,
-        }}
-      />
-      <Tabs.Screen
-        name="Home"
-        options={{
-          title: "🏠",
-          tabBarIcon: ({ color }) => null,
-        }}
-      />
+
     </Tabs>
   );
 }
