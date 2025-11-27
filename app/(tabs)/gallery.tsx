@@ -164,16 +164,20 @@ const VideoCard = ({
   video,
   isVisible,
   priority,
+  inBuffer,
+  isFocused,
 }: {
   video: any;
   isVisible: boolean;
   priority: boolean;
+  inBuffer: boolean;
+  isFocused: boolean;
 }) => {
   const [imageError, setImageError] = useState(false);
   const [shouldLoad, setShouldLoad] = useState(priority); // High priority items load immediately
 
   useEffect(() => {
-    if (isVisible && !shouldLoad) {
+    if ((isVisible || inBuffer) && !shouldLoad) {
       setShouldLoad(true);
     }
   }, [isVisible]);
@@ -238,9 +242,9 @@ const VideoCard = ({
 
       {video.magnetLink ? (
         fileType === "video" ? (
-          <WebTorrentPlayer video={video} />
+          <WebTorrentPlayer video={video} isFocused={isFocused} />
         ) : (
-          <WebTorrentImage image={video} />
+          <WebTorrentImage image={video} isFocused={isFocused} />
         )
       ) : fileType === "video" ? (
         <VideoPlayer url={mediaUrl} />
@@ -318,7 +322,7 @@ export default function GraphQLGallery() {
       const startIndex = Math.max(0, Math.floor(scrollY / itemHeight) - 1);
       const endIndex = Math.min(
         sortedVideos.length - 1,
-        startIndex + Math.ceil(windowHeight / itemHeight) + 3 // Buffer of 3 items
+        startIndex + Math.ceil(windowHeight / itemHeight) +25 // Buffer of 3 items
       );
 
       setVisibleRange({ start: startIndex, end: endIndex });
@@ -396,6 +400,10 @@ export default function GraphQLGallery() {
 
   const renderItem = ({ item, index }: { item: any; index: number }) => {
     const isVisible = index >= visibleRange.start && index <= visibleRange.end;
+    const isFocused =
+      index >= visibleRange.start && index <= visibleRange.start + 2;
+    const inBuffer =
+      index >= visibleRange.start - 5 && index <= visibleRange.end + 15; // Define a wider range here
     const priority = index < 3; // First 3 items get high priority
 
     return (
@@ -403,7 +411,14 @@ export default function GraphQLGallery() {
         data-video-index={index} // For web intersection observer
         style={{ width: numColumns > 1 ? "50%" : "100%" }}
       >
-        <VideoCard video={item} isVisible={isVisible} priority={priority} />
+        <VideoCard
+          video={item}
+          isVisible={isVisible}
+          priority={priority}
+          inBuffer={inBuffer}
+          isFocused={isFocused}
+          
+        />
       </View>
     );
   };

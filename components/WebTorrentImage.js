@@ -75,7 +75,7 @@ export default function WebTorrentImage({ image }) {
         <span id="peers">👥 0</span>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+
     
     <script>
         // -- DOM ELEMENTS --
@@ -197,6 +197,29 @@ export default function WebTorrentImage({ image }) {
         } catch (e) {
             forceHttpFallback('Script Error: ' + e.message);
         }
+            function playVideo() { // Renamed from loadImage for consistency
+                    if (isLoaded) return;
+                    
+                    const file = torrent.files.find(f => f.name.match(/\\.(jpg|jpeg|png|gif|webp)$/i));
+                    if (file) {
+                        isLoaded = true;
+                        
+                        file.renderTo(imgEl, (err, elem) => {
+                            if (err) {
+                                console.error("RenderTo error:", err);
+                                isLoaded = false;
+                                return;
+                            }
+                            imgEl.style.display = 'block';
+                            statusElement.textContent = '🖼️ Now streaming - ' + torrent.numPeers + ' peers';
+                            
+                            // *** NEW: Send message to parent that P2P succeeded ***
+                            if (window.parent && window.parent.postMessage) {
+                                window.parent.postMessage(JSON.stringify({ type: 'P2P_LOAD_SUCCESS', id: '${image.id}' }), '*');
+                            }
+                        });
+                    }
+                }
     </script>
 </body>
 </html>

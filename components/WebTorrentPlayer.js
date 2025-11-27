@@ -2,8 +2,9 @@ import React, { useEffect, useRef } from "react";
 import { Platform, View, StyleSheet, Text } from "react-native";
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
-export default function WebTorrentPlayer({ video }) {
+export default function WebTorrentPlayer({ video, isFocused }) {
   const iframeRef = useRef(null);
+  const [loadedViaP2P, setLoadedViaP2P] = useState(false);
 
   console.log("🔧 WebTorrentPlayer video prop:", {
     magnetLink: video.magnetLink,
@@ -29,6 +30,31 @@ export default function WebTorrentPlayer({ video }) {
   const magnetLink = video.magnetLink || video.ipfsData?.magnetLink;
 
   console.log("🔧 Extracted values:", { cid, magnetLink });
+  useEffect(() => {
+    // Only set up listener if on web and iframe is ready
+    if (Platform.OS === "web" && iframeRef.current) {
+      const handleMessage = (event) => {
+        // Ensure message comes from our iframe and is the correct type
+        if (event.source === iframeRef.current.contentWindow) {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "P2P_LOAD_SUCCESS" && data.id === video.id) {
+              setLoadedViaP2P(true);
+              console.log(`✅ Video ${video.id} loaded via P2P!`);
+            }
+          } catch (e) {
+            console.warn("Failed to parse iframe message:", e);
+          }
+        }
+      };
+
+      window.addEventListener("message", handleMessage);
+
+      return () => {
+        window.removeEventListener("message", handleMessage);
+      };
+    }
+  }, [video.id]);
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -55,129 +81,155 @@ export default function WebTorrentPlayer({ video }) {
     </div>
     <div class="stats" id="stats">👥 0 peers | 📥 0%</div>
     <video id="videoPlayer" controls style="display:none;"></video>
-
-    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-    <script>
-        console.log('🔧 Starting WebTorrent player');
-        console.log('🔧 Magnet link:', '${magnetLink}');
-        console.log('🔧 Magnet link length:', '${magnetLink}'.length);
-        console.log('🔧 Magnet link starts with magnet:?', '${magnetLink}'.startsWith('magnet:?'));
-        
-        const client = new WebTorrent();
+ <script>
+        // --- Setup ---
         const videoElement = document.getElementById('videoPlayer');
         const statusElement = document.getElementById('status');
         const statsElement = document.getElementById('stats');
         const progressFill = document.getElementById('progressFill');
 
-        ${
-          magnetLink
-            ? `
-        try {
-            console.log('Attempting to add torrent');
-            const torrent = client.add('${magnetLink}');          
-  if (window.ReactNativeWebView) {
-  window.ReactNativeWebView.postMessage(JSON.stringify({
-    type: 'MAGNET_READY',
-    magnet: torrent.magnetURI,
-    fileName: torrent.name,          // torrent object HAS the name
-    fileType: torrent.files[0]?.name?.split('.').pop() || 'unknown'
-  }));
-}
-}
-catch (err) {
-  console.error('Torrent failed', err);
-  // fallback to IPFS here if you like
-}
-}
+        const magnet = '${magnetLink}';
+        const cid = '${cid}';
+        const webSeedUrl = 'https://${PINATA_GATEWAY}/ipfs/' + cid;
+
+        let torrent = null;
+        let isLoaded = false;
+        
+        // Function to force IPFS fallback
+        function forceHttpFallback(reason) {
+            if (isLoaded) return;
+            isLoaded = true;
+            statusElement.textContent = 'Using IPFS fallback: ' + reason;
+            videoElement.src = webSeedUrl;
+            videoElement.style.display = 'block';
+            progressFill.style.width = '100%';
             
-            torrent.on('download', (bytes) => {
-                const percent = Math.round(torrent.progress * 100);
-                progressFill.style.width = percent + '%';
-                statsElement.textContent = '👥 ' + torrent.numPeers + ' peers | 📥 ' + percent + '%';
+            // Clean up if torrent was initialized
+            if (torrent) torrent.destroy(); 
+        }
+
+        // 1. Get Global Client from Parent Window
+        let client;
+        try {
+            client = window.parent.globalWebTorrentClient;
+            if (!client) throw new Error("Global client not found.");
+            console.log('🔗 Connected to global WebTorrent client.');
+        } catch (e) {
+            console.error('Failed to access global client. Using local.', e);
+            // Fallback: If global client access fails, create a new local one.
+            client = new WebTorrent(); 
+        }
+
+
+        // 2. TIMEOUT SAFETY NET
+        setTimeout(() => {
+            if (!isLoaded) {
+                forceHttpFallback('P2P Timeout (8s)');
+            }
+        }, 8000); // Increased timeout slightly for video
+
+        // 3. ADD TORRENT
+        if (magnet && client) {
+            try {
+                torrent = client.get(magnet);
                 
-                if (percent >= 5) {
-                    playVideo();
+                if (torrent) {
+                    console.log("Torrent already added to global client.");
+                } else {
+                    console.log("Adding new torrent to global client.");
+                    torrent = client.add(magnet);
+                }
+
+                // If not already added (e.g., first client to request this)
+                if (cid) {
+                    torrent.addWebSeed(webSeedUrl); // Ensure reliable WebSeed
                 }
                 
-                statusElement.textContent = 'Downloading: ' + percent + '%';
-                 if (torrent.progress > 0 && !torrent.ws) {
-    const webSeed = '${PINATA_GATEWAY}/ipfs/${cid}';
-    torrent.addWebSeed(webSeed);
-    torrent.ws = true;  
-  }
-});
-            });
+                torrent.on('download', (bytes) => {
+                    const percent = Math.round(torrent.progress * 100);
+                    progressFill.style.width = percent + '%';
+                    statsElement.textContent = '👥 ' + torrent.numPeers + ' peers | 📥 ' + percent + '%';
+                    statusElement.textContent = 'Downloading: ' + percent + '%';
+                    
+                    if (percent >= 1) { // Start streaming as soon as 1% is buffered
+                        playVideo();
+                    }
+                });
 
-            torrent.on('done', () => {
-                statusElement.textContent = 'Complete! Seeding to ' + torrent.numPeers + ' peers';
-            });
+                torrent.on('done', () => {
+                    statusElement.textContent = 'Complete! Seeding to ' + torrent.numPeers + ' peers';
+                    if (!isLoaded) playVideo();
+                });
+                
+                torrent.on('error', (err) => {
+                    console.error('Torrent error:', err);
+                    forceHttpFallback('Torrent Error: ' + err.message);
+                });
 
-    function playVideo() {
-    const file = torrent.files.find(f => f.name.includes('.mp4') || f.name.includes('.mov'));
-    if (file) {
-        console.log('Playing video file via blob URL:', file.name);
-        
-        // Use blob URL instead of direct rendering
-        file.getBlobURL((err, url) => {
-            if (err) {
-                console.log('Blob URL error (will retry):', err.message);
-                setTimeout(() => playVideo(), 1000);
-                return;
-            }
-            
-            console.log('Blob URL created, playing video');
-            videoElement.src = url;
-            videoElement.style.display = 'block';
-            hasStartedPlaying = true;
-            statusElement.textContent = '🎬 Now playing - ' + torrent.numPeers + ' peers';
-            
-            videoElement.play().catch(e => {
-                console.log('Autoplay blocked, waiting for user interaction');
-            });
-        });
-    }
-}
-            setTimeout(() => {
-                if (torrent.progress === 0) {
-                    ${
-                      cid
-                        ? `
-                    console.log('Falling back to IPFS');
-                    videoElement.src = 'https://${PINATA_GATEWAY}/ipfs/${cid}';
-                    videoElement.style.display = 'block';
-                    statusElement.textContent = 'Using IPFS fallback';
-                    `
-                        : "statusElement.textContent = 'No progress - waiting for peers';"
+                function playVideo() {
+                    if (isLoaded) return;
+                    
+                    const file = torrent.files.find(f => f.name.match(/\.(mp4|mov|webm|ogg)$/i));
+                    if (file) {
+                        isLoaded = true;
+                        
+                        // Use renderTo for streaming, similar to the image component
+                        file.renderTo(videoElement, (err, elem) => {
+                            if (err) {
+                                console.error("RenderTo error:", err);
+                                isLoaded = false;
+                                return;
+                            }
+                            videoElement.style.display = 'block';
+                            statusElement.textContent = '🎬 Now playing - ' + torrent.numPeers + ' peers';
+                            videoElement.play().catch(e => {
+                                console.log('Autoplay blocked');
+                            });
+                        });
                     }
                 }
-            }, 10000);
-        } catch (err) {
-            console.error('Torrent add failed:', err);
-            ${
-              cid
-                ? `
-            videoElement.src = 'https://${PINATA_GATEWAY}/ipfs/${cid}';
-            videoElement.style.display = 'block';
-            statusElement.textContent = 'Using IPFS fallback';
-            `
-                : "statusElement.textContent = 'Failed to load video';"
+            } catch (err) {
+                console.error('Torrent operation failed:', err);
+                forceHttpFallback('Client Add Failed');
             }
+        } else {
+            forceHttpFallback('No magnet link or client');
         }
-        `
-            : `
-        ${
-          cid
-            ? `
-        console.log('Using direct IPFS');
-        videoElement.src = 'https://${PINATA_GATEWAY}/ipfs/${cid}';
-        videoElement.style.display = 'block';
-        statusElement.textContent = 'Streaming from IPFS';
-        progressFill.style.width = '100%';
-        `
-            : "statusElement.textContent = 'No video source available';"
-        }
-        `
-        }
+
+        // Cleanup function for unmount
+        window.cleanup = function() {
+            // Note: We don't destroy the torrent from the client, as it may be needed by another component.
+            // We just clear the local video element references.
+            torrent = null;
+        };
+function playVideo() {
+                    if (isLoaded) return;
+                    
+                    const file = torrent.files.find(f => f.name.match(/\.(mp4|mov|webm|ogg)$/i));
+                    if (file) {
+                        isLoaded = true;
+                        
+                        file.renderTo(videoElement, (err, elem) => {
+                            if (err) {
+                                console.error("RenderTo error:", err);
+                                isLoaded = false;
+                                return;
+                            }
+                            videoElement.style.display = 'block';
+                            statusElement.textContent = '🎬 Now playing - ' + torrent.numPeers + ' peers';
+                            videoElement.play().catch(e => {
+                                console.log('Autoplay blocked');
+                            });
+
+                            // *** NEW: Send message to parent that P2P succeeded ***
+                            if (window.parent && window.parent.postMessage) {
+                                window.parent.postMessage(JSON.stringify({ type: 'P2P_LOAD_SUCCESS', id: '${
+                                  video.id
+                                }' }), '*');
+                            }
+                        });
+                    }
+                }
     </script>
 </body>
 </html>
@@ -188,8 +240,11 @@ catch (err) {
       <iframe
         ref={iframeRef}
         srcDoc={htmlContent}
-        style={styles.iframe}
-        sandbox="allow-scripts allow-same-origin"
+        style={[
+          styles.iframe,
+          loadedViaP2P && styles.p2pIframeBorder, // Apply conditional style
+        ]}
+        sandbox="allow-scripts allow-same-origin allow-forms"
         title={`WebTorrent Player - ${video.fileName || "Video"}`}
       />
     </View>
@@ -198,22 +253,22 @@ catch (err) {
 
 const styles = StyleSheet.create({
   container: {
-
     backgroundColor: "#1a1a1a",
- 
   },
   iframe: {
-    width: 100,
+    width: "100%",
     height: 450,
     border: "none",
     backgroundColor: "#000",
   },
+  p2pIframeBorder: {
+    borderColor: "#00FF00", // Green border
+    borderWidth: 2,
+    boxShadow: "0 0 15px rgba(0, 255, 0, 0.6)", // Subtle glow
+  },
   fallbackContainer: {
-
     backgroundColor: "#1a1a1a",
 
-
-  
     borderColor: "#333",
     alignItems: "center",
   },
