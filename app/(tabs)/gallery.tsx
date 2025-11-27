@@ -483,40 +483,43 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   header: {
-    padding: 2,
+    padding: 20, // More padding
     alignItems: "center",
     backgroundColor: "#f8f9fa",
     borderBottomWidth: 1,
     borderBottomColor: "#dee2e6",
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 32, // Larger title
     fontWeight: "bold",
     marginBottom: 8,
     color: "#333",
   },
   headerSubtitle: {
-    fontSize: 16,
+    fontSize: 18, // Larger subtitle
     color: "#666",
   },
   galleryContainer: {
-    padding: 1,
+    padding: 16, // More padding
   },
   columnWrapper: {
     justifyContent: "space-between",
-    gap: 10,
+    gap: 16, // More gap between cards
   },
   videoCard: {
     borderWidth: 1,
     borderColor: "#ccc",
-    borderRadius: 12, // More rounded for larger feel
-    padding: 16, // More padding for larger cards
+    borderRadius: 16, // More rounded
+    padding: 20, // More padding
     backgroundColor: "#f9f9f9",
-    margin: 8, // More margin for separation
-    minHeight: 500, // Minimum height for substantial presence
+    margin: 12, // More margin
+    minHeight: 600, // Even larger minimum height
+    width: "100%", // Full width
+    maxWidth: 1000, // Maximum card width
+    alignSelf: "center", // Center cards
   },
   placeholderCard: {
-    minHeight: 200, // Smaller placeholder
+    minHeight: 300, // Larger placeholder
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f0f0f0",
@@ -526,142 +529,140 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     color: "#666",
-    fontSize: 14,
+    fontSize: 16, // Larger text
   },
-  // ... keep your existing styles but consider increasing sizes for larger cards
+  // LARGER MEDIA IN GALLERY
   videoPlayer: {
     width: "100%",
     height: undefined,
     aspectRatio: 16 / 9,
     backgroundColor: "#000",
-    borderRadius: 8, // More rounded
-    marginBottom: 12,
+    borderRadius: 12,
+    marginBottom: 16,
   },
   imagePlayer: {
     width: "100%",
     height: undefined,
     aspectRatio: 4 / 3,
     backgroundColor: "#f0f0f0",
-    borderRadius: 8,
-    marginBottom: 12,
+    borderRadius: 12,
+    marginBottom: 16,
   },
   errorText: {
     color: "#721c24",
     backgroundColor: "#f8d7da",
-    padding: 1,
-    borderRadius: 5,
-    margin: 10,
+    padding: 12, // More padding
+    borderRadius: 8,
+    margin: 12,
     textAlign: "center",
+    fontSize: 14, // Larger text
   },
   errorDetail: {
     color: "#856404",
-    fontSize: 12,
+    fontSize: 14, // Larger text
     textAlign: "center",
-    marginTop: 5,
-    marginBottom: 10,
+    marginTop: 8,
+    marginBottom: 12,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 12,
     color: "#007AFF",
-    fontSize: 16,
+    fontSize: 18, // Larger text
   },
   documentContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f8f9fa",
-    padding: 1.5,
-    borderRadius: 8,
+    padding: 16, // More padding
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#e9ecef",
-    marginBottom: 1,
-    width: "100%", // Full width of card
-    alignSelf: "center", // Center document container
+    marginBottom: 12,
+    width: "100%",
+    alignSelf: "center",
   },
   documentIcon: {
-    fontSize: 24,
-    marginRight: 12,
+    fontSize: 32, // Larger icon
+    marginRight: 16,
   },
   documentInfo: {
     flex: 1,
   },
   documentTitle: {
-    fontSize: 16,
+    fontSize: 18, // Larger title
     fontWeight: "bold",
     color: "#212529",
-    marginBottom: 4,
-    textAlign: "center", // Center document title
+    marginBottom: 6,
+    textAlign: "center",
   },
   documentSubtext: {
-    fontSize: 12,
+    fontSize: 14, // Larger text
     color: "#6c757d",
-    textAlign: "center", // Center document subtext
+    textAlign: "center",
   },
   fileTypeBadge: {
-    display: "none",
     backgroundColor: "#e3f2fd",
-    paddingHorizontal: 1,
-    paddingVertical: 1,
-    borderRadius: 4,
-    alignSelf: "center", // Center badge
-    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignSelf: "center",
+    marginBottom: 12,
   },
   fileTypeText: {
-    display: "none",
-    fontSize: 10,
+    fontSize: 12,
     color: "#1565c0",
     fontWeight: "bold",
   },
   metadata: {
-    marginTop: 1,
-    paddingTop: 1,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: "#eee",
-    alignItems: "center", // Center metadata
+    alignItems: "center",
   },
   userInfo: {
-    fontSize: 12,
+    fontSize: 14, // Larger text
     color: "#666",
-    marginBottom: 2,
-    textAlign: "center", // Center user info
+    marginBottom: 4,
+    textAlign: "center",
   },
   neighborhoodInfo: {
-    display: "none",
-    fontSize: 12,
+    fontSize: 14, // Larger text
     color: "#666",
-    marginBottom: 2,
-    textAlign: "center", // Center neighborhood info
+    marginBottom: 4,
+    textAlign: "center",
   },
   timestamp: {
-    display: "none",
-    fontSize: 12,
+    fontSize: 14, // Larger text
     color: "#999",
-    textAlign: "center", // Center timestamp
+    textAlign: "center",
   },
   emptyContainer: {
     alignItems: "center",
-    padding: 40,
-    width: "100%", // Full width for empty state
+    padding: 60, // More padding
+    width: "100%",
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 24, // Much larger
     color: "#666",
-    marginBottom: 8,
+    marginBottom: 12,
     textAlign: "center",
   },
   emptySubtext: {
-    fontSize: 14,
+    fontSize: 18, // Larger
     color: "#999",
     textAlign: "center",
   },
   retryButton: {
     backgroundColor: "#007AFF",
-    padding: 12,
+    padding: 16, // More padding
     borderRadius: 8,
-    marginTop: 10,
-    alignSelf: "center", // Center retry button
+    marginTop: 12,
+    alignSelf: "center",
   },
   retryText: {
     color: "white",
     fontWeight: "bold",
+    fontSize: 16, // Larger text
   },
 });

@@ -141,18 +141,21 @@ export default function WebTorrentImage({ image, isFocused }) {
 
 const styles = StyleSheet.create({
   container: {
-    width: "100%",
-    height: 300,
+    width: "100%", // Take full available width
+    maxWidth: 800, // Maximum size
     backgroundColor: "#000",
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: "hidden",
+    alignSelf: "center", // Center in parent
   },
   image: {
     width: "100%",
-    height: "100%",
+    height: undefined,
+    aspectRatio: 4 / 3, // Maintain aspect ratio
+    minHeight: 300, // Minimum height
   },
   placeholder: {
-    flex: 1,
+    height: 400, // Larger placeholder
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#111",
@@ -160,10 +163,11 @@ const styles = StyleSheet.create({
   status: {
     color: "#fff",
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 12,
+    fontSize: 16,
   },
   progress: {
     color: "#888",
-    fontSize: 12,
+    fontSize: 14,
   },
 });

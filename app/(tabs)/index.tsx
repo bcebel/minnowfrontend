@@ -10,6 +10,12 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { themes } from "../theme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+  const router = useRouter();
+  const handleLogout = async () => {
+    await AsyncStorage.multiRemove(["token", "username"]);
+    router.replace("/login");
+  };
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -60,48 +66,71 @@ export default function HomeScreen() {
               Sign In
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleLogout}
+            style={[
+              styles.secondaryButton,
+              { backgroundColor: theme.accents.apple },
+            ]}
+          >
+            <Text
+              style={[styles.logoutButtonText, { color: theme.background }]}
+            >
+              Logout
+            </Text>
+          </TouchableOpacity>
         </View>
-                       <ImageBackground
-          source={require("@/assets/images/pexels-pixabay-270873.jpg")} resizeMode="cover" style={styles.footerBubbles}>
-        <View
-          style={styles.features} >
-          {/* Your feature items */}
+        <ImageBackground
+          source={require("@/assets/images/pexels-pixabay-270873.jpg")}
+          resizeMode="cover"
+          style={styles.footerBubbles}
+        >
+          <View style={styles.features}>
+            {/* Your feature items */}
 
-          <View style={styles.featureItem}>
-       
-            <Text
-              style={[styles.heroSubtitle, { backgroundColor: accents.banana }]}
-            >
-              🫧 its poppin in here 🫧
-            </Text>
-            <Text
-              style={[styles.heroTagline, { backgroundColor: accents.storm }]}
-            >
-              🫧 bubbly & based 🫧
-            </Text>
-            <Text
-              style={[styles.heroSubtitle, { backgroundColor: accents.banana }]}
-            >
-              🫧 Network with and for your peers 🫧
-            </Text>
-            <Text
-              style={[styles.heroTagline, { backgroundColor: accents.storm }]}
-            >
-              🫧 leave big tech out of YOUR bubble 🫧
-            </Text>
-            <Text
-              style={[styles.heroSubtitle, { backgroundColor: accents.banana }]}
-            >
-              🫧 its a big club... and you're in it 🫧
-            </Text>
-            <Text
-              style={[styles.heroTagline, { backgroundColor: accents.storm }]}
-            >
-              🫧 bubble up 🫧
-            </Text>
+            <View style={styles.featureItem}>
+              <Text
+                style={[
+                  styles.heroSubtitle,
+                  { backgroundColor: accents.banana },
+                ]}
+              >
+                🫧 its poppin in here 🫧
+              </Text>
+              <Text
+                style={[styles.heroTagline, { backgroundColor: accents.storm }]}
+              >
+                🫧 bubbly & based 🫧
+              </Text>
+              <Text
+                style={[
+                  styles.heroSubtitle,
+                  { backgroundColor: accents.banana },
+                ]}
+              >
+                🫧 Network with and for your peers 🫧
+              </Text>
+              <Text
+                style={[styles.heroTagline, { backgroundColor: accents.storm }]}
+              >
+                🫧 leave big tech out of YOUR bubble 🫧
+              </Text>
+              <Text
+                style={[
+                  styles.heroSubtitle,
+                  { backgroundColor: accents.banana },
+                ]}
+              >
+                🫧 its a big club... and you're in it 🫧
+              </Text>
+              <Text
+                style={[styles.heroTagline, { backgroundColor: accents.storm }]}
+              >
+                🫧 bubble up 🫧
+              </Text>
+            </View>
           </View>
-        </View>
-      </ImageBackground>
+        </ImageBackground>
       </ScrollView>
     </View>
   );

@@ -21,6 +21,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentWebView from "../../components/WebTorrentPlayer";
+
 const safeFileName = (asset) =>
   asset.name || asset.fileName || asset.uri.split("/").pop() || "media";
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
@@ -954,12 +955,12 @@ const styles = StyleSheet.create({
   username: {
     fontWeight: "bold",
     color: "#00FF00",
-    marginBottom: 4,
+    marginBottom: 8,
     fontSize: 14,
   },
   messageText: {
     color: "#FFFFFF",
-    marginBottom: 6,
+    marginBottom: 8,
     fontSize: 16,
     lineHeight: 20,
   },
@@ -968,38 +969,44 @@ const styles = StyleSheet.create({
     color: "#00AA00",
     opacity: 0.7,
   },
+  // LARGER MEDIA STYLES
   messageImage: {
-    width: 200,
-    height: 150,
-    borderRadius: 8,
-    marginBottom: 6,
+    width: "100%", // Will be controlled by parent
+    maxWidth: 800, // Maximum size on large screens
+    height: undefined,
+    aspectRatio: 4 / 3, // Maintain aspect ratio
+    borderRadius: 12,
+    marginBottom: 8,
+    alignSelf: "center", // Center the media
   },
   fileContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#222222",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 6,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: "#333333",
+    maxWidth: 600, // Limit file container width
+    alignSelf: "center",
   },
   fileIcon: {
-    fontSize: 24,
-    marginRight: 12,
+    fontSize: 28,
+    marginRight: 16,
   },
   fileInfo: {
     flex: 1,
   },
   fileName: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "bold",
     marginBottom: 4,
   },
   fileType: {
     color: "#00AA00",
-    fontSize: 12,
+    fontSize: 14,
   },
   inputContainer: {
     flexDirection: "row",
@@ -1080,21 +1087,26 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "bold",
   },
-  // Video Player Styles
+  // LARGER VIDEO PLAYER STYLES
   videoContainer: {
-    marginBottom: 6,
-    borderRadius: 8,
+    marginBottom: 8,
+    borderRadius: 12,
     overflow: "hidden",
+    width: "100%", // Full width of message container
+    maxWidth: 800, // Maximum size on large screens
+    alignSelf: "center", // Center in message
   },
   videoPlayer: {
     width: "100%",
-    height: 200,
+    height: undefined,
+    aspectRatio: 16 / 9, // Standard video aspect ratio
     backgroundColor: "#000",
   },
   videoCaption: {
     color: "#FFFFFF",
-    fontSize: 12,
-    marginTop: 4,
-    paddingHorizontal: 4,
+    fontSize: 14,
+    marginTop: 8,
+    paddingHorizontal: 8,
+    textAlign: "center",
   },
 });

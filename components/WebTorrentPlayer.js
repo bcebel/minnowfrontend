@@ -209,30 +209,35 @@ export default function WebTorrentPlayer({ video, isFocused }) {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "#000",
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: "hidden",
-    marginBottom: 8,
+    marginBottom: 12,
+    width: "100%", // Take full width available
+    maxWidth: 800, // But don't get too huge
+    alignSelf: "center", // Center in parent
   },
   videoWrapper: {
     position: "relative",
   },
   video: {
     width: "100%",
-    height: 200,
+    height: undefined,
+    aspectRatio: 16 / 9, // Standard video aspect ratio
     backgroundColor: "#000",
+    minHeight: 300, // Minimum height for visibility
   },
   controls: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    padding: 12,
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
   },
   controlButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    minWidth: 60,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    minWidth: 80,
     alignItems: "center",
   },
   playButton: {
@@ -244,61 +249,61 @@ const styles = StyleSheet.create({
   controlButtonText: {
     color: "#000",
     fontWeight: "bold",
-    fontSize: 12,
+    fontSize: 14,
   },
   statusInfo: {
     alignItems: "flex-end",
   },
   statusText: {
     color: "#FFF",
-    fontSize: 12,
+    fontSize: 14,
   },
   peerText: {
     color: "#00FF00",
-    fontSize: 10,
+    fontSize: 12,
   },
   loadingContainer: {
-    height: 200,
+    height: 400, // Larger loading area
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#111",
-    padding: 16,
+    padding: 20,
   },
   status: {
     color: "#FFF",
     textAlign: "center",
-    marginBottom: 8,
-    fontSize: 14,
+    marginBottom: 12,
+    fontSize: 16,
   },
   progress: {
     color: "#00FF00",
-    fontSize: 12,
-    marginBottom: 8,
+    fontSize: 14,
+    marginBottom: 12,
   },
   progressBar: {
-    width: "100%",
-    height: 4,
+    width: "80%", // Wider progress bar
+    height: 6,
     backgroundColor: "#333",
-    borderRadius: 2,
+    borderRadius: 3,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
     backgroundColor: "#00FF00",
-    borderRadius: 2,
+    borderRadius: 3,
   },
   videoInfo: {
-    padding: 8,
+    padding: 12,
     backgroundColor: "#111",
   },
   fileName: {
     color: "#FFF",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "bold",
   },
   magnetHint: {
     color: "#00FF00",
-    fontSize: 10,
-    marginTop: 2,
+    fontSize: 12,
+    marginTop: 4,
   },
 });

@@ -14,7 +14,7 @@ export default function TabLayout() {
         // Minimal height with big fonts
         tabBarStyle: {
           height: Platform.OS === "ios" ? 80 : 80, // Reduced height
-          paddingBottom:0, // Remove bottom padding
+          paddingBottom: 0, // Remove bottom padding
           paddingTop: 0, // Remove top padding
         },
         // Big font size with minimal margins
@@ -45,7 +45,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="neighborhoods/index"
         options={{
-          title: "🌎",
+          title: "🫧🫧🫧",
           tabBarIcon: ({ color }) => null,
         }}
       />
@@ -56,14 +56,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => null,
         }}
       />
-      <Tabs.Screen
-        name="test2"
-        options={{
-          title: "🎨",
-          tabBarIcon: ({ color }) => null,
-        }}
-      />
-
     </Tabs>
   );
 }
