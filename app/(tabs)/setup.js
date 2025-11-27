@@ -320,7 +320,7 @@ export default function ProfileSetupScreen() {
         <View style={styles.stepContainer}>
           <Text style={styles.stepTitle}>Share Your Links (Optional)</Text>
           <Text style={styles.stepDescription}>
-            Add affiliate links, social media, or websites you want to share
+            Optionsal Add affiliate links from CJ.Com
           </Text>
 
           {affiliateLinks.map((link, index) => (
