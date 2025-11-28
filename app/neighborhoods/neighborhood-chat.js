@@ -919,9 +919,7 @@ const uploadToIPFS = async (fileUri, fileName, type, token) => {
       <ScrollView
         style={styles.messagesList}
         ref={scrollViewRef}
-        onContentSizeChange={() =>
-          scrollViewRef.current?.scrollToEnd({ animated: true })
-        }
+   
       >
         {messages.map((item) => (
           <View style={styles.messageContainer} key={item.id}>
