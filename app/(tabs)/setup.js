@@ -20,31 +20,28 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-// Updated mutation with error policy
+// Updated mutation with affiliateLinks
+// In your setup.js - Update the UPDATE_PROFILE mutation
 const UPDATE_PROFILE = gql`
-  mutation UpdateProfile($bio: String, $profilePhoto: String) {
-    updateProfile(bio: $bio, profilePhoto: $profilePhoto) {
+  mutation UpdateProfile(
+    $bio: String, 
+    $profilePhoto: String, 
+    $affiliateLinks: [AffiliateLinkInput]  # Add this
+  ) {
+    updateProfile(
+      bio: $bio, 
+      profilePhoto: $profilePhoto, 
+      affiliateLinks: $affiliateLinks  # Add this
+    ) {
       id
       username
       bio
       profilePhoto
-    }
-  }
-`;
-
-const ADD_AFFILIATE_LINK = gql`
-  mutation AddAffiliateLink(
-    $url: String!
-    $title: String
-    $description: String
-  ) {
-    addAffiliateLink(url: $url, title: $title, description: $description) {
-      id
       affiliateLinks {
         id
         url
-        title
-        description
+        title  # Make sure title is included here
+        clicks
       }
     }
   }
@@ -52,7 +49,6 @@ const ADD_AFFILIATE_LINK = gql`
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
   const [bio, setBio] = useState("");
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [profilePhotoCid, setProfilePhotoCid] = useState(null);
@@ -64,10 +60,8 @@ export default function ProfileSetupScreen() {
 
   // Mutation with error policy to handle null responses
   const [updateProfile] = useMutation(UPDATE_PROFILE, {
-    errorPolicy: "all", // This allows us to handle errors without crashing
+    errorPolicy: "all",
   });
-
-  const [addAffiliateLink] = useMutation(ADD_AFFILIATE_LINK);
 
   // Upload image to IPFS and get CID
   const uploadToIPFS = async (fileUri, fileName) => {
@@ -75,11 +69,9 @@ export default function ProfileSetupScreen() {
       const token = await AsyncStorage.getItem("token");
       if (!token) throw new Error("No authentication token found");
 
-      // Convert image to blob
       const response = await fetch(fileUri);
       const blob = await response.blob();
 
-      // Upload to IPFS using your existing upload endpoint
       const formData = new FormData();
       formData.append("video", blob, fileName || "profile-photo.jpg");
       formData.append("title", "Profile Photo");
@@ -101,7 +93,6 @@ export default function ProfileSetupScreen() {
       const result = await res.json();
       console.log("✅ Profile photo uploaded:", result);
 
-      // Extract CID from IPFS URL
       const ipfsUrl = result.ipfsUrl;
       const cid = ipfsUrl.split("/ipfs/")[1];
 
@@ -138,7 +129,6 @@ export default function ProfileSetupScreen() {
         setUploading(true);
 
         try {
-          // Upload to IPFS and get CID
           const cid = await uploadToIPFS(asset.uri, "profile-photo.jpg");
           setProfilePhotoCid(cid);
           console.log("✅ Profile photo CID:", cid);
@@ -170,92 +160,57 @@ export default function ProfileSetupScreen() {
     setAffiliateLinks(updated);
   };
 
-  const handleNext = async () => {
-    if (step === 1) {
-      // Save bio and profile photo
-      try {
-        setSaving(true);
+const handleSave = async () => {
+  try {
+    setSaving(true);
 
-        console.log("🔄 Saving profile via GraphQL...", {
-          bio: bio || "",
-          profilePhoto: profilePhotoCid || "",
-        });
+    // Filter out empty links and ensure both URL and Title are handled
+    const validLinks = affiliateLinks
+      .filter((link) => link.url.trim()) // Only links with URLs
+      .map((link) => ({
+        url: link.url,
+        title: link.title || "My Affiliate Link", // Default title if empty
+      }));
 
-        const { data, errors } = await updateProfile({
-          variables: {
-            bio: bio || "",
-            profilePhoto: profilePhotoCid || "",
-          },
-        });
+    console.log("🔄 Saving profile with links:", {
+      bio: bio || "",
+      profilePhoto: profilePhotoCid || "",
+      affiliateLinks: validLinks,
+    });
 
-        // Check for GraphQL errors first
-        if (errors && errors.length > 0) {
-          console.error("GraphQL errors:", errors);
+    const { data, errors } = await updateProfile({
+      variables: {
+        bio: bio || "",
+        profilePhoto: profilePhotoCid || "",
+        affiliateLinks: validLinks,
+      },
+    });
 
-          // If it's the null return error, we can still proceed
-          const hasNullError = errors.some((error) =>
-            error.message.includes("Cannot return null for non-nullable field")
-          );
-
-          if (hasNullError) {
-            console.warn("Backend returned null but profile might be updated");
-            // Continue anyway - the update might have worked server-side
-            setStep(2);
-            return;
-          } else {
-            throw new Error(errors[0].message);
-          }
-        }
-
-        // Check if we have data
-        if (data?.updateProfile) {
-          console.log("✅ Profile saved successfully:", data.updateProfile);
-          setStep(2);
-        } else {
-          // No data but no errors either - might be okay
-          console.warn("No data returned from mutation, but proceeding anyway");
-          setStep(2);
-        }
-      } catch (err) {
-        console.error("Error saving profile:", err);
-        Alert.alert("Error", "Failed to save profile: " + err.message);
-      } finally {
-        setSaving(false);
-      }
-    } else if (step === 2) {
-      // Save affiliate links
-      try {
-        setSaving(true);
-
-        let savedLinks = 0;
-        for (const link of affiliateLinks) {
-          if (link.url.trim()) {
-            await addAffiliateLink({
-              variables: {
-                url: link.url,
-                title: link.title || "",
-                description: "",
-              },
-            });
-            savedLinks++;
-          }
-        }
-
-        console.log(`✅ Saved ${savedLinks} affiliate links`);
-        Alert.alert("Success", "Profile setup complete!");
-        router.replace("/neighborhoods");
-      } catch (err) {
-        console.error("Error saving links:", err);
-        Alert.alert("Error", "Failed to save links: " + err.message);
-      } finally {
-        setSaving(false);
-      }
+    // Handle response
+    if (errors && errors.length > 0) {
+      console.error("GraphQL errors:", errors);
+      throw new Error(errors[0].message);
     }
-  };
+
+    if (data?.updateProfile) {
+      console.log(
+        "✅ Profile saved successfully with links:",
+        data.updateProfile
+      );
+      Alert.alert("Success", "Profile setup complete!");
+      router.replace("/neighborhoods");
+    }
+  } catch (err) {
+    console.error("Error saving profile:", err);
+    Alert.alert("Error", "Failed to save profile: " + err.message);
+  } finally {
+    setSaving(false);
+  }
+};
 
   // Get display URL for the image
   const getProfilePhotoUrl = () => {
-    if (profilePhoto) return profilePhoto; // Local URI while uploading
+    if (profilePhoto) return profilePhoto;
     if (profilePhotoCid)
       return `https://${PINATA_GATEWAY}/ipfs/${profilePhotoCid}`;
     return "https://via.placeholder.com/150";
@@ -264,124 +219,105 @@ export default function ProfileSetupScreen() {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Complete Your Profile</Text>
-      <Text style={styles.subtitle}>Step {step} of 2</Text>
 
-      {step === 1 && (
-        <View style={styles.stepContainer}>
-          <Text style={styles.stepTitle}>About You</Text>
-
-          <TouchableOpacity
-            style={styles.avatarContainer}
-            onPress={pickImage}
-            disabled={uploading}
-          >
-            {uploading ? (
-              <View style={[styles.avatar, styles.uploadingAvatar]}>
-                <ActivityIndicator size="large" color="#00ffff" />
-                <Text style={styles.uploadingText}>Uploading to IPFS...</Text>
-              </View>
-            ) : (
-              <>
-                <Image
-                  source={{ uri: getProfilePhotoUrl() }}
-                  style={styles.avatar}
-                />
-                <Text style={styles.avatarText}>
-                  {profilePhotoCid
-                    ? "✅ Photo saved to IPFS"
-                    : "Tap to add photo"}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {profilePhotoCid && (
-            <Text style={styles.cidText}>
-              IPFS CID: {profilePhotoCid.substring(0, 20)}...
-            </Text>
-          )}
-
-          <Text style={styles.label}>Bio</Text>
-          <TextInput
-            style={styles.bioInput}
-            placeholder="Tell everyone about yourself... What are you passionate about? What do you do?"
-            value={bio}
-            onChangeText={setBio}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-            maxLength={500}
-          />
-          <Text style={styles.charCount}>{bio.length}/500</Text>
-        </View>
-      )}
-
-      {step === 2 && (
-        <View style={styles.stepContainer}>
-          <Text style={styles.stepTitle}>Share Your Links (Optional)</Text>
-          <Text style={styles.stepDescription}>
-            Optional - Add affiliate links from CJ.Com
-          </Text>
-
-          {affiliateLinks.map((link, index) => (
-            <View key={index} style={styles.linkContainer}>
-              <Text style={styles.label}>Title</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Amazon Store, YouTube, etc."
-                value={link.title}
-                onChangeText={(text) => updateLink(index, "title", text)}
-              />
-
-              <Text style={styles.label}>URL</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="https://..."
-                value={link.url}
-                onChangeText={(text) => updateLink(index, "url", text)}
-                keyboardType="url"
-                autoCapitalize="none"
-              />
-            </View>
-          ))}
-
-          <TouchableOpacity style={styles.addButton} onPress={addLinkField}>
-            <Text style={styles.addButtonText}>+ Add Another Link</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <View style={styles.buttonContainer}>
-        {step > 1 && (
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => setStep(step - 1)}
-            disabled={saving}
-          >
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-        )}
+      <View style={styles.stepContainer}>
+        <Text style={styles.stepTitle}>About You</Text>
 
         <TouchableOpacity
+          style={styles.avatarContainer}
+          onPress={pickImage}
+          disabled={uploading}
+        >
+          {uploading ? (
+            <View style={[styles.avatar, styles.uploadingAvatar]}>
+              <ActivityIndicator size="large" color="#00ffff" />
+              <Text style={styles.uploadingText}>Uploading to IPFS...</Text>
+            </View>
+          ) : (
+            <>
+              <Image
+                source={{ uri: getProfilePhotoUrl() }}
+                style={styles.avatar}
+              />
+              <Text style={styles.avatarText}>
+                {profilePhotoCid
+                  ? "✅ Photo saved to IPFS"
+                  : "Tap to add photo"}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        {profilePhotoCid && (
+          <Text style={styles.cidText}>
+            IPFS CID: {profilePhotoCid.substring(0, 20)}...
+          </Text>
+        )}
+
+        <Text style={styles.label}>Bio</Text>
+        <TextInput
+          style={styles.bioInput}
+          placeholder="Tell everyone about yourself... What are you passionate about? What do you do?"
+          value={bio}
+          onChangeText={setBio}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+          maxLength={500}
+        />
+        <Text style={styles.charCount}>{bio.length}/500</Text>
+
+        {/* Affiliate Links Section */}
+        <Text style={styles.sectionTitle}>Your Affiliate Links (Optional)</Text>
+        <Text style={styles.sectionDescription}>
+          Add affiliate links from CJ.com, Impact.com, Rakuten.com, etc.
+        </Text>
+
+        {affiliateLinks.map((link, index) => (
+          <View key={index} style={styles.linkContainer}>
+            <Text style={styles.label}>Title</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Run your ad from CJ.Com Here"
+              value={link.title}
+              onChangeText={(text) => updateLink(index, "title", text)}
+            />
+
+            <Text style={styles.label}>URL</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="https://..."
+              value={link.url}
+              onChangeText={(text) => updateLink(index, "url", text)}
+              keyboardType="url"
+              autoCapitalize="none"
+            />
+          </View>
+        ))}
+
+        <TouchableOpacity style={styles.addButton} onPress={addLinkField}>
+          <Text style={styles.addButtonText}>+ Add Another Link</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
           style={[
-            styles.nextButton,
-            ((step === 1 && !bio.trim()) || saving) &&
-              styles.nextButtonDisabled,
+            styles.saveButton,
+            (!bio.trim() || saving) && styles.saveButtonDisabled,
           ]}
-          onPress={handleNext}
-          disabled={(step === 1 && !bio.trim()) || saving}
+          onPress={handleSave}
+          disabled={!bio.trim() || saving}
         >
           {saving ? (
             <ActivityIndicator color="#000" />
           ) : (
-            <Text style={styles.nextButtonText}>
-              {step === 2 ? "Finish" : "Next"}
-            </Text>
+            <Text style={styles.saveButtonText}>Complete Profile</Text>
           )}
         </TouchableOpacity>
       </View>
 
-      {step === 2 && !saving && (
+      {!saving && (
         <TouchableOpacity
           style={styles.skipButton}
           onPress={() => router.replace("/neighborhoods")}
@@ -392,8 +328,6 @@ export default function ProfileSetupScreen() {
     </ScrollView>
   );
 }
-
-// ... keep your existing styles
 
 const styles = StyleSheet.create({
   container: {
@@ -408,12 +342,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 16,
-    color: "#00AA00",
-    textAlign: "center",
-    marginBottom: 30,
-  },
   stepContainer: {
     marginBottom: 30,
   },
@@ -423,7 +351,14 @@ const styles = StyleSheet.create({
     color: "#00ffff",
     marginBottom: 8,
   },
-  stepDescription: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#00ffff",
+    marginTop: 30,
+    marginBottom: 8,
+  },
+  sectionDescription: {
     fontSize: 14,
     color: "#CCC",
     marginBottom: 20,
@@ -516,23 +451,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   buttonContainer: {
-    flexDirection: "row",
-    gap: 10,
     marginBottom: 20,
   },
-  backButton: {
-    flex: 1,
-    backgroundColor: "#333",
-    padding: 15,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  backButtonText: {
-    color: "#00ffff",
-    fontWeight: "bold",
-  },
-  nextButton: {
-    flex: 2,
+  saveButton: {
     backgroundColor: "#00ffff",
     padding: 15,
     borderRadius: 8,
@@ -540,10 +461,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 50,
   },
-  nextButtonDisabled: {
+  saveButtonDisabled: {
     backgroundColor: "#333",
   },
-  nextButtonText: {
+  saveButtonText: {
     color: "#000",
     fontWeight: "bold",
     fontSize: 16,

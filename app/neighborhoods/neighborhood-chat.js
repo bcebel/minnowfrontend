@@ -60,21 +60,29 @@ const SimpleVideoPlayer = ({ url, fileName }) => {
 };
 
 // Unified Media Renderer
+// Unified Media Renderer - FIXED VERSION
 const ChatMediaRenderer = ({ message }) => {
-  const { imageUrl, videoUrl, fileUrl, magnetLink, fileName, fileType } =
-    message;
+  const { imageUrl, videoUrl, fileUrl, magnetLink, fileName, fileType } = message;
 
   const viewableUrl = imageUrl || videoUrl || fileUrl;
   const processedUrl = viewableUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY);
 
-  // Image
-  if (imageUrl) {
+  // Image - check both imageUrl AND fileType === "image"
+  if (imageUrl || (fileType === "image" && fileUrl)) {
     return (
-      <Image
-        source={{ uri: processedUrl }}
-        style={styles.messageImage}
-        resizeMode="cover"
-      />
+      <TouchableOpacity onPress={() => {
+        // Optional: Open full screen image viewer
+        console.log("Open image:", processedUrl || fileUrl);
+      }}>
+        <Image
+          source={{ uri: processedUrl || fileUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY) }}
+          style={styles.messageImage}
+          resizeMode="cover"
+        />
+        {fileName && (
+          <Text style={styles.fileNameText}>{fileName}</Text>
+        )}
+      </TouchableOpacity>
     );
   }
 
@@ -84,14 +92,17 @@ const ChatMediaRenderer = ({ message }) => {
   }
 
   // Direct video URL - Simple Video Player
-  if (videoUrl) {
+  if (videoUrl || (fileType === "video" && fileUrl)) {
     return (
-      <SimpleVideoPlayer url={processedUrl} fileName={fileName || "Video"} />
+      <SimpleVideoPlayer 
+        url={processedUrl || fileUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY)} 
+        fileName={fileName || "Video"} 
+      />
     );
   }
 
-  // Files
-  if (fileUrl) {
+  // Files (documents, etc)
+  if (fileUrl && fileType !== "image" && fileType !== "video") {
     return (
       <TouchableOpacity
         style={styles.fileContainer}
@@ -247,20 +258,82 @@ const getProfilePhotoUrl = (profilePhoto) => {
   // If it's just a string that doesn't match above, assume it's a CID
   return `https://${PINATA_GATEWAY}/ipfs/${profilePhoto}`;
 };
+const handleFilePress = async (message) => {
+  try {
+    if (!message.fileUrl) {
+      Alert.alert("Error", "No file URL available");
+      return;
+    }
 
-const handleFilePress = (message) => {
-  if (message.fileUrl) {
-    const url = message.fileUrl.replace("ipfs.filebase.io", PINATA_GATEWAY);
-    Alert.alert(message.fileName || "File", "What would you like to do?", [
-      {
-        text: "Open",
-        onPress: () =>
-          Linking.openURL(url).catch((err) =>
-            Alert.alert("Error", "Could not open file")
-          ),
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
+    // Create a proper IPFS URL
+    const ipfsUrl = message.fileUrl.replace("ipfs.filebase.io", PINATA_GATEWAY);
+
+    console.log("📥 Handling file download:", {
+      fileName: message.fileName,
+      fileType: message.fileType,
+      ipfsUrl: ipfsUrl,
+    });
+
+    // For web - use direct download
+    if (Platform.OS === "web") {
+      // Create a temporary download link
+      const link = document.createElement("a");
+      link.href = ipfsUrl;
+      link.download = message.fileName || "download";
+      link.target = "_blank";
+
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      Alert.alert(
+        "Download Started",
+        `${message.fileName || "File"} download started in new tab.`
+      );
+    } else {
+      // For mobile - show options
+      Alert.alert(message.fileName || "File", "What would you like to do?", [
+        {
+          text: "Open in Browser",
+          onPress: () =>
+            Linking.openURL(ipfsUrl).catch((err) => {
+              console.error("Open URL error:", err);
+              Alert.alert("Error", "Could not open file");
+            }),
+        },
+        {
+          text: "Copy Link",
+          onPress: async () => {
+            try {
+              // For React Native, you might need a clipboard library
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(ipfsUrl);
+                Alert.alert("Success", "Link copied to clipboard!");
+              } else {
+                // Fallback for older browsers
+                const textArea = document.createElement("textarea");
+                textArea.value = ipfsUrl;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand("copy");
+                document.body.removeChild(textArea);
+                Alert.alert("Success", "Link copied to clipboard!");
+              }
+            } catch (err) {
+              Alert.alert("Error", "Could not copy link");
+            }
+          },
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ]);
+    }
+  } catch (error) {
+    console.error("File press error:", error);
+    Alert.alert("Error", "Failed to handle file: " + error.message);
   }
 };
 
@@ -500,85 +573,144 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  const unifiedUpload = async (asset, type, fileSize, mimeType) => {
-    setUploading(true);
-    setUploadType(type);
+const unifiedUpload = async (asset, type, fileSize, mimeType) => {
+  setUploading(true);
+  setUploadType(type);
 
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) throw new Error("No authentication token found");
 
-      let fileUri = asset.uri;
-      let fileName = asset.name || asset.fileName || `${type}-${Date.now()}`;
+    let fileUri = asset.uri;
+    let fileName = asset.name || asset.fileName || `${type}-${Date.now()}`;
 
-      // Add file extension if missing
-      if (type === "image" && !fileName.includes(".")) {
-        fileName += ".jpg";
-      } else if (type === "video" && !fileName.includes(".")) {
-        fileName += ".mp4";
-      }
+    // SMARTER TYPE DETECTION
+    const detectActualType = () => {
+      const extension = fileName.split(".").pop().toLowerCase();
+      const imageExtensions = [
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "webp",
+        "heic",
+        "bmp",
+      ];
+      const videoExtensions = ["mp4", "mov", "avi", "mkv", "webm"];
 
-      console.log("🔄 Processing upload for neighborhood:", {
-        fileName,
-        type,
-        neighborhoodId,
-      });
+      if (imageExtensions.includes(extension)) return "image";
+      if (videoExtensions.includes(extension)) return "video";
+      return "file"; // fallback
+    };
 
-      const ipfsUrl = await uploadToIPFS(fileUri, fileName, type, token);
+    const actualType = detectActualType();
+    console.log("🔍 Detected file type:", {
+      originalType: type,
+      actualType,
+      fileName,
+    });
 
-      if (ipfsUrl) {
-        const messageVariables = {
-          content: `${type.charAt(0).toUpperCase() + type.slice(1)} Shared`,
-          neighborhoodId: neighborhoodId,
-          imageUrl: type === "image" ? ipfsUrl : null,
-          videoUrl: type === "video" ? ipfsUrl : null,
-          fileUrl: type === "file" ? ipfsUrl : null,
-          fileName: asset.name || asset.fileName || "media",
-          fileType: type,
-        };
-        console.log(" mutation vars:", messageVariables);
-        await sendMessageMutation({ variables: messageVariables });
-        console.log(`✅ ${type} uploaded to neighborhood chat`);
-      }
-    } catch (error) {
-      console.error(`❌ ${type} upload error:`, error);
-      Alert.alert("Upload Failed", error.message);
-    } finally {
-      setUploading(false);
-      setUploadType(null);
+    // Preserve original extension
+    if (!fileName.includes(".")) {
+      const originalExtension = asset.uri.split(".").pop().toLowerCase();
+      fileName += `.${originalExtension}`;
     }
-  };
 
-  const uploadToIPFS = async (fileUri, fileName, fileType, token) => {
-    try {
-      const response = await fetch(fileUri);
-      const blob = await response.blob();
+    console.log("🔄 Uploading to IPFS:", { fileName, actualType });
 
-      const formData = new FormData();
-      formData.append("video", blob, fileName);
-      formData.append("title", fileName || `Uploaded ${fileType}`);
-      formData.append("description", `Shared in neighborhood chat`);
+    const ipfsUrl = await uploadToIPFS(fileUri, fileName, actualType, token);
 
-      const res = await fetch(`${BACKEND_URL}/upload`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+    if (ipfsUrl) {
+      // SET THE CORRECT FIELD BASED ON ACTUAL TYPE
+      const messageVariables = {
+        content: `${
+          actualType.charAt(0).toUpperCase() + actualType.slice(1)
+        } Shared: ${fileName}`,
+        neighborhoodId: neighborhoodId,
+        imageUrl: actualType === "image" ? ipfsUrl : null,
+        videoUrl: actualType === "video" ? ipfsUrl : null,
+        fileUrl: actualType === "file" ? ipfsUrl : null,
+        fileName: fileName,
+        fileType: actualType, // Use the detected type, not the original
+        fileSize: fileSize,
+        mimeType: mimeType || getMimeType(fileName),
+      };
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Upload failed: ${res.status} - ${errorText}`);
-      }
-
-      const result = await res.json();
-      return result.ipfsUrl;
-    } catch (error) {
-      console.error("❌ Upload error:", error);
-      throw error;
+      console.log("📤 Sending message with:", messageVariables);
+      await sendMessageMutation({ variables: messageVariables });
+      console.log(`✅ ${actualType} uploaded and message sent`);
     }
+  } catch (error) {
+    console.error(`❌ Upload error:`, error);
+    Alert.alert("Upload Failed", error.message);
+  } finally {
+    setUploading(false);
+    setUploadType(null);
+  }
+};
+
+// Helper function
+const getMimeType = (filename) => {
+  const ext = filename.split(".").pop().toLowerCase();
+  const mimeTypes = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    heic: "image/heic",
+    mp4: "video/mp4",
+    mov: "video/quicktime",
   };
+  return mimeTypes[ext] || "application/octet-stream";
+};
+
+// Helper function for MIME types
+const getMimeTypeFromExtension = (filename) => {
+  const ext = filename.split(".").pop().toLowerCase();
+  const mimeTypes = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    heic: "image/heic",
+    bmp: "image/bmp",
+    mp4: "video/mp4",
+    mov: "video/quicktime",
+    avi: "video/x-msvideo",
+  };
+  return mimeTypes[ext] || "application/octet-stream";
+};
+
+const uploadToIPFS = async (fileUri, fileName, type, token) => {
+  try {
+    const response = await fetch(fileUri);
+    const blob = await response.blob();
+
+    const formData = new FormData();
+    formData.append("video", blob, fileName); // Critical: use correct fileName
+    formData.append("title", fileName);
+    formData.append("description", `Uploaded ${type} - ${fileName}`);
+
+    console.log("📤 IPFS Upload:", { fileName, type, size: blob.size });
+
+    const res = await fetch(`${BACKEND_URL}/upload`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+
+    if (!res.ok) throw new Error(`IPFS upload failed: ${res.status}`);
+
+    const result = await res.json();
+    console.log("✅ IPFS Result:", result);
+    return result.ipfsUrl;
+  } catch (error) {
+    console.error("❌ IPFS upload error:", error);
+    throw error;
+  }
+};
 
   const startNeighborhoodStream = async () => {
     try {
@@ -799,12 +931,9 @@ export default function NeighborhoodChatScreen() {
               }}
               style={styles.profileImage}
               onError={(e) => {
-                console.log(
-                  "Profile photo load failed for:",
-                  item.sender?.profilePhoto
-                );
-                // Fallback to placeholder
-                e.currentTarget.src = "https://via.placeholder.com/40";
+                if (e.target) {
+                  e.target.src = "https://via.placeholder.com/40";
+                }
               }}
             />
             <View style={styles.messageContent}>
@@ -1108,5 +1237,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 8,
     textAlign: "center",
+  },
+    fileNameText: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 4,
+    textAlign: 'center',
   },
 });
