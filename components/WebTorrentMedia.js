@@ -134,7 +134,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
               setMediaUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
             }
           },
-          isFocused ? 10000 : 30000
+          isFocused ? 1000 : 3000
         );
       } catch (error) {
         console.error("Error loading media:", error);
@@ -186,7 +186,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
             resizeMode="contain"
           />
         ) : (
-          <Text style={styles.status}>P2P not available on native</Text>
+          <Text style={styles.status}></Text>
         )}
       </View>
     );

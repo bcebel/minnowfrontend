@@ -61,10 +61,25 @@ const SimpleVideoPlayer = ({ url, fileName }) => {
 };
 
 
+// FIXED ChatMediaRenderer - Only shows media when media exists
 const ChatMediaRenderer = ({ message }) => {
   const { imageUrl, videoUrl, fileUrl, magnetLink, fileName, fileType } = message;
 
-  console.log("🖼️ Rendering:", { fileType, hasMagnet: !!magnetLink, fileName });
+  console.log("🖼️ Rendering check:", { 
+    fileType, 
+    hasMagnet: !!magnetLink, 
+    hasImage: !!imageUrl,
+    hasVideo: !!videoUrl, 
+    hasFile: !!fileUrl,
+    fileName 
+  });
+
+  // 🚨 RETURN NULL if there's no media at all
+  const hasAnyMedia = imageUrl || videoUrl || fileUrl || magnetLink;
+  if (!hasAnyMedia) {
+    console.log("📝 No media to render - this is a text message");
+    return null;
+  }
 
   // Helper to get Pinata URL
   const getPinataUrl = (url) => {
@@ -76,7 +91,7 @@ const ChatMediaRenderer = ({ message }) => {
     return url;
   };
 
-  // 🎯 ULTRA SIMPLE RULES:
+  // 🎯 SIMPLE RULES:
 
   // 1. If it has magnet link → WebTorrentMedia (handles both images and videos)
   if (magnetLink && (fileType === 'image' || fileType === 'video')) {
@@ -141,17 +156,17 @@ const ChatMediaRenderer = ({ message }) => {
     );
   }
 
-  // 5. Fallback
-  console.log("📝 Fallback for:", fileName);
+  // 5. Fallback for edge cases (should rarely happen)
+  console.log("⚠️ Edge case - has media fields but can't render:", message);
   return (
     <View style={styles.fileContainer}>
-      <Text style={styles.fileIcon}>📎</Text>
+      <Text style={styles.fileIcon}>❓</Text>
       <View style={styles.fileInfo}>
         <Text style={styles.fileName} numberOfLines={1}>
-          {fileName || "File"}
+          {fileName || "Media"}
         </Text>
         <Text style={styles.fileType}>
-          {fileType || "File"} • {magnetLink ? "P2P" : "No preview"}
+          Cannot preview • Tap for info
         </Text>
       </View>
     </View>
@@ -653,7 +668,6 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  // In pickFile function
   const pickFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -663,10 +677,39 @@ export default function NeighborhoodChatScreen() {
 
       if (!result.canceled) {
         const file = result.assets[0];
-        // SIMPLE: Always use "file" type for documents
+
+        // SMART: Detect actual file type instead of always using "file"
+        const detectFileType = (fileName, mimeType) => {
+          const extension = fileName.split(".").pop()?.toLowerCase();
+          const imageExtensions = [
+            "jpg",
+            "jpeg",
+            "png",
+            "gif",
+            "webp",
+            "heic",
+            "bmp",
+          ];
+          const videoExtensions = ["mp4", "mov", "avi", "mkv", "webm"];
+
+          if (imageExtensions.includes(extension)) return "image";
+          if (videoExtensions.includes(extension)) return "video";
+          if (mimeType?.startsWith("image/")) return "image";
+          if (mimeType?.startsWith("video/")) return "video";
+          return "file";
+        };
+
+        const detectedType = detectFileType(file.name, file.mimeType);
+
+        console.log("📁 File picker detected:", {
+          fileName: file.name,
+          mimeType: file.mimeType,
+          detectedType,
+        });
+
         await unifiedUpload(
           file,
-          "file", // Just use "file" type
+          detectedType, // Use the detected type!
           file.size || 0,
           file.mimeType || "application/octet-stream"
         );
@@ -676,6 +719,7 @@ export default function NeighborhoodChatScreen() {
       Alert.alert("Error", "Failed to pick file");
     }
   };
+  
   // SIMPLE Upload - JUST STORE WHAT WE GET
   const unifiedUpload = async (asset, type, fileSize, mimeType) => {
     setUploading(true);
