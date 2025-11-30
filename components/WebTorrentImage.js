@@ -1,3 +1,4 @@
+// components/WebTorrentImage.js - UPDATED VERSION
 import React, { useEffect, useRef, useState } from "react";
 import { Platform, View, Image, StyleSheet, Text } from "react-native";
 
@@ -10,10 +11,32 @@ export default function WebTorrentImage({ image, isFocused }) {
   const [peers, setPeers] = useState(0);
   const imageRef = useRef(null);
 
+  // Extract CID from various sources
+  const extractCID = () => {
+    if (image.cid) return image.cid;
+
+    // Try to extract from fileName (like "bafybeice7irhylgivwudidy2lnogpm2gxtmsf62ayges656ju26anl3i3e.jpeg")
+    if (image.fileName) {
+      const cidFromFileName = image.fileName.split(".")[0];
+      if (
+        cidFromFileName.startsWith("Qm") ||
+        cidFromFileName.startsWith("baf")
+      ) {
+        return cidFromFileName;
+      }
+    }
+
+    return null;
+  };
+
+  const cid = extractCID();
+
   useEffect(() => {
     if (Platform.OS !== "web") {
       // For native, use direct IPFS URL
-      setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
+      if (cid) {
+        setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
+      }
       return;
     }
 
@@ -21,10 +44,12 @@ export default function WebTorrentImage({ image, isFocused }) {
       try {
         const client = window.globalWebTorrentClient;
 
-        // If no magnet link (like profile photos), use direct IPFS
-        if (!image.magnetLink) {
-          console.log("🖼️ No magnet link, using direct IPFS for image");
-          setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
+        // If no magnet link or no CID, use direct IPFS if available
+        if (!image.magnetLink || !cid) {
+          console.log("🖼️ No magnet link or CID, using direct IPFS for image");
+          if (cid) {
+            setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
+          }
           setStatus("Loaded via IPFS");
           return;
         }
@@ -43,8 +68,8 @@ export default function WebTorrentImage({ image, isFocused }) {
         }
 
         // Add web seed for faster loading
-        if (image.cid) {
-          torrent.addWebSeed(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
+        if (cid) {
+          torrent.addWebSeed(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
         }
 
         // Set up event listeners
@@ -67,7 +92,9 @@ export default function WebTorrentImage({ image, isFocused }) {
               "❌ No image file found in torrent, using IPFS fallback"
             );
             setStatus("No image in torrent, using IPFS");
-            setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
+            if (cid) {
+              setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
+            }
             return;
           }
 
@@ -76,7 +103,9 @@ export default function WebTorrentImage({ image, isFocused }) {
             if (err) {
               console.error("❌ Blob URL error:", err);
               setStatus("P2P failed, using IPFS");
-              setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
+              if (cid) {
+                setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
+              }
               return;
             }
 
@@ -89,15 +118,17 @@ export default function WebTorrentImage({ image, isFocused }) {
         torrent.on("error", (err) => {
           console.error("Torrent error:", err);
           setStatus("P2P failed, using IPFS");
-          setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
+          if (cid) {
+            setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
+          }
         });
 
         // Timeout fallback
         setTimeout(
           () => {
-            if (!imageUrl) {
+            if (!imageUrl && cid) {
               setStatus("P2P timeout, using IPFS");
-              setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
+              setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
             }
           },
           isFocused ? 8000 : 30000
@@ -105,21 +136,29 @@ export default function WebTorrentImage({ image, isFocused }) {
       } catch (error) {
         console.error("Error loading image:", error);
         setStatus("Error, using IPFS fallback");
-        setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
+        if (cid) {
+          setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
+        }
       }
     };
 
     loadImage();
-  }, [image.magnetLink, image.cid, isFocused]);
+  }, [image.magnetLink, cid, isFocused]);
 
   if (Platform.OS !== "web") {
     return (
       <View style={styles.container}>
-        <Image
-          source={{ uri: `https://${PINATA_GATEWAY}/ipfs/${image.cid}` }}
-          style={styles.image}
-          resizeMode="contain"
-        />
+        {cid ? (
+          <Image
+            source={{ uri: `https://${PINATA_GATEWAY}/ipfs/${cid}` }}
+            style={styles.image}
+            resizeMode="contain"
+          />
+        ) : (
+          <View style={styles.placeholder}>
+            <Text style={styles.status}>No image data available</Text>
+          </View>
+        )}
         <Text style={styles.status}>P2P not available on native</Text>
       </View>
     );
@@ -133,11 +172,13 @@ export default function WebTorrentImage({ image, isFocused }) {
           source={{ uri: imageUrl }}
           style={styles.image}
           resizeMode="contain"
-          onLoad={() => console.log("✅ Image loaded")}
+          onLoad={() => console.log("✅ Image loaded via", status)}
           onError={() => {
             console.log("❌ Image load failed, falling back to IPFS");
             setStatus("Image load failed");
-            setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${image.cid}`);
+            if (cid) {
+              setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
+            }
           }}
         />
       ) : (

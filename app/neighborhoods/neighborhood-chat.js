@@ -21,6 +21,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentWebView from "../../components/WebTorrentPlayer";
+import WebTorrentImage from "../../components/WebTorrentImage"; // Add this import
 
 const safeFileName = (asset) =>
   asset.name || asset.fileName || asset.uri.split("/").pop() || "media";
@@ -59,77 +60,150 @@ const SimpleVideoPlayer = ({ url, fileName }) => {
   );
 };
 
-// Unified Media Renderer
-// Unified Media Renderer - FIXED VERSION
+
+// Unified Media Renderer - EXTRACT CID FROM FILENAME
+// Unified Media Renderer - USING BOTH WebTorrentImage AND WebTorrentWebView
+// FIXED ChatMediaRenderer - Better video handling
 const ChatMediaRenderer = ({ message }) => {
-  const { imageUrl, videoUrl, fileUrl, magnetLink, fileName, fileType } = message;
+  const { magnetLink, fileName, fileType, cid, videoUrl } = message;
 
-  const viewableUrl = imageUrl || videoUrl || fileUrl;
-  const processedUrl = viewableUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY);
+  console.log("🖼️ Rendering media:", { magnetLink, fileType, fileName, cid, hasVideoUrl: !!videoUrl });
 
-  // Image - check both imageUrl AND fileType === "image"
-  if (imageUrl || (fileType === "image" && fileUrl)) {
+  // Extract CID from any available source
+  const extractCID = () => {
+    // Use direct CID if available
+    if (cid) return cid;
+    
+    // Try fileName first (for existing messages)
+    if (fileName) {
+      const cidFromFileName = fileName.split('.')[0];
+      if (cidFromFileName.startsWith('Qm') || cidFromFileName.startsWith('baf')) {
+        return cidFromFileName;
+      }
+    }
+    
+    // Try to extract from videoUrl
+    if (videoUrl?.includes('/ipfs/')) {
+      const cidFromUrl = videoUrl.split('/ipfs/')[1]?.split('?')[0]?.split('#')[0];
+      if (cidFromUrl && (cidFromUrl.startsWith('Qm') || cidFromUrl.startsWith('baf'))) {
+        return cidFromUrl;
+      }
+    }
+    
+    return null;
+  };
+
+  const extractedCID = extractCID();
+  const pinataUrl = extractedCID ? `https://${PINATA_GATEWAY}/ipfs/${extractedCID}` : null;
+
+  console.log("🎯 Rendering decision:", { 
+    hasMagnet: !!magnetLink, 
+    hasCID: !!extractedCID,
+    fileType,
+    extractedCID
+  });
+
+  // 🎯 PRIORITY 1: Videos with magnet links - use WebTorrentWebView
+  if (fileType === "video" && magnetLink) {
+    console.log("🔗 Rendering video with WebTorrentWebView");
+    
+    // Make sure the video object has the CID for fallback
+    const videoWithCID = {
+      ...message,
+      cid: extractedCID // Ensure CID is available for fallback
+    };
+    
     return (
-      <TouchableOpacity onPress={() => {
-        // Optional: Open full screen image viewer
-        console.log("Open image:", processedUrl || fileUrl);
-      }}>
-        <Image
-          source={{ uri: processedUrl || fileUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY) }}
-          style={styles.messageImage}
-          resizeMode="cover"
+      <View>
+        <WebTorrentWebView 
+          video={videoWithCID} 
+          isFocused={true}
         />
-        {fileName && (
-          <Text style={styles.fileNameText}>{fileName}</Text>
-        )}
-      </TouchableOpacity>
+        {fileName && <Text style={styles.fileNameText}>{fileName}</Text>}
+      </View>
     );
   }
 
-  // Video with magnet link - WebTorrent
-  if (magnetLink && (videoUrl || fileType === "video")) {
-    return <WebTorrentWebView video={message} />;
+  // 🎯 PRIORITY 2: Images with magnet links - use WebTorrentImage
+  if (fileType === "image" && magnetLink && extractedCID) {
+    console.log("🔗 Rendering image with WebTorrentImage");
+    return (
+      <View style={styles.magnetContainer}>
+        <WebTorrentImage 
+          image={{ 
+            magnetLink, 
+            cid: extractedCID,
+            fileName: fileName || "Image"
+          }} 
+          isFocused={true}
+        />
+        {fileName && <Text style={styles.fileNameText}>{fileName}</Text>}
+      </View>
+    );
   }
 
-  // Direct video URL - Simple Video Player
-  if (videoUrl || (fileType === "video" && fileUrl)) {
+  // 🎯 PRIORITY 3: Direct video URL (Pinata fallback)
+  if (fileType === "video" && pinataUrl) {
+    console.log("🎥 Rendering video with Pinata URL:", pinataUrl);
     return (
-      <SimpleVideoPlayer 
-        url={processedUrl || fileUrl?.replace("ipfs.filebase.io", PINATA_GATEWAY)} 
-        fileName={fileName || "Video"} 
+      <SimpleVideoPlayer
+        url={pinataUrl}
+        fileName={fileName || "Video"}
       />
     );
   }
 
-  // Files (documents, etc)
-  if (fileUrl && fileType !== "image" && fileType !== "video") {
+  // 🎯 PRIORITY 4: Direct image URL (Pinata fallback)
+  if (fileType === "image" && pinataUrl) {
+    console.log("🖼️ Rendering image with Pinata URL:", pinataUrl);
     return (
       <TouchableOpacity
-        style={styles.fileContainer}
-        onPress={() => handleFilePress(message)}
+        onPress={() => console.log("Open image:", pinataUrl)}
       >
-        <Text style={styles.fileIcon}>
-          {fileType === "document"
-            ? "📄"
-            : fileType === "image"
-            ? "🖼️"
-            : fileType === "video"
-            ? "🎬"
-            : "📎"}
-        </Text>
-        <View style={styles.fileInfo}>
-          <Text style={styles.fileName} numberOfLines={1}>
-            {fileName || "File"}
-          </Text>
-          <Text style={styles.fileType}>
-            {fileType || "File"} • Tap to download
-          </Text>
-        </View>
+        <Image
+          source={{ uri: pinataUrl }}
+          style={styles.messageImage}
+          resizeMode="cover"
+        />
+        {fileName && <Text style={styles.fileNameText}>{fileName}</Text>}
       </TouchableOpacity>
     );
   }
 
-  return null;
+  // 🎯 FALLBACK: Show file info
+  console.log("🔄 Showing fallback file info");
+  return (
+    <TouchableOpacity
+      style={styles.fileContainer}
+      onPress={() => {
+        Alert.alert(
+          "File Info",
+          `File: ${fileName}\nType: ${fileType}\n\n${
+            magnetLink ? "P2P Available" : 
+            extractedCID ? "CID: " + extractedCID : 
+            "No media data"
+          }`
+        );
+      }}
+    >
+      <Text style={styles.fileIcon}>
+        {fileType === "image" ? "🖼️" : 
+         fileType === "video" ? "🎥" : "📎"}
+      </Text>
+      <View style={styles.fileInfo}>
+        <Text style={styles.fileName} numberOfLines={1}>
+          {fileName || "File"}
+        </Text>
+        <Text style={styles.fileType}>
+          {fileType || "File"} • {
+            magnetLink ? "P2P Available" :
+            extractedCID ? "Direct download" : 
+            "No URL"
+          }
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
 };
 
 // GraphQL Queries
@@ -178,28 +252,29 @@ const GET_NEIGHBORHOOD_INFO = gql`
     }
   }
 `;
-
 const SEND_NEIGHBORHOOD_MESSAGE = gql`
   mutation SendNeighborhoodMessage(
     $content: String!
     $neighborhoodId: ID!
+    $fileName: String
+    $fileType: String
     $imageUrl: String
     $videoUrl: String
     $fileUrl: String
-    $fileName: String
-    $fileType: String
     $magnetLink: String
+    $mimeType: String
   ) {
     sendMessage(
       content: $content
       neighborhoodId: $neighborhoodId
       room: "neighborhood"
+      fileName: $fileName
+      fileType: $fileType
       imageUrl: $imageUrl
       videoUrl: $videoUrl
       fileUrl: $fileUrl
-      fileName: $fileName
-      fileType: $fileType
       magnetLink: $magnetLink
+      mimeType: $mimeType
     ) {
       id
       content
@@ -209,17 +284,27 @@ const SEND_NEIGHBORHOOD_MESSAGE = gql`
       fileName
       fileType
       magnetLink
+      mimeType
       room
-      neighborhood {
-        id
-        name
-      }
       createdAt
       sender {
         id
         username
         profilePhoto
       }
+      # 🚨 REMOVED neighborhood field to avoid the ID conversion issues
+    }
+  }
+`;
+
+const GET_RANDOM_AFFILIATE_LINK = gql`
+  query GetRandomAffiliateLink {
+    randomAffiliateLink {
+      id
+      url
+      title
+      description
+      clicks
     }
   }
 `;
@@ -351,6 +436,20 @@ export default function NeighborhoodChatScreen() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadType, setUploadType] = useState(null);
+  const [messageCount, setMessageCount] = useState(0);
+  const [showAd, setShowAd] = useState(false);
+  const [currentAd, setCurrentAd] = useState(null);
+
+  const { data: adData, refetch: fetchRandomAd } = useQuery(
+    GET_RANDOM_AFFILIATE_LINK
+  );
+
+  const TRACK_CLICK = gql`
+    mutation TrackAffiliateClick($id: ID!) {
+      trackAffiliateClick(id: $id)
+    }
+  `;
+  const [trackClick] = useMutation(TRACK_CLICK);
 
   // GraphQL Queries
   const { data: neighborhoodData, loading: neighborhoodLoading } = useQuery(
@@ -371,7 +470,24 @@ export default function NeighborhoodChatScreen() {
   );
 
   const [sendMessageMutation] = useMutation(SEND_NEIGHBORHOOD_MESSAGE);
+  useEffect(() => {
+    if (data?.neighborhoodMessages) {
+      const newCount = data.neighborhoodMessages.length;
 
+      // Every 20 messages, show an ad
+      if (newCount > 0 && newCount % 20 === 0 && newCount !== messageCount) {
+        setMessageCount(newCount);
+        showRandomAd();
+      } else {
+        setMessageCount(newCount);
+      }
+    }
+  }, [data?.neighborhoodMessages]);
+
+  useEffect(() => {
+    // first ad on load
+    fetchRandomAd();
+  }, []);
   // Authentication Check
   useEffect(() => {
     const checkAuth = async () => {
@@ -403,7 +519,48 @@ export default function NeighborhoodChatScreen() {
       socket?.disconnect();
     };
   }, [neighborhoodId]);
+  const showRandomAd = async () => {
+    try {
+      console.log("🔄 Fetching random affiliate ad...");
+      const result = await fetchRandomAd();
 
+      if (result.data?.randomAffiliateLink) {
+        setCurrentAd(result.data.randomAffiliateLink);
+        setShowAd(true);
+
+        // Auto-hide after 30 seconds
+        setTimeout(() => {
+          setShowAd(false);
+        }, 30000);
+      }
+    } catch (error) {
+      console.error("❌ Failed to fetch ad:", error);
+    }
+  };
+
+  const AdMessage = ({ ad }) => (
+    <View style={styles.adContainer}>
+      <View style={styles.adHeader}>
+        <Text style={styles.adBadge}>🛍️ Sponsored</Text>
+      </View>
+      <View style={styles.adContent}>
+        <Text style={styles.adTitle}>{ad.title || "Check this out!"}</Text>
+        {ad.description ? (
+          <Text style={styles.adDescription}>{ad.description}</Text>
+        ) : null}
+
+        {/* Iframe alternative for React Native */}
+        <TouchableOpacity
+          style={styles.adButton}
+          onPress={() => Linking.openURL(ad.url)}
+        >
+          <Text style={styles.adButtonText}>Visit Site</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.adUrl}>{ad.url}</Text>
+      </View>
+    </View>
+  );
   // Socket Initialization
   const initializeSocket = (token) => {
     console.log("🔌 Initializing neighborhood socket...");
@@ -572,7 +729,6 @@ export default function NeighborhoodChatScreen() {
       Alert.alert("Error", "Failed to pick media");
     }
   };
-
 const unifiedUpload = async (asset, type, fileSize, mimeType) => {
   setUploading(true);
   setUploadType(type);
@@ -584,7 +740,7 @@ const unifiedUpload = async (asset, type, fileSize, mimeType) => {
     let fileUri = asset.uri;
     let fileName = asset.name || asset.fileName || `${type}-${Date.now()}`;
 
-    // SMARTER TYPE DETECTION
+    // FIXED detectActualType function
     const detectActualType = () => {
       const extension = fileName.split(".").pop().toLowerCase();
       const imageExtensions = [
@@ -596,19 +752,14 @@ const unifiedUpload = async (asset, type, fileSize, mimeType) => {
         "heic",
         "bmp",
       ];
-      const videoExtensions = ["mp4", "mov", "avi", "mkv", "webm"];
+      const videoExtensions = ["mp4", "mov", "avi", "mkv", "webm", "quicktime"];
 
       if (imageExtensions.includes(extension)) return "image";
       if (videoExtensions.includes(extension)) return "video";
-      return "file"; // fallback
+      return "file";
     };
 
     const actualType = detectActualType();
-    console.log("🔍 Detected file type:", {
-      originalType: type,
-      actualType,
-      fileName,
-    });
 
     // Preserve original extension
     if (!fileName.includes(".")) {
@@ -618,27 +769,51 @@ const unifiedUpload = async (asset, type, fileSize, mimeType) => {
 
     console.log("🔄 Uploading to IPFS:", { fileName, actualType });
 
-    const ipfsUrl = await uploadToIPFS(fileUri, fileName, actualType, token);
+    // Get BOTH ipfsUrl AND magnetLink from the upload
+    const { ipfsUrl, magnetLink } = await uploadToIPFS(
+      fileUri,
+      fileName,
+      actualType,
+      token
+    );
 
     if (ipfsUrl) {
-      // SET THE CORRECT FIELD BASED ON ACTUAL TYPE
+      // ✅ EXTRACT CID from IPFS URL
+      const cid = ipfsUrl.split("/ipfs/")[1]?.split("?")[0];
+      console.log("📝 Extracted CID:", cid);
+
+      const content = magnetLink
+        ? `🔗 P2P ${
+            actualType.charAt(0).toUpperCase() + actualType.slice(1)
+          }: ${fileName}`
+        : `📁 ${
+            actualType.charAt(0).toUpperCase() + actualType.slice(1)
+          }: ${fileName}`;
+
+      // ✅ CRITICAL: ALWAYS include CID in message variables
       const messageVariables = {
-        content: `${
-          actualType.charAt(0).toUpperCase() + actualType.slice(1)
-        } Shared: ${fileName}`,
+        content,
         neighborhoodId: neighborhoodId,
-        imageUrl: actualType === "image" ? ipfsUrl : null,
-        videoUrl: actualType === "video" ? ipfsUrl : null,
-        fileUrl: actualType === "file" ? ipfsUrl : null,
-        fileName: fileName,
-        fileType: actualType, // Use the detected type, not the original
-        fileSize: fileSize,
-        mimeType: mimeType || getMimeType(fileName),
+        fileName,
+        fileType: actualType, // This should be "video" not "video/quicktime"
+        cid: cid || null, // ✅ MUST include CID
+        magnetLink: magnetLink || null,
       };
 
-      console.log("📤 Sending message with:", messageVariables);
+      // Store in appropriate URL field based on type
+      if (actualType === "image") {
+        messageVariables.imageUrl = ipfsUrl;
+      } else if (actualType === "video") {
+        messageVariables.videoUrl = ipfsUrl;
+      } else if (actualType === "file") {
+        messageVariables.fileUrl = ipfsUrl;
+      }
+
+      console.log("📤 Sending message with CID:", messageVariables);
       await sendMessageMutation({ variables: messageVariables });
-      console.log(`✅ ${actualType} uploaded and message sent`);
+      console.log(
+        `✅ ${actualType} uploaded and message sent with CID: ${cid}`
+      );
     }
   } catch (error) {
     console.error(`❌ Upload error:`, error);
@@ -649,7 +824,7 @@ const unifiedUpload = async (asset, type, fileSize, mimeType) => {
   }
 };
 
-// Helper function
+  // Helper function
 const getMimeType = (filename) => {
   const ext = filename.split(".").pop().toLowerCase();
   const mimeTypes = {
@@ -665,23 +840,23 @@ const getMimeType = (filename) => {
   return mimeTypes[ext] || "application/octet-stream";
 };
 
-// Helper function for MIME types
-const getMimeTypeFromExtension = (filename) => {
-  const ext = filename.split(".").pop().toLowerCase();
-  const mimeTypes = {
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    png: "image/png",
-    gif: "image/gif",
-    webp: "image/webp",
-    heic: "image/heic",
-    bmp: "image/bmp",
-    mp4: "video/mp4",
-    mov: "video/quicktime",
-    avi: "video/x-msvideo",
+  // Helper function for MIME types
+  const getMimeTypeFromExtension = (filename) => {
+    const ext = filename.split(".").pop().toLowerCase();
+    const mimeTypes = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      gif: "image/gif",
+      webp: "image/webp",
+      heic: "image/heic",
+      bmp: "image/bmp",
+      mp4: "video/mp4",
+      mov: "video/quicktime",
+      avi: "video/x-msvideo",
+    };
+    return mimeTypes[ext] || "application/octet-stream";
   };
-  return mimeTypes[ext] || "application/octet-stream";
-};
 
 const uploadToIPFS = async (fileUri, fileName, type, token) => {
   try {
@@ -689,7 +864,7 @@ const uploadToIPFS = async (fileUri, fileName, type, token) => {
     const blob = await response.blob();
 
     const formData = new FormData();
-    formData.append("video", blob, fileName); // Critical: use correct fileName
+    formData.append("video", blob, fileName);
     formData.append("title", fileName);
     formData.append("description", `Uploaded ${type} - ${fileName}`);
 
@@ -701,11 +876,20 @@ const uploadToIPFS = async (fileUri, fileName, type, token) => {
       body: formData,
     });
 
-    if (!res.ok) throw new Error(`IPFS upload failed: ${res.status}`);
+    console.log("📥 upload response status:", res.status);
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`IPFS upload failed: ${res.status} – ${errorText}`);
+    }
 
     const result = await res.json();
-    console.log("✅ IPFS Result:", result);
-    return result.ipfsUrl;
+    const { ipfsUrl, magnetLink } = result;
+
+    console.log("✅ IPFS Result:", { ipfsUrl, magnetLink });
+
+    // ✅ Return both values so unifiedUpload can use them
+    return { ipfsUrl, magnetLink };
   } catch (error) {
     console.error("❌ IPFS upload error:", error);
     throw error;
@@ -788,7 +972,6 @@ const uploadToIPFS = async (fileUri, fileName, type, token) => {
             async (torrent) => {
               console.log("🌪️ Torrent created:", torrent.magnetURI);
 
-              // Remove preview
               document.body.removeChild(video);
 
               try {
@@ -798,14 +981,14 @@ const uploadToIPFS = async (fileUri, fileName, type, token) => {
                 // Send to neighborhood chat
                 await sendMessageMutation({
                   variables: {
-                    content: "🔴 Live Neighborhood Stream",
-                    neighborhoodId: neighborhoodId,
-                    magnetLink: torrent.magnetURI,
-                    fileName: `neighborhood-stream-${Date.now()}.webm`,
-                    fileType: "video",
-                    // Add these for better display:
-                    videoUrl: null, // Force use of magnet link
+                    content: messageContent,
+                    neighborhoodId,
                     imageUrl: null,
+                    videoUrl: null,
+                    fileUrl: null,
+                    fileName: null,
+                    fileType: null,
+                    magnetLink: null,
                   },
                 });
 
@@ -887,7 +1070,6 @@ const uploadToIPFS = async (fileUri, fileName, type, token) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -907,55 +1089,49 @@ const uploadToIPFS = async (fileUri, fileName, type, token) => {
           <Text style={styles.membersButtonText}>👥</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Connection Status */}
       {!socket && (
         <View style={styles.connectionWarning}>
           <Text style={styles.warningText}>Connecting...</Text>
         </View>
       )}
 
-      {/* Messages List */}
-      <ScrollView
-        style={styles.messagesList}
-        ref={scrollViewRef}
-   
-      >
-        {messages.map((item) => (
-          <View style={styles.messageContainer} key={item.id}>
-            <Image
-              source={{
-                uri: getProfilePhotoUrl(item.sender?.profilePhoto),
-              }}
-              style={styles.profileImage}
-              onError={(e) => {
-                if (e.target) {
-                  e.target.src = "https://via.placeholder.com/40";
-                }
-              }}
-            />
-            <View style={styles.messageContent}>
-              <Text style={styles.username}>
-                {item.sender?.username || "Unknown"}
-              </Text>
-
-              {/* Unified Media Renderer - One line for all media! */}
-              <ChatMediaRenderer message={item} />
-
-              {/* Text content if no media */}
-              {!item.imageUrl && !item.videoUrl && !item.fileUrl && (
-                <Text style={styles.messageText}>{item.content}</Text>
+      <ScrollView style={styles.messagesList} ref={scrollViewRef}>
+        {messages.map((item, index) => {
+          const adEvery = 20;
+          const showAdHere = index && index % 20 === 0;
+          console.log("adData:", adData);
+          return (
+            <React.Fragment key={item.id}>
+              {showAdHere && adData?.randomAffiliateLink && (
+                <AdMessage ad={adData.randomAffiliateLink} />
               )}
+              <View style={styles.messageContainer}>
+                <Image
+                  source={{
+                    uri: getProfilePhotoUrl(item.sender?.profilePhoto),
+                  }}
+                  style={styles.profileImage}
+                />
+                <View style={styles.messageContent}>
+                  <Text style={styles.username}>
+                    {item.sender?.username || "Unknown"}
+                  </Text>
 
-              <Text style={styles.timestamp}>
-                {formatTimestamp(item.createdAt)}
-              </Text>
-            </View>
-          </View>
-        ))}
+                  <ChatMediaRenderer message={item} />
+
+                  {!item.imageUrl && !item.videoUrl && !item.fileUrl && (
+                    <Text style={styles.messageText}>{item.content}</Text>
+                  )}
+
+                  <Text style={styles.timestamp}>
+                    {formatTimestamp(item.createdAt)}
+                  </Text>
+                </View>
+              </View>
+            </React.Fragment>
+          );
+        })}
       </ScrollView>
-
-      {/* Input Area */}
       <View style={styles.inputContainer}>
         <TouchableOpacity style={styles.uploadButton} onPress={pickFile}>
           <Text style={styles.uploadButtonText}>📎</Text>
@@ -1236,10 +1412,61 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     textAlign: "center",
   },
-    fileNameText: {
+  fileNameText: {
     fontSize: 12,
-    color: '#888',
+    color: "#888",
     marginTop: 4,
-    textAlign: 'center',
+    textAlign: "center",
+  },
+  adContainer: {
+    backgroundColor: "#1a1a1a",
+    borderLeftWidth: 4,
+    borderLeftColor: "#00ffff",
+    margin: 10,
+    padding: 12,
+    borderRadius: 8,
+  },
+  adHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  adBadge: {
+    color: "#00ffff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  adContent: {
+    // Your ad content styles
+  },
+  adTitle: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  adDescription: {
+    color: "#cccccc",
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  adButton: {
+    backgroundColor: "#00ffff",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignSelf: "flex-start",
+    marginBottom: 8,
+  },
+  adButtonText: {
+    color: "#000000",
+    fontWeight: "bold",
+    fontSize: 14,
+  },
+  adUrl: {
+    color: "#888888",
+    fontSize: 12,
+    fontStyle: "italic",
   },
 });
