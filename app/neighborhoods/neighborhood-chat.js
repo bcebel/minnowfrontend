@@ -21,7 +21,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentMedia from "../../components/WebTorrentMedia";
-
+import AdMessage from "../../components/AdMessage";
 
 const safeFileName = (asset) =>
   asset.name || asset.fileName || asset.uri.split("/").pop() || "media";
@@ -60,32 +60,22 @@ const SimpleVideoPlayer = ({ url, fileName }) => {
   );
 };
 
-
 // FIXED ChatMediaRenderer - Only shows media when media exists
 const ChatMediaRenderer = ({ message }) => {
-  const { imageUrl, videoUrl, fileUrl, magnetLink, fileName, fileType } = message;
-
-  console.log("🖼️ Rendering check:", { 
-    fileType, 
-    hasMagnet: !!magnetLink, 
-    hasImage: !!imageUrl,
-    hasVideo: !!videoUrl, 
-    hasFile: !!fileUrl,
-    fileName 
-  });
+  const { imageUrl, videoUrl, fileUrl, magnetLink, fileName, fileType } =
+    message;
 
   // 🚨 RETURN NULL if there's no media at all
   const hasAnyMedia = imageUrl || videoUrl || fileUrl || magnetLink;
   if (!hasAnyMedia) {
-    console.log("📝 No media to render - this is a text message");
     return null;
   }
 
   // Helper to get Pinata URL
   const getPinataUrl = (url) => {
     if (!url) return null;
-    if (url.includes('/ipfs/')) {
-      const cid = url.split('/ipfs/')[1];
+    if (url.includes("/ipfs/")) {
+      const cid = url.split("/ipfs/")[1];
       return `https://${PINATA_GATEWAY}/ipfs/${cid}`;
     }
     return url;
@@ -94,22 +84,17 @@ const ChatMediaRenderer = ({ message }) => {
   // 🎯 SIMPLE RULES:
 
   // 1. If it has magnet link → WebTorrentMedia (handles both images and videos)
-  if (magnetLink && (fileType === 'image' || fileType === 'video')) {
-    console.log("🔗 Using WebTorrentMedia for:", fileType);
+  if (magnetLink && (fileType === "image" || fileType === "video")) {
     return (
       <View style={styles.magnetContainer}>
-        <WebTorrentMedia 
-          media={message} 
-          isFocused={true}
-        />
+        <WebTorrentMedia media={message} isFocused={true} />
       </View>
     );
   }
 
   // 2. If it's an image → Direct image
-  if (imageUrl || fileType === 'image') {
+  if (imageUrl || fileType === "image") {
     const pinataUrl = getPinataUrl(imageUrl);
-    console.log("🖼️ Direct image:", pinataUrl);
     return (
       <TouchableOpacity onPress={() => console.log("Open image:", pinataUrl)}>
         <Image
@@ -123,15 +108,10 @@ const ChatMediaRenderer = ({ message }) => {
   }
 
   // 3. If it's a video → Simple video player
-  if (videoUrl || fileType === 'video') {
+  if (videoUrl || fileType === "video") {
     const pinataUrl = getPinataUrl(videoUrl);
     console.log("🎥 Direct video:", pinataUrl);
-    return (
-      <SimpleVideoPlayer
-        url={pinataUrl}
-        fileName={fileName || "Video"}
-      />
-    );
+    return <SimpleVideoPlayer url={pinataUrl} fileName={fileName || "Video"} />;
   }
 
   // 4. If it's a file → File download
@@ -165,9 +145,7 @@ const ChatMediaRenderer = ({ message }) => {
         <Text style={styles.fileName} numberOfLines={1}>
           {fileName || "Media"}
         </Text>
-        <Text style={styles.fileType}>
-          Cannot preview • Tap for info
-        </Text>
+        <Text style={styles.fileType}>Cannot preview • Tap for info</Text>
       </View>
     </View>
   );
@@ -403,13 +381,11 @@ export default function NeighborhoodChatScreen() {
   const [uploading, setUploading] = useState(false);
   const [uploadType, setUploadType] = useState(null);
   const [messageCount, setMessageCount] = useState(0);
-  const [showAd, setShowAd] = useState(false);
-  const [currentAd, setCurrentAd] = useState(null);
 
   const { data: adData, refetch: fetchRandomAd } = useQuery(
     GET_RANDOM_AFFILIATE_LINK
   );
-
+  console.log("adData:", adData);
   const TRACK_CLICK = gql`
     mutation TrackAffiliateClick($id: ID!) {
       trackAffiliateClick(id: $id)
@@ -436,19 +412,6 @@ export default function NeighborhoodChatScreen() {
   );
 
   const [sendMessageMutation] = useMutation(SEND_NEIGHBORHOOD_MESSAGE);
-  useEffect(() => {
-    if (data?.neighborhoodMessages) {
-      const newCount = data.neighborhoodMessages.length;
-
-      // Every 20 messages, show an ad
-      if (newCount > 0 && newCount % 20 === 0 && newCount !== messageCount) {
-        setMessageCount(newCount);
-        showRandomAd();
-      } else {
-        setMessageCount(newCount);
-      }
-    }
-  }, [data?.neighborhoodMessages]);
 
   useEffect(() => {
     // first ad on load
@@ -504,30 +467,6 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  const AdMessage = ({ ad }) => (
-    <View style={styles.adContainer}>
-      <View style={styles.adHeader}>
-        <Text style={styles.adBadge}>🛍️ Sponsored</Text>
-      </View>
-      <View style={styles.adContent}>
-        <Text style={styles.adTitle}>{ad.title || "Check this out!"}</Text>
-        {ad.description ? (
-          <Text style={styles.adDescription}>{ad.description}</Text>
-        ) : null}
-
-        {/* Iframe alternative for React Native */}
-        <TouchableOpacity
-          style={styles.adButton}
-          onPress={() => Linking.openURL(ad.url)}
-        >
-          <Text style={styles.adButtonText}>Visit Site</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.adUrl}>{ad.url}</Text>
-      </View>
-    </View>
-  );
-  // Socket Initialization
   const initializeSocket = (token) => {
     console.log("🔌 Initializing neighborhood socket...");
 
@@ -547,7 +486,6 @@ export default function NeighborhoodChatScreen() {
     });
 
     newSocket.on("message", (newMsg) => {
-      console.log("📨 New neighborhood message:", newMsg);
       refetch();
     });
 
@@ -719,7 +657,7 @@ export default function NeighborhoodChatScreen() {
       Alert.alert("Error", "Failed to pick file");
     }
   };
-  
+
   // SIMPLE Upload - JUST STORE WHAT WE GET
   const unifiedUpload = async (asset, type, fileSize, mimeType) => {
     setUploading(true);
@@ -890,8 +828,6 @@ export default function NeighborhoodChatScreen() {
       script.src =
         "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
       script.onload = () => {
-        console.log("🚀 WebTorrent loaded, starting recording...");
-
         const mediaRecorder = new MediaRecorder(stream, {
           mimeType: "video/webm; codecs=vp8,opus",
           videoBitsPerSecond: 2500000,
@@ -905,7 +841,6 @@ export default function NeighborhoodChatScreen() {
         };
 
         mediaRecorder.onstop = async () => {
-          console.log("🎬 Recording stopped, creating torrent...");
           const videoBlob = new Blob(chunks, { type: "video/webm" });
           const client = new window.WebTorrent();
 
@@ -920,8 +855,6 @@ export default function NeighborhoodChatScreen() {
               ],
             },
             async (torrent) => {
-              console.log("🌪️ Torrent created:", torrent.magnetURI);
-
               document.body.removeChild(video);
 
               try {
@@ -983,6 +916,11 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
+  const testAd = {
+    url: "https://www.tkqlhce.com/click-101316119-15402725", // Replace with your actual CJ.com affiliate link
+    title: "Test Ad",
+    id: "test-1",
+  };
   // Render Logic
   const messages = data?.neighborhoodMessages || [];
   const neighborhoodName =
@@ -1047,14 +985,10 @@ export default function NeighborhoodChatScreen() {
 
       <ScrollView style={styles.messagesList} ref={scrollViewRef}>
         {messages.map((item, index) => {
-          const adEvery = 20;
-          const showAdHere = index && index % 20 === 0;
-          console.log("adData:", adData);
+          const showAdHere = index % 20 === 0;
           return (
             <React.Fragment key={item.id}>
-              {showAdHere && adData?.randomAffiliateLink && (
-                <AdMessage ad={adData.randomAffiliateLink} />
-              )}
+              {/* Regular message first */}
               <View style={styles.messageContainer}>
                 <Image
                   source={{
@@ -1078,10 +1012,26 @@ export default function NeighborhoodChatScreen() {
                   </Text>
                 </View>
               </View>
+              {showAdHere && adData?.randomAffiliateLink && (
+                <View style={styles.messageContainer}>
+                  <Image
+                    source={{
+                      uri: getProfilePhotoUrl(null), // System profile for ads
+                    }}
+                    style={styles.profileImage}
+                  />
+                  <View style={styles.messageContent}>
+                    <Text style={styles.username}>CommunityAdLinks</Text>
+                    <AdMessage ad={adData?.randomAffiliateLink} />{" "}
+                    <Text style={styles.timestamp}>Now</Text>
+                  </View>
+                </View>
+              )}
             </React.Fragment>
           );
         })}
       </ScrollView>
+
       <View style={styles.inputContainer}>
         <TouchableOpacity style={styles.uploadButton} onPress={pickFile}>
           <Text style={styles.uploadButtonText}>📎</Text>

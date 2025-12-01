@@ -286,7 +286,7 @@ const handleSave = async () => {
             <Text style={styles.label}>URL</Text>
             <TextInput
               style={styles.input}
-              placeholder="https://..."
+              placeholder="a href="
               value={link.url}
               onChangeText={(text) => updateLink(index, "url", text)}
               keyboardType="url"
