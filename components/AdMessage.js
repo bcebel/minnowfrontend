@@ -87,12 +87,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#1a1a1a",
     borderRadius: 12,
     overflow: "hidden",
-    marginVertical: 8,
+    marginVertical: 1,
   },
   adBadge: {
-    padding: 8,
-    backgroundColor: "rgba(0, 255, 255, 0.1)",
+    padding: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
     alignItems: "center",
+    
   },
   adBadgeText: {
     color: "#00ffff",
@@ -100,7 +101,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   imageContainer: {
-    aspectRatio: 468 / 60, // Standard banner ratio
+   height: 175,
     backgroundColor: "#000",
   },
   bannerImage: {
