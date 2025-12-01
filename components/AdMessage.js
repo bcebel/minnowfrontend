@@ -71,13 +71,6 @@ const AdMessage = ({ ad }) => {
           }
         />
       </View>
-
-      {/* Optional: Show ad title */}
-      {ad?.title && (
-        <View style={styles.adTitleContainer}>
-          <Text style={styles.adTitle}>{ad.title}</Text>
-        </View>
-      )}
     </TouchableOpacity>
   );
 };
