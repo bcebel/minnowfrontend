@@ -398,7 +398,7 @@ export default function NeighborhoodChatScreen() {
     GET_NEIGHBORHOOD_INFO,
     {
       variables: { id: neighborhoodId },
-      skip: !neighborhoodId,
+//      skip: !neighborhoodId,
     }
   );
 
@@ -407,7 +407,7 @@ export default function NeighborhoodChatScreen() {
     {
       variables: { neighborhoodId },
       fetchPolicy: "cache-and-network",
-      skip: !isAuthenticated || !neighborhoodId,
+//      skip: !isAuthenticated || !neighborhoodId,
     }
   );
 
@@ -959,6 +959,16 @@ export default function NeighborhoodChatScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() =>
+            router.push(
+              `/neighborhood-gallery?neighborhoodId=${neighborhoodId}`
+            )
+          }
+          style={styles.galleryButton}
+        >
+          <Text style={styles.galleryButtonText}>🖼️</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButton}
