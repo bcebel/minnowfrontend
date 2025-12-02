@@ -677,7 +677,8 @@ export default function NeighborhoodChatScreen() {
         fileUri,
         fileName,
         type,
-        token
+        token,
+        neighborhoodId // ← PASS neighborhoodId HERE
       );
 
       if (ipfsUrl) {
@@ -755,8 +756,16 @@ export default function NeighborhoodChatScreen() {
       formData.append("video", blob, fileName);
       formData.append("title", fileName);
       formData.append("description", `Uploaded ${type} - ${fileName}`);
+         if (neighborhoodId) {
+           formData.append("neighborhoodId", neighborhoodId);
+         }
 
-      console.log("📤 IPFS Upload:", { fileName, type, size: blob.size });
+      console.log("📤 IPFS Upload:", {
+        fileName,
+        type,
+        size: blob.size,
+        neighborhoodId,
+      });
 
       const res = await fetch(`${BACKEND_URL}/upload`, {
         method: "POST",
