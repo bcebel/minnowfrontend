@@ -22,6 +22,18 @@ export default function WebTorrentMedia({ media, isFocused }) {
 
   const { magnetLink, fileName, fileType } = media;
 
+  const getOptimalStrategy = (fileType, fileName) => {
+    if (fileType === "video") {
+      return "sequential"; // 🎬 Videos need order
+    } else if (fileType === "image") {
+      return "rarest"; // 🖼️ Images want speed
+    } else {
+      return "rarest"; // Default for documents, etc.
+    }
+  };
+
+  const strategy = getOptimalStrategy(fileType, fileName);
+
   // Extract CID from various sources
   const extractCID = () => {
     if (media.cid) return media.cid;
@@ -75,9 +87,30 @@ export default function WebTorrentMedia({ media, isFocused }) {
           throw new Error("Global WebTorrent client not found");
         }
 
-        setStatus("Connecting to P2P swarm...");
+        setStatus(`Connecting to P2P swarm (${strategy} mode)...`);
 
-        let torrent = client.get(magnetLink) || client.add(magnetLink);
+        // Check if torrent already exists
+        let torrent = client.get(magnetLink);
+
+        if (!torrent) {
+          // 🎯 CRITICAL: Add with optimal strategy
+          torrent = client.add(magnetLink, {
+            strategy: strategy, // This is the key!
+
+            // Optimize based on media type
+            ...(isVideo
+              ? {
+                  storeCacheSlots: 20, // Larger cache for videos
+                  preloadStoreSize: 10 * 1024 * 1024, // Preload 10MB
+                  destroyStoreOnDestroy: false, // Keep in cache
+                }
+              : {
+                  storeCacheSlots: 5, // Smaller cache for images
+                  preloadStoreSize: 2 * 1024 * 1024, // Preload 2MB
+                }),
+          });
+        }
+
         torrentRef.current = torrent;
 
         // Add web seed for faster loading
@@ -89,10 +122,19 @@ export default function WebTorrentMedia({ media, isFocused }) {
           const percent = Math.round(torrent.progress * 100);
           setProgress(percent);
           setPeers(torrent.numPeers);
-          setStatus(`Downloading: ${percent}% from ${torrent.numPeers} peers`);
+
+          // Different status messages based on strategy
+          if (strategy === "sequential") {
+            setStatus(`Streaming: ${percent}% from ${torrent.numPeers} peers`);
+          } else {
+            setStatus(`Loading: ${percent}% from ${torrent.numPeers} peers`);
+          }
 
           // Start loading media when we have some data
-          if (percent >= 5 && !mediaUrl) {
+          // Different thresholds based on media type and strategy
+          const loadThreshold = isVideo ? 5 : 2; // Video needs 5%, images need 2%
+
+          if (percent >= loadThreshold && !mediaUrl) {
             let file;
 
             if (isImage) {
@@ -126,6 +168,9 @@ export default function WebTorrentMedia({ media, isFocused }) {
           }
         });
 
+        // Different timeouts based on media type
+        const timeoutDuration = isVideo ? 3000 : 1000; // Videos get longer timeout
+
         // Timeout fallback
         setTimeout(
           () => {
@@ -134,7 +179,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
               setMediaUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
             }
           },
-          isFocused ? 1000 : 3000
+          isFocused ? timeoutDuration : timeoutDuration * 3
         );
       } catch (error) {
         console.error("Error loading media:", error);
@@ -151,7 +196,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
       // Keep torrent alive for seeding
       console.log("Keeping torrent alive for seeding");
     };
-  }, [magnetLink, cid, isFocused, isImage]);
+  }, [magnetLink, cid, isFocused, isImage, strategy]); // Added strategy to dependencies
 
   // Video controls
   const handlePlay = () => {
@@ -246,6 +291,9 @@ export default function WebTorrentMedia({ media, isFocused }) {
                 <View style={styles.statusInfo}>
                   <Text style={styles.statusText}>{status}</Text>
                   <Text style={styles.peerText}>{peers} peers</Text>
+                  <Text style={styles.strategyText}>
+                    {strategy === "sequential" ? "🎬 Stream" : "⚡ Quick Load"}
+                  </Text>
                 </View>
               </View>
             </>
@@ -256,6 +304,10 @@ export default function WebTorrentMedia({ media, isFocused }) {
           <Text style={styles.status}>{status}</Text>
           <Text style={styles.progress}>
             {progress}% • {peers} peers
+          </Text>
+          <Text style={styles.strategyInfo}>
+            Mode:{" "}
+            {strategy === "sequential" ? "Streaming optimized" : "Fast preview"}
           </Text>
           {progress > 0 && (
             <View style={styles.progressBar}>
@@ -281,6 +333,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
 }
 
 const styles = StyleSheet.create({
+
   container: {
     backgroundColor: "#000",
     borderRadius: 12,
@@ -290,6 +343,7 @@ const styles = StyleSheet.create({
     maxWidth: 800,
     alignSelf: "center",
   },
+  
   mediaWrapper: {
     position: "relative",
   },
@@ -342,6 +396,12 @@ const styles = StyleSheet.create({
     color: "#00ffff",
     fontSize: 12,
   },
+
+  strategyText: {
+
+    fontSize: 10,
+    marginTop: 2,
+  },
   loadingContainer: {
     height: 400,
     justifyContent: "center",
@@ -358,6 +418,10 @@ const styles = StyleSheet.create({
   progress: {
     color: "#00ffff",
     fontSize: 14,
+    marginBottom: 8,
+  },
+  strategyInfo: {
+    fontSize: 12,
     marginBottom: 12,
   },
   progressBar: {
