@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,423 +6,307 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
-  useWindowDimensions,
   TouchableOpacity,
   Linking,
-  Alert,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from "react-native";
 import { Image } from "expo-image";
-import { useVideoPlayer, VideoView } from "expo-video";
 import { gql, useQuery } from "@apollo/client";
-import WebTorrentPlayer from "../../components/WebTorrentPlayer";
-import WebTorrentImage from "../../components/WebTorrentImage";
+import { useVideoPlayer, VideoView } from "expo-video";
+import WebTorrentMedia from "../../components/WebTorrentMedia"; // Import from your chat
 
 // GraphQL Query
-const GET_NEIGHBORHOOD_VIDEOS = gql`
-  query GetNeighborhoodVideos($neighborhoodId: ID!) {
-    getNeighborhoodVideos(neighborhoodId: $neighborhoodId) {
-      id
-      title
-      description
-      fileName
-      fileSize
-      fileType
-      cid
-      ipfsUrl
-      magnetLink
-      user {
-        username
-        profilePhoto
+const GET_NEIGHBORHOOD_GALLERY = gql`
+  query GetNeighborhoodGallery($neighborhoodId: ID!) {
+    getNeighborhoodGallery(neighborhoodId: $neighborhoodId) {
+      videos {
+        id
+        title
+        fileName
+        fileType
+        cid
+        ipfsUrl
+        magnetLink
+        user {
+          username
+        }
+        neighborhood {
+          name
+        }
+        createdAt
       }
-      neighborhood {
-        name
-        description
+      images {
+        id
+        title
+        fileName
+        fileType
+        cid
+        ipfsUrl
+        magnetLink
+        user {
+          username
+        }
+        neighborhood {
+          name
+        }
+        createdAt
       }
-      createdAt
+      totalCount
     }
   }
 `;
 
-// Utility functions
+// Helper function
 const getFileType = (fileName: string) => {
   if (!fileName) return "unknown";
-  fileName = fileName.toLowerCase();
+  const lower = fileName.toLowerCase();
 
   if (
-    fileName.endsWith(".mp4") ||
-    fileName.endsWith(".mov") ||
-    fileName.endsWith(".webm")
+    lower.endsWith(".mp4") ||
+    lower.endsWith(".mov") ||
+    lower.endsWith(".webm")
   ) {
     return "video";
   }
   if (
-    fileName.endsWith(".jpg") ||
-    fileName.endsWith(".jpeg") ||
-    fileName.endsWith(".png") ||
-    fileName.endsWith(".gif")
+    lower.endsWith(".jpg") ||
+    lower.endsWith(".jpeg") ||
+    lower.endsWith(".png") ||
+    lower.endsWith(".gif")
   ) {
     return "image";
-  }
-  if (
-    fileName.endsWith(".pdf") ||
-    fileName.endsWith(".doc") ||
-    fileName.endsWith(".docx")
-  ) {
-    return "document";
   }
   return "unknown";
 };
 
-const downloadFile = async (url: string, fileName: string) => {
-  try {
-    if (Platform.OS === "web") {
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName || "download";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } else {
-      await Linking.openURL(url);
-    }
-  } catch (error) {
-    console.error("Download failed:", error);
-    Alert.alert("Download Error", "Failed to download file. Please try again.");
-  }
-};
-
-// Video Player Component
-const VideoPlayer = ({ url }: { url: string }) => {
+// Simple Video Player Component - SAME AS IN CHAT
+const SimpleVideoPlayer = ({
+  url,
+  fileName,
+}: {
+  url: string;
+  fileName: string;
+}) => {
   const player = useVideoPlayer(url, (player) => {
     player.loop = false;
   });
 
   return (
-    <VideoView
-      player={player}
-      style={styles.videoPlayer}
-      showsControls={true}
-      contentFit="contain"
-      allowsExternalPlayback={true}
-    />
-  );
-};
-
-// Image Preview Component
-const ImagePreview = ({
-  url,
-  onError,
-}: {
-  url: string;
-  onError: () => void;
-}) => {
-  return (
-    <TouchableOpacity onPress={() => Linking.openURL(url)}>
-      <Image
-        source={{ uri: url }}
-        style={styles.imagePlayer}
-        resizeMode="contain"
-        onError={onError}
+    <TouchableOpacity
+      style={styles.videoContainer}
+      onPress={() => player.play()}
+    >
+      <VideoView
+        player={player}
+        style={styles.videoPlayer}
+        showsControls={true}
+        contentFit="contain"
+        allowsExternalPlayback={true}
       />
+      {fileName && (
+        <Text style={styles.videoCaption} numberOfLines={1}>
+          {fileName}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 };
 
-// Document Preview Component
-const DocumentPreview = ({
-  url,
-  fileName,
-  fileType,
-}: {
-  url: string;
-  fileName: string;
-  fileType: string;
-}) => {
+// Media Display Component - USING SAME LOGIC AS CHAT
+const MediaDisplay = ({ item }: { item: any }) => {
+  const fileType = getFileType(item.fileName);
+  const isImage = fileType === "image";
+  const isVideo = fileType === "video";
+
+  // Get the display URL
+  const getDisplayUrl = () => {
+    if (item.ipfsUrl) {
+      return item.ipfsUrl.replace(
+        "ipfs.filebase.io",
+        process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud"
+      );
+    }
+
+    if (item.cid) {
+      return `https://${
+        process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud"
+      }/ipfs/${item.cid}`;
+    }
+
+    return null;
+  };
+
+  const displayUrl = getDisplayUrl();
+
+  if (!displayUrl) {
+    return (
+      <View style={styles.noMedia}>
+        <Text>No media URL available</Text>
+      </View>
+    );
+  }
+
+  // 🎯 SIMPLE RULES - SAME AS CHAT:
+
+  // 1. If it has magnet link → WebTorrentMedia (handles both images and videos)
+  if (item.magnetLink && (fileType === "image" || fileType === "video")) {
+    return (
+      <View style={styles.magnetContainer}>
+        <WebTorrentMedia
+          media={{
+            ...item,
+            imageUrl: isImage ? displayUrl : null,
+            videoUrl: isVideo ? displayUrl : null,
+            fileType: fileType,
+          }}
+          isFocused={true}
+        />
+      </View>
+    );
+  }
+
+  // 2. If it's an image → Direct image
+  if (isImage) {
+    return (
+      <Image
+        source={{ uri: displayUrl }}
+        style={styles.image}
+        contentFit="cover"
+        transition={300}
+        onError={() => console.log("Image failed to load")}
+      />
+    );
+  }
+
+  // 3. If it's a video → Simple video player (SAME AS CHAT)
+  if (isVideo) {
+    return (
+      <SimpleVideoPlayer url={displayUrl} fileName={item.fileName || "Video"} />
+    );
+  }
+
+  // 4. File download fallback
   return (
     <TouchableOpacity
-      style={styles.documentContainer}
-      onPress={() => downloadFile(url, fileName)}
+      onPress={() => Linking.openURL(displayUrl)}
+      style={styles.fileContainer}
     >
-      <Text style={styles.documentIcon}>
-        {fileType === "document" ? "📄" : "📁"}
-      </Text>
-      <View style={styles.documentInfo}>
-        <Text style={styles.documentTitle} numberOfLines={1}>
-          {fileName || "Download File"}
+      <Text style={styles.fileIcon}>📁</Text>
+      <View style={styles.fileInfo}>
+        <Text style={styles.fileName} numberOfLines={1}>
+          {item.fileName || "File"}
         </Text>
-        <Text style={styles.documentSubtext}>
-          Tap to download • {fileType === "document" ? "Document" : "File"}
+        <Text style={styles.fileType}>
+          {fileType || "File"} • Tap to download
         </Text>
       </View>
     </TouchableOpacity>
   );
 };
 
-// VIDEO CARD COMPONENT - This was missing!
-const VideoCard = ({
-  video,
-  isVisible,
-  priority,
-  inBuffer,
-  isFocused,
-}: {
-  video: any;
-  isVisible: boolean;
-  priority: boolean;
-  inBuffer: boolean;
-  isFocused: boolean;
-}) => {
-  const [imageError, setImageError] = useState(false);
-  const [shouldLoad, setShouldLoad] = useState(priority);
+interface NeighborhoodGalleryProps {
+  neighborhoodId: string;
+  neighborhoodName?: string;
+}
 
-  useEffect(() => {
-    if ((isVisible || inBuffer) && !shouldLoad) {
-      setShouldLoad(true);
-    }
-  }, [isVisible]);
-
-  let mediaUrl = video.ipfsUrl;
-
-  // URL processing logic
-  if (mediaUrl) {
-    if (Platform.OS === "android") {
-      mediaUrl = mediaUrl.replace(
-        "ipfs.filebase.io",
-        process.env.EXPO_PUBLIC_PINATA_GATEWAY
-      );
-    } else {
-      mediaUrl = video.cid
-        ? `https://${video.cid}.ipfs.dweb.link/`
-        : mediaUrl.replace(
-            "ipfs.filebase.io",
-            process.env.EXPO_PUBLIC_PINATA_GATEWAY
-          );
-    }
-  }
-
-  const fileName = video.fileName || video.title || "media";
-  const fileType = getFileType(fileName);
-  const isProfilePhoto =
-    !video.magnetLink &&
-    video.cid &&
-    (video.fileName?.includes("profile-photo") ||
-      video.title?.includes("Profile Photo"));
-
-  if (!mediaUrl) {
-    return (
-      <View style={styles.videoCard}>
-        <Text style={styles.title}>{video.title}</Text>
-        <Text style={styles.errorText}>No media URL available.</Text>
-      </View>
-    );
-  }
-
-  if (!shouldLoad) {
-    return (
-      <View style={[styles.videoCard, styles.placeholderCard]}>
-        <View style={styles.placeholderContent}>
-          <Text style={styles.placeholderText}>Loading...</Text>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.videoCard}>
-      <Text style={styles.title} numberOfLines={1}>
-        {video.title}
-      </Text>
-      <Text style={styles.description} numberOfLines={2}>
-        {video.description || "No description provided."}
-      </Text>
-
-      {/* File type badge */}
-      <View style={styles.fileTypeBadge}>
-        <Text style={styles.fileTypeText}>
-          {fileType.toUpperCase()} • {fileName ? fileName : "Media"}
-        </Text>
-      </View>
-
-      {video.magnetLink && !isProfilePhoto ? (
-        fileType === "video" ? (
-          <WebTorrentPlayer video={video} isFocused={isFocused} />
-        ) : (
-          <WebTorrentImage image={video} isFocused={isFocused} />
-        )
-      ) : fileType === "video" ? (
-        <VideoPlayer url={mediaUrl} />
-      ) : (
-        <ImagePreview url={mediaUrl} onError={() => setImageError(true)} />
-      )}
-
-      {/* Video metadata */}
-      <View style={styles.metadata}>
-        <Text style={styles.userInfo}>
-          👤 {video.user?.username || "Unknown"}
-        </Text>
-        {video.neighborhood && (
-          <Text style={styles.neighborhoodInfo}>
-            🏘️ {video.neighborhood.name}
-          </Text>
-        )}
-        <Text style={styles.timestamp}>
-          📅 {new Date(video.createdAt).toLocaleDateString()}
-        </Text>
-      </View>
-    </View>
-  );
-};
-
-// Main Neighborhood Gallery Component
 export default function NeighborhoodGallery({
   neighborhoodId,
   neighborhoodName,
-}: {
-  neighborhoodId: string;
-  neighborhoodName?: string;
-}) {
-  const { width, height } = useWindowDimensions();
-
-  const { loading, error, data, refetch } = useQuery(GET_NEIGHBORHOOD_VIDEOS, {
+}: NeighborhoodGalleryProps) {
+  const { loading, error, data, refetch } = useQuery(GET_NEIGHBORHOOD_GALLERY, {
     variables: { neighborhoodId },
     skip: !neighborhoodId,
+    fetchPolicy: "network-only",
   });
 
-  // Lazy loading state
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 3 });
-  const flatListRef = useRef<FlatList>(null);
+  // Combine videos and images
+  const allMedia = React.useMemo(() => {
+    if (!data?.getNeighborhoodGallery) return [];
 
-  const numColumns = Platform.OS === "web" && width > 900 ? 2 : 1;
+    const galleryData = data.getNeighborhoodGallery;
+    const videos = galleryData.videos || [];
+    const images = galleryData.images || [];
 
-  // Sort videos for optimal loading
-  const sortedVideos = React.useMemo(() => {
-    if (!data?.getNeighborhoodVideos) return [];
-
-    return [...data.getNeighborhoodVideos].sort((a, b) => {
-      const aType = getFileType(a.fileName);
-      const bType = getFileType(b.fileName);
-
-      if (aType === "image" && bType !== "image") return -1;
-      if (bType === "image" && aType !== "image") return 1;
-
-      if (a.cid && !b.cid) return -1;
-      if (!a.cid && b.cid) return 1;
-
+    return [...videos, ...images].sort((a, b) => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [data?.getNeighborhoodVideos]);
-
-  // Handle scroll for lazy loading
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (Platform.OS === "web") {
-      const scrollY = event.nativeEvent.contentOffset.y;
-      const windowHeight = height;
-      const itemHeight = 600;
-      const startIndex = Math.max(0, Math.floor(scrollY / itemHeight) - 1);
-      const endIndex = Math.min(
-        sortedVideos.length - 1,
-        startIndex + Math.ceil(windowHeight / itemHeight) + 25
-      );
-
-      setVisibleRange({ start: startIndex, end: endIndex });
-    }
-  };
-
-  const loadMore = () => {
-    setVisibleRange((prev) => ({
-      start: 0,
-      end: Math.min(sortedVideos.length - 1, prev.end + 5),
-    }));
-  };
+  }, [data?.getNeighborhoodGallery]);
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles.center}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading Neighborhood Media...</Text>
+        <Text>Loading...</Text>
       </View>
     );
   }
 
   if (error) {
-    console.error("GraphQL Error:", error);
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Error loading neighborhood media</Text>
-        <Text style={styles.errorDetail}>{error.message}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryText}>Retry</Text>
+      <View style={styles.center}>
+        <Text style={styles.error}>Error: {error.message}</Text>
+        <TouchableOpacity onPress={() => refetch()} style={styles.button}>
+          <Text style={styles.buttonText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const videos = sortedVideos;
+  const galleryData = data?.getNeighborhoodGallery;
+  const media = allMedia;
+  const totalCount = galleryData?.totalCount || 0;
 
-  const renderItem = ({ item, index }: { item: any; index: number }) => {
-    const isVisible = index >= visibleRange.start && index <= visibleRange.end;
-    const isFocused =
-      index >= visibleRange.start && index <= visibleRange.start + 2;
-    const inBuffer =
-      index >= visibleRange.start - 5 && index <= visibleRange.end + 15;
-    const priority = index < 3;
+  const renderItem = ({ item }: { item: any }) => {
+    const fileType = getFileType(item.fileName);
 
     return (
-      <View style={{ width: numColumns > 1 ? "50%" : "100%" }}>
-        <VideoCard
-          video={item}
-          isVisible={isVisible}
-          priority={priority}
-          inBuffer={inBuffer}
-          isFocused={isFocused}
-        />
+      <View style={styles.card}>
+        <View
+          style={[
+            styles.badge,
+            fileType === "image" ? styles.imageBadge : styles.videoBadge,
+          ]}
+        >
+          <Text style={styles.badgeText}>{fileType.toUpperCase()}</Text>
+        </View>
+
+        <Text style={styles.title}>
+          {item.title || item.fileName || "Untitled"}
+        </Text>
+
+        <MediaDisplay item={item} />
+
+        <View style={styles.info}>
+          <Text>👤 {item.user?.username || "Unknown"}</Text>
+          <Text>🏘️ {item.neighborhood?.name || "No neighborhood"}</Text>
+          <Text>📅 {new Date(item.createdAt).toLocaleDateString()}</Text>
+        </View>
       </View>
     );
   };
 
+  if (media.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.header}>
+          {neighborhoodName ? `${neighborhoodName} Gallery` : "Gallery"}
+        </Text>
+        <Text style={styles.empty}>No media in this neighborhood yet</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
+      <Text style={styles.header}>
+        {neighborhoodName ? `${neighborhoodName} Gallery` : "Gallery"}
+      </Text>
+      <Text style={styles.subheader}>{totalCount} items</Text>
+
       <FlatList
-        ref={flatListRef}
-        key={`flatlist-${numColumns}`}
-        data={videos}
+        data={media}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        contentContainerStyle={[
-          styles.galleryContainer,
-          Platform.OS === "web" && { maxWidth: 1000, marginHorizontal: "auto" },
-        ]}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>
-              {neighborhoodName
-                ? `${neighborhoodName} Gallery`
-                : "Neighborhood Gallery"}
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              {videos.length} item{videos.length !== 1 ? "s" : ""} in this
-              neighborhood
-            </Text>
-          </View>
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              No media in this neighborhood yet
-            </Text>
-            <Text style={styles.emptySubtext}>
-              Share some videos or images in the chat to get started!
-            </Text>
-          </View>
-        }
-        numColumns={numColumns}
-        columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
+        contentContainerStyle={styles.list}
         refreshing={loading}
         onRefresh={refetch}
       />
@@ -430,195 +314,155 @@ export default function NeighborhoodGallery({
   );
 }
 
-// Keep all your existing styles...
 const styles = StyleSheet.create({
-  // ... (copy all your existing styles from the original gallery)
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    padding: 16,
+    backgroundColor: "#f5f5f5",
   },
-  centerContainer: {
+  center: {
     flex: 1,
-    justifyContent: "flex-start",
-    alignItems: "flex-start",
-    padding: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
   },
   header: {
-    padding: 20,
-    alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    borderBottomWidth: 1,
-    borderBottomColor: "#dee2e6",
-  },
-  headerTitle: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: "bold",
     marginBottom: 8,
-    color: "#333",
   },
-  headerSubtitle: {
-    fontSize: 18,
+  subheader: {
+    fontSize: 16,
     color: "#666",
+    marginBottom: 16,
   },
-  galleryContainer: {
+  list: {
+    paddingBottom: 20,
+  },
+  card: {
+    backgroundColor: "white",
+    borderRadius: 8,
     padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  columnWrapper: {
-    justifyContent: "space-between",
-    gap: 16,
+  badge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginBottom: 8,
   },
-  videoCard: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 16,
+  imageBadge: {
+    backgroundColor: "#4CAF50",
+  },
+  videoBadge: {
+    backgroundColor: "#FF5722",
+  },
+  badgeText: {
+    color: "white",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 12,
+  },
+  noMedia: {
     padding: 20,
-    backgroundColor: "#f9f9f9",
-    margin: 12,
-    minHeight: 600,
-    width: "100%",
-    maxWidth: 1000,
-  },
-  placeholderCard: {
-    minHeight: 300,
-    backgroundColor: "#f0f0f0",
-  },
-  placeholderContent: {
+    backgroundColor: "#eee",
+    borderRadius: 8,
     alignItems: "center",
   },
-  placeholderText: {
-    color: "#666",
-    fontSize: 16,
+  image: {
+    width: "100%",
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: "#f0f0f0",
+  },
+  // Video styles from chat
+  videoContainer: {
+    marginBottom: 8,
+    borderRadius: 12,
+    overflow: "hidden",
+    width: "100%",
+    backgroundColor: "#000",
   },
   videoPlayer: {
     width: "100%",
     height: undefined,
     aspectRatio: 16 / 9,
     backgroundColor: "#000",
-    borderRadius: 12,
-    marginBottom: 16,
   },
-  imagePlayer: {
-    width: "100%",
-    height: undefined,
-    aspectRatio: 4 / 3,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: "#721c24",
-    backgroundColor: "#f8d7da",
-    padding: 12,
-    borderRadius: 8,
-    margin: 12,
-    textAlign: "center",
+  videoCaption: {
+    color: "#FFFFFF",
     fontSize: 14,
-  },
-  errorDetail: {
-    color: "#856404",
-    fontSize: 14,
-    textAlign: "center",
     marginTop: 8,
-    marginBottom: 12,
+    paddingHorizontal: 8,
+    textAlign: "center",
   },
-  loadingText: {
-    marginTop: 12,
-    color: "#007AFF",
-    fontSize: 18,
+  magnetContainer: {
+    width: "100%",
+    borderRadius: 8,
+    overflow: "hidden",
   },
-  documentContainer: {
+  // File container from chat
+  fileContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#222222",
     padding: 16,
     borderRadius: 12,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#e9ecef",
-    marginBottom: 12,
-    width: "100%",
-    alignSelf: "center",
+    borderColor: "#333333",
   },
-  documentIcon: {
-    fontSize: 32,
+  fileIcon: {
+    fontSize: 28,
     marginRight: 16,
   },
-  documentInfo: {
+  fileInfo: {
     flex: 1,
   },
-  documentTitle: {
-    fontSize: 18,
+  fileName: {
+    color: "#FFFFFF",
+    fontSize: 16,
     fontWeight: "bold",
-    color: "#212529",
-    marginBottom: 6,
-    textAlign: "center",
+    marginBottom: 4,
   },
-  documentSubtext: {
+  fileType: {
+    color: "#00AA00",
     fontSize: 14,
-    color: "#6c757d",
-    textAlign: "center",
   },
-  fileTypeBadge: {
-    backgroundColor: "#e3f2fd",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    alignSelf: "center",
-    marginBottom: 12,
-  },
-  fileTypeText: {
-    fontSize: 12,
-    color: "#1565c0",
-    fontWeight: "bold",
-  },
-  metadata: {
+  info: {
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: "#eee",
-    alignItems: "center",
   },
-  userInfo: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 4,
+  empty: {
     textAlign: "center",
-  },
-  neighborhoodInfo: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 4,
-    textAlign: "center",
-  },
-  timestamp: {
-    fontSize: 14,
-    color: "#999",
-    textAlign: "center",
-  },
-  emptyContainer: {
-    padding: 60,
-    width: "100%",
-  },
-  emptyText: {
-    fontSize: 24,
-    color: "#666",
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  emptySubtext: {
+    marginTop: 40,
     fontSize: 18,
-    color: "#999",
+    color: "#666",
+  },
+  error: {
+    color: "red",
+    marginBottom: 10,
     textAlign: "center",
   },
-  retryButton: {
+  button: {
     backgroundColor: "#007AFF",
-    padding: 16,
-    borderRadius: 8,
-    marginTop: 12,
-    alignSelf: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
   },
-  retryText: {
+  buttonText: {
     color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
   },
 });
