@@ -1102,10 +1102,10 @@ const styles = StyleSheet.create({
   },
   centerContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "flex-start",
+    alignItems: "flex-start",
     backgroundColor: "#000000",
-    padding: 20,
+    padding: 5,
   },
   loadingText: {
     color: "#00ffff",
@@ -1127,7 +1127,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     backgroundColor: "#111111",
     borderBottomWidth: 1,
     borderBottomColor: "#00ffff",
@@ -1194,7 +1194,7 @@ const styles = StyleSheet.create({
   // LARGER MEDIA STYLES
   messageImage: {
     width: "100%", // Will be controlled by parent
-    maxWidth: 800, // Maximum size on large screens
+    maxWidth: "90%", // Maximum size on large screens
     height: undefined,
     aspectRatio: 4 / 3, // Maintain aspect ratio
     borderRadius: 12,

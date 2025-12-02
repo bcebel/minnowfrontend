@@ -40,7 +40,6 @@ const GET_MY_VIDEOS = gql`
   }
 `;
 
-
 // Utility functions
 const getFileType = (fileName: string) => {
   if (!fileName) return "unknown";
@@ -74,6 +73,18 @@ const getFileType = (fileName: string) => {
   return "unknown";
 };
 
+const getFormattedDate = (input: any): string => {
+  if (!input) return "";
+  const timestamp = /^\d+$/.test(input) ? parseInt(input) : Date.parse(input);
+  const date = new Date(timestamp);
+  return isNaN(date.getTime())
+    ? ""
+    : `${(date.getMonth() + 1).toString().padStart(2, "0")}/${date
+        .getDate()
+        .toString()
+        .padStart(2, "0")}/${date.getFullYear().toString().slice(-2)}`;
+};
+
 const MediaCard = ({
   media,
   isVisible,
@@ -88,6 +99,7 @@ const MediaCard = ({
   isFocused: boolean;
 }) => {
   const [shouldLoad, setShouldLoad] = useState(priority);
+  const { width } = useWindowDimensions();
 
   useEffect(() => {
     if ((isVisible || inBuffer) && !shouldLoad) {
@@ -100,23 +112,12 @@ const MediaCard = ({
   const isSupportedMedia = fileType === "video" || fileType === "image";
   const isDocument = fileType === "document";
 
-const getFormattedDate = (input: any): string => {
-  if (!input) return "";
-  const timestamp = /^\d+$/.test(input) ? parseInt(input) : Date.parse(input);
-  const date = new Date(timestamp);
-  return isNaN(date.getTime()) ? "" : 
-    `${(date.getMonth()+1).toString().padStart(2,'0')}/${date.getDate().toString().padStart(2,'0')}/${date.getFullYear().toString().slice(-2)}`;
-};
-
   // Don't render heavy content if not visible and not priority
   if (!shouldLoad) {
     return (
       <View style={[styles.mediaCard, styles.placeholderCard]}>
         <View style={styles.placeholderContent}>
           <Text style={styles.placeholderText}>Loading...</Text>
-          <View style={styles.placeholderIcon}>
-            {fileType === "video" ? "🎬" : fileType === "image" ? "🖼️" : "📄"}
-          </View>
         </View>
       </View>
     );
@@ -124,17 +125,19 @@ const getFormattedDate = (input: any): string => {
 
   return (
     <View style={styles.mediaCard}>
-      {/* Title and Description */}
+      {/* Header - LEFT ALIGNED */}
       <View style={styles.header}>
         <Text style={styles.title} numberOfLines={1}>
           {media.title}
         </Text>
-        <Text style={styles.description} numberOfLines={2}>
-          {media.description || "No description provided."}
-        </Text>
+        {media.description ? (
+          <Text style={styles.description} numberOfLines={2}>
+            {media.description}
+          </Text>
+        ) : null}
       </View>
 
-      {/* File type badge */}
+      {/* File type badge - LEFT ALIGNED */}
       <View
         style={[
           styles.fileTypeBadge,
@@ -144,19 +147,21 @@ const getFormattedDate = (input: any): string => {
         ]}
       >
         <Text style={styles.fileTypeText}>{fileType.toUpperCase()}</Text>
-        {media.magnetLink && <Text style={styles.p2pBadge}> • 🌐 P2P</Text>}
+        {media.magnetLink && <Text style={styles.p2pBadge}> • P2P</Text>}
       </View>
 
-      {/* Media Content */}
+      {/* Media Content - FULL WIDTH */}
       {isSupportedMedia ? (
-        <WebTorrentMedia
-          media={{
-            ...media,
-            fileType,
-            fileName,
-          }}
-          isFocused={isFocused && isVisible}
-        />
+        <View style={styles.mediaWrapper}>
+          <WebTorrentMedia
+            media={{
+              ...media,
+              fileType,
+              fileName,
+            }}
+            isFocused={isFocused && isVisible}
+          />
+        </View>
       ) : isDocument ? (
         <View style={styles.documentContainer}>
           <Text style={styles.documentIcon}>📄</Text>
@@ -177,9 +182,9 @@ const getFormattedDate = (input: any): string => {
         </View>
       )}
 
-      {/* Metadata */}
+      {/* Metadata - LEFT ALIGNED */}
       <View style={styles.metadata}>
-        <View style={styles.userRow}>
+        <View style={styles.metadataRow}>
           <Text style={styles.userIcon}>👤</Text>
           <Text style={styles.userInfo}>
             {media.user?.username || "Unknown"}
@@ -187,7 +192,7 @@ const getFormattedDate = (input: any): string => {
         </View>
 
         {media.neighborhood && (
-          <View style={styles.neighborhoodRow}>
+          <View style={styles.metadataRow}>
             <Text style={styles.neighborhoodIcon}>🏘️</Text>
             <Text style={styles.neighborhoodInfo}>
               {media.neighborhood.name}
@@ -195,10 +200,10 @@ const getFormattedDate = (input: any): string => {
           </View>
         )}
 
-        <View style={styles.timestampRow}>
-            <Text style={styles.timestamp}>
-              {getFormattedDate(media.createdAt)}
-            </Text>
+        <View style={styles.metadataRow}>
+          <Text style={styles.timestamp}>
+            📅 {getFormattedDate(media.createdAt)}
+          </Text>
         </View>
       </View>
     </View>
@@ -210,11 +215,12 @@ export default function GraphQLGallery() {
   const { width, height } = useWindowDimensions();
   const { loading, error, data, refetch } = useQuery(GET_MY_VIDEOS);
 
-  // Lazy loading state
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 3 });
+  // Lazy loading state - start with just 1 visible
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 1 });
   const flatListRef = useRef<FlatList>(null);
 
-  const numColumns = Platform.OS === "web" && width > 900 ? 2 : 1;
+  // Single column, full width
+  const numColumns = 1;
 
   // Sort media for optimal loading
   const sortedMedia = React.useMemo(() => {
@@ -237,25 +243,22 @@ export default function GraphQLGallery() {
     });
   }, [data?.getMyVideos]);
 
-
-  // Handle scroll for lazy loading
+  // Handle scroll for lazy loading - aggressive
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (Platform.OS === "web") {
-      const scrollY = event.nativeEvent.contentOffset.y;
-      const windowHeight = height;
+    const scrollY = event.nativeEvent.contentOffset.y;
 
-      const itemHeight = 700; // Increased for larger cards
-      const startIndex = Math.max(0, Math.floor(scrollY / itemHeight) - 1);
-      const endIndex = Math.min(
-        sortedMedia.length - 1,
-        startIndex + Math.ceil(windowHeight / itemHeight) + 4 // Buffer
-      );
+    // Calculate visible items based on scroll position
+    const itemHeight = height * 0.9; // 90% of viewport height
+    const startIndex = Math.floor(scrollY / itemHeight);
+    const visibleItems = Math.ceil(height / itemHeight) + 1; // +1 for buffer
 
-      setVisibleRange({ start: startIndex, end: endIndex });
-    }
+    setVisibleRange({
+      start: Math.max(0, startIndex - 1), // Load 1 before
+      end: Math.min(sortedMedia.length - 1, startIndex + visibleItems + 2), // Load 2 after
+    });
   };
 
-  // Web-specific intersection observer
+  // Web-specific intersection observer - more aggressive
   useEffect(() => {
     if (Platform.OS !== "web" || !sortedMedia.length) return;
 
@@ -267,15 +270,15 @@ export default function GraphQLGallery() {
               entry.target.getAttribute("data-index") || "0"
             );
             setVisibleRange((prev) => ({
-              start: Math.min(prev.start, index - 1),
-              end: Math.max(prev.end, index + 2),
+              start: Math.min(prev.start, index - 2), // Load 2 before
+              end: Math.max(prev.end, index + 3), // Load 3 after
             }));
           }
         });
       },
       {
-        rootMargin: "300px 0px", // Increased buffer for smooth loading
-        threshold: 0.05,
+        rootMargin: "100px 0px", // Small buffer since items are huge
+        threshold: 0.01, // Trigger as soon as 1% is visible
       }
     );
 
@@ -285,11 +288,11 @@ export default function GraphQLGallery() {
     return () => observer.disconnect();
   }, [sortedMedia.length]);
 
-  // Load more items
+  // Load more when reaching end
   const loadMore = () => {
     setVisibleRange((prev) => ({
       start: 0,
-      end: Math.min(sortedMedia.length - 1, prev.end + 3),
+      end: Math.min(sortedMedia.length - 1, prev.end + 2),
     }));
   };
 
@@ -316,22 +319,17 @@ export default function GraphQLGallery() {
   }
 
   const mediaItems = sortedMedia;
+  const p2pCount = mediaItems.filter((item) => item.magnetLink).length;
 
   const renderItem = ({ item, index }: { item: any; index: number }) => {
     const isVisible = index >= visibleRange.start && index <= visibleRange.end;
-    const isFocused =
-      isVisible &&
-      index >= visibleRange.start &&
-      index <= visibleRange.start + 1;
+    const isFocused = isVisible && index === visibleRange.start; // Only first visible is focused
     const inBuffer =
-      index >= visibleRange.start - 2 && index <= visibleRange.end + 3;
-    const priority = index < 2;
+      index >= visibleRange.start - 1 && index <= visibleRange.end + 1;
+    const priority = index < 1; // Only first item gets priority
 
     return (
-      <View
-        data-media-index={index}
-        style={{ width: numColumns > 1 ? "50%" : "100%" }}
-      >
+      <View data-media-index={index} style={styles.fullWidthItem}>
         <MediaCard
           media={item}
           isVisible={isVisible}
@@ -343,64 +341,56 @@ export default function GraphQLGallery() {
     );
   };
 
-  const p2pCount = mediaItems.filter((item) => item.magnetLink).length;
-
   return (
     <View style={styles.container}>
+      {/* Header - LEFT ALIGNED */}
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerTitle}>MEDIA GALLERY</Text>
+        <Text style={styles.headerSubtitle}>
+          {mediaItems.length} ITEMS • {p2pCount} P2P ENABLED
+        </Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>
+              {
+                mediaItems.filter((m) => getFileType(m.fileName) === "video")
+                  .length
+              }
+            </Text>
+            <Text style={styles.statLabel}>VIDEOS</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>
+              {
+                mediaItems.filter((m) => getFileType(m.fileName) === "image")
+                  .length
+              }
+            </Text>
+            <Text style={styles.statLabel}>IMAGES</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNumber}>
+              {
+                mediaItems.filter((m) => getFileType(m.fileName) === "document")
+                  .length
+              }
+            </Text>
+            <Text style={styles.statLabel}>DOCUMENTS</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Main Gallery - FULL WIDTH */}
       <FlatList
         ref={flatListRef}
-        key={`flatlist-${numColumns}`}
         data={mediaItems}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         onEndReached={loadMore}
-        onEndReachedThreshold={0.3}
-        contentContainerStyle={[
-          styles.galleryContainer,
-          Platform.OS === "web" && { maxWidth: 1200, marginHorizontal: "auto" },
-        ]}
-        ListHeaderComponent={
-          <View style={styles.headerContainer}>
-            <Text style={styles.headerTitle}>MEDIA GALLERY</Text>
-            <Text style={styles.headerSubtitle}>
-              {mediaItems.length} ITEMS • {p2pCount} P2P ENABLED
-            </Text>
-            <View style={styles.statsRow}>
-              <View style={styles.statBox}>
-                <Text style={styles.statNumber}>
-                  {
-                    mediaItems.filter(
-                      (m) => getFileType(m.fileName) === "video"
-                    ).length
-                  }
-                </Text>
-                <Text style={styles.statLabel}>VIDEOS</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statNumber}>
-                  {
-                    mediaItems.filter(
-                      (m) => getFileType(m.fileName) === "image"
-                    ).length
-                  }
-                </Text>
-                <Text style={styles.statLabel}>IMAGES</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statNumber}>
-                  {
-                    mediaItems.filter(
-                      (m) => getFileType(m.fileName) === "document"
-                    ).length
-                  }
-                </Text>
-                <Text style={styles.statLabel}>DOCUMENTS</Text>
-              </View>
-            </View>
-          </View>
-        }
+        onEndReachedThreshold={0.1} // Trigger early
+        contentContainerStyle={styles.galleryContainer}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>NO MEDIA FOUND</Text>
@@ -409,16 +399,17 @@ export default function GraphQLGallery() {
             </Text>
           </View>
         }
-        numColumns={numColumns}
-        columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : null}
+        numColumns={1}
         refreshing={loading}
         onRefresh={refetch}
+        snapToInterval={height * 0.9} // Snap to 90% viewport height
+        decelerationRate="fast"
       />
     </View>
   );
 }
 
-// BOLD COLOR STYLES
+// BOLD, LEFT-ALIGNED, FULL-WIDTH STYLES
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -427,73 +418,70 @@ const styles = StyleSheet.create({
   centerContainer: {
     flex: 1,
     justifyContent: "center",
-    alignItems: "center",
+    alignItems: "flex-start", // LEFT ALIGNED
     backgroundColor: "#000000",
-    padding: 40,
+  },
+  fullWidthItem: {
+    width: "100%",
   },
   headerContainer: {
-    padding: 30,
+    padding: 20,
+    paddingLeft: 10,
     backgroundColor: "#000000",
     borderBottomWidth: 4,
     borderBottomColor: "#FF00FF",
-    marginBottom: 20,
   },
   headerTitle: {
-    fontSize: 48,
+    fontSize: 32,
     fontWeight: "900",
     color: "#FFFFFF",
-    textAlign: "center",
-    marginBottom: 10,
-    letterSpacing: 3,
-    textShadowColor: "#00FFFF",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+    textAlign: "left", // LEFT ALIGNED
+    marginBottom: 8,
+    letterSpacing: 2,
   },
   headerSubtitle: {
-    fontSize: 20,
+    fontSize: 16,
     color: "#FFFF00",
-    textAlign: "center",
+    textAlign: "left", // LEFT ALIGNED
     marginBottom: 20,
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   statsRow: {
     flexDirection: "row",
-    justifyContent: "center",
-    gap: 30,
-    marginTop: 20,
+    justifyContent: "flex-start", // LEFT ALIGNED
+    gap: 20,
+    flexWrap: "wrap",
   },
   statBox: {
-    alignItems: "center",
-    padding: 20,
+    alignItems: "flex-start", // LEFT ALIGNED
+    padding: 15,
+    paddingLeft: 10,
     backgroundColor: "#111111",
     borderWidth: 2,
     borderColor: "#00FF00",
-    minWidth: 120,
+    minWidth: 100,
   },
   statNumber: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: "bold",
     color: "#FF00FF",
-    marginBottom: 5,
+    marginBottom: 4,
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#00FFFF",
     letterSpacing: 1,
   },
   galleryContainer: {
-    padding: 20,
-    backgroundColor: "#000000",
-  },
-  columnWrapper: {
-    gap: 25,
-    paddingHorizontal: 20,
+    paddingHorizontal: 0, // NO horizontal padding
   },
   mediaCard: {
+    marginBottom: 10,
+    width: "100%",
+    minHeight: 600, // Minimum height
     backgroundColor: "#000000",
     borderWidth: 3,
     borderColor: "#000000ff",
-    marginBottom: 25,
     overflow: "hidden",
     shadowColor: "#FF00FF",
     shadowOffset: { width: 0, height: 0 },
@@ -502,49 +490,47 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   placeholderCard: {
-    minHeight: 400,
+    minHeight: 500,
     backgroundColor: "#111111",
-    borderColor: "#666666",
+    borderColor: "#ff00ff",
     justifyContent: "center",
-    alignItems: "center",
+    alignItems: "flex-start", // LEFT ALIGNED
   },
   placeholderContent: {
-    alignItems: "center",
-  },
-  placeholderIcon: {
-    fontSize: 48,
-    marginTop: 10,
+    alignItems: "flex-start", // LEFT ALIGNED
   },
   placeholderText: {
     color: "#FFFF00",
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: "monospace",
   },
   header: {
-    padding: 20,
+    padding: 15,
+    paddingLeft: 10,
     borderBottomWidth: 2,
-    borderBottomColor: "#000000ff",
+    borderBottomColor: "#0000FF",
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "bold",
     color: "#FFFFFF",
-    marginBottom: 10,
-    textAlign: "center",
+    marginBottom: 6,
+    textAlign: "left", // LEFT ALIGNED
   },
   description: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#CCCCCC",
-    textAlign: "center",
-    lineHeight: 22,
+    textAlign: "left", // LEFT ALIGNED
+    lineHeight: 18,
   },
   fileTypeBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    alignSelf: "flex-start",
-    margin: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: "flex-start", // LEFT ALIGNED
+    margin: 10,
+    marginLeft: 10,
     borderWidth: 2,
   },
   videoBadge: {
@@ -560,158 +546,153 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   fileTypeText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "900",
     letterSpacing: 1,
   },
   p2pBadge: {
     color: "#FFFF00",
     fontWeight: "bold",
-    marginLeft: 5,
+    marginLeft: 4,
+    fontSize: 12,
+  },
+  mediaWrapper: {
+    width: "100%",
+    minHeight: 400, // Minimum media height
   },
   documentContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 30,
     backgroundColor: "#111111",
     borderWidth: 3,
     borderColor: "#0000FF",
-    margin: 15,
-    minHeight: 150,
+    margin: 10,
+    minHeight: 120,
   },
   documentIcon: {
-    fontSize: 48,
-    marginRight: 20,
+    fontSize: 36,
+    marginRight: 15,
   },
   documentInfo: {
     flex: 1,
   },
   documentTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
     color: "#FFFFFF",
-    marginBottom: 8,
+    marginBottom: 6,
+    textAlign: "left", // LEFT ALIGNED
   },
   documentSubtext: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#00FFFF",
+    textAlign: "left", // LEFT ALIGNED
   },
   unsupportedContainer: {
-    padding: 40,
     backgroundColor: "#220000",
     borderWidth: 3,
-    borderColor: "#000000ff",
-    margin: 15,
-    alignItems: "center",
+    borderColor: "#0000FF",
+    margin: 10,
+    alignItems: "flex-start", // LEFT ALIGNED
   },
   unsupportedText: {
-    fontSize: 18,
+    fontSize: 16,
     color: "#FFFFFF",
     fontWeight: "bold",
   },
   metadata: {
-    padding: 20,
+    padding: 15,
+    paddingLeft: 10,
     backgroundColor: "#111111",
     borderTopWidth: 2,
-    borderTopColor: "#000000ff",
+    borderTopColor: "#0000FF",
   },
-  userRow: {
+  metadataRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   userIcon: {
-    fontSize: 20,
-    marginRight: 10,
+    fontSize: 16,
+    marginRight: 8,
   },
   userInfo: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#00FF00",
     fontWeight: "bold",
   },
-  neighborhoodRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
   neighborhoodIcon: {
-    fontSize: 20,
-    marginRight: 10,
+    fontSize: 16,
+    marginRight: 8,
   },
   neighborhoodInfo: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#FF8000",
     fontWeight: "bold",
   },
-  timestampRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  timestampIcon: {
-    fontSize: 14, // or whatever size you want
-    marginRight: 8,
-    color: "#00FFFF", // Cyan to match
-  },
   timestamp: {
     fontSize: 14,
-    color: "#00FFFF", // Cyan
+    color: "#00FFFF",
     fontFamily: "monospace",
     fontWeight: "bold",
     letterSpacing: 1,
   },
   loadingText: {
-    marginTop: 20,
+    marginTop: 15,
     color: "#00FFFF",
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "bold",
-    letterSpacing: 2,
+    letterSpacing: 1,
+    textAlign: "left", // LEFT ALIGNED
   },
   errorText: {
-    fontSize: 28,
+    fontSize: 22,
     color: "#FF0000",
-    marginBottom: 15,
-    textAlign: "center",
+    marginBottom: 10,
+    textAlign: "left", // LEFT ALIGNED
     fontWeight: "bold",
   },
   errorDetail: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#FFFF00",
-    textAlign: "center",
-    marginBottom: 20,
+    textAlign: "left", // LEFT ALIGNED
+    marginBottom: 15,
     fontFamily: "monospace",
   },
   retryButton: {
     backgroundColor: "#FF0000",
-    paddingHorizontal: 30,
-    paddingVertical: 15,
+    paddingHorizontal: 25,
+    paddingVertical: 12,
     borderWidth: 3,
     borderColor: "#FFFFFF",
+    alignSelf: "flex-start", // LEFT ALIGNED
   },
   retryText: {
     color: "#000000",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "900",
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   emptyContainer: {
-    padding: 60,
-    alignItems: "center",
+    padding: 40,
+    paddingLeft: 10,
+    alignItems: "flex-start", // LEFT ALIGNED
     backgroundColor: "#000000",
   },
   emptyText: {
-    fontSize: 36,
+    fontSize: 28,
     color: "#FF0000",
-    marginBottom: 20,
+    marginBottom: 15,
     fontWeight: "bold",
-    textAlign: "center",
+    textAlign: "left", // LEFT ALIGNED
     borderWidth: 4,
     borderColor: "#FF0000",
-    padding: 30,
+    padding: 20,
   },
   emptySubtext: {
-    fontSize: 20,
+    fontSize: 16,
     color: "#FFFF00",
-    textAlign: "center",
+    textAlign: "left", // LEFT ALIGNED
     letterSpacing: 1,
   },
 });
