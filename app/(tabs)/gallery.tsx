@@ -8,16 +8,11 @@ import {
   Platform,
   useWindowDimensions,
   TouchableOpacity,
-  Linking,
-  Alert,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
-import { Image } from "expo-image";
-import { useVideoPlayer, VideoView } from "expo-video";
-import { gql, useQuery, useMutation } from "@apollo/client";
-import WebTorrentPlayer from "../../components/WebTorrentPlayer";
-import WebTorrentImage from "../../components/WebTorrentImage";
+import { gql, useQuery } from "@apollo/client";
+import WebTorrentMedia from "../../components/WebTorrentMedia";
 
 // GraphQL Query
 const GET_MY_VIDEOS = gql`
@@ -53,7 +48,9 @@ const getFileType = (fileName: string) => {
   if (
     fileName.endsWith(".mp4") ||
     fileName.endsWith(".mov") ||
-    fileName.endsWith(".webm")
+    fileName.endsWith(".webm") ||
+    fileName.endsWith(".avi") ||
+    fileName.endsWith(".mkv")
   ) {
     return "video";
   }
@@ -61,7 +58,8 @@ const getFileType = (fileName: string) => {
     fileName.endsWith(".jpg") ||
     fileName.endsWith(".jpeg") ||
     fileName.endsWith(".png") ||
-    fileName.endsWith(".gif")
+    fileName.endsWith(".gif") ||
+    fileName.endsWith(".webp")
   ) {
     return "image";
   }
@@ -75,243 +73,158 @@ const getFileType = (fileName: string) => {
   return "unknown";
 };
 
-const downloadFile = async (url: string, fileName: string) => {
-  try {
-    if (Platform.OS === "web") {
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName || "download";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } else {
-      await Linking.openURL(url);
-    }
-  } catch (error) {
-    console.error("Download failed:", error);
-    Alert.alert("Download Error", "Failed to download file. Please try again.");
-  }
-};
-
-// Video Player Component
-const VideoPlayer = ({ url }: { url: string }) => {
-  const player = useVideoPlayer(url, (player) => {
-    player.loop = false;
-  });
-
-  return (
-    <VideoView
-      player={player}
-      style={styles.videoPlayer}
-      showsControls={true}
-      contentFit="contain"
-      allowsExternalPlayback={true}
-    />
-  );
-};
-
-// Image Preview Component
-const ImagePreview = ({
-  url,
-  onError,
-}: {
-  url: string;
-  onError: () => void;
-}) => {
-  return (
-    <TouchableOpacity onPress={() => Linking.openURL(url)}>
-      <Image
-        source={{ uri: url }}
-        style={styles.imagePlayer}
-        resizeMode="contain"
-        onError={onError}
-      />
-    </TouchableOpacity>
-  );
-};
-
-// Document Preview Component
-const DocumentPreview = ({
-  url,
-  fileName,
-  fileType,
-}: {
-  url: string;
-  fileName: string;
-  fileType: string;
-}) => {
-  return (
-    <TouchableOpacity
-      style={styles.documentContainer}
-      onPress={() => downloadFile(url, fileName)}
-    >
-      <Text style={styles.documentIcon}>
-        {fileType === "document" ? "📄" : "📁"}
-      </Text>
-      <View style={styles.documentInfo}>
-        <Text style={styles.documentTitle} numberOfLines={1}>
-          {fileName || "Download File"}
-        </Text>
-        <Text style={styles.documentSubtext}>
-          Tap to download • {fileType === "document" ? "Document" : "File"}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-};
-
-const VideoCard = ({
-  video,
+const MediaCard = ({
+  media,
   isVisible,
   priority,
   inBuffer,
   isFocused,
 }: {
-  video: any;
+  media: any;
   isVisible: boolean;
   priority: boolean;
   inBuffer: boolean;
   isFocused: boolean;
 }) => {
-  const [imageError, setImageError] = useState(false);
-  const [shouldLoad, setShouldLoad] = useState(priority); // High priority items load immediately
-
+  const [shouldLoad, setShouldLoad] = useState(priority);
 
   useEffect(() => {
     if ((isVisible || inBuffer) && !shouldLoad) {
       setShouldLoad(true);
     }
-  }, [isVisible]);
+  }, [isVisible, inBuffer, shouldLoad]);
 
-  let mediaUrl = video.ipfsUrl;
-
-  // URL processing logic (keep your existing logic)
-  if (mediaUrl) {
-    if (Platform.OS === "android") {
-      mediaUrl = mediaUrl.replace(
-        "ipfs.filebase.io",
-        process.env.EXPO_PUBLIC_PINATA_GATEWAY
-      );
-    } else {
-      mediaUrl = video.cid
-        ? `https://${video.cid}.ipfs.dweb.link/`
-        : mediaUrl.replace(
-            "ipfs.filebase.io",
-            process.env.EXPO_PUBLIC_PINATA_GATEWAY
-          );
-    }
-  }
-
-  const fileName = video.fileName || video.title || "media";
+  const fileName = media.fileName || media.title || "media";
   const fileType = getFileType(fileName);
-  const isProfilePhoto =
-    !video.magnetLink &&
-    video.cid &&
-    (video.fileName?.includes("profile-photo") ||
-      video.title?.includes("Profile Photo"));
-
-  if (!mediaUrl) {
-    return (
-      <View style={styles.videoCard}>
-        <Text style={styles.title}>{video.title}</Text>
-        <Text style={styles.errorText}>No media URL available.</Text>
-      </View>
-    );
-  }
+  const isSupportedMedia = fileType === "video" || fileType === "image";
+  const isDocument = fileType === "document";
 
   // Don't render heavy content if not visible and not priority
   if (!shouldLoad) {
     return (
-      <View style={[styles.videoCard, styles.placeholderCard]}>
+      <View style={[styles.mediaCard, styles.placeholderCard]}>
         <View style={styles.placeholderContent}>
           <Text style={styles.placeholderText}>Loading...</Text>
+          <View style={styles.placeholderIcon}>
+            {fileType === "video" ? "🎬" : fileType === "image" ? "🖼️" : "📄"}
+          </View>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.videoCard}>
-      <Text style={styles.title} numberOfLines={1}>
-        {video.title}
-      </Text>
-      <Text style={styles.description} numberOfLines={2}>
-        {video.description || "No description provided."}
-      </Text>
-
-      {/* File type badge */}
-      <View style={styles.fileTypeBadge}>
-        <Text style={styles.fileTypeText}>
-          {fileType.toUpperCase()} • {fileName ? fileName : "Media"}
+    <View style={styles.mediaCard}>
+      {/* Title and Description */}
+      <View style={styles.header}>
+        <Text style={styles.title} numberOfLines={1}>
+          {media.title}
+        </Text>
+        <Text style={styles.description} numberOfLines={2}>
+          {media.description || "No description provided."}
         </Text>
       </View>
 
-      {video.magnetLink && !isProfilePhoto ? (
-        fileType === "video" ? (
-          <WebTorrentPlayer video={video} isFocused={isFocused} />
-        ) : (
-          <WebTorrentImage image={video} isFocused={isFocused} />
-        )
-      ) : fileType === "video" ? (
-        <VideoPlayer url={mediaUrl} />
+      {/* File type badge */}
+      <View
+        style={[
+          styles.fileTypeBadge,
+          fileType === "video" && styles.videoBadge,
+          fileType === "image" && styles.imageBadge,
+          fileType === "document" && styles.documentBadge,
+        ]}
+      >
+        <Text style={styles.fileTypeText}>{fileType.toUpperCase()}</Text>
+        {media.magnetLink && <Text style={styles.p2pBadge}> • 🌐 P2P</Text>}
+      </View>
+
+      {/* Media Content */}
+      {isSupportedMedia ? (
+        <WebTorrentMedia
+          media={{
+            ...media,
+            fileType,
+            fileName,
+          }}
+          isFocused={isFocused && isVisible}
+        />
+      ) : isDocument ? (
+        <View style={styles.documentContainer}>
+          <Text style={styles.documentIcon}>📄</Text>
+          <View style={styles.documentInfo}>
+            <Text style={styles.documentTitle} numberOfLines={2}>
+              {fileName || "Document"}
+            </Text>
+            <Text style={styles.documentSubtext}>
+              {media.fileSize
+                ? `Size: ${(media.fileSize / 1024 / 1024).toFixed(2)} MB`
+                : "Document"}
+            </Text>
+          </View>
+        </View>
       ) : (
-        <ImagePreview url={mediaUrl} onError={() => setImageError(true)} />
+        <View style={styles.unsupportedContainer}>
+          <Text style={styles.unsupportedText}>Unsupported file type</Text>
+        </View>
       )}
 
-      {/* Video metadata */}
+      {/* Metadata */}
       <View style={styles.metadata}>
-        <Text style={styles.userInfo}>
-          👤 {video.user?.username || "Unknown"}
-        </Text>
-        {video.neighborhood && (
-          <Text style={styles.neighborhoodInfo}>
-            🏘️ {video.neighborhood.name}
+        <View style={styles.userRow}>
+          <Text style={styles.userIcon}>👤</Text>
+          <Text style={styles.userInfo}>
+            {media.user?.username || "Unknown"}
           </Text>
+        </View>
+
+        {media.neighborhood && (
+          <View style={styles.neighborhoodRow}>
+            <Text style={styles.neighborhoodIcon}>🏘️</Text>
+            <Text style={styles.neighborhoodInfo}>
+              {media.neighborhood.name}
+            </Text>
+          </View>
         )}
-        <Text style={styles.timestamp}>
-          📅 {new Date(video.createdAt).toLocaleDateString()}
-        </Text>
+
+        <View style={styles.timestampRow}>
+          <Text style={styles.timestampIcon}>📅</Text>
+          <Text style={styles.timestamp}>
+            {new Date(media.createdAt).toLocaleDateString()}
+          </Text>
+        </View>
       </View>
     </View>
   );
 };
 
-// Main Gallery Component - UPDATED WITH LAZY LOADING
+// Main Gallery Component
 export default function GraphQLGallery() {
   const { width, height } = useWindowDimensions();
-  const [attachMagnetMutation] = useMutation(gql`
-    mutation AttachMagnet($id: ID!, $magnetLink: String!) {
-      attachMagnet(id: $id, magnetLink: $magnetLink) {
-        id
-        magnetLink
-      }
-    }
-  `);
   const { loading, error, data, refetch } = useQuery(GET_MY_VIDEOS);
 
   // Lazy loading state
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 3 }); // Start with just 3
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 3 });
   const flatListRef = useRef<FlatList>(null);
 
-  const numColumns = Platform.OS === "web" && width > 900 ? 2 : 1; // Reduced columns for larger items
+  const numColumns = Platform.OS === "web" && width > 900 ? 2 : 1;
 
-  // Sort videos for optimal loading
-  const sortedVideos = React.useMemo(() => {
+  // Sort media for optimal loading
+  const sortedMedia = React.useMemo(() => {
     if (!data?.getMyVideos) return [];
 
     return [...data.getMyVideos].sort((a, b) => {
-      // Priority 1: Images before videos (images load faster)
+      // Priority 1: Images before videos (faster to load)
       const aType = getFileType(a.fileName);
       const bType = getFileType(b.fileName);
 
       if (aType === "image" && bType !== "image") return -1;
       if (bType === "image" && aType !== "image") return 1;
 
-      // Priority 2: Files with CID before magnet-only
-      if (a.cid && !b.cid) return -1;
-      if (!a.cid && b.cid) return 1;
+      // Priority 2: P2P content first
+      if (a.magnetLink && !b.magnetLink) return -1;
+      if (!a.magnetLink && b.magnetLink) return 1;
 
-      // Priority 3: Newer content first
+      // Priority 3: Newest first
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [data?.getMyVideos]);
@@ -319,25 +232,23 @@ export default function GraphQLGallery() {
   // Handle scroll for lazy loading
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (Platform.OS === "web") {
-      // Web-specific scroll handling
       const scrollY = event.nativeEvent.contentOffset.y;
       const windowHeight = height;
 
-      // Calculate which items should be visible
-      const itemHeight = 600; // Approximate card height
+      const itemHeight = 700; // Increased for larger cards
       const startIndex = Math.max(0, Math.floor(scrollY / itemHeight) - 1);
       const endIndex = Math.min(
-        sortedVideos.length - 1,
-        startIndex + Math.ceil(windowHeight / itemHeight) +25 // Buffer of 3 items
+        sortedMedia.length - 1,
+        startIndex + Math.ceil(windowHeight / itemHeight) + 4 // Buffer
       );
 
       setVisibleRange({ start: startIndex, end: endIndex });
     }
   };
 
-  // Web-specific intersection observer for more precise lazy loading
+  // Web-specific intersection observer
   useEffect(() => {
-    if (Platform.OS !== "web" || !sortedVideos.length) return;
+    if (Platform.OS !== "web" || !sortedMedia.length) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -347,37 +258,36 @@ export default function GraphQLGallery() {
               entry.target.getAttribute("data-index") || "0"
             );
             setVisibleRange((prev) => ({
-              start: Math.min(prev.start, index - 2), // Load 2 before
-              end: Math.max(prev.end, index + 3), // Load 3 after
+              start: Math.min(prev.start, index - 1),
+              end: Math.max(prev.end, index + 2),
             }));
           }
         });
       },
       {
-        rootMargin: "200px 0px", // Start loading 200px before they become visible
-        threshold: 0.1,
+        rootMargin: "300px 0px", // Increased buffer for smooth loading
+        threshold: 0.05,
       }
     );
 
-    // Observe all video cards
-    const cards = document.querySelectorAll("[data-video-index]");
+    const cards = document.querySelectorAll("[data-media-index]");
     cards.forEach((card) => observer.observe(card));
 
     return () => observer.disconnect();
-  }, [sortedVideos.length]);
+  }, [sortedMedia.length]);
 
-  // Load more items when near the end
+  // Load more items
   const loadMore = () => {
     setVisibleRange((prev) => ({
       start: 0,
-      end: Math.min(sortedVideos.length - 1, prev.end + 5),
+      end: Math.min(sortedMedia.length - 1, prev.end + 3),
     }));
   };
 
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color="#FF00FF" />
         <Text style={styles.loadingText}>Loading Your Media...</Text>
       </View>
     );
@@ -390,80 +300,103 @@ export default function GraphQLGallery() {
         <Text style={styles.errorText}>Error loading media</Text>
         <Text style={styles.errorDetail}>{error.message}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryText}>Retry</Text>
+          <Text style={styles.retryText}>RETRY</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const videos = sortedVideos;
-
-  console.log("📹 Gallery Data:", {
-    videoCount: videos.length,
-    visibleRange,
-    videos: videos.map((v) => ({ id: v.id, title: v.title })),
-  });
+  const mediaItems = sortedMedia;
 
   const renderItem = ({ item, index }: { item: any; index: number }) => {
     const isVisible = index >= visibleRange.start && index <= visibleRange.end;
     const isFocused =
-      index >= visibleRange.start && index <= visibleRange.start + 2;
+      isVisible &&
+      index >= visibleRange.start &&
+      index <= visibleRange.start + 1;
     const inBuffer =
-      index >= visibleRange.start - 5 && index <= visibleRange.end + 15; // Define a wider range here
-    const priority = index < 3; // First 3 items get high priority
+      index >= visibleRange.start - 2 && index <= visibleRange.end + 3;
+    const priority = index < 2;
 
     return (
       <View
-        data-video-index={index} // For web intersection observer
+        data-media-index={index}
         style={{ width: numColumns > 1 ? "50%" : "100%" }}
       >
-        <VideoCard
-          video={item}
+        <MediaCard
+          media={item}
           isVisible={isVisible}
           priority={priority}
           inBuffer={inBuffer}
           isFocused={isFocused}
-          
         />
       </View>
     );
   };
+
+  const p2pCount = mediaItems.filter((item) => item.magnetLink).length;
 
   return (
     <View style={styles.container}>
       <FlatList
         ref={flatListRef}
         key={`flatlist-${numColumns}`}
-        data={videos}
+        data={mediaItems}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
+        onEndReachedThreshold={0.3}
         contentContainerStyle={[
           styles.galleryContainer,
-          Platform.OS === "web" && { maxWidth: 1000, marginHorizontal: "auto" },
+          Platform.OS === "web" && { maxWidth: 1200, marginHorizontal: "auto" },
         ]}
         ListHeaderComponent={
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Your Media Gallery</Text>
+          <View style={styles.headerContainer}>
+            <Text style={styles.headerTitle}>MEDIA GALLERY</Text>
             <Text style={styles.headerSubtitle}>
-              {videos.length} item{videos.length !== 1 ? "s" : ""} in your
-              collection
-              {Platform.OS === "web" &&
-                ` • Showing ${Math.min(
-                  visibleRange.end - visibleRange.start + 1,
-                  videos.length
-                )}`}
+              {mediaItems.length} ITEMS • {p2pCount} P2P ENABLED
             </Text>
+            <View style={styles.statsRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statNumber}>
+                  {
+                    mediaItems.filter(
+                      (m) => getFileType(m.fileName) === "video"
+                    ).length
+                  }
+                </Text>
+                <Text style={styles.statLabel}>VIDEOS</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statNumber}>
+                  {
+                    mediaItems.filter(
+                      (m) => getFileType(m.fileName) === "image"
+                    ).length
+                  }
+                </Text>
+                <Text style={styles.statLabel}>IMAGES</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statNumber}>
+                  {
+                    mediaItems.filter(
+                      (m) => getFileType(m.fileName) === "document"
+                    ).length
+                  }
+                </Text>
+                <Text style={styles.statLabel}>DOCUMENTS</Text>
+              </View>
+            </View>
           </View>
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No media found</Text>
+            <Text style={styles.emptyText}>NO MEDIA FOUND</Text>
             <Text style={styles.emptySubtext}>
-              Upload some videos or images to see them here!
+              UPLOAD SOME CONTENT TO GET STARTED
             </Text>
           </View>
         }
@@ -476,195 +409,297 @@ export default function GraphQLGallery() {
   );
 }
 
-
+// BOLD COLOR STYLES
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#000000",
   },
   centerContainer: {
     flex: 1,
-    justifyContent: "flex-start",
-    alignItems: "flex-start",
-    padding: 2,
-  },
-  header: {
-    padding: 20, // More padding
+    justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    borderBottomWidth: 1,
-    borderBottomColor: "#dee2e6",
+    backgroundColor: "#000000",
+    padding: 40,
+  },
+  headerContainer: {
+    padding: 30,
+    backgroundColor: "#000000",
+    borderBottomWidth: 4,
+    borderBottomColor: "#FF00FF",
+    marginBottom: 20,
   },
   headerTitle: {
-    fontSize: 32, // Larger title
-    fontWeight: "bold",
-    marginBottom: 8,
-    color: "#333",
+    fontSize: 48,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    textAlign: "center",
+    marginBottom: 10,
+    letterSpacing: 3,
+    textShadowColor: "#00FFFF",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
   },
   headerSubtitle: {
-    fontSize: 18, // Larger subtitle
-    color: "#666",
+    fontSize: 20,
+    color: "#FFFF00",
+    textAlign: "center",
+    marginBottom: 20,
+    letterSpacing: 2,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 30,
+    marginTop: 20,
+  },
+  statBox: {
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#111111",
+    borderWidth: 2,
+    borderColor: "#00FF00",
+    minWidth: 120,
+  },
+  statNumber: {
+    fontSize: 36,
+    fontWeight: "bold",
+    color: "#FF00FF",
+    marginBottom: 5,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: "#00FFFF",
+    letterSpacing: 1,
   },
   galleryContainer: {
-    padding: 16, // More padding
+    padding: 20,
+    backgroundColor: "#000000",
   },
   columnWrapper: {
-    justifyContent: "space-between",
-    gap: 16, // More gap between cards
+    gap: 25,
+    paddingHorizontal: 20,
   },
-  videoCard: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 16, // More rounded
-    padding: 20, // More padding
-    backgroundColor: "#f9f9f9",
-    margin: 12, // More margin
-    minHeight: 600, // Even larger minimum height
-    width: "100%", // Full width
-    maxWidth: 1000, // Maximum card width
+  mediaCard: {
+    backgroundColor: "#000000",
+    borderWidth: 3,
+    borderColor: "#000000ff",
+    marginBottom: 25,
+    overflow: "hidden",
+    shadowColor: "#FF00FF",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+    elevation: 10,
   },
   placeholderCard: {
-    minHeight: 300, // Larger placeholder
-    backgroundColor: "#f0f0f0",
+    minHeight: 400,
+    backgroundColor: "#111111",
+    borderColor: "#666666",
+    justifyContent: "center",
+    alignItems: "center",
   },
   placeholderContent: {
     alignItems: "center",
   },
+  placeholderIcon: {
+    fontSize: 48,
+    marginTop: 10,
+  },
   placeholderText: {
-    color: "#666",
-    fontSize: 16, // Larger text
+    color: "#FFFF00",
+    fontSize: 18,
+    fontFamily: "monospace",
   },
-  // LARGER MEDIA IN GALLERY
-  videoPlayer: {
-    width: "100%",
-    height: undefined,
-    aspectRatio: 16 / 9,
-    backgroundColor: "#000",
-    borderRadius: 12,
-    marginBottom: 16,
+  header: {
+    padding: 20,
+    borderBottomWidth: 2,
+    borderBottomColor: "#000000ff",
   },
-  imagePlayer: {
-    width: "100%",
-    height: undefined,
-    aspectRatio: 4 / 3,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: "#721c24",
-    backgroundColor: "#f8d7da",
-    padding: 12, // More padding
-    borderRadius: 8,
-    margin: 12,
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    marginBottom: 10,
     textAlign: "center",
-    fontSize: 14, // Larger text
   },
-  errorDetail: {
-    color: "#856404",
-    fontSize: 14, // Larger text
+  description: {
+    fontSize: 16,
+    color: "#CCCCCC",
     textAlign: "center",
-    marginTop: 8,
-    marginBottom: 12,
+    lineHeight: 22,
   },
-  loadingText: {
-    marginTop: 12,
-    color: "#007AFF",
-    fontSize: 18, // Larger text
+  fileTypeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignSelf: "flex-start",
+    margin: 15,
+    borderWidth: 2,
+  },
+  videoBadge: {
+    backgroundColor: "#FF0000",
+    borderColor: "#FFFFFF",
+  },
+  imageBadge: {
+    backgroundColor: "#00FF00",
+    borderColor: "#000000",
+  },
+  documentBadge: {
+    backgroundColor: "#0000FF",
+    borderColor: "#FFFFFF",
+  },
+  fileTypeText: {
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  p2pBadge: {
+    color: "#FFFF00",
+    fontWeight: "bold",
+    marginLeft: 5,
   },
   documentContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    padding: 16, // More padding
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e9ecef",
-    marginBottom: 12,
-    width: "100%",
-    alignSelf: "center",
+    padding: 30,
+    backgroundColor: "#111111",
+    borderWidth: 3,
+    borderColor: "#0000FF",
+    margin: 15,
+    minHeight: 150,
   },
   documentIcon: {
-    fontSize: 32, // Larger icon
-    marginRight: 16,
+    fontSize: 48,
+    marginRight: 20,
   },
   documentInfo: {
     flex: 1,
   },
   documentTitle: {
-    fontSize: 18, // Larger title
+    fontSize: 20,
     fontWeight: "bold",
-    color: "#212529",
-    marginBottom: 6,
-    textAlign: "center",
+    color: "#FFFFFF",
+    marginBottom: 8,
   },
   documentSubtext: {
-    fontSize: 14, // Larger text
-    color: "#6c757d",
-    textAlign: "center",
+    fontSize: 16,
+    color: "#00FFFF",
   },
-  fileTypeBadge: {
-    backgroundColor: "#e3f2fd",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    alignSelf: "center",
-    marginBottom: 12,
+  unsupportedContainer: {
+    padding: 40,
+    backgroundColor: "#220000",
+    borderWidth: 3,
+    borderColor: "#000000ff",
+    margin: 15,
+    alignItems: "center",
   },
-  fileTypeText: {
-    fontSize: 12,
-    color: "#1565c0",
+  unsupportedText: {
+    fontSize: 18,
+    color: "#FFFFFF",
     fontWeight: "bold",
   },
   metadata: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
+    padding: 20,
+    backgroundColor: "#111111",
+    borderTopWidth: 2,
+    borderTopColor: "#000000ff",
+  },
+  userRow: {
+    flexDirection: "row",
     alignItems: "center",
+    marginBottom: 10,
+  },
+  userIcon: {
+    fontSize: 20,
+    marginRight: 10,
   },
   userInfo: {
-    fontSize: 14, // Larger text
-    color: "#666",
-    marginBottom: 4,
-    textAlign: "center",
+    fontSize: 16,
+    color: "#00FF00",
+    fontWeight: "bold",
+  },
+  neighborhoodRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  neighborhoodIcon: {
+    fontSize: 20,
+    marginRight: 10,
   },
   neighborhoodInfo: {
-    fontSize: 14, // Larger text
-    color: "#666",
-    marginBottom: 4,
-    textAlign: "center",
+    fontSize: 16,
+    color: "#FF8000",
+    fontWeight: "bold",
+  },
+  timestampRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  timestampIcon: {
+    fontSize: 20,
+    marginRight: 10,
   },
   timestamp: {
-    fontSize: 14, // Larger text
-    color: "#999",
-    textAlign: "center",
+    fontSize: 14,
+    color: "#00FFFF",
+    fontFamily: "monospace",
   },
-  emptyContainer: {
-    padding: 60, // More padding
-    width: "100%",
+  loadingText: {
+    marginTop: 20,
+    color: "#00FFFF",
+    fontSize: 20,
+    fontWeight: "bold",
+    letterSpacing: 2,
   },
-  emptyText: {
-    fontSize: 24, // Much larger
-    color: "#666",
-    marginBottom: 12,
+  errorText: {
+    fontSize: 28,
+    color: "#FF0000",
+    marginBottom: 15,
     textAlign: "center",
+    fontWeight: "bold",
   },
-  emptySubtext: {
-    fontSize: 18, // Larger
-    color: "#999",
+  errorDetail: {
+    fontSize: 16,
+    color: "#FFFF00",
     textAlign: "center",
+    marginBottom: 20,
+    fontFamily: "monospace",
   },
   retryButton: {
-    backgroundColor: "#007AFF",
-    padding: 16, // More padding
-    borderRadius: 8,
-    marginTop: 12,
-    alignSelf: "center",
+    backgroundColor: "#FF0000",
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
   },
   retryText: {
-    color: "white",
+    color: "#000000",
+    fontSize: 18,
+    fontWeight: "900",
+    letterSpacing: 2,
+  },
+  emptyContainer: {
+    padding: 60,
+    alignItems: "center",
+    backgroundColor: "#000000",
+  },
+  emptyText: {
+    fontSize: 36,
+    color: "#FF0000",
+    marginBottom: 20,
     fontWeight: "bold",
-    fontSize: 16, // Larger text
+    textAlign: "center",
+    borderWidth: 4,
+    borderColor: "#FF0000",
+    padding: 30,
+  },
+  emptySubtext: {
+    fontSize: 20,
+    color: "#FFFF00",
+    textAlign: "center",
+    letterSpacing: 1,
   },
 });
