@@ -40,6 +40,7 @@ const GET_MY_VIDEOS = gql`
   }
 `;
 
+
 // Utility functions
 const getFileType = (fileName: string) => {
   if (!fileName) return "unknown";
@@ -98,6 +99,14 @@ const MediaCard = ({
   const fileType = getFileType(fileName);
   const isSupportedMedia = fileType === "video" || fileType === "image";
   const isDocument = fileType === "document";
+
+const getFormattedDate = (input: any): string => {
+  if (!input) return "";
+  const timestamp = /^\d+$/.test(input) ? parseInt(input) : Date.parse(input);
+  const date = new Date(timestamp);
+  return isNaN(date.getTime()) ? "" : 
+    `${(date.getMonth()+1).toString().padStart(2,'0')}/${date.getDate().toString().padStart(2,'0')}/${date.getFullYear().toString().slice(-2)}`;
+};
 
   // Don't render heavy content if not visible and not priority
   if (!shouldLoad) {
@@ -187,10 +196,9 @@ const MediaCard = ({
         )}
 
         <View style={styles.timestampRow}>
-          <Text style={styles.timestampIcon}>📅</Text>
-          <Text style={styles.timestamp}>
-            {new Date(media.createdAt).toLocaleDateString()}
-          </Text>
+            <Text style={styles.timestamp}>
+              {getFormattedDate(media.createdAt)}
+            </Text>
         </View>
       </View>
     </View>
@@ -228,6 +236,7 @@ export default function GraphQLGallery() {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [data?.getMyVideos]);
+
 
   // Handle scroll for lazy loading
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -639,13 +648,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   timestampIcon: {
-    fontSize: 20,
-    marginRight: 10,
+    fontSize: 14, // or whatever size you want
+    marginRight: 8,
+    color: "#00FFFF", // Cyan to match
   },
   timestamp: {
     fontSize: 14,
-    color: "#00FFFF",
+    color: "#00FFFF", // Cyan
     fontFamily: "monospace",
+    fontWeight: "bold",
+    letterSpacing: 1,
   },
   loadingText: {
     marginTop: 20,
