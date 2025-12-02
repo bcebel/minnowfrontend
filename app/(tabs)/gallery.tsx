@@ -341,72 +341,70 @@ export default function GraphQLGallery() {
     );
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Header - LEFT ALIGNED */}
-      <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>MEDIA GALLERY</Text>
-        <Text style={styles.headerSubtitle}>
-          {mediaItems.length} ITEMS • {p2pCount} P2P ENABLED
-        </Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>
-              {
-                mediaItems.filter((m) => getFileType(m.fileName) === "video")
-                  .length
-              }
-            </Text>
-            <Text style={styles.statLabel}>VIDEOS</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>
-              {
-                mediaItems.filter((m) => getFileType(m.fileName) === "image")
-                  .length
-              }
-            </Text>
-            <Text style={styles.statLabel}>IMAGES</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>
-              {
-                mediaItems.filter((m) => getFileType(m.fileName) === "document")
-                  .length
-              }
-            </Text>
-            <Text style={styles.statLabel}>DOCUMENTS</Text>
+return (
+  <View style={styles.container}>
+    <FlatList
+      ref={flatListRef}
+      data={mediaItems}
+      keyExtractor={(item) => item.id}
+      renderItem={renderItem}
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
+      onEndReached={loadMore}
+      onEndReachedThreshold={0.1}
+      contentContainerStyle={styles.galleryContainer}
+      ListHeaderComponent={
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerTitle}>MEDIA GALLERY</Text>
+          <Text style={styles.headerSubtitle}>
+            {mediaItems.length} ITEMS • {p2pCount} P2P ENABLED
+          </Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>
+                {
+                  mediaItems.filter((m) => getFileType(m.fileName) === "video")
+                    .length
+                }
+              </Text>
+              <Text style={styles.statLabel}>VIDEOS</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>
+                {
+                  mediaItems.filter((m) => getFileType(m.fileName) === "image")
+                    .length
+                }
+              </Text>
+              <Text style={styles.statLabel}>IMAGES</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>
+                {
+                  mediaItems.filter(
+                    (m) => getFileType(m.fileName) === "document"
+                  ).length
+                }
+              </Text>
+              <Text style={styles.statLabel}>DOCUMENTS</Text>
+            </View>
           </View>
         </View>
-      </View>
-
-      {/* Main Gallery - FULL WIDTH */}
-      <FlatList
-        ref={flatListRef}
-        data={mediaItems}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.1} // Trigger early
-        contentContainerStyle={styles.galleryContainer}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>NO MEDIA FOUND</Text>
-            <Text style={styles.emptySubtext}>
-              UPLOAD SOME CONTENT TO GET STARTED
-            </Text>
-          </View>
-        }
-        numColumns={1}
-        refreshing={loading}
-        onRefresh={refetch}
-        snapToInterval={height * 0.9} // Snap to 90% viewport height
-        decelerationRate="fast"
-      />
-    </View>
-  );
+      }
+      ListEmptyComponent={
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>NO MEDIA FOUND</Text>
+          <Text style={styles.emptySubtext}>
+            UPLOAD SOME CONTENT TO GET STARTED
+          </Text>
+        </View>
+      }
+      numColumns={1}
+      refreshing={loading}
+      onRefresh={refetch}
+    />
+  </View>
+);
 }
 
 // BOLD, LEFT-ALIGNED, FULL-WIDTH STYLES
