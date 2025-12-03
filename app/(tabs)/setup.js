@@ -270,7 +270,7 @@ const handleSave = async () => {
         {/* Affiliate Links Section */}
         <Text style={styles.sectionTitle}>Your Affiliate Links (Optional)</Text>
         <Text style={styles.sectionDescription}>
-          Add affiliate links from CJ.com, Impact.com, Rakuten.com, etc.
+          Add affiliate links from CJ.com
         </Text>
 
         {affiliateLinks.map((link, index) => (
