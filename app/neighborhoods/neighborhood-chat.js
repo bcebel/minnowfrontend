@@ -78,7 +78,8 @@ const ChatMediaRenderer = ({ message }) => {
     thumbnailUrl,
   } = message;
 
-
+  // 🆕 Add state to control whether the video player is visible (true) or thumbnail is visible (false)
+  const [isPlaying, setIsPlaying] = useState(false);
 
   // 🚨 RETURN NULL if there's no media at all
   const hasAnyMedia = imageUrl || videoUrl || fileUrl || magnetLink;
@@ -86,14 +87,33 @@ const ChatMediaRenderer = ({ message }) => {
     return null;
   }
 
-    // Show thumbnail for videos
-  if (videoUrl && thumbnailUrl) {
+  // Helper to get Pinata URL (Keep this function, maybe move it outside if it was global)
+  const getPinataUrl = (url) => {
+    if (!url) return null;
+    if (url.includes("/ipfs/")) {
+      const cid = url.split("/ipfs/")[1];
+      return `https://${PINATA_GATEWAY}/ipfs/${cid}`;
+    }
+    return url;
+  };
+
+  // --- NEW LOGIC: RENDER THUMBNAIL OR VIDEO PLAYER FOR VIDEOS ---
+  if (videoUrl) {
+    const pinataUrl = getPinataUrl(videoUrl);
+
+    // 1. If we are playing (or no thumbnail is available), show the full player
+    if (isPlaying || !thumbnailUrl) {
+      // Ensure the SimpleVideoPlayer can handle the click state if needed,
+      // but typically you just render it now.
+      console.log("🎥 Direct video (Playing):", pinataUrl);
+      return <SimpleVideoPlayer url={pinataUrl} fileName={fileName || "Video"} />;
+    }
+
+    // 2. If we are NOT playing AND a thumbnail is available, show the thumbnail
+    // The onPress handler is the key fix to switch the state!
     return (
       <TouchableOpacity
-        onPress={() => {
-          console.log("Opening video:", videoUrl);
-          // You could open in a video player or full screen
-        }}
+        onPress={() => setIsPlaying(true)} // 🎯 KEY FIX: Set state to true to switch to SimpleVideoPlayer
         style={styles.videoThumbnailContainer}
       >
         <Image
@@ -112,15 +132,7 @@ const ChatMediaRenderer = ({ message }) => {
       </TouchableOpacity>
     );
   }
-  // Helper to get Pinata URL
-  const getPinataUrl = (url) => {
-    if (!url) return null;
-    if (url.includes("/ipfs/")) {
-      const cid = url.split("/ipfs/")[1];
-      return `https://${PINATA_GATEWAY}/ipfs/${cid}`;
-    }
-    return url;
-  };
+  // --- END NEW LOGIC ---
 
   // 🎯 SIMPLE RULES:
 
@@ -146,13 +158,6 @@ const ChatMediaRenderer = ({ message }) => {
         {fileName && <Text style={styles.fileNameText}>{fileName}</Text>}
       </TouchableOpacity>
     );
-  }
-
-  // 3. If it's a video → Simple video player
-  if (videoUrl || fileType === "video") {
-    const pinataUrl = getPinataUrl(videoUrl);
-    console.log("🎥 Direct video:", pinataUrl);
-    return <SimpleVideoPlayer url={pinataUrl} fileName={fileName || "Video"} />;
   }
 
   // 4. If it's a file → File download
