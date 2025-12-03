@@ -1555,8 +1555,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   videoThumbnail: {
-    width: '50%',
-    height: 300,
+    width: '100%',
+    maxWidth: 500,
+    height: '75%',
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1568,6 +1569,6 @@ const styles = StyleSheet.create({
     fontSize: 40,
   },
   videoFileName: {
-display: 'none';
+opacity: 0;
   },
 })
