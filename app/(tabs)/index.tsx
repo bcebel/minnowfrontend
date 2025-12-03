@@ -25,7 +25,7 @@ export default function HomeScreen() {
   const lightaccents =themes.bubblefusion.light.accents;
 
   return (
-    <View style={styles.container,}>
+    <View style={styles.container}>
       {/* Hero Section with Bubble Background */}
       <View style={styles.heroSection}>
         <Image
@@ -231,6 +231,7 @@ footerBubbles: {
     opacity: 0.9,
   },
   actionsContainer: {
+     alignSelf: "center",
     maxWidth: 300,
     borderRadius: 100,
     paddingHorizontal: 20,
