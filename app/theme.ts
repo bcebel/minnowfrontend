@@ -177,6 +177,7 @@ export const themes = {
         apple: "#FF0000", // Your bright red
         grass: "#00ffff", // Your bright green
         storm: "#BA55D3", // Medium orchid (purple bubble)
+        cyan: "#00FFFF", // Bright cyan
       },
     },
   },
