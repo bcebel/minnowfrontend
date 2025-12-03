@@ -34,6 +34,7 @@ yarn-error.*
 
 # logs
 web_output.log
+npm_output.log
 
 # typescript
 *.tsbuildinfo

@@ -98,7 +98,7 @@ export default function HomeScreen() {
                 🫧 its poppin in here 🫧
               </Text>
               <Text
-                style={[styles.heroTagline, { backgroundColor: accents.storm }]}
+                style={[styles.heroTagline, { backgroundColor: accents.cyan }]}
               >
                 🫧 bubbly & based 🫧
               </Text>
@@ -111,7 +111,7 @@ export default function HomeScreen() {
                 🫧 Network with and for your peers 🫧
               </Text>
               <Text
-                style={[styles.heroTagline, { backgroundColor: accents.storm }]}
+                style={[styles.heroTagline, { backgroundColor: accents.cyan }]}
               >
                 🫧 leave big tech out of YOUR bubble 🫧
               </Text>
@@ -124,7 +124,7 @@ export default function HomeScreen() {
                 🫧 its a big club... and you're in it 🫧
               </Text>
               <Text
-                style={[styles.heroTagline, { backgroundColor: accents.storm }]}
+                style={[styles.heroTagline, { backgroundColor: accents.cyan }]}
               >
                 🫧 bubble up 🫧
               </Text>
