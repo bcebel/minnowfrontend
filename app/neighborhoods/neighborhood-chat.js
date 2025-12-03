@@ -22,7 +22,6 @@ import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentMedia from "../../components/WebTorrentMedia";
 import AdMessage from "../../components/AdMessage";
-import DynamicMediaRenderer from "../../components/DynamicMediaRenderer";
 
 const safeFileName = (asset) =>
   asset.name || asset.fileName || asset.uri.split("/").pop() || "media";
@@ -37,6 +36,165 @@ const getFileType = (fileName) => {
   // but if you want to explicitly check for them here:
   // if (["jpg", "jpeg", "png", "gif"].includes(ext)) return "image";
   return "unknown";
+};
+
+
+// Simple Video Player Component
+const SimpleVideoPlayer = ({ url, fileName }) => {
+  const player = useVideoPlayer(url, (player) => {
+    player.loop = false;
+  });
+
+  return (
+    <TouchableOpacity
+      style={styles.videoContainer}
+      onPress={() => player.play()}
+    >
+      <VideoView
+        player={player}
+        style={styles.videoPlayer}
+        showsControls={true}
+        contentFit="contain"
+        allowsExternalPlayback={true}
+      />
+      {fileName && (
+        <Text style={styles.videoCaption} numberOfLines={1}>
+          {fileName}
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
+};
+
+// FIXED ChatMediaRenderer - Only shows media when media exists
+const ChatMediaRenderer = ({ message }) => {
+  const {
+    imageUrl,
+    videoUrl,
+    fileUrl,
+    magnetLink,
+    fileName,
+    fileType,
+    thumbnailUrl,
+  } = message;
+
+  // 🆕 Add state to control whether the video player is visible (true) or thumbnail is visible (false)
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  // 🚨 RETURN NULL if there's no media at all
+  const hasAnyMedia = imageUrl || videoUrl || fileUrl || magnetLink;
+  if (!hasAnyMedia) {
+    return null;
+  }
+
+  // Helper to get Pinata URL (Keep this function, maybe move it outside if it was global)
+  const getPinataUrl = (url) => {
+    if (!url) return null;
+    if (url.includes("/ipfs/")) {
+      const cid = url.split("/ipfs/")[1];
+      return `https://${PINATA_GATEWAY}/ipfs/${cid}`;
+    }
+    return url;
+  };
+
+  // --- NEW LOGIC: RENDER THUMBNAIL OR VIDEO PLAYER FOR VIDEOS ---
+  if (videoUrl) {
+    const pinataUrl = getPinataUrl(videoUrl);
+
+    // 1. If we are playing (or no thumbnail is available), show the full player
+    if (isPlaying || !thumbnailUrl) {
+      // Ensure the SimpleVideoPlayer can handle the click state if needed,
+      // but typically you just render it now.
+      console.log("🎥 Direct video (Playing):", pinataUrl);
+      return <SimpleVideoPlayer url={pinataUrl} fileName={fileName || "Video"} />;
+    }
+
+    // 2. If we are NOT playing AND a thumbnail is available, show the thumbnail
+    // The onPress handler is the key fix to switch the state!
+    return (
+      <TouchableOpacity
+        onPress={() => setIsPlaying(true)} // 🎯 KEY FIX: Set state to true to switch to SimpleVideoPlayer
+        style={styles.videoThumbnailContainer}
+      >
+        <Image
+          source={{ uri: thumbnailUrl }}
+          style={styles.videoThumbnail}
+          resizeMode="cover"
+        />
+        <View style={styles.videoOverlay}>
+          <Text style={styles.playIcon}>▶️</Text>
+        </View>
+        {fileName && (
+          <Text style={styles.videoFileName} numberOfLines={1}>
+            {fileName}
+          </Text>
+        )}
+      </TouchableOpacity>
+    );
+  }
+  // --- END NEW LOGIC ---
+
+  // 🎯 SIMPLE RULES:
+
+  // 1. If it has magnet link → WebTorrentMedia (handles both images and videos)
+  if (magnetLink && (fileType === "image" || fileType === "video")) {
+    return (
+      <View style={styles.magnetContainer}>
+        <WebTorrentMedia media={message} isFocused={true} />
+      </View>
+    );
+  }
+
+  // 2. If it's an image → Direct image
+  if (imageUrl || fileType === "image") {
+    const pinataUrl = getPinataUrl(imageUrl);
+    return (
+      <TouchableOpacity onPress={() => console.log("Open image:", pinataUrl)}>
+        <Image
+          source={{ uri: pinataUrl }}
+          style={styles.messageImage}
+          resizeMode="cover"
+        />
+        {fileName && <Text style={styles.fileNameText}>{fileName}</Text>}
+      </TouchableOpacity>
+    );
+  }
+
+  // 4. If it's a file → File download
+  if (fileUrl) {
+    const pinataUrl = getPinataUrl(fileUrl);
+    console.log("📄 File:", pinataUrl);
+    return (
+      <TouchableOpacity
+        style={styles.fileContainer}
+        onPress={() => handleFilePress({ ...message, fileUrl: pinataUrl })}
+      >
+        <Text style={styles.fileIcon}>📄</Text>
+        <View style={styles.fileInfo}>
+          <Text style={styles.fileName} numberOfLines={1}>
+            {fileName || "File"}
+          </Text>
+          <Text style={styles.fileType}>
+            {fileType || "File"} • Tap to download
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  // 5. Fallback for edge cases (should rarely happen)
+  console.log("⚠️ Edge case - has media fields but can't render:", message);
+  return (
+    <View style={styles.fileContainer}>
+      <Text style={styles.fileIcon}>❓</Text>
+      <View style={styles.fileInfo}>
+        <Text style={styles.fileName} numberOfLines={1}>
+          {fileName || "Media"}
+        </Text>
+        <Text style={styles.fileType}>Cannot preview • Tap for info</Text>
+      </View>
+    </View>
+  );
 };
 // GraphQL Queries
 const GET_NEIGHBORHOOD_MESSAGES = gql`
@@ -1017,7 +1175,7 @@ const uploadToIPFS = async (fileUri, fileName, type, token, neighborhoodId) => {
                     {item.sender?.username || "Unknown"}
                   </Text>
 
-                  <DynamicMediaRenderer media={item} isFocused={true} />
+                  <ChatMediaRenderer message={item} />
 
                   {!item.imageUrl && !item.videoUrl && !item.fileUrl && (
                     <Text style={styles.messageText}>{item.content}</Text>
@@ -1189,6 +1347,15 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   // LARGER MEDIA STYLES
+  messageImage: {
+    width: "100%", // Will be controlled by parent
+    maxWidth: "90%", // Maximum size on large screens
+    height: undefined,
+    aspectRatio: 4 / 3, // Maintain aspect ratio
+    borderRadius: 12,
+    marginBottom: 8,
+    alignSelf: "center", // Center the media
+  },
   fileContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -1297,6 +1464,34 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "bold",
   },
+  // LARGER VIDEO PLAYER STYLES
+  videoContainer: {
+    marginBottom: 8,
+    borderRadius: 12,
+    overflow: "hidden",
+    width: "100%", // Full width of message container
+    maxWidth: 800, // Maximum size on large screens
+    alignSelf: "center", // Center in message
+  },
+  videoPlayer: {
+    width: "100%",
+    height: undefined,
+    aspectRatio: 16 / 9, // Standard video aspect ratio
+    backgroundColor: "#000",
+  },
+  videoCaption: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    marginTop: 8,
+    paddingHorizontal: 8,
+    textAlign: "center",
+  },
+  fileNameText: {
+    fontSize: 12,
+    color: "#888",
+    marginTop: 4,
+    textAlign: "center",
+  },
   adContainer: {
     backgroundColor: "#1a1a1a",
     borderLeftWidth: 4,
@@ -1351,5 +1546,31 @@ const styles = StyleSheet.create({
   galleryButtonText: {
     fontSize: 16,
     color: "#00ffff",
+  },
+
+  videoThumbnailContainer: {
+    marginBottom: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  videoThumbnail: {
+    width: '100%',
+    height: 200,
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  playIcon: {
+    fontSize: 40,
+  },
+  videoFileName: {
+    color: '#888',
+    fontSize: 12,
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
 })
