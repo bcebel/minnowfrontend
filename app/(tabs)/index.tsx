@@ -34,7 +34,7 @@ export default function HomeScreen() {
           resizeMode="cover"
         />
         <View style={styles.heroOverlay}>
-          <Text style={[styles.heroTitle, { backgroundColor: theme.tint }]}>
+          <Text style={[styles.heroTitle, { backgroundColor: theme.background }]}>
             bubblebase.app
           </Text>
         </View>
