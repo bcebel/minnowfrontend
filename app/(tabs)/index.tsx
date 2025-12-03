@@ -26,8 +26,6 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Hero Section with Bubble Background */}
-      <View style={styles.heroSection}>
         <Image
           source={require("@/assets/images/bubble.jpg")}
           style={styles.heroBubble}
@@ -37,7 +35,6 @@ export default function HomeScreen() {
                    <Text style={[styles.heroTitle, { backgroundColor: theme.tint }]}>
             bubblebase.app
           </Text>
-        </View>
       </View>
 
       <ScrollView
