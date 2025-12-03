@@ -169,7 +169,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
         });
 
         // Different timeouts based on media type
-        const timeoutDuration = isVideo ? 1500 : 500; // Videos get longer timeout
+        const timeoutDuration = isVideo ? 2000 : 1000; // Videos get longer timeout
 
         // Timeout fallback
         setTimeout(

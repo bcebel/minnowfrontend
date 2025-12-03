@@ -29,10 +29,16 @@ const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const getFileType = (fileName) => {
   if (!fileName) return "unknown";
   const ext = fileName.split(".").pop()?.toLowerCase();
-  if (["mp4", "mov", "webm"].includes(ext)) return "image";
+  // 🎯 FIX: Return "video" for video extensions
+  if (["mp4", "mov", "webm"].includes(ext)) return "video";
   if (["pdf", "doc", "docx"].includes(ext)) return "document";
+  // The logic in pickFile/unifiedUpload should handle images correctly
+  // but if you want to explicitly check for them here:
+  // if (["jpg", "jpeg", "png", "gif"].includes(ext)) return "image";
   return "unknown";
 };
+
+
 // Simple Video Player Component
 const SimpleVideoPlayer = ({ url, fileName }) => {
   const player = useVideoPlayer(url, (player) => {
@@ -62,8 +68,17 @@ const SimpleVideoPlayer = ({ url, fileName }) => {
 
 // FIXED ChatMediaRenderer - Only shows media when media exists
 const ChatMediaRenderer = ({ message }) => {
-  const { imageUrl, videoUrl, fileUrl, magnetLink, fileName, fileType } =
-    message;
+  const {
+    imageUrl,
+    videoUrl,
+    fileUrl,
+    magnetLink,
+    fileName,
+    fileType,
+    thumbnailUrl,
+  } = message;
+
+
 
   // 🚨 RETURN NULL if there's no media at all
   const hasAnyMedia = imageUrl || videoUrl || fileUrl || magnetLink;
@@ -71,6 +86,32 @@ const ChatMediaRenderer = ({ message }) => {
     return null;
   }
 
+    // Show thumbnail for videos
+  if (videoUrl && thumbnailUrl) {
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          console.log("Opening video:", videoUrl);
+          // You could open in a video player or full screen
+        }}
+        style={styles.videoThumbnailContainer}
+      >
+        <Image
+          source={{ uri: thumbnailUrl }}
+          style={styles.videoThumbnail}
+          resizeMode="cover"
+        />
+        <View style={styles.videoOverlay}>
+          <Text style={styles.playIcon}>▶️</Text>
+        </View>
+        {fileName && (
+          <Text style={styles.videoFileName} numberOfLines={1}>
+            {fileName}
+          </Text>
+        )}
+      </TouchableOpacity>
+    );
+  }
   // Helper to get Pinata URL
   const getPinataUrl = (url) => {
     if (!url) return null;
@@ -196,6 +237,7 @@ const GET_NEIGHBORHOOD_INFO = gql`
     }
   }
 `;
+
 const SEND_NEIGHBORHOOD_MESSAGE = gql`
   mutation SendNeighborhoodMessage(
     $content: String!
@@ -207,6 +249,7 @@ const SEND_NEIGHBORHOOD_MESSAGE = gql`
     $fileUrl: String
     $magnetLink: String
     $mimeType: String
+    $thumbnailUrl: String
   ) {
     sendMessage(
       content: $content
@@ -219,6 +262,7 @@ const SEND_NEIGHBORHOOD_MESSAGE = gql`
       fileUrl: $fileUrl
       magnetLink: $magnetLink
       mimeType: $mimeType
+      thumbnailUrl: $thumbnailUrl # 🆕 ADD THIS LINE
     ) {
       id
       content
@@ -229,6 +273,7 @@ const SEND_NEIGHBORHOOD_MESSAGE = gql`
       fileType
       magnetLink
       mimeType
+      thumbnailUrl # 🆕 ADD THIS LINE
       room
       createdAt
       sender {
@@ -236,7 +281,6 @@ const SEND_NEIGHBORHOOD_MESSAGE = gql`
         username
         profilePhoto
       }
-      # 🚨 REMOVED neighborhood field to avoid the ID conversion issues
     }
   }
 `;
@@ -660,59 +704,64 @@ export default function NeighborhoodChatScreen() {
   };
 
   // SIMPLE Upload - JUST STORE WHAT WE GET
-  const unifiedUpload = async (asset, type, fileSize, mimeType) => {
-    setUploading(true);
-    setUploadType(type);
+const unifiedUpload = async (asset, type, fileSize, mimeType) => {
+  setUploading(true);
+  setUploadType(type);
 
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) throw new Error("No authentication token found");
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) throw new Error("No authentication token found");
 
-      let fileUri = asset.uri;
-      let fileName = asset.name || asset.fileName || `file-${Date.now()}`;
+    let fileUri = asset.uri;
+    let fileName = asset.name || asset.fileName || `file-${Date.now()}`;
 
-      console.log("🔄 Simple upload:", { fileName, type });
+    console.log("🔄 Upload with thumbnail generation:", { fileName, type });
 
-      // Upload to IPFS
-      const { ipfsUrl, magnetLink } = await uploadToIPFS(
-        fileUri,
+    // Upload to IPFS WITH THUMBNAIL
+    const { ipfsUrl, magnetLink, thumbnailUrl } = await uploadToIPFS(
+      fileUri,
+      fileName,
+      type,
+      token,
+      neighborhoodId
+    );
+    console.log("🎯 Received from uploadToIPFS:", {
+      thumbnailUrl,
+      hasThumbnail: !!thumbnailUrl,
+    });
+
+    if (ipfsUrl) {
+      // Include thumbnailUrl in message variables
+      const messageVariables = {
+        content: `Shared: ${fileName}`,
+        neighborhoodId: neighborhoodId,
         fileName,
-        type,
-        token,
-        neighborhoodId // ← PASS neighborhoodId HERE
-      );
+        fileType: type,
+        magnetLink: magnetLink || null,
+        thumbnailUrl: thumbnailUrl || null, // 🆕 Add thumbnail URL
+      };
 
-      if (ipfsUrl) {
-        // SIMPLE: Just store what we get, no complex detection
-        const messageVariables = {
-          content: `Shared: ${fileName}`,
-          neighborhoodId: neighborhoodId,
-          fileName,
-          fileType: type, // Just use the type passed in
-          magnetLink: magnetLink || null,
-        };
-
-        // Store in appropriate field
-        if (type === "image") {
-          messageVariables.imageUrl = ipfsUrl;
-        } else if (type === "video") {
-          messageVariables.videoUrl = ipfsUrl;
-        } else {
-          messageVariables.fileUrl = ipfsUrl;
-        }
-
-        console.log("📤 Sending simple message:", messageVariables);
-        await sendMessageMutation({ variables: messageVariables });
-        console.log(`✅ ${type} uploaded successfully`);
+      // Store in appropriate field
+      if (type === "image") {
+        messageVariables.imageUrl = ipfsUrl;
+      } else if (type === "video") {
+        messageVariables.videoUrl = ipfsUrl;
+      } else {
+        messageVariables.fileUrl = ipfsUrl;
       }
-    } catch (error) {
-      console.error(`❌ Upload error:`, error);
-      Alert.alert("Upload Failed", error.message);
-    } finally {
-      setUploading(false);
-      setUploadType(null);
+
+      console.log("📤 Sending message with thumbnail:", messageVariables);
+      await sendMessageMutation({ variables: messageVariables });
+      console.log(`✅ ${type} uploaded successfully with thumbnail`);
     }
-  };
+  } catch (error) {
+    console.error(`❌ Upload error:`, error);
+    Alert.alert("Upload Failed", error.message);
+  } finally {
+    setUploading(false);
+    setUploadType(null);
+  }
+};
 
   // Helper function
   const getMimeType = (filename) => {
@@ -748,51 +797,150 @@ export default function NeighborhoodChatScreen() {
     return mimeTypes[ext] || "application/octet-stream";
   };
 
-  const uploadToIPFS = async (fileUri, fileName, type, token) => {
-    try {
-      const response = await fetch(fileUri);
-      const blob = await response.blob();
+  const generateThumbnail = async (videoUrl) => {
+    console.log("🔄 Starting thumbnail generation for:", videoUrl);
 
-      const formData = new FormData();
-      formData.append("video", blob, fileName);
-      formData.append("title", fileName);
-      formData.append("description", `Uploaded ${type} - ${fileName}`);
-         if (neighborhoodId) {
-           formData.append("neighborhoodId", neighborhoodId);
-         }
+    return new Promise((resolve, reject) => {
+      const video = document.createElement("video");
+      video.crossOrigin = "anonymous";
+      video.src = videoUrl;
+      video.currentTime = 2;
+      video.muted = true;
 
-      console.log("📤 IPFS Upload:", {
-        fileName,
-        type,
-        size: blob.size,
-        neighborhoodId,
-      });
+      video.onloadeddata = async () => {
+        console.log("✅ Video loaded successfully");
 
-      const res = await fetch(`${BACKEND_URL}/upload`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = 320;
+          canvas.height = 240;
+          const ctx = canvas.getContext("2d");
 
-      console.log("📥 upload response status:", res.status);
+          console.log("🖼️ Drawing video to canvas...");
+          ctx.drawImage(video, 0, 0, 320, 240);
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`IPFS upload failed: ${res.status} – ${errorText}`);
-      }
+          // 🎯 FIX: Use the reliable toDataURL() instead of convertToBlob()
+          // We convert directly to a base64 JPEG, which is widely supported.
+          const base64 = canvas.toDataURL("image/jpeg", 0.8); // 0.8 is quality
 
-      const result = await res.json();
-      const { ipfsUrl, magnetLink } = result;
+          // Optionally, you can log the size estimate, though not exact blob size
+          const sizeEstimate = base64.length * (3 / 4) - 2;
 
-      console.log("✅ IPFS Result:", { ipfsUrl, magnetLink });
+          console.log(
+            `📸 Thumbnail ready: JPEG (via DataURL), ~${sizeEstimate.toFixed(
+              0
+            )} bytes`
+          );
 
-      // ✅ Return both values so unifiedUpload can use them
-      return { ipfsUrl, magnetLink };
-    } catch (error) {
-      console.error("❌ IPFS upload error:", error);
-      throw error;
-    }
+          resolve({
+            // We are returning a base64 string directly, no need for blob
+            base64,
+            format: "jpeg", // Update format
+            size: sizeEstimate,
+          });
+        } catch (error) {
+          console.error("❌ Canvas/Blob conversion failed:", error);
+          reject(error);
+        }
+      };
+
+      video.onerror = (e) => {
+        console.error("❌ Video load failed:", e);
+        reject(new Error(`Video load error: ${e.message}`));
+      };
+
+      // Set timeout
+      setTimeout(() => {
+        if (video.readyState < 2) {
+          reject(new Error("Video load timeout (10s)"));
+        }
+      }, 10000);
+
+      console.log("⏳ Loading video...");
+      video.load();
+    });
   };
+
+
+const uploadToIPFS = async (fileUri, fileName, type, token, neighborhoodId) => {
+  try {
+    const response = await fetch(fileUri);
+    const blob = await response.blob();
+
+    const formData = new FormData();
+    formData.append("video", blob, fileName);
+    formData.append("title", fileName);
+    formData.append("description", `Uploaded ${type} - ${fileName}`);
+
+    if (neighborhoodId) {
+      formData.append("neighborhoodId", neighborhoodId);
+    }
+
+    console.log("📤 IPFS Upload:", {
+      fileName,
+      type,
+      size: blob.size,
+      neighborhoodId,
+    });
+
+    const res = await fetch(`${BACKEND_URL}/upload`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+
+    console.log("📥 upload response status:", res.status);
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`IPFS upload failed: ${res.status} – ${errorText}`);
+    }
+
+    const result = await res.json();
+    const { ipfsUrl, magnetLink } = result;
+
+    console.log("✅ IPFS Result:", { ipfsUrl, magnetLink });
+
+    // 🎯 AVIF THUMBNAIL GENERATION// In uploadToIPFS function:
+    let thumbnailUrl = null;
+
+    if (type === "video") {
+      try {
+        console.log("🎬 Starting thumbnail generation for video...");
+
+        const { base64, format, size } = await generateThumbnail(fileUri);
+
+        console.log(
+          `✅ ${format.toUpperCase()} thumbnail generated: ${size} bytes`
+        );
+        thumbnailUrl = base64;
+      } catch (thumbnailError) {
+        console.error(
+          "❌ Thumbnail generation failed completely:",
+          thumbnailError.message
+        );
+        // Continue without thumbnail
+      }
+    }
+
+    console.log("📊 Final return values:", {
+      ipfsUrl,
+      magnetLink,
+      thumbnailUrl,
+      hasThumbnail: !!thumbnailUrl,
+    });
+
+    // ✅ Always return from here (for all file types)
+    return {
+      ipfsUrl,
+      magnetLink,
+      thumbnailUrl,
+    };
+  } catch (error) {
+    console.error("❌ IPFS upload error:", error);
+    throw error;
+  }
+};
 
   const startNeighborhoodStream = async () => {
     try {
@@ -977,7 +1125,7 @@ export default function NeighborhoodChatScreen() {
           }
           style={styles.galleryButton}
         >
-          <Text style={styles.galleryButtonText}>🖼️</Text>
+          <Text style={styles.galleryButtonText}> 🖼 GALLERY 🖼️</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -1389,4 +1537,34 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: "italic",
   },
-});
+  galleryButtonText: {
+    fontSize: 16,
+    color: "#00ffff",
+  },
+
+  videoThumbnailContainer: {
+    marginBottom: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  videoThumbnail: {
+    width: '100%',
+    height: 200,
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  playIcon: {
+    fontSize: 40,
+  },
+  videoFileName: {
+    color: '#888',
+    fontSize: 12,
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+})

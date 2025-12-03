@@ -91,7 +91,6 @@ export default function AdMessage({ ad }: AdProps) {
         <View style={styles.footer}>
           <Text style={styles.cta}>Visit Partner Site →</Text>
           <Text style={styles.disclaimer}>
-            🔒 Secure link • {ad.clicks || 0} clicks
           </Text>
         </View>
       </View>
@@ -111,19 +110,18 @@ const styles = StyleSheet.create({
     width: "90%", // Responsive width
   },
   image: {
-    width: 150,
-    height: 150,
-    backgroundColor: "#2a2a2a",
+    width: 200,
+    height: 200,
+    borderRadius:10,
   },
   imagePlaceholder: {
     width: "100%",
     height: 150,
-    backgroundColor: "#2a2a2a",
+    backgroundColor: "#000000ff",
     justifyContent: "center",
     alignItems: "center",
   },
   placeholderText: {
-    color: "#666",
     fontSize: 16,
     fontWeight: "bold",
   },
