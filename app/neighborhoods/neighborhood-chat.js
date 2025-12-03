@@ -1569,6 +1569,6 @@ const styles = StyleSheet.create({
     fontSize: 40,
   },
   videoFileName: {
-opacity: 0;
+opacity: 0,
   },
 })
