@@ -25,7 +25,7 @@ export default function HomeScreen() {
   const lightaccents =themes.bubblefusion.light.accents;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={styles.container,}>
       {/* Hero Section with Bubble Background */}
       <View style={styles.heroSection}>
         <Image
@@ -34,7 +34,7 @@ export default function HomeScreen() {
           resizeMode="cover"
         />
         <View style={styles.heroOverlay}>
-          <Text style={[styles.heroTitle, { backgroundColor: theme.background }]}>
+                   <Text style={[styles.heroTitle, { backgroundColor: theme.tint }]}>
             bubblebase.app
           </Text>
         </View>
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroSection: {
-    height: 200, // Adjust based on your image
+    height: 300, // Adjust based on your image
     position: "relative",
   },
   heroBubble: {
