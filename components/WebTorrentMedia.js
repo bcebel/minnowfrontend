@@ -20,7 +20,9 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const videoRef = useRef(null);
   const torrentRef = useRef(null);
 
-  const { magnetLink, fileName, fileType } = media;
+  const { magnetLink, fileName, fileType, thumbnailUrl } = media;
+  const isVideo = fileType === "video";
+  const [showThumbnail, setShowThumbnail] = useState(isVideo && thumbnailUrl);
 
   const getOptimalStrategy = (fileType, fileName) => {
     if (fileType === "video") {
@@ -57,9 +59,10 @@ export default function WebTorrentMedia({ media, isFocused }) {
 
   const cid = extractCID();
   const isImage = fileType === "image";
-  const isVideo = fileType === "video";
 
   useEffect(() => {
+    if (showThumbnail) return;
+
     if (Platform.OS !== "web") {
       // For native, use direct IPFS URL
       if (cid) {
@@ -196,8 +199,25 @@ export default function WebTorrentMedia({ media, isFocused }) {
       // Keep torrent alive for seeding
       console.log("Keeping torrent alive for seeding");
     };
-  }, [magnetLink, cid, isFocused, isImage, strategy]); // Added strategy to dependencies
+  }, [magnetLink, cid, isFocused, isImage, strategy, showThumbnail]);
 
+  if (showThumbnail) {
+    return (
+      <TouchableOpacity
+        style={styles.thumbnailContainer}
+        onPress={() => setShowThumbnail(false)}
+      >
+        <Image
+          source={{ uri: thumbnailUrl }}
+          style={styles.thumbnail}
+          resizeMode="cover"
+        />
+        <View style={styles.playButtonOverlay}>
+          <Text style={styles.playIcon}>▶️</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
   // Video controls
   const handlePlay = () => {
     if (videoRef.current) {
@@ -447,5 +467,30 @@ const styles = StyleSheet.create({
     color: "#00ffff",
     fontSize: 12,
     marginTop: 4,
+  },
+  thumbnailContainer: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
+    borderRadius: 12,
+  },
+  thumbnail: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 12,
+  },
+  playButtonOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+  },
+  playIcon: {
+    fontSize: 50,
+    color: "white",
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
   },
 });
