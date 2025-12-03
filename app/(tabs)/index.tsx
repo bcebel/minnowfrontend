@@ -232,7 +232,7 @@ footerBubbles: {
   },
   actionsContainer: {
     maxWidth: 300,
-    borderRadius: 100
+    borderRadius: 100,
     paddingHorizontal: 20,
     paddingVertical: 10,
     gap: 12,
@@ -245,6 +245,8 @@ footerBubbles: {
     alignItems: "center",
   },
   primaryButtonText: {
+    maxWidth: 275,
+      borderRadius: 100,
     fontSize: 16,
     fontWeight: "bold",
   },
