@@ -204,6 +204,7 @@ const GET_NEIGHBORHOOD_MESSAGES = gql`
       fileUrl
       fileName
       fileType
+      thumbnailUrl
       magnetLink
       sender {
         id
