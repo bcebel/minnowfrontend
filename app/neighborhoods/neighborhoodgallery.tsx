@@ -13,7 +13,6 @@ import { Image } from "expo-image";
 import { gql, useQuery } from "@apollo/client";
 import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentMedia from "../../components/WebTorrentMedia"; // Import from your chat
-import DynamicMediaRenderer from "../../components/DynamicMediaRenderer";
 
 // GraphQL Query
 const GET_NEIGHBORHOOD_GALLERY = gql`
@@ -77,6 +76,131 @@ const getFileType = (fileName: string) => {
     return "image";
   }
   return "unknown";
+};
+
+// Simple Video Player Component - SAME AS IN CHAT
+const SimpleVideoPlayer = ({
+  url,
+  fileName,
+}: {
+  url: string;
+  fileName: string;
+}) => {
+  const player = useVideoPlayer(url, (player) => {
+    player.loop = false;
+  });
+
+  return (
+    <TouchableOpacity
+      style={styles.videoContainer}
+      onPress={() => player.play()}
+    >
+      <VideoView
+        player={player}
+        style={styles.videoPlayer}
+        showsControls={true}
+        contentFit="contain"
+        allowsExternalPlayback={true}
+      />
+      {fileName && (
+        <Text style={styles.videoCaption} numberOfLines={1}>
+          {fileName}
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
+};
+
+// Media Display Component - USING SAME LOGIC AS CHAT
+const MediaDisplay = ({ item }: { item: any }) => {
+  const fileType = getFileType(item.fileName);
+  const isImage = fileType === "image";
+  const isVideo = fileType === "video";
+
+  // Get the display URL
+  const getDisplayUrl = () => {
+    if (item.ipfsUrl) {
+      return item.ipfsUrl.replace(
+        "ipfs.filebase.io",
+        process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud"
+      );
+    }
+
+    if (item.cid) {
+      return `https://${
+        process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud"
+      }/ipfs/${item.cid}`;
+    }
+
+    return null;
+  };
+
+  const displayUrl = getDisplayUrl();
+
+  if (!displayUrl) {
+    return (
+      <View style={styles.noMedia}>
+        <Text>No media URL available</Text>
+      </View>
+    );
+  }
+
+  // 🎯 SIMPLE RULES - SAME AS CHAT:
+
+  // 1. If it has magnet link → WebTorrentMedia (handles both images and videos)
+  if (item.magnetLink && (fileType === "image" || fileType === "video")) {
+    return (
+      <View style={styles.magnetContainer}>
+        <WebTorrentMedia
+          media={{
+            ...item,
+            imageUrl: isImage ? displayUrl : null,
+            videoUrl: isVideo ? displayUrl : null,
+            fileType: fileType,
+          }}
+          isFocused={true}
+        />
+      </View>
+    );
+  }
+
+  // 2. If it's an image → Direct image
+  if (isImage) {
+    return (
+      <Image
+        source={{ uri: displayUrl }}
+        style={styles.image}
+        contentFit="cover"
+        transition={300}
+        onError={() => console.log("Image failed to load")}
+      />
+    );
+  }
+
+  // 3. If it's a video → Simple video player (SAME AS CHAT)
+  if (isVideo) {
+    return (
+      <SimpleVideoPlayer url={displayUrl} fileName={item.fileName || "Video"} />
+    );
+  }
+
+  // 4. File download fallback
+  return (
+    <TouchableOpacity
+      onPress={() => Linking.openURL(displayUrl)}
+      style={styles.fileContainer}
+    >
+      <Text style={styles.fileIcon}>📁</Text>
+      <View style={styles.fileInfo}>
+        <Text style={styles.fileName} numberOfLines={1}>
+          {item.fileName || "File"}
+        </Text>
+        <Text style={styles.fileType}>
+          {fileType || "File"} • Tap to download
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
 };
 
 interface NeighborhoodGalleryProps {
@@ -149,7 +273,7 @@ export default function NeighborhoodGallery({
           {item.title || item.fileName || "Untitled"}
         </Text>
 
-        <DynamicMediaRenderer media={{...item, fileType}} isFocused={true} />
+        <MediaDisplay item={item} />
 
         <View style={styles.info}>
           <Text>👤 {item.user?.username || "Unknown"}</Text>
@@ -254,6 +378,38 @@ const styles = StyleSheet.create({
     backgroundColor: "#eee",
     borderRadius: 8,
     alignItems: "center",
+  },
+  image: {
+    width: "100%",
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: "#f0f0f0",
+  },
+  // Video styles from chat
+  videoContainer: {
+    marginBottom: 8,
+    borderRadius: 12,
+    overflow: "hidden",
+    width: "100%",
+    backgroundColor: "#000",
+  },
+  videoPlayer: {
+    width: "100%",
+    height: undefined,
+    aspectRatio: 16 / 9,
+    backgroundColor: "#000",
+  },
+  videoCaption: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    marginTop: 8,
+    paddingHorizontal: 8,
+    textAlign: "center",
+  },
+  magnetContainer: {
+    width: "100%",
+    borderRadius: 8,
+    overflow: "hidden",
   },
   // File container from chat
   fileContainer: {
