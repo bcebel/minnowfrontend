@@ -239,6 +239,8 @@ footerBubbles: {
     marginBottom: 20,
   },
   primaryButton: {
+    maxWidth: 280,
+    borderRadius: 100,
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 12,
