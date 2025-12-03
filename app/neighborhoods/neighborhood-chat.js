@@ -1555,9 +1555,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   videoThumbnail: {
-    width: '100%',
-    maxWidth: 500,
-    height: '75%',
+    width: "100%",
+    height: undefined,
+        aspectRatio: 9 / 16,
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
