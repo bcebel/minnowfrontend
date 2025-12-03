@@ -31,17 +31,18 @@ export default function HomeScreen() {
           style={styles.heroBubble}
           resizeMode="cover"
         />
+      
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.heroOverlay}>
                    <Text style={[styles.heroTitle, { backgroundColor: theme.tint }]}>
             bubblebase.app
           </Text>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
         {/* Rest of your content */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity
@@ -95,7 +96,7 @@ export default function HomeScreen() {
                 🫧 its poppin in here 🫧
               </Text>
               <Text
-                style={[styles.heroTagline, { backgroundColor: accents.cyan }]}
+                style={[styles.agline, { backgroundColor: accents.cyan }]}
               >
                 🫧 bubbly & based 🫧
               </Text>
@@ -108,7 +109,7 @@ export default function HomeScreen() {
                 🫧 Network with and for your peers 🫧
               </Text>
               <Text
-                style={[styles.heroTagline, { backgroundColor: accents.cyan }]}
+                style={[styles.agline, { backgroundColor: accents.cyan }]}
               >
                 🫧 leave big tech out of YOUR bubble 🫧
               </Text>
@@ -121,7 +122,7 @@ export default function HomeScreen() {
                 🫧 its a big club... and you're in it 🫧
               </Text>
               <Text
-                style={[styles.heroTagline, { backgroundColor: accents.cyan }]}
+                style={[styles.agline, { backgroundColor: accents.cyan }]}
               >
                 🫧 bubble up 🫧
               </Text>
