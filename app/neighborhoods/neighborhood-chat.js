@@ -247,6 +247,7 @@ const GET_RANDOM_AFFILIATE_LINK = gql`
       id
       url
       title
+      imageUrl
       description
       clicks
     }
