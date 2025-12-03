@@ -148,6 +148,329 @@ const styles = StyleSheet.create({
   heroBubble: {
     width: "100%",
     height: "100%",
+    import {
+  Image,
+  StyleSheet,
+  Platform,
+  TouchableOpacity,
+  Text,
+  ScrollView,
+  View,
+  ImageBackground,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { themes } from "../theme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+  const router = useRouter();
+  const handleLogout = async () => {
+    await AsyncStorage.multiRemove(["token", "username"]);
+    router.replace("/login");
+  };
+
+export default function HomeScreen() {
+  const router = useRouter();
+  const theme = themes.bubblefusion.dark;
+  const accents = themes.bubblefusion.dark.accents;
+  const light = themes.bubblefusion.light;
+  const lightaccents =themes.bubblefusion.light.accents;
+
+  return (
+    <View style={styles.container}>
+        <Image
+          source={require("@/assets/images/bubble.jpg")}
+          style={styles.heroBubble}
+          resizeMode="cover"
+        />
+      
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.heroOverlay}>
+                   <Text style={[styles.heroTitle, { backgroundColor: theme.tint }]}>
+            bubblebase.app
+          </Text>
+      </View>
+
+        {/* Rest of your content */}
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity
+            style={[styles.primaryButton, { backgroundColor: theme.tint }]}
+            onPress={() => router.push("/register")}
+          >
+            <Text
+              style={[styles.primaryButtonText, { color: theme.background }]}
+            >
+              New User? Join the Bubble
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.secondaryButton, { borderColor: theme.tint }]}
+            onPress={() => router.push("/login")}
+          >
+            <Text style={[styles.secondaryButtonText, { color: theme.tint }]}>
+              Sign In
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleLogout}
+            style={[
+              styles.secondaryButton,
+              { backgroundColor: theme.accents.apple },
+            ]}
+          >
+            <Text
+              style={[styles.logoutButtonText, { color: theme.background }]}
+            >
+              Logout
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <ImageBackground
+          source={require("@/assets/images/pexels-pixabay-270873.jpg")}
+          resizeMode="cover"
+          style={styles.footerBubbles}
+        >
+          <View style={styles.features}>
+            {/* Your feature items */}
+
+            <View style={styles.featureItem}>
+              <Text
+                style={[
+                  styles.heroSubtitle,
+                  { backgroundColor: accents.banana },
+                ]}
+              >
+                🫧 its poppin in here 🫧
+              </Text>
+              <Text
+                style={[styles.agline, { backgroundColor: accents.cyan }]}
+              >
+                🫧 bubbly & based 🫧
+              </Text>
+              <Text
+                style={[
+                  styles.heroSubtitle,
+                  { backgroundColor: accents.banana },
+                ]}
+              >
+                🫧 Network with and for your peers 🫧
+              </Text>
+              <Text
+                style={[styles.agline, { backgroundColor: accents.cyan }]}
+              >
+                🫧 leave big tech out of YOUR bubble 🫧
+              </Text>
+              <Text
+                style={[
+                  styles.heroSubtitle,
+                  { backgroundColor: accents.banana },
+                ]}
+              >
+                🫧 its a big club... and you're in it 🫧
+              </Text>
+              <Text
+                style={[styles.agline, { backgroundColor: accents.cyan }]}
+              >
+                🫧 bubble up 🫧
+              </Text>
+            </View>
+          </View>
+        </ImageBackground>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  heroSection: {
+    height: 300, // Adjust based on your image
+    position: "relative",
+  },
+  heroBubble: {
+    width: "100%",
+    height: "100%",
+    position: "absolute",
+    top: 0,
+    left: 0,
+  },
+  heroOverlay: {
+    position: "relative",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.3)", // Dark overlay for text readability
+    paddingHorizontal: 20,
+  },
+  heroTitle: {
+    borderRadius: 20, // Rounded edges
+    position: "relative",
+    fontSize: 32,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 4,
+    alignSelf: "center",
+    padding: 3,
+  },
+  heroSubtitle: {
+    fontSize: 20,
+    borderRadius: 20, // Rounded edges
+    textAlign: "center",
+    fontWeight: "600",
+    marginBottom: 4,
+    alignSelf: "center",
+    padding: 5,
+    margin: 2,
+  },
+  heroTagline: {
+    borderRadius: 20, // Rounded edges
+    backgroundColor: "theme.link",
+    fontSize: 16,
+    textAlign: "center",
+    opacity: 0.9,
+    alignSelf: "center",
+    padding: 5,
+    margin: 2,
+  },
+footerBubbles: {
+  flex: 1,
+  width: "100%"
+},
+  scrollContent: {
+    flexGrow: 1,
+    paddingTop: 450,
+    paddingBottom: 40,
+    backgroundColor: "transparent",
+  },
+  headerImage: {
+    width: "100%",
+    height: 50,
+    resizeMode: "cover",
+    marginTop: Platform.OS === "ios" ? 50 : 20,
+    marginBottom: 10,
+  },
+  titleContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 18,
+    textAlign: "center",
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  tagline: {
+    fontSize: 14,
+    textAlign: "center",
+    opacity: 0.9,
+  },
+  actionsContainer: {
+     alignSelf: "center",
+    maxWidth: 300,
+    borderRadius: 100,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    gap: 12,
+    marginBottom: 20,
+  },
+  primaryButton: {
+    maxWidth: 280,
+    borderRadius: 100,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  primaryButtonText: {
+    maxWidth: 275,
+      borderRadius: 100,
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  secondaryButton: {
+    borderWidth: 2,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: "center",
+    backgroundColor: "transparent",
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  features: {
+    marginHorizontal: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  featureItem: {
+
+    alignItems: "center",
+    marginBottom: 12,
+    paddingHorizontal: 8,
+  },
+  featureEmoji: {
+    fontSize: 20,
+    marginRight: 12,
+    width: 24,
+  },
+  featureText: {
+    fontSize: 14,
+    flex: 1,
+    lineHeight: 18,
+  },
+  accentShowcase: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  accentTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 12,
+  },
+  accentGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    width: "100%",
+  },
+  accentCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  accentText: {
+    fontSize: 16,
+  },
+  // ... rest of your styles
+});
+
+
   },
   heroOverlay: {
     position: "relative",
