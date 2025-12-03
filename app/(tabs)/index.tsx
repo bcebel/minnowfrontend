@@ -231,6 +231,8 @@ footerBubbles: {
     opacity: 0.9,
   },
   actionsContainer: {
+    maxWidth: 300,
+    borderRadius: 100
     paddingHorizontal: 20,
     paddingVertical: 10,
     gap: 12,
