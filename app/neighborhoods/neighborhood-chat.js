@@ -22,6 +22,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentMedia from "../../components/WebTorrentMedia";
 import AdMessage from "../../components/AdMessage";
+import DynamicMediaRenderer from "../../components/DynamicMediaRenderer";
 
 const safeFileName = (asset) =>
   asset.name || asset.fileName || asset.uri.split("/").pop() || "media";
@@ -67,133 +68,29 @@ const SimpleVideoPlayer = ({ url, fileName }) => {
 };
 
 // FIXED ChatMediaRenderer - Only shows media when media exists
+// In your ChatMediaRenderer:
+
 const ChatMediaRenderer = ({ message }) => {
-  const {
-    imageUrl,
-    videoUrl,
-    fileUrl,
-    magnetLink,
-    fileName,
-    fileType,
-    thumbnailUrl,
-  } = message;
-
-  // 🆕 Add state to control whether the video player is visible (true) or thumbnail is visible (false)
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  // 🚨 RETURN NULL if there's no media at all
-  const hasAnyMedia = imageUrl || videoUrl || fileUrl || magnetLink;
-  if (!hasAnyMedia) {
+  const { imageUrl, videoUrl, fileUrl, magnetLink, fileName, fileType, thumbnailUrl } = message;
+  
+  if (!imageUrl && !videoUrl && !fileUrl && !magnetLink) {
     return null;
   }
-
-  // Helper to get Pinata URL (Keep this function, maybe move it outside if it was global)
-  const getPinataUrl = (url) => {
-    if (!url) return null;
-    if (url.includes("/ipfs/")) {
-      const cid = url.split("/ipfs/")[1];
-      return `https://${PINATA_GATEWAY}/ipfs/${cid}`;
-    }
-    return url;
-  };
-
-  // --- NEW LOGIC: RENDER THUMBNAIL OR VIDEO PLAYER FOR VIDEOS ---
-  if (videoUrl) {
-    const pinataUrl = getPinataUrl(videoUrl);
-
-    // 1. If we are playing (or no thumbnail is available), show the full player
-    if (isPlaying || !thumbnailUrl) {
-      // Ensure the SimpleVideoPlayer can handle the click state if needed,
-      // but typically you just render it now.
-      console.log("🎥 Direct video (Playing):", pinataUrl);
-      return <SimpleVideoPlayer url={pinataUrl} fileName={fileName || "Video"} />;
-    }
-
-    // 2. If we are NOT playing AND a thumbnail is available, show the thumbnail
-    // The onPress handler is the key fix to switch the state!
-    return (
-      <TouchableOpacity
-        onPress={() => setIsPlaying(true)} // 🎯 KEY FIX: Set state to true to switch to SimpleVideoPlayer
-        style={styles.videoThumbnailContainer}
-      >
-        <Image
-          source={{ uri: thumbnailUrl }}
-          style={styles.videoThumbnail}
-          resizeMode="cover"
-        />
-        <View style={styles.videoOverlay}>
-          <Text style={styles.playIcon}>▶️</Text>
-        </View>
-        {fileName && (
-          <Text style={styles.videoFileName} numberOfLines={1}>
-            {fileName}
-          </Text>
-        )}
-      </TouchableOpacity>
-    );
-  }
-  // --- END NEW LOGIC ---
-
-  // 🎯 SIMPLE RULES:
-
-  // 1. If it has magnet link → WebTorrentMedia (handles both images and videos)
-  if (magnetLink && (fileType === "image" || fileType === "video")) {
-    return (
-      <View style={styles.magnetContainer}>
-        <WebTorrentMedia media={message} isFocused={true} />
-      </View>
-    );
-  }
-
-  // 2. If it's an image → Direct image
-  if (imageUrl || fileType === "image") {
-    const pinataUrl = getPinataUrl(imageUrl);
-    return (
-      <TouchableOpacity onPress={() => console.log("Open image:", pinataUrl)}>
-        <Image
-          source={{ uri: pinataUrl }}
-          style={styles.messageImage}
-          resizeMode="cover"
-        />
-        {fileName && <Text style={styles.fileNameText}>{fileName}</Text>}
-      </TouchableOpacity>
-    );
-  }
-
-  // 4. If it's a file → File download
-  if (fileUrl) {
-    const pinataUrl = getPinataUrl(fileUrl);
-    console.log("📄 File:", pinataUrl);
-    return (
-      <TouchableOpacity
-        style={styles.fileContainer}
-        onPress={() => handleFilePress({ ...message, fileUrl: pinataUrl })}
-      >
-        <Text style={styles.fileIcon}>📄</Text>
-        <View style={styles.fileInfo}>
-          <Text style={styles.fileName} numberOfLines={1}>
-            {fileName || "File"}
-          </Text>
-          <Text style={styles.fileType}>
-            {fileType || "File"} • Tap to download
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  }
-
-  // 5. Fallback for edge cases (should rarely happen)
-  console.log("⚠️ Edge case - has media fields but can't render:", message);
+  
   return (
-    <View style={styles.fileContainer}>
-      <Text style={styles.fileIcon}>❓</Text>
-      <View style={styles.fileInfo}>
-        <Text style={styles.fileName} numberOfLines={1}>
-          {fileName || "Media"}
-        </Text>
-        <Text style={styles.fileType}>Cannot preview • Tap for info</Text>
-      </View>
-    </View>
+    <DynamicMediaRenderer
+      media={{
+        imageUrl,
+        videoUrl,
+        fileUrl,
+        fileName,
+        fileType,
+        thumbnailUrl,
+        magnetLink
+      }}
+      isFocused={true}
+      maxWidth={300} // Optional: Set specific max width for chat
+    />
   );
 };
 // GraphQL Queries
