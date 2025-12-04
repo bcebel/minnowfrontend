@@ -64,7 +64,7 @@ const SimpleVideoPlayer = ({ url, fileName }) => {
         player={player}
         style={styles.videoPlayer}
         showsControls={true}
-        contentFit="contain"
+        contentFit="cover"
         allowsExternalPlayback={true}
       />
       {fileName && (
@@ -1152,23 +1152,9 @@ export default function NeighborhoodChatScreen() {
         >
           <Text style={styles.galleryButtonText}> 🖼 GALLERY 🖼️</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
+
         <Text style={styles.roomTitle}>🏘️ {neighborhoodName}</Text>
-        <TouchableOpacity
-          onPress={() =>
-            router.push(
-              `/neighborhood-members?neighborhoodId=${neighborhoodId}`
-            )
-          }
-          style={styles.membersButton}
-        >
-          <Text style={styles.membersButtonText}>👥</Text>
-        </TouchableOpacity>
+ ]
       </View>
       {!socket && (
         <View style={styles.connectionWarning}>
@@ -1499,17 +1485,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   videoCaption: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    marginTop: 8,
-    paddingHorizontal: 8,
-    textAlign: "center",
+   opacity: 0,
   },
   fileNameText: {
-    fontSize: 12,
-    color: "#888",
-    marginTop: 4,
-    textAlign: "center",
+  opacity: 0,
   },
   adContainer: {
     backgroundColor: "#1a1a1a",
@@ -1587,9 +1566,6 @@ const styles = StyleSheet.create({
     fontSize: 40,
   },
   videoFileName: {
-    color: "#888",
-    fontSize: 12,
-    padding: 8,
-    backgroundColor: "rgba(0,0,0,0.7)",
+ opacity: 0,
   },
 });

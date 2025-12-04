@@ -435,9 +435,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#111",
   },
   fileName: {
-    color: "#FFF",
-    fontSize: 14,
-    fontWeight: "bold",
+   opacity: 0,
   },
   magnetHint: {
     color: "#00ffff",
