@@ -1042,19 +1042,19 @@ export default function NeighborhoodChatScreen() {
 
               try {
                 // Copy to clipboard
+                const messageContent = `Neighborhood Clip Streamed! Join the P2P stream: ${torrent.magnetURI}`;
                 await navigator.clipboard.writeText(torrent.magnetURI);
-const linkage = torrent.magnetURI
                 // Send to neighborhood chat
                 await sendMessageMutation({
                   variables: {
-                    content: linkage,
+                    content: messageContent,
                     neighborhoodId,
                     imageUrl: null,
                     videoUrl: null,
                     fileUrl: null,
-                    fileName: null,
-                    fileType: null,
-                    magnetLink: null,
+              fileName: "Neighborhood Stream Clip",
+                   fileType: "video",
+                  magnetLink: torrent.magnetURI,
                   },
                 });
 
