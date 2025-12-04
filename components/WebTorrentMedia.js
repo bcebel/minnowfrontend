@@ -340,7 +340,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 1,
     width: "100%",
-
     alignSelf: "flex-start",
   },
   
@@ -348,15 +347,13 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   image: {
-    width: "100%",
-    height: undefined,
-    aspectRatio: 4 / 3,
+    width: "200",
+    height: 200,
     minHeight: 300,
   },
   video: {
     width: "100%",
     height: undefined,
-    aspectRatio: 16 / 9,
     backgroundColor: "#000",
     minHeight: 300,
   },
@@ -403,9 +400,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   loadingContainer: {
-    height: 300,
+
     backgroundColor: "#111",
-    padding: 20,
   },
   status: {
     color: "#FFF",

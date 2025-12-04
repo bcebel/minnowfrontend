@@ -114,15 +114,12 @@ const ChatMediaRenderer = ({ message }) => {
     // 1. If we are playing (or no thumbnail is available), show the full player
     if (isPlaying || !thumbnailUrl) {
       // Ensure the SimpleVideoPlayer can handle the click state if needed,
-      // but typically you just render it now.
       console.log("🎥 Direct video (Playing):", pinataUrl);
       return (
         <SimpleVideoPlayer url={pinataUrl} fileName={fileName || "Video"} />
       );
     }
 
-    // 2. If we are NOT playing AND a thumbnail is available, show the thumbnail
-    // The onPress handler is the key fix to switch the state!
     return (
       <TouchableOpacity
         onPress={() => setIsPlaying(true)} // 🎯 KEY FIX: Set state to true to switch to SimpleVideoPlayer
@@ -131,7 +128,7 @@ const ChatMediaRenderer = ({ message }) => {
         <Image
           source={{ uri: thumbnailUrl }}
           style={styles.videoThumbnail}
-          resizeMode="cover"
+          resizeMode="contain"
         />
         <View style={styles.videoOverlay}>
           <Text style={styles.playIcon}>▶️</Text>
@@ -829,9 +826,14 @@ export default function NeighborhoodChatScreen() {
         console.log("✅ Video loaded successfully");
 
         try {
+
+          const originalWidth = video.videoWidth;
+          const originalHeight = video.videoHeight;
+          const targetWidth = 320;
+          const targetHeight = (originalHeight / originalWidth) * targetWidth;
           const canvas = document.createElement("canvas");
-          canvas.width = 320;
-          canvas.height = 240;
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
           const ctx = canvas.getContext("2d");
 
           console.log("🖼️ Drawing video to canvas...");
@@ -1572,8 +1574,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   videoThumbnail: {
-    width: "100%",
-    height: 200,
+    minWidth: 200,
+    minHeight: 900,
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
