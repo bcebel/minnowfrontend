@@ -1043,11 +1043,11 @@ export default function NeighborhoodChatScreen() {
               try {
                 // Copy to clipboard
                 await navigator.clipboard.writeText(torrent.magnetURI);
-
+const linkage = torrent.magnetURI
                 // Send to neighborhood chat
                 await sendMessageMutation({
                   variables: {
-                    content: messageContent,
+                    content: linkage,
                     neighborhoodId,
                     imageUrl: null,
                     videoUrl: null,
