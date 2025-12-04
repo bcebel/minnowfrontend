@@ -474,9 +474,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0, // NO horizontal padding
   },
   mediaCard: {
-    marginBottom: 10,
-    width: "100%",
-    minHeight: 600, // Minimum height
+    maxWidth: "75%",
+    maxHeight: 900,
     backgroundColor: "#000000",
     borderWidth: 3,
     borderColor: "#000000ff",
@@ -488,7 +487,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   placeholderCard: {
-    minHeight: 500,
+
     backgroundColor: "#111111",
     borderColor: "#ff00ff",
     justifyContent: "center",

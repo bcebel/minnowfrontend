@@ -1154,7 +1154,16 @@ export default function NeighborhoodChatScreen() {
         </TouchableOpacity>
 
         <Text style={styles.roomTitle}>🏘️ {neighborhoodName}</Text>
- ]
+        <TouchableOpacity
+          onPress={() =>
+            router.push(
+              `/neighborhood-members?neighborhoodId=${neighborhoodId}`
+            )
+          }
+          style={styles.membersButton}
+        >
+          <Text style={styles.membersButtonText}>👥</Text>
+        </TouchableOpacity>
       </View>
       {!socket && (
         <View style={styles.connectionWarning}>
