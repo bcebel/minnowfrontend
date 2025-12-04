@@ -44,10 +44,21 @@ const SimpleVideoPlayer = ({ url, fileName }) => {
     player.loop = false;
   });
 
+  // 🎯 KEY FIX: Automatically play when the component mounts and the player is ready
+  useEffect(() => {
+    // Check if the player object exists and has a play method
+    if (player) {
+      player.play();
+      console.log('🎬 SimpleVideoPlayer: Auto-playing video.');
+    }
+  }, [player]); // Run once when player is initialized
+
   return (
     <TouchableOpacity
       style={styles.videoContainer}
-      onPress={() => player.play()}
+      // Pressing the container can be used to pause/resume if needed, 
+      // but the key change is the useEffect for initial play.
+      onPress={() => (player.isPlaying ? player.pause() : player.play())}
     >
       <VideoView
         player={player}
