@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   heroTitle: {
     borderRadius: 20, // Rounded edges
     position: "relative",
-    fontSize: 50,
+    fontSize: 36,
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 4,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   heroSubtitle: {
-    fontSize: 20,
+    fontSize: 18,
     borderRadius: 20, // Rounded edges
     textAlign: "center",
     fontWeight: "600",
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tagline: {
-    fontSize: 14,
+    fontSize: 18,
     textAlign: "center",
     opacity: 0.9,
     borderRadius: 100,
@@ -193,7 +193,6 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     paddingVertical: 16,
     paddingHorizontal: 20,
-    borderRadius: 12,
     alignItems: "center",
   },
   primaryButtonText: {
@@ -211,7 +210,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#000000",
   },
   secondaryButtonText: {
-    fontSize: 25,
+    fontSize: 18,
     fontWeight: "bold",
   },
   features: {
@@ -233,7 +232,7 @@ const styles = StyleSheet.create({
     width: 24,
   },
   featureText: {
-    fontSize: 14,
+    fontSize: 18,
     flex: 1,
     lineHeight: 18,
   },
@@ -245,7 +244,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   accentTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
     marginBottom: 12,
   },
@@ -262,7 +261,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   accentText: {
-    fontSize: 16,
+    fontSize: 18,
   },
 
   logoutButton: {
@@ -275,7 +274,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#000000",
   },
   logoutButtonText: {
-    fontSize: 25,
+    fontSize: 18,
     fontWeight: "bold",
   },
   // ... rest of your styles
