@@ -45,7 +45,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="neighborhoods/index"
         options={{
-          title: "🫧🫧🫧",
+          title: "🫧🫧",
           tabBarIcon: ({ color }) => null,
         }}
       />

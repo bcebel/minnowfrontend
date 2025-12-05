@@ -26,36 +26,25 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-        <ImageBackground
-          source={require("@/assets/images/bubble.avif")}
-          style={styles.heroBubble}
-          resizeMode="cover"
-        />
-      
+      <ImageBackground
+        source={require("@/assets/images/bubble.avif")}
+        style={styles.heroBubble}
+        resizeMode="cover"
+      />
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroOverlay}>
-                   <Text style={[styles.heroTitle, { backgroundColor: theme.tint }]}>
+          <Text style={[styles.heroTitle, { backgroundColor: theme.tint }]}>
             bubblebase.app
           </Text>
-      </View>
+        </View>
 
         {/* Rest of your content */}
         <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: theme.tint }]}
-            onPress={() => router.push("/register")}
-          >
-            <Text
-              style={[styles.primaryButtonText, { color: theme.background }]}
-            >
-              New User? Join the Bubble
-            </Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={[styles.secondaryButton, { borderColor: theme.tint }]}
             onPress={() => router.push("/login")}
@@ -66,63 +55,25 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleLogout}
-            style={[
-              styles.secondaryButton,
-              { backgroundColor: theme.accents.apple },
-            ]}
+            style={[styles.logoutButton, { backgroundColor: "#000000" }]}
           >
-            <Text
-              style={[styles.logoutButtonText, { color: theme.background }]}
-            >
+            <Text style={[styles.logoutButtonText, { color: theme.tint }]}>
               Logout
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.primaryButton, { backgroundColor: theme.tint }]}
+            onPress={() => router.push("/register")}
+          >
+            <Text
+              style={[styles.primaryButtonText, { color: theme.background }]}
+            >
+              New User? Join the Bubble
+            </Text>
+          </TouchableOpacity>
         </View>
- 
-          <View style={styles.features}>
 
-            <View style={styles.featureItem}>
-              <Text
-                style={[
-                  styles.heroSubtitle,
-                  { backgroundColor: accents.banana },
-                ]}
-              >
-                🫧 its poppin in here 🫧
-              </Text>
-              <Text
-                style={[styles.tagline, { backgroundColor: accents.cyan }]}
-              >
-                🫧 bubbly & based 🫧
-              </Text>
-              <Text
-                style={[
-                  styles.heroSubtitle,
-                  { backgroundColor: accents.banana },
-                ]}
-              >
-                🫧 Network with and for your peers 🫧
-              </Text>
-              <Text
-                style={[styles.tagline, { backgroundColor: accents.cyan }]}
-              >
-                🫧 leave big tech out of YOUR bubble 🫧
-              </Text>
-              <Text
-                style={[
-                  styles.heroSubtitle,
-                  { backgroundColor: accents.banana },
-                ]}
-              >
-                🫧 its a big club... and you're in it 🫧
-              </Text>
-              <Text
-                style={[styles.tagline, { backgroundColor: accents.cyan }]}
-              >
-                🫧 bubble up 🫧
-              </Text>
-            </View>
-        </View>
+
       </ScrollView>
     </View>
   );
@@ -142,7 +93,7 @@ const styles = StyleSheet.create({
   heroBubble: {
     width: "100%",
     height: "100%",
-  position: "absolute",
+    position: "absolute",
   },
   heroOverlay: {
     position: "relative",
@@ -157,7 +108,7 @@ const styles = StyleSheet.create({
   heroTitle: {
     borderRadius: 20, // Rounded edges
     position: "relative",
-    fontSize: 32,
+    fontSize: 50,
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 4,
@@ -173,6 +124,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     padding: 5,
     margin: 2,
+    backgroundColor: "transparent",
   },
   heroTagline: {
     borderRadius: 20, // Rounded edges
@@ -184,14 +136,14 @@ const styles = StyleSheet.create({
     padding: 5,
     margin: 2,
   },
-footerBubbles: {
-  flex: 1,
-  width: "100%"
-},
+  footerBubbles: {
+    flex: 1,
+    width: "100%",
+  },
   scrollContent: {
     flexGrow: 1,
     paddingBottom: 40,
-    paddingTop: 450,
+    paddingTop: 250,
     backgroundColor: "transparent",
   },
   headerImage: {
@@ -227,7 +179,7 @@ footerBubbles: {
     height: 30,
   },
   actionsContainer: {
-     alignSelf: "center",
+    alignSelf: "center",
     maxWidth: 300,
     borderRadius: 100,
     paddingHorizontal: 20,
@@ -245,7 +197,7 @@ footerBubbles: {
   },
   primaryButtonText: {
     maxWidth: 275,
-      borderRadius: 100,
+    borderRadius: 100,
     fontSize: 16,
     fontWeight: "bold",
   },
@@ -255,22 +207,21 @@ footerBubbles: {
     paddingHorizontal: 20,
     borderRadius: 12,
     alignItems: "center",
-    backgroundColor: "transparent",
+    backgroundColor: "#000000",
   },
   secondaryButtonText: {
-    fontSize: 16,
+    fontSize: 25,
     fontWeight: "bold",
   },
   features: {
     marginHorizontal: 20,
     padding: 16,
-    backgroundColor: "#000000ff",
+    backgroundColor: "transparent",
     borderRadius: 100,
     width: 300,
     alignSelf: "center",
   },
   featureItem: {
-
     alignItems: "center",
     marginBottom: 12,
     paddingHorizontal: 8,
@@ -311,6 +262,20 @@ footerBubbles: {
   },
   accentText: {
     fontSize: 16,
+  },
+
+  logoutButton: {
+    borderWidth: 2,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderColor: "#ff00ff",
+    alignItems: "center",
+    backgroundColor: "#000000",
+  },
+  logoutButtonText: {
+    fontSize: 25,
+    fontWeight: "bold",
   },
   // ... rest of your styles
 });
