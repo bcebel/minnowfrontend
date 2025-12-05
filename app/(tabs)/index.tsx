@@ -26,8 +26,8 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-        <Image
-          source={require("@/assets/images/bubble.jpg")}
+        <ImageBackground
+          source={require("@/assets/images/bubble.avif")}
           style={styles.heroBubble}
           resizeMode="cover"
         />
@@ -78,13 +78,8 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-        <ImageBackground
-          source={require("@/assets/images/pexels-pixabay-270873.jpg")}
-          resizeMode="cover"
-          style={styles.footerBubbles}
-        >
+ 
           <View style={styles.features}>
-            {/* Your feature items */}
 
             <View style={styles.featureItem}>
               <Text
@@ -96,7 +91,7 @@ export default function HomeScreen() {
                 🫧 its poppin in here 🫧
               </Text>
               <Text
-                style={[styles.agline, { backgroundColor: accents.cyan }]}
+                style={[styles.tagline, { backgroundColor: accents.cyan }]}
               >
                 🫧 bubbly & based 🫧
               </Text>
@@ -109,7 +104,7 @@ export default function HomeScreen() {
                 🫧 Network with and for your peers 🫧
               </Text>
               <Text
-                style={[styles.agline, { backgroundColor: accents.cyan }]}
+                style={[styles.tagline, { backgroundColor: accents.cyan }]}
               >
                 🫧 leave big tech out of YOUR bubble 🫧
               </Text>
@@ -122,13 +117,12 @@ export default function HomeScreen() {
                 🫧 its a big club... and you're in it 🫧
               </Text>
               <Text
-                style={[styles.agline, { backgroundColor: accents.cyan }]}
+                style={[styles.tagline, { backgroundColor: accents.cyan }]}
               >
                 🫧 bubble up 🫧
               </Text>
             </View>
-          </View>
-        </ImageBackground>
+        </View>
       </ScrollView>
     </View>
   );
@@ -197,7 +191,7 @@ footerBubbles: {
   scrollContent: {
     flexGrow: 1,
     paddingBottom: 40,
-    paddingTop: 250,
+    paddingTop: 450,
     backgroundColor: "transparent",
   },
   headerImage: {
@@ -229,6 +223,8 @@ footerBubbles: {
     fontSize: 14,
     textAlign: "center",
     opacity: 0.9,
+    borderRadius: 100,
+    height: 30,
   },
   actionsContainer: {
      alignSelf: "center",
@@ -268,8 +264,10 @@ footerBubbles: {
   features: {
     marginHorizontal: 20,
     padding: 16,
-    borderWidth: 1,
-    borderRadius: 12,
+    backgroundColor: "#000000ff",
+    borderRadius: 100,
+    width: 300,
+    alignSelf: "center",
   },
   featureItem: {
 
