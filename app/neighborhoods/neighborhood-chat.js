@@ -23,6 +23,8 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentMedia from "../../components/WebTorrentMedia";
 import AdMessage from "../../components/AdMessage";
 import { NeighborhoodVideoReassembler } from "../../components/NeighborhoodVideoReassembler";
+import ChatMediaRenderer from "../../components/ChatMediaRenderer";
+import { webtorrentManager } from "../../components/WebTorrentManager";
 
 const safeFileName = (asset) =>
   asset.name || asset.fileName || asset.uri.split("/").pop() || "media";
@@ -40,518 +42,7 @@ const getFileType = (fileName) => {
 };
 
 // Simple Video Player Component
-const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
-  const player = useVideoPlayer(url, (player) => {
-    player.loop = false;
-  });
 
-  // 🎯 COMBINED: Auto-play + cleanup in one useEffect
-  useEffect(() => {
-    // Auto-play when player is ready
-    if (player) {
-      player.play();
-      console.log("🎬 SimpleVideoPlayer: Auto-playing video.");
-    }
-
-    // Cleanup function for blob URLs
-    return () => {
-      if (isTorrent && url.startsWith("blob:")) {
-        console.log("🧹 Cleaning up blob URL:", url);
-        URL.revokeObjectURL(url);
-      }
-    };
-  }, [player, url, isTorrent]); // ✅ All dependencies together
-
-  return (
-    <TouchableOpacity
-      style={styles.videoContainer}
-      onPress={() => player.play()}
-    >
-      <VideoView
-        player={player}
-        style={styles.videoPlayer}
-        showsControls={true}
-        contentFit="contain"
-        allowsExternalPlayback={true}
-      />
-      {fileName && (
-        <Text style={styles.videoCaption} numberOfLines={1}>
-          {fileName} {isTorrent && "🔗"}
-        </Text>
-      )}
-    </TouchableOpacity>
-  );
-};
-
-// FIXED ChatMediaRenderer - Only shows media when media exists
-// Updated ChatMediaRenderer with stream support
-const ChatMediaRenderer = ({ message }) => {
-  const {
-    imageUrl,
-    videoUrl,
-    fileUrl,
-    magnetLink,
-    fileName,
-    fileType,
-    thumbnailUrl,
-  } = message;
-
-  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
-
-  // 🆕 NEW: State for WebTorrent stream playback
-  const [torrentStreamUrl, setTorrentStreamUrl] = useState(null);
-  const [isLoadingTorrent, setIsLoadingTorrent] = useState(false);
-  const [isDownloadingChunks, setIsDownloadingChunks] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [chunkedVideoUrl, setChunkedVideoUrl] = useState(null);
-  // 🆕 Handle chunked video playback
-  const handleChunkedVideo = async (sessionId, totalChunks) => {
-    if (Platform.OS !== "web") {
-      Alert.alert("Web Only", "Chunked videos require web browser");
-      return;
-    }
-
-    setIsDownloadingChunks(true);
-
-    try {
-      // 1. Get all chunk messages for this session
-      const chunkMessages = await fetchChunksBySession(sessionId);
-
-      if (chunkMessages.length === 0) {
-        Alert.alert("No Chunks", "Video chunks not found in chat");
-        return;
-      }
-
-      // 2. Initialize reassembler
-      const reassembler = new NeighborhoodVideoReassembler();
-      reassembler.onChunkDownload = (downloaded, total) => {
-        setDownloadProgress(Math.round((downloaded / total) * 100));
-      };
-
-      // 3. Start progressive download
-      const blob = await reassembler.watchProgressive(
-        chunkMessages,
-        (downloaded, total) => {
-          setDownloadProgress(Math.round((downloaded / total) * 100));
-        }
-      );
-
-      // 4. Create URL and play
-      const videoUrl = URL.createObjectURL(blob);
-      setChunkedVideoUrl(videoUrl);
-    } catch (error) {
-      console.error("❌ Chunked video error:", error);
-      Alert.alert("Playback Error", error.message);
-    } finally {
-      setIsDownloadingChunks(false);
-    }
-  };
-
-  // 🆕 Helper to fetch chunks (you'll need to implement this)
-  const fetchChunksBySession = async (sessionId) => {
-    // This depends on your backend - you might need to:
-    // 1. Filter messages in frontend from existing data
-    // 2. Query backend for chunk messages
-    // For now, let's assume we filter from existing messages
-
-    // You'll need access to all messages - might need to pass as prop
-    // or use a context/global state
-    return []; // Placeholder
-  };
-
-  // 🆕 Render chunked video
-  if (message.fileType === "video_chunked") {
-    // Master message with thumbnail
-    if (chunkedVideoUrl) {
-      // Show player
-      return (
-        <SimpleVideoPlayer url={chunkedVideoUrl} fileName={message.fileName} />
-      );
-    }
-
-    return (
-      <TouchableOpacity
-        onPress={() =>
-          handleChunkedVideo(message.sessionId, message.totalChunks)
-        }
-        style={styles.chunkedVideoContainer}
-        disabled={isDownloadingChunks}
-      >
-        {message.thumbnailUrl ? (
-          <Image
-            source={{ uri: message.thumbnailUrl }}
-            style={styles.videoThumbnail}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={[styles.videoThumbnail, styles.videoPlaceholder]}>
-            <Text style={styles.videoIcon}>🎬</Text>
-          </View>
-        )}
-
-        <View style={styles.videoOverlay}>
-          {isDownloadingChunks ? (
-            <View style={styles.downloadProgress}>
-              <ActivityIndicator size="large" color="#00ffff" />
-              <Text style={styles.progressText}>{downloadProgress}%</Text>
-            </View>
-          ) : (
-            <View style={styles.chunkPlayButton}>
-              <Text style={styles.playIcon}>▶</Text>
-              <Text style={styles.chunkCount}>{message.totalChunks} parts</Text>
-            </View>
-          )}
-        </View>
-
-        {message.fileName && (
-          <Text style={styles.videoFileName} numberOfLines={1}>
-            {message.fileName}
-          </Text>
-        )}
-      </TouchableOpacity>
-    );
-  }
-
-  // 🆕 Render individual chunk (small indicator)
-  if (message.fileType === "video_chunk") {
-    return (
-      <View style={styles.chunkIndicator}>
-        <Text style={styles.chunkText}>
-          🧩 Part {message.chunkIndex + 1}/{message.totalChunks}
-        </Text>
-      </View>
-    );
-  }
-  const hasAnyMedia = imageUrl || videoUrl || fileUrl || magnetLink;
-  if (!hasAnyMedia) {
-    return null;
-  }
-
-  const getPinataUrl = (url) => {
-    if (!url) return null;
-    if (url.includes("/ipfs/")) {
-      const cid = url.split("/ipfs/")[1];
-      return `https://${PINATA_GATEWAY}/ipfs/${cid}`;
-    }
-    return url;
-  };
-
-  // 🆕 NEW: Handle magnet link playback
-  const handleMagnetPlay = async (magnetUri) => {
-    if (Platform.OS !== "web") {
-      Alert.alert(
-        "Web Only",
-        "P2P stream playback is available on web browsers only",
-        [{ text: "OK" }]
-      );
-      return;
-    }
-    // Add this to handle LIVE magnet links
-    const handleLiveStream = async (magnetUri) => {
-      setIsLoadingTorrent(true);
-
-      try {
-        if (!window.WebTorrent) {
-          const script = document.createElement("script");
-          script.src =
-            "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-          document.head.appendChild(script);
-          await new Promise((resolve) => (script.onload = resolve));
-        }
-
-        const client = new window.WebTorrent();
-
-        // 🎯 KEY: Add with live option
-        client.add(magnetUri, { live: true }, (torrent) => {
-          console.log("📥 Joining LIVE stream:", torrent.name);
-
-          // Get video file
-          const file = torrent.files.find(
-            (f) => f.name.endsWith(".webm") || f.name.includes("live")
-          );
-
-          if (file) {
-            // Create video element for playback
-            const video = document.createElement("video");
-            video.controls = true;
-            video.autoplay = true;
-            video.style.cssText = `
-          position: fixed; top: 50%; left: 50%; 
-          transform: translate(-50%, -50%);
-          width: 80vw; max-width: 800px;
-          z-index: 2000; background: black;
-          border: 3px solid #ff0000;
-        `;
-
-            // Stream the file
-            file.streamTo(video);
-
-            // Add close button
-            const closeBtn = document.createElement("button");
-            closeBtn.textContent = "✕";
-            closeBtn.style.cssText = `
-          position: fixed; top: 20px; right: 20px;
-          background: #ff0000; color: white;
-          border: none; width: 40px; height: 40px;
-          border-radius: 20px; font-size: 20px;
-          z-index: 2001; cursor: pointer;
-        `;
-            closeBtn.onclick = () => {
-              document.body.removeChild(video);
-              document.body.removeChild(closeBtn);
-              torrent.destroy();
-            };
-
-            document.body.appendChild(video);
-            document.body.appendChild(closeBtn);
-
-            setIsLoadingTorrent(false);
-          }
-        });
-      } catch (error) {
-        console.error("❌ Live stream join error:", error);
-        Alert.alert("Stream Error", "Could not join live stream");
-        setIsLoadingTorrent(false);
-      }
-    };
-
-    setIsLoadingTorrent(true);
-
-    try {
-      // Load WebTorrent if needed
-      if (!window.WebTorrent) {
-        const script = document.createElement("script");
-        script.src =
-          "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-        document.head.appendChild(script);
-
-        await new Promise((resolve) => {
-          script.onload = resolve;
-        });
-      }
-
-      const client = new window.WebTorrent();
-
-      // Add the magnet link
-      client.add(magnetUri, (torrent) => {
-        console.log("✅ Torrent loaded:", torrent.name);
-
-        // Get the first video file
-        const file = torrent.files.find(
-          (f) =>
-            f.name.endsWith(".webm") ||
-            f.name.endsWith(".mp4") ||
-            f.name.endsWith(".mov")
-        );
-
-        if (file) {
-          // Create a blob URL for the video
-          file.getBlobURL((err, url) => {
-            if (err) {
-              console.error("❌ Error getting blob URL:", err);
-              Alert.alert("Playback Error", "Could not load stream");
-              setIsLoadingTorrent(false);
-              return;
-            }
-
-            setTorrentStreamUrl(url);
-            setShowVideoPlayer(true);
-            setIsLoadingTorrent(false);
-          });
-        } else {
-          console.error("❌ No video file found in torrent");
-          Alert.alert("Playback Error", "No video stream found");
-          setIsLoadingTorrent(false);
-        }
-      });
-    } catch (error) {
-      console.error("❌ Torrent playback error:", error);
-      Alert.alert("Playback Error", error.message);
-      setIsLoadingTorrent(false);
-    }
-
-    // In ChatMediaRenderer
-    if (message.fileType === "video_chunk") {
-      // This is part of a chunked video
-      return (
-        <TouchableOpacity
-          onPress={() => startChunkedVideoPlayback(message.sessionId)}
-          style={styles.chunkedVideoContainer}
-        >
-          <Image
-            source={{
-              uri: thumbnailUrl || "https://via.placeholder.com/320x240",
-            }}
-            style={styles.videoThumbnail}
-          />
-          <View style={styles.chunkBadge}>
-            <Text style={styles.chunkText}>
-              🧩 {message.chunkIndex + 1}/{message.totalChunks}
-            </Text>
-          </View>
-          <Text style={styles.videoFileName}>
-            {message.fileName || "Neighborhood Video"}
-          </Text>
-        </TouchableOpacity>
-      );
-    }
-
-    const startChunkedVideoPlayback = async (sessionId) => {
-      // Get all chunks for this session
-      const chunkMessages = await fetchChunksBySession(sessionId);
-
-      // Use your NeighborhoodVideoReassembler class!
-      const reassembler = new NeighborhoodVideoReassembler(neighborhoodId);
-      await reassembler.watchProgressive(chunkMessages);
-    };
-  };
-
-  // --- VIDEO LOGIC ---
-  if (videoUrl) {
-    const pinataUrl = getPinataUrl(videoUrl);
-
-    if (showVideoPlayer) {
-      return (
-        <SimpleVideoPlayer url={pinataUrl} fileName={fileName || "Video"} />
-      );
-    }
-
-    return (
-      <TouchableOpacity
-        onPress={() => setShowVideoPlayer(true)}
-        style={styles.videoThumbnailContainer}
-      >
-        <Image
-          source={{ uri: thumbnailUrl }}
-          style={styles.videoThumbnail}
-          resizeMode="cover"
-        />
-        <View style={styles.videoOverlay}>
-          <Text style={styles.playIcon}>▶️</Text>
-        </View>
-        {fileName && (
-          <Text style={styles.videoFileName} numberOfLines={1}>
-            {fileName}
-          </Text>
-        )}
-      </TouchableOpacity>
-    );
-  }
-
-  // 🆕 NEW: Handle magnet links (for streams)
-  if (magnetLink && fileType === "video") {
-    // If we have a torrent stream URL ready, show the player
-    if (torrentStreamUrl) {
-      return (
-        <SimpleVideoPlayer
-          url={torrentStreamUrl}
-          fileName={fileName || "Live Stream"}
-        />
-      );
-    }
-
-    // Otherwise show thumbnail with play button
-    return (
-      <TouchableOpacity
-        onPress={() => handleMagnetPlay(magnetLink)}
-        style={styles.videoThumbnailContainer}
-        disabled={isLoadingTorrent}
-      >
-        {thumbnailUrl ? (
-          <Image
-            source={{ uri: thumbnailUrl }}
-            style={styles.videoThumbnail}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={[styles.videoThumbnail, styles.streamPlaceholder]}>
-            <Text style={styles.streamIcon}>🎥</Text>
-            <Text style={styles.streamText}>LIVE STREAM</Text>
-          </View>
-        )}
-
-        <View style={styles.videoOverlay}>
-          {isLoadingTorrent ? (
-            <ActivityIndicator size="large" color="#00ffff" />
-          ) : (
-            <View style={styles.streamPlayButton}>
-              <Text style={styles.streamPlayIcon}>▶</Text>
-            </View>
-          )}
-        </View>
-
-        {fileName && (
-          <Text style={styles.videoFileName} numberOfLines={1}>
-            {fileName}
-          </Text>
-        )}
-      </TouchableOpacity>
-    );
-  }
-  // --- END NEW LOGIC ---
-
-  // 🎯 SIMPLE RULES:
-
-  // 1. If it has magnet link → WebTorrentMedia (handles both images and videos)
-  if (magnetLink && (fileType === "image" || fileType === "video")) {
-    return (
-      <View style={styles.magnetContainer}>
-        <WebTorrentMedia media={message} isFocused={true} />
-      </View>
-    );
-  }
-
-  // 2. If it's an image → Direct image
-  if (imageUrl || fileType === "image") {
-    const pinataUrl = getPinataUrl(imageUrl);
-    return (
-      <TouchableOpacity onPress={() => console.log("Open image:", pinataUrl)}>
-        <Image
-          source={{ uri: pinataUrl }}
-          style={styles.messageImage}
-          resizeMode="cover"
-        />
-        {fileName && <Text style={styles.fileNameText}>{fileName}</Text>}
-      </TouchableOpacity>
-    );
-  }
-
-  // 4. If it's a file → File download
-  if (fileUrl) {
-    const pinataUrl = getPinataUrl(fileUrl);
-    console.log("📄 File:", pinataUrl);
-    return (
-      <TouchableOpacity
-        style={styles.fileContainer}
-        onPress={() => handleFilePress({ ...message, fileUrl: pinataUrl })}
-      >
-        <Text style={styles.fileIcon}>📄</Text>
-        <View style={styles.fileInfo}>
-          <Text style={styles.fileName} numberOfLines={1}>
-            {fileName || "File"}
-          </Text>
-          <Text style={styles.fileType}>
-            {fileType || "File"} • Tap to download
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  }
-
-  // 5. Fallback for edge cases (should rarely happen)
-  console.log("⚠️ Edge case - has media fields but can't render:", message);
-  return (
-    <View style={styles.fileContainer}>
-      <Text style={styles.fileIcon}>❓</Text>
-      <View style={styles.fileInfo}>
-        <Text style={styles.fileName} numberOfLines={1}>
-          {fileName || "Media"}
-        </Text>
-        <Text style={styles.fileType}>Cannot preview • Tap for info</Text>
-      </View>
-    </View>
-  );
-};
 // GraphQL Queries
 const GET_NEIGHBORHOOD_MESSAGES = gql`
   query GetNeighborhoodMessages($neighborhoodId: ID!) {
@@ -898,6 +389,58 @@ export default function NeighborhoodChatScreen() {
 
     setSocket(newSocket);
   };
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Camera access required.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images", "videos"],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      const type = asset.type === "image" ? "image" : "video";
+
+      // 🎯 NEW: Check file size for videos
+      if (type === "video" && Platform.OS === "web") {
+        // Get file size
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        const fileSize = blob.size;
+
+        if (fileSize > 10 * 1024 * 1024) {
+          // 10MB
+          // Use chunked upload for large videos
+          await uploadChunkedVideo({
+            uri: asset.uri,
+            name:
+              asset.fileName ||
+              asset.uri.split("/").pop() ||
+              "camera-video.mp4",
+            size: fileSize,
+          });
+          return;
+        }
+      }
+
+      // Small files use regular upload
+      await unifiedUpload(
+        {
+          uri: asset.uri,
+          name: asset.fileName || asset.uri.split("/").pop() || "camera-media",
+          size: asset.fileSize || 0,
+        },
+        type,
+        asset.fileSize || 0,
+        ""
+      );
+    }
+  };
+  // open cameraconst openCamera = async () => {
   const takeCameraMedia = async () => {
     setUploading(true);
     setUploadType("camera");
@@ -909,23 +452,48 @@ export default function NeighborhoodChatScreen() {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaType.All, // photo + video
+        mediaTypes: ImagePicker.MediaType.All,
         quality: 0.8,
       });
 
-      if (result.canceled) return; // user hit cancel
+      if (result.canceled) return;
 
       const asset = result.assets[0];
       const type = asset.type === "image" ? "image" : "video";
 
-      // same fallback chain as pickFile
+      // 🎯 NEW: Get file size
+      let fileSize = 0;
+      if (type === "video") {
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        fileSize = blob.size;
+      }
+
       const fileName =
         asset.fileName ||
         asset.uri.split("/").pop() ||
         `${type}-${Date.now()}.${type === "image" ? "jpg" : "mp4"}`;
 
-      // identical call signature to unifiedUpload in pickFile
-      await unifiedUpload({ uri: asset.uri, name: fileName }, type, 0, "");
+      // Check for large videos
+      if (
+        type === "video" &&
+        Platform.OS === "web" &&
+        fileSize > 10 * 1024 * 1024
+      ) {
+        await uploadChunkedVideo({
+          uri: asset.uri,
+          name: fileName,
+          size: fileSize,
+        });
+        return;
+      }
+
+      await unifiedUpload(
+        { uri: asset.uri, name: fileName, size: fileSize },
+        type,
+        fileSize,
+        ""
+      );
     } catch (error) {
       console.error("Camera capture error:", error);
       Alert.alert("Error", "Failed to capture media");
@@ -934,33 +502,169 @@ export default function NeighborhoodChatScreen() {
       setUploadType(null);
     }
   };
+  // 🎯 Add this function in neighborhood-chat.js (near uploadChunkedVideo)
+  const sendMultistreamMessage = async (
+    torrent,
+    sessionId,
+    fileName,
+    totalChunks
+  ) => {
+    console.log("📤 Sending multistream message...");
+    console.log("Magnet URI:", torrent.magnetURI);
 
-  // open camera
-  const openCamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission needed", "Camera access required.");
-      return;
+    // Verify magnet link
+    if (!torrent.magnetURI.includes("urn:btih:")) {
+      console.error("❌ Invalid magnet link:", torrent.magnetURI);
+      throw new Error("Invalid magnet link generated");
     }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["images", "videos"],
-      quality: 0.8,
-    });
-    if (!result.canceled) {
-      const asset = result.assets[0];
-      const type = asset.type === "image" ? "image" : "video";
 
-      await unifiedUpload(
-        {
-          uri: asset.uri,
-          name: asset.fileName || asset.uri.split("/").pop() || "camera-media",
+    try {
+      await sendMessageMutation({
+        variables: {
+          content: `🎯 MULTISTREAM Torrent: ${totalChunks} chunks in one link`,
+          neighborhoodId: neighborhoodId,
+          fileName: `${fileName} (Multistream)`,
+          fileType: "video_multistream",
+          magnetLink: torrent.magnetURI,
+          sessionId: sessionId,
+          totalChunks: totalChunks,
+          imageUrl: null,
+          videoUrl: null,
+          fileUrl: null,
+          thumbnailUrl: null,
         },
-        type,
-        0,
-        ""
-      );
+      });
+
+      console.log("✅ Multistream message sent!");
+
+      // Monitor seeding
+      console.log("🌱 Now seeding:", torrent.name);
+      console.log("📊 Initial stats:", {
+        files: torrent.files.length,
+        fileNames: torrent.files.map((f) => f.name),
+        fileSizes: torrent.files.map((f) => f.length),
+        ready: torrent.ready,
+        peers: torrent.numPeers,
+      });
+
+      return torrent.magnetURI;
+    } catch (error) {
+      console.error("❌ Failed to send multistream message:", error);
+      throw error;
     }
   };
+
+  // 🎯 ADD THIS FUNCTION SOMEWHERE IN YOUR FILE:
+  const uploadChunkedVideo = async (asset) => {
+    console.log("🚀 uploadChunkedVideo called for:", asset.name);
+
+    const response = await fetch(asset.uri);
+    const blob = await response.blob();
+
+    const CHUNK_SIZE = 2 * 1024 * 1024;
+    const totalChunks = Math.ceil(blob.size / CHUNK_SIZE);
+    const sessionId = `video_${Date.now()}`;
+
+    // Create files
+    const chunkFiles = [];
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, blob.size);
+      const chunkBlob = blob.slice(start, end, "video/mp4");
+      const chunkFile = new File([chunkBlob], `chunk_${i}.mp4`, {
+        type: "video/mp4",
+        lastModified: Date.now(),
+      });
+      chunkFiles.push(chunkFile);
+    }
+
+    console.log("✅ Created", chunkFiles.length, "chunk files");
+
+    // Use the global client
+    const client = window.globalWebTorrentClient;
+
+    return new Promise((resolve) => {
+      client.seed(
+        chunkFiles,
+        {
+          name: `${sessionId}_multistream`,
+          announce: window.enhancedTrackers,
+        },
+        (torrent) => {
+          console.log("✅ Torrent created with files:", torrent.files.length);
+
+          // Send message
+          sendMessageMutation({
+            variables: {
+              content: `🎬 Video (${totalChunks} chunks)`,
+              neighborhoodId: neighborhoodId,
+              fileName: asset.name || "video.mp4",
+              fileType: "video_multistream",
+              magnetLink: torrent.magnetURI,
+              sessionId: sessionId,
+              totalChunks: totalChunks,
+              thumbnailUrl: null, // You can add thumbnail later
+            },
+          }).then(() => {
+            console.log("✅ Message sent!");
+            resolve();
+          });
+        }
+      );
+    });
+  };
+
+  const debugForceSeed = async () => {
+    // Get a magnet link from your chat
+    const magnetUri =
+      "magnet:?xt=urn:btih:3a9cb5f4fa3df2129ceae0bfd833c452deede717&dn=video_1764910082359_2mlo99wje_multis";
+
+    console.log("🔧 Force seeding existing torrent...");
+
+    if (!window.WebTorrent) {
+      const script = document.createElement("script");
+      script.src =
+        "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+      document.head.appendChild(script);
+      await new Promise((resolve) => (script.onload = resolve));
+    }
+
+    // Create client that WON'T be destroyed
+    if (!window.debugSeeder) {
+      window.debugSeeder = new window.WebTorrent();
+      console.log("🌐 Created debug seeder");
+    }
+
+    const client = window.debugSeeder;
+
+    // First download the torrent (so we have files)
+    client.add(magnetUri, (torrent) => {
+      console.log("📥 Downloaded torrent, now seeding...");
+      console.log(
+        "Torrent files:",
+        torrent.files.map((f) => f.name)
+      );
+
+      // The torrent automatically seeds after download
+      // But we need to keep the client alive
+
+      // Monitor
+      setInterval(() => {
+        console.log("🌱 Seeding:", {
+          peers: torrent.numPeers,
+          progress: torrent.progress,
+          uploaded: torrent.uploaded,
+        });
+      }, 5000);
+
+      Alert.alert(
+        "Seeding Started",
+        "Now try downloading from another browser!"
+      );
+    });
+  };
+
+  // Add this button somewhere in your UI
 
   // Send Message
   const sendMessage = async () => {
@@ -998,13 +702,36 @@ export default function NeighborhoodChatScreen() {
 
       if (!result.canceled) {
         const asset = result.assets[0];
-        // SIMPLE: Pass the actual type
         const type = asset.type === "image" ? "image" : "video";
 
+        // 🎯 NEW: Get file size for videos
+        let fileSize = asset.fileSize || 0;
+
+        if (type === "video" && Platform.OS === "web" && !fileSize) {
+          // Get size from blob if not provided
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          fileSize = blob.size;
+        }
+
+        // Check if large video
+        if (
+          type === "video" &&
+          Platform.OS === "web" &&
+          fileSize > 10 * 1024 * 1024
+        ) {
+          await uploadChunkedVideo({
+            uri: asset.uri,
+            name: safeFileName(asset),
+            size: fileSize,
+          });
+          return;
+        }
+
         await unifiedUpload(
-          { ...asset, name: safeFileName(asset) },
-          type, // Just pass the type directly
-          0,
+          { ...asset, name: safeFileName(asset), size: fileSize },
+          type,
+          fileSize,
           ""
         );
       }
@@ -1015,27 +742,60 @@ export default function NeighborhoodChatScreen() {
 
   // Simple toggle in pickFile:
   const pickFile = async () => {
-    const result = await DocumentPicker.getDocumentAsync();
-    if (!result.canceled) {
-      const file = result.assets[0];
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+      });
 
-      if (file.size > 10 * 1024 * 1024 && Platform.OS === "web") {
-        // Ask user
-        Alert.alert(
-          "Large Video",
-          "Upload as chunked P2P video (faster for neighbors)?",
-          [
-            {
-              text: "Regular Upload",
-              onPress: () =>
-                unifiedUpload(file, "video", file.size, file.mimeType),
-            },
-            { text: "Chunked P2P", onPress: () => uploadChunkedVideo(file) },
-          ]
-        );
-      } else {
-        unifiedUpload(file, "video", file.size, file.mimeType);
+      if (!result.canceled) {
+        const file = result.assets[0];
+
+        // 🎯 IMPORTANT: Get the actual file size
+        const response = await fetch(file.uri);
+        const blob = await response.blob();
+        const fileSize = blob.size;
+
+        console.log("📁 File selected:", {
+          name: file.name,
+          size: fileSize,
+          type: file.mimeType,
+        });
+
+        if (fileSize > 10 * 1024 * 1024 && Platform.OS === "web") {
+          Alert.alert(
+            "Large Video",
+            "Upload as chunked P2P video (faster for neighbors)?",
+            [
+              {
+                text: "Regular Upload",
+                onPress: async () => {
+                  // 🎯 Use chunked ANYWAY since IPFS is failing!
+                  console.log("IPFS failing, forcing chunked upload");
+                  await uploadChunkedVideo(file);
+                },
+              },
+              {
+                text: "Chunked P2P",
+                onPress: async () => {
+                  await uploadChunkedVideo(file);
+                },
+              },
+            ]
+          );
+        } else {
+          // For small files, try IPFS but fallback to chunked
+          try {
+            await unifiedUpload(file, "video", fileSize, file.mimeType);
+          } catch (error) {
+            console.log("IPFS failed, falling back to chunked");
+            await uploadChunkedVideo(file);
+          }
+        }
       }
+    } catch (error) {
+      console.error("File picker error:", error);
+      Alert.alert("Error", "Failed to pick file");
     }
   };
 
@@ -1048,16 +808,30 @@ export default function NeighborhoodChatScreen() {
       const token = await AsyncStorage.getItem("token");
       if (!token) throw new Error("No authentication token found");
 
-      // 🆕 NEW LOGIC: Use chunking for videos > 5MB on web
+      // 🎯 CRITICAL FIX: Check fileSize parameter!
+      // Some calls might pass 0 or undefined, so we need to fetch it
+      let actualFileSize = fileSize;
+      if (
+        (type === "video" || type === "image") &&
+        (!fileSize || fileSize === 0) &&
+        Platform.OS === "web"
+      ) {
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        actualFileSize = blob.size;
+      }
+
+      // 🎯 Use chunking for videos > 5MB on web
       if (
         type === "video" &&
         Platform.OS === "web" &&
-        fileSize > 5 * 1024 * 1024
+        actualFileSize > 5 * 1024 * 1024
       ) {
-        console.log("📦 Using chunked upload for large video");
+        console.log("📦 Using chunked upload for large video:", actualFileSize);
         await uploadChunkedVideo(asset);
         return;
       }
+
       let fileUri = asset.uri;
       let fileName = asset.name || asset.fileName || `file-${Date.now()}`;
 
@@ -1109,162 +883,212 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  const uploadChunkedVideo = async (asset) => {
-    console.log("🎬 Starting chunked video upload...");
-
-    const response = await fetch(asset.uri);
-    const originalBlob = await response.blob();
-
-    // Parameters
-    const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunks (adjustable)
-    const totalChunks = Math.ceil(originalBlob.size / CHUNK_SIZE);
-    const sessionId = `video_${Date.now()}_${Math.random()
-      .toString(36)
-      .substr(2, 9)}`;
-
-    console.log(`📦 Splitting into ${totalChunks} chunks...`);
-
-    // Generate thumbnail
-    let thumbnailUrl = null;
-    try {
-      const { base64 } = await generateThumbnail(asset.uri);
-      thumbnailUrl = base64;
-    } catch (e) {
-      console.log("⚠️ Could not generate thumbnail");
-    }
-
-    // 🎯 FIRST: Send the "master" message with thumbnail
-    await sendMessageMutation({
-      variables: {
-        content: `🎬 Neighborhood Video (${totalChunks} parts)`,
-        neighborhoodId: neighborhoodId,
-        fileName: asset.name || "neighborhood-video.mp4",
-        fileType: "video_chunked",
-        sessionId: sessionId,
-        totalChunks: totalChunks,
-        thumbnailUrl: thumbnailUrl,
-        // These stay null for chunked videos
-        imageUrl: null,
-        videoUrl: null,
-        fileUrl: null,
-        magnetLink: null,
-      },
-    });
-
-    // 🎯 SECOND: Upload chunks in sequence (not parallel to avoid overload)
-    for (let i = 0; i < totalChunks; i++) {
-      const start = i * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, originalBlob.size);
-      const chunk = originalBlob.slice(start, end, "video/mp4");
-
-      await uploadSingleChunk(chunk, i, sessionId, totalChunks, asset.name);
-
-      // Small delay between chunks
-      if (i < totalChunks - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-    }
-
-    console.log("✅ All chunks uploaded!");
-    return true;
-  };
-
-  const uploadSingleChunk = async (
-    chunk,
-    index,
+  const seedMultistreamWithValidation = async (
+    chunkFiles,
     sessionId,
-    totalChunks,
-    fileName
+    fileName,
+    totalChunks
   ) => {
-    return new Promise((resolve) => {
-      // Load WebTorrent if needed
-      if (!window.WebTorrent) {
-        const script = document.createElement("script");
-        script.src =
-          "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-        document.head.appendChild(script);
-        script.onload = () => {
-          createTorrent();
-        };
-      } else {
-        createTorrent();
+    console.log("🌱 Seeding with validation...");
+
+    // Validate files before seeding
+    chunkFiles.forEach((file, i) => {
+      if (!(file instanceof File)) {
+        console.error(`❌ Chunk ${i} is not a File object:`, file);
       }
-
-      function createTorrent() {
-        const client = new window.WebTorrent();
-
-        client.seed(
-          chunk,
-          {
-            name: `${sessionId}_chunk_${index}`,
-            announce: ["wss://tracker.openwebtorrent.com"],
-          },
-          (torrent) => {
-            console.log(
-              `✅ Chunk ${index + 1}/${totalChunks} seeded:`,
-              torrent.magnetURI
-            );
-
-            // Send chunk message to chat
-            sendMessageMutation({
-              variables: {
-                content: `Part ${index + 1}/${totalChunks} of "${fileName}"`,
-                neighborhoodId: neighborhoodId,
-                fileName: `chunk_${index}.mp4`,
-                fileType: "video_chunk",
-                magnetLink: torrent.magnetURI,
-                chunkIndex: index,
-                sessionId: sessionId,
-                totalChunks: totalChunks,
-                // Null for chunks
-                imageUrl: null,
-                videoUrl: null,
-                fileUrl: null,
-                thumbnailUrl: null,
-              },
-            }).then(() => {
-              client.destroy(); // Clean up this client
-              resolve();
-            });
-          }
-        );
+      if (file.size === 0) {
+        console.error(`❌ Chunk ${i} is empty (0 bytes):`, file.name);
       }
     });
-  };
 
-  const uploadChunk = async (chunk, index, sessionId, totalChunks) => {
-    // Create torrent for this chunk
-    if (!window.WebTorrent) {
-      // Load WebTorrent...
-    }
+    const client = window.globalWebTorrentClient;
 
-    const client = new window.WebTorrent();
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      console.log("🔧 WebTorrent seeding options:", {
+        name: `${sessionId}_multistream`,
+        fileCount: chunkFiles.length,
+        totalSize: chunkFiles.reduce((sum, f) => sum + f.size, 0),
+      });
+
       client.seed(
-        chunk,
+        chunkFiles,
         {
-          name: `neighborhood-video-${sessionId}-chunk-${index}`,
-          announce: ["wss://tracker.openwebtorrent.com"],
+          name: `${sessionId}_multistream`,
+          announce: window.enhancedTrackers || [
+            "wss://tracker.openwebtorrent.com",
+            "wss://tracker.btorrent.xyz",
+            "wss://tracker.files.fm:7073/announce",
+          ],
         },
         (torrent) => {
-          // Send chunk to chat
-          sendMessageMutation({
-            variables: {
-              content: `Video chunk ${index + 1}/${totalChunks}`,
-              neighborhoodId: neighborhoodId,
-              fileName: `chunk-${index}.mp4`,
-              fileType: "video_chunk", // New type!
-              magnetLink: torrent.magnetURI,
-              chunkIndex: index,
-              sessionId: sessionId,
-              totalChunks: totalChunks,
-            },
-          });
-          resolve();
+          console.log("🎯 Torrent callback fired!");
+
+          // Check torrent immediately
+          console.log("📊 Immediate torrent check:");
+          console.log("Files length:", torrent.files.length);
+          console.log("Files:", torrent.files);
+          console.log("Torrent name:", torrent.name);
+          console.log("Info hash:", torrent.infoHash);
+
+          if (torrent.files.length === 0) {
+            console.error("❌ ERROR: Torrent created with 0 files!");
+            console.error("Chunk files provided:", chunkFiles);
+            console.error(
+              "Chunk file types:",
+              chunkFiles.map((f) => ({
+                constructor: f.constructor.name,
+                type: typeof f,
+                isFile: f instanceof File,
+                isBlob: f instanceof Blob,
+              }))
+            );
+            reject(new Error("Torrent has no files"));
+            return;
+          }
+
+          // Wait for torrent to be ready
+          const checkReady = () => {
+            if (torrent.ready) {
+              console.log("✅ Torrent is READY!");
+              console.log(
+                "Files in ready torrent:",
+                torrent.files.map((f) => ({
+                  name: f.name,
+                  length: f.length,
+                  path: f.path,
+                }))
+              );
+
+              // Now send the magnet link
+              sendMultistreamMessage(torrent, sessionId, fileName, totalChunks)
+                .then(resolve)
+                .catch(reject);
+            } else {
+              console.log("⏳ Waiting for torrent to be ready...");
+              setTimeout(checkReady, 500);
+            }
+          };
+
+          checkReady();
         }
       );
+
+      // Handle seeding errors
+      client.on("error", (err) => {
+        console.error("❌ WebTorrent seeding error:", err);
+        reject(err);
+      });
     });
   };
+  // 🎯 ADD THIS FUNCTION - It's MISSING!
+
+  const createMultistreamTorrent = async (
+    chunkFiles,
+    sessionId,
+    fileName,
+    totalChunks,
+    thumbnailUrl
+  ) => {
+    return new Promise((resolve, reject) => {
+      console.log("🌐 Using global WebTorrent client...");
+
+      // ✅ USE THE GLOBAL CLIENT!
+      if (!window.globalWebTorrentClient) {
+        console.error("❌ Global WebTorrent client not found!");
+        reject(new Error("WebTorrent not initialized"));
+        return;
+      }
+
+      const client = window.globalWebTorrentClient;
+
+      // Check if already seeding this torrent
+      const existingTorrent = client.torrents.find((t) =>
+        t.name.includes(sessionId)
+      );
+
+      if (existingTorrent) {
+        console.log(
+          "✅ Already seeding this torrent:",
+          existingTorrent.magnetURI
+        );
+        resolve(existingTorrent.magnetURI);
+        return;
+      }
+
+      console.log("🌱 Seeding new multistream...");
+      console.log(
+        "Chunk files:",
+        chunkFiles.map((f) => ({
+          name: f.name,
+          size: f.size,
+          type: f.type,
+        }))
+      );
+
+      client.seed(
+        chunkFiles,
+        {
+          name: `${sessionId}_multistream`,
+          announce: window.enhancedTrackers || [
+            "wss://tracker.openwebtorrent.com",
+            "wss://tracker.btorrent.xyz",
+            "wss://tracker.files.fm:7073/announce",
+          ],
+        },
+        (torrent) => {
+          console.log("✅ Torrent seeded via global client!");
+          console.log("📊 Torrent info:", {
+            name: torrent.name,
+            infoHash: torrent.infoHash,
+            files: torrent.files.map((f) => f.name),
+            clientTorrents: client.torrents.length,
+          });
+
+          // Monitor seeding
+          torrent.on("wire", (wire, addr) => {
+            console.log("🔗 Connected to peer:", addr);
+          });
+
+          torrent.on("upload", (bytes) => {
+            console.log("⬆️ Uploaded", bytes, "bytes");
+          });
+
+          // Send message
+          sendMessageMutation({
+            variables: {
+              content: `🎯 MULTISTREAM Torrent: ${totalChunks} chunks`,
+              neighborhoodId: neighborhoodId,
+              fileName: `${fileName} (Multistream)`,
+              fileType: "video_multistream",
+              magnetLink: torrent.magnetURI,
+              sessionId: sessionId,
+              totalChunks: totalChunks,
+              thumbnailUrl: thumbnailUrl,
+            },
+          }).then(() => {
+            console.log("✅ Message sent. Global client keeps seeding!");
+            resolve(torrent.magnetURI);
+          });
+        }
+      );
+
+      // Handle errors
+      client.on("error", (err) => {
+        console.error("❌ Global WebTorrent error:", err);
+        reject(err);
+      });
+    });
+  };
+
+  // Helper
+  function formatBytes(bytes) {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  }
+
   // Helper function
   const getMimeType = (filename) => {
     const ext = filename.split(".").pop().toLowerCase();
@@ -1654,7 +1478,6 @@ export default function NeighborhoodChatScreen() {
 
     // Stop button
     document.getElementById("stopStream").onclick = () => {
-      torrent.destroy();
       stream.getTracks().forEach((track) => track.stop());
       document.body.removeChild(preview);
       document.body.removeChild(controls);
@@ -1724,7 +1547,9 @@ export default function NeighborhoodChatScreen() {
         >
           <Text style={styles.galleryButtonText}> 🖼 GALLERY 🖼️</Text>
         </TouchableOpacity>
-
+        <TouchableOpacity onPress={debugForceSeed}>
+          <Text>🔧 Force Seed Test</Text>
+        </TouchableOpacity>
         <Text style={styles.roomTitle}>🏘️ {neighborhoodName}</Text>
         <TouchableOpacity
           onPress={() =>
@@ -1761,7 +1586,11 @@ export default function NeighborhoodChatScreen() {
                     {item.sender?.username || "Unknown"}
                   </Text>
 
-                  <ChatMediaRenderer message={item} />
+                  <ChatMediaRenderer
+                    key={item.id}
+                    message={item}
+                    allMessages={messages} // ✅ Pass all messages
+                  />
 
                   {!item.imageUrl && !item.videoUrl && !item.fileUrl && (
                     <Text style={styles.messageText}>{item.content}</Text>
@@ -1782,7 +1611,7 @@ export default function NeighborhoodChatScreen() {
                   />
                   <View style={styles.messageContent}>
                     <Text style={styles.username}>CommunityAdLinks</Text>
-                    <AdMessage ad={adData?.randomAffiliateLink} />{" "}
+                    <AdMessage ad={adData?.randomAffiliateLink} />
                     <Text style={styles.timestamp}>Now</Text>
                   </View>
                 </View>
