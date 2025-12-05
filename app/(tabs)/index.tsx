@@ -143,7 +143,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingBottom: 40,
-    paddingTop: 250,
+    justifyContent: "center",
+  alignItems: "center",
     backgroundColor: "transparent",
   },
   headerImage: {

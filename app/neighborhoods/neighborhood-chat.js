@@ -39,37 +39,43 @@ const getFileType = (fileName) => {
 };
 
 // Simple Video Player Component
-const SimpleVideoPlayer = ({ url, fileName }) => {
+const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
   const player = useVideoPlayer(url, (player) => {
     player.loop = false;
   });
 
-  // 🎯 KEY FIX: Automatically play when the component mounts and the player is ready
+  // 🎯 COMBINED: Auto-play + cleanup in one useEffect
   useEffect(() => {
-    // Check if the player object exists and has a play method
+    // Auto-play when player is ready
     if (player) {
       player.play();
-      console.log('🎬 SimpleVideoPlayer: Auto-playing video.');
+      console.log("🎬 SimpleVideoPlayer: Auto-playing video.");
     }
-  }, [player]); // Run once when player is initialized
+
+    // Cleanup function for blob URLs
+    return () => {
+      if (isTorrent && url.startsWith("blob:")) {
+        console.log("🧹 Cleaning up blob URL:", url);
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [player, url, isTorrent]); // ✅ All dependencies together
 
   return (
     <TouchableOpacity
       style={styles.videoContainer}
-      // Pressing the container can be used to pause/resume if needed, 
-      // but the key change is the useEffect for initial play.
-      onPress={() => (player.isPlaying ? player.pause() : player.play())}
+      onPress={() => player.play()}
     >
       <VideoView
         player={player}
         style={styles.videoPlayer}
         showsControls={true}
-        contentFit="cover"
+        contentFit="contain"
         allowsExternalPlayback={true}
       />
       {fileName && (
         <Text style={styles.videoCaption} numberOfLines={1}>
-          {fileName}
+          {fileName} {isTorrent && "🔗"}
         </Text>
       )}
     </TouchableOpacity>
@@ -77,6 +83,7 @@ const SimpleVideoPlayer = ({ url, fileName }) => {
 };
 
 // FIXED ChatMediaRenderer - Only shows media when media exists
+// Updated ChatMediaRenderer with stream support
 const ChatMediaRenderer = ({ message }) => {
   const {
     imageUrl,
@@ -88,16 +95,17 @@ const ChatMediaRenderer = ({ message }) => {
     thumbnailUrl,
   } = message;
 
-  // 🆕 Add state to control whether the video player is visible (true) or thumbnail is visible (false)
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
+  
+  // 🆕 NEW: State for WebTorrent stream playback
+  const [torrentStreamUrl, setTorrentStreamUrl] = useState(null);
+  const [isLoadingTorrent, setIsLoadingTorrent] = useState(false);
 
-  // 🚨 RETURN NULL if there's no media at all
   const hasAnyMedia = imageUrl || videoUrl || fileUrl || magnetLink;
   if (!hasAnyMedia) {
     return null;
   }
 
-  // Helper to get Pinata URL (Keep this function, maybe move it outside if it was global)
   const getPinataUrl = (url) => {
     if (!url) return null;
     if (url.includes("/ipfs/")) {
@@ -107,14 +115,77 @@ const ChatMediaRenderer = ({ message }) => {
     return url;
   };
 
-  // --- NEW LOGIC: RENDER THUMBNAIL OR VIDEO PLAYER FOR VIDEOS ---
+  // 🆕 NEW: Handle magnet link playback
+  const handleMagnetPlay = async (magnetUri) => {
+    if (Platform.OS !== "web") {
+      Alert.alert(
+        "Web Only",
+        "P2P stream playback is available on web browsers only",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    setIsLoadingTorrent(true);
+    
+    try {
+      // Load WebTorrent if needed
+      if (!window.WebTorrent) {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+        document.head.appendChild(script);
+        
+        await new Promise((resolve) => {
+          script.onload = resolve;
+        });
+      }
+
+      const client = new window.WebTorrent();
+      
+      // Add the magnet link
+      client.add(magnetUri, (torrent) => {
+        console.log("✅ Torrent loaded:", torrent.name);
+        
+        // Get the first video file
+        const file = torrent.files.find(f => 
+          f.name.endsWith('.webm') || 
+          f.name.endsWith('.mp4') || 
+          f.name.endsWith('.mov')
+        );
+        
+        if (file) {
+          // Create a blob URL for the video
+          file.getBlobURL((err, url) => {
+            if (err) {
+              console.error("❌ Error getting blob URL:", err);
+              Alert.alert("Playback Error", "Could not load stream");
+              setIsLoadingTorrent(false);
+              return;
+            }
+            
+            setTorrentStreamUrl(url);
+            setShowVideoPlayer(true);
+            setIsLoadingTorrent(false);
+          });
+        } else {
+          console.error("❌ No video file found in torrent");
+          Alert.alert("Playback Error", "No video stream found");
+          setIsLoadingTorrent(false);
+        }
+      });
+      
+    } catch (error) {
+      console.error("❌ Torrent playback error:", error);
+      Alert.alert("Playback Error", error.message);
+      setIsLoadingTorrent(false);
+    }
+  };
+
+  // --- VIDEO LOGIC ---
   if (videoUrl) {
     const pinataUrl = getPinataUrl(videoUrl);
 
-    // 1. If we are playing (or no thumbnail is available), show the full player
-    if (isPlaying || !thumbnailUrl) {
-      // Ensure the SimpleVideoPlayer can handle the click state if needed,
-      console.log("🎥 Direct video (Playing):", pinataUrl);
+    if (showVideoPlayer) {
       return (
         <SimpleVideoPlayer url={pinataUrl} fileName={fileName || "Video"} />
       );
@@ -122,17 +193,68 @@ const ChatMediaRenderer = ({ message }) => {
 
     return (
       <TouchableOpacity
-        onPress={() => setIsPlaying(true)} // 🎯 KEY FIX: Set state to true to switch to SimpleVideoPlayer
+        onPress={() => setShowVideoPlayer(true)}
         style={styles.videoThumbnailContainer}
       >
         <Image
           source={{ uri: thumbnailUrl }}
           style={styles.videoThumbnail}
-          resizeMode="contain"
+          resizeMode="cover"
         />
         <View style={styles.videoOverlay}>
           <Text style={styles.playIcon}>▶️</Text>
         </View>
+        {fileName && (
+          <Text style={styles.videoFileName} numberOfLines={1}>
+            {fileName}
+          </Text>
+        )}
+      </TouchableOpacity>
+    );
+  }
+
+  // 🆕 NEW: Handle magnet links (for streams)
+  if (magnetLink && fileType === "video") {
+    // If we have a torrent stream URL ready, show the player
+    if (torrentStreamUrl) {
+      return (
+        <SimpleVideoPlayer 
+          url={torrentStreamUrl} 
+          fileName={fileName || "Live Stream"} 
+        />
+      );
+    }
+    
+    // Otherwise show thumbnail with play button
+    return (
+      <TouchableOpacity
+        onPress={() => handleMagnetPlay(magnetLink)}
+        style={styles.videoThumbnailContainer}
+        disabled={isLoadingTorrent}
+      >
+        {thumbnailUrl ? (
+          <Image
+            source={{ uri: thumbnailUrl }}
+            style={styles.videoThumbnail}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.videoThumbnail, styles.streamPlaceholder]}>
+            <Text style={styles.streamIcon}>🎥</Text>
+            <Text style={styles.streamText}>LIVE STREAM</Text>
+          </View>
+        )}
+        
+        <View style={styles.videoOverlay}>
+          {isLoadingTorrent ? (
+            <ActivityIndicator size="large" color="#00ffff" />
+          ) : (
+            <View style={styles.streamPlayButton}>
+              <Text style={styles.streamPlayIcon}>▶</Text>
+            </View>
+          )}
+        </View>
+        
         {fileName && (
           <Text style={styles.videoFileName} numberOfLines={1}>
             {fileName}
@@ -967,137 +1089,256 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  const startNeighborhoodStream = async () => {
-    try {
-      console.log("🎥 Starting neighborhood stream...");
+  const captureStreamThumbnail = (videoElement) => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 320;
+      canvas.height = 240;
+      const ctx = canvas.getContext("2d");
 
-      // Check platform compatibility
-      if (Platform.OS !== "web") {
-        Alert.alert(
-          "Web Only",
-          "Live streaming is currently available on web browsers only",
-          [{ text: "OK" }]
-        );
-        return;
+      // Wait for video to have data
+      if (videoElement.readyState >= 2) {
+        ctx.drawImage(videoElement, 0, 0, 320, 240);
+        const thumbnailUrl = canvas.toDataURL("image/jpeg", 0.8);
+        resolve(thumbnailUrl);
+      } else {
+        videoElement.onloadeddata = () => {
+          ctx.drawImage(videoElement, 0, 0, 320, 240);
+          const thumbnailUrl = canvas.toDataURL("image/jpeg", 0.8);
+          resolve(thumbnailUrl);
+        };
       }
-
-      // Check camera permissions
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: true,
-      });
-
-      console.log("✅ Camera access granted!");
-
-      // Show preview
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      video.autoplay = true;
-      video.muted = true;
-      video.style.position = "fixed";
-      video.style.top = "10px";
-      video.style.right = "10px";
-      video.style.width = "200px";
-      video.style.zIndex = "1000";
-      video.style.border = "2px solid #00ffff";
-      video.style.borderRadius = "8px";
-      document.body.appendChild(video);
-
-      // Load WebTorrent
-      const script = document.createElement("script");
-      script.src =
-        "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-      script.onload = () => {
-        const mediaRecorder = new MediaRecorder(stream, {
-          mimeType: "video/webm; codecs=vp8,opus",
-          videoBitsPerSecond: 2500000,
-        });
-
-        const chunks = [];
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) {
-            chunks.push(e.data);
-          }
-        };
-
-        mediaRecorder.onstop = async () => {
-          const videoBlob = new Blob(chunks, { type: "video/webm" });
-          const client = new window.WebTorrent();
-
-          client.seed(
-            videoBlob,
-            {
-              name: `neighborhood-stream-${Date.now()}.webm`,
-              announce: [
-                "wss://tracker.openwebtorrent.com",
-                "wss://tracker.btorrent.xyz",
-                "wss://tracker.files.fm:7073/announce",
-              ],
-            },
-            async (torrent) => {
-              document.body.removeChild(video);
-
-              try {
-                // Copy to clipboard
-                const messageContent = `Neighborhood Clip Streamed! Join the P2P stream: ${torrent.magnetURI}`;
-                await navigator.clipboard.writeText(torrent.magnetURI);
-                // Send to neighborhood chat
-                await sendMessageMutation({
-                  variables: {
-                    content: messageContent,
-                    neighborhoodId,
-                    imageUrl: null,
-                    videoUrl: null,
-                    fileUrl: null,
-              fileName: "Neighborhood Stream Clip",
-                   fileType: "video",
-                  magnetLink: torrent.magnetURI,
-                  },
-                });
-
-                Alert.alert(
-                  "Stream Shared!",
-                  "Your live stream has been shared to the neighborhood chat with P2P magnet link!",
-                  [{ text: "OK" }]
-                );
-              } catch (error) {
-                console.error("Error sharing stream:", error);
-                Alert.alert(
-                  "Stream Ready",
-                  `Magnet link copied to clipboard! Paste it manually:\n\n${torrent.magnetURI}`
-                );
-              }
-
-              // Clean up
-              stream.getTracks().forEach((track) => track.stop());
-            }
-          );
-        };
-
-        // Record for 10 seconds (neighborhood clip)
-        mediaRecorder.start();
-        console.log("⏺️ Recording started...");
-
-        setTimeout(() => {
-          if (mediaRecorder.state === "recording") {
-            mediaRecorder.stop();
-            console.log("⏹️ Recording stopped");
-          }
-        }, 10000);
-      };
-
-      document.head.appendChild(script);
-    } catch (error) {
-      console.error("❌ Stream error:", error);
-      Alert.alert(
-        "Camera Error",
-        "Please allow camera access to start a neighborhood stream"
-      );
-    }
+    });
   };
+
+ const startNeighborhoodStream = async () => {
+   try {
+     console.log("🎥 Starting neighborhood stream...");
+
+     // Check platform compatibility
+     if (Platform.OS !== "web") {
+       Alert.alert(
+         "Web Only",
+         "Live streaming is currently available on web browsers only",
+         [{ text: "OK" }]
+       );
+       return;
+     }
+
+     // Check camera permissions
+     const stream = await navigator.mediaDevices.getUserMedia({
+       video: {
+         width: { ideal: 1280 },
+         height: { ideal: 720 },
+       },
+       audio: true,
+     });
+
+     console.log("✅ Camera access granted!");
+
+     // Show preview
+     const video = document.createElement("video");
+     video.srcObject = stream;
+     video.autoplay = true;
+     video.muted = true;
+     video.style.position = "fixed";
+     video.style.top = "10px";
+     video.style.right = "10px";
+     video.style.width = "200px";
+     video.style.zIndex = "1000";
+     video.style.border = "2px solid #00ffff";
+     video.style.borderRadius = "8px";
+     document.body.appendChild(video);
+
+     // 🎯 FIX 1: Check if WebTorrent is already loaded
+     if (!window.WebTorrent) {
+       // Load WebTorrent if not already loaded
+       const script = document.createElement("script");
+       script.src =
+         "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+       document.head.appendChild(script);
+
+       // Wait for script to load
+       await new Promise((resolve) => {
+         script.onload = resolve;
+       });
+     }
+
+     console.log("🎬 WebTorrent loaded, starting recording...");
+
+     const mediaRecorder = new MediaRecorder(stream, {
+       mimeType: "video/webm; codecs=vp8,opus",
+       videoBitsPerSecond: 2500000,
+     });
+
+     const chunks = [];
+     mediaRecorder.ondataavailable = (e) => {
+       if (e.data.size > 0) {
+         chunks.push(e.data);
+       }
+     };
+
+     // 🎯 FIX 2: Show recording indicator
+     const recordingIndicator = document.createElement("div");
+     recordingIndicator.style.position = "fixed";
+     recordingIndicator.style.top = "10px";
+     recordingIndicator.style.left = "10px";
+     recordingIndicator.style.backgroundColor = "rgba(255, 0, 0, 0.7)";
+     recordingIndicator.style.color = "white";
+     recordingIndicator.style.padding = "8px 12px";
+     recordingIndicator.style.borderRadius = "8px";
+     recordingIndicator.style.zIndex = "1001";
+     recordingIndicator.style.fontFamily = "Arial, sans-serif";
+     recordingIndicator.innerText = "● Recording... (10s)";
+     document.body.appendChild(recordingIndicator);
+
+    let streamThumbnailUrl = null;
+    video.onloadeddata = async () => {
+      try {
+        streamThumbnailUrl = await captureStreamThumbnail(video);
+        console.log("✅ Stream thumbnail captured");
+      } catch (err) {
+        console.error("❌ Thumbnail capture failed:", err);
+      }
+    };
+
+     mediaRecorder.onstop = async () => {
+       console.log("⏹️ Recording stopped, creating WebTorrent seed...");
+
+       // Remove indicators
+       document.body.removeChild(recordingIndicator);
+       document.body.removeChild(video);
+
+       const videoBlob = new Blob(chunks, { type: "video/webm" });
+       const client = new window.WebTorrent();
+
+       try {
+         // Show uploading indicator
+         const uploadingIndicator = document.createElement("div");
+         uploadingIndicator.style.position = "fixed";
+         uploadingIndicator.style.top = "50px";
+         uploadingIndicator.style.left = "10px";
+         uploadingIndicator.style.backgroundColor = "rgba(0, 255, 255, 0.7)";
+         uploadingIndicator.style.color = "black";
+         uploadingIndicator.style.padding = "8px 12px";
+         uploadingIndicator.style.borderRadius = "8px";
+         uploadingIndicator.style.zIndex = "1001";
+         uploadingIndicator.style.fontFamily = "Arial, sans-serif";
+         uploadingIndicator.innerText = "⏳ Creating P2P stream...";
+         document.body.appendChild(uploadingIndicator);
+
+         client.seed(
+           videoBlob,
+           {
+             name: `neighborhood-stream-${Date.now()}.webm`,
+             announce: [
+               "wss://tracker.openwebtorrent.com",
+               "wss://tracker.btorrent.xyz",
+               "wss://tracker.files.fm:7073/announce",
+             ],
+           },
+           async (torrent) => {
+             document.body.removeChild(uploadingIndicator);
+
+             console.log("✅ WebTorrent seeding started:", torrent.magnetURI);
+
+             try {
+               // Create message content
+               const messageContent = `🎥 Neighborhood Live Stream Clip!`;
+
+               // Copy magnet link to clipboard
+               await navigator.clipboard.writeText(torrent.magnetURI);
+
+               // 🎯 FIX 3: Send proper mutation variables
+              await sendMessageMutation({
+              variables: {
+                content: messageContent,
+                neighborhoodId: neighborhoodId,
+                fileName: "neighborhood-stream.webm",
+                fileType: "video",
+                magnetLink: torrent.magnetURI,
+                mimeType: "video/webm",
+                thumbnailUrl: streamThumbnailUrl, // 🎯 Include thumbnail!
+              },
+      
+               });
+
+               console.log("✅ Stream message sent to chat!");
+
+               // 🎯 FIX 4: Use setTimeout for Alert to ensure UI updates
+               setTimeout(() => {
+                 Alert.alert(
+                   "🎬 Stream Shared!",
+                   "Your live stream clip has been shared to the neighborhood chat with P2P magnet link!\n\nMagnet link copied to clipboard.",
+                   [{ text: "OK" }]
+                 );
+               }, 100);
+
+               // Trigger refetch to show new message
+               refetch();
+             } catch (error) {
+               console.error("❌ Error sharing stream:", error);
+               Alert.alert(
+                 "Stream Ready",
+                 `Created P2P stream! Magnet link copied to clipboard:\n\n${torrent.magnetURI}\n\nError sending to chat: ${error.message}`
+               );
+             }
+
+             // Clean up
+             stream.getTracks().forEach((track) => track.stop());
+           }
+         );
+
+         // Optional: Handle seeding errors
+         client.on("error", (err) => {
+           console.error("❌ WebTorrent error:", err);
+           Alert.alert(
+             "Stream Error",
+             "Failed to create P2P stream: " + err.message
+           );
+         });
+       } catch (error) {
+         console.error("❌ WebTorrent seeding error:", error);
+         Alert.alert(
+           "Stream Error",
+           "Failed to start P2P streaming: " + error.message
+         );
+         stream.getTracks().forEach((track) => track.stop());
+       }
+     };
+
+     // Record for 10 seconds (neighborhood clip)
+     mediaRecorder.start();
+     console.log("⏺️ Recording started for 10 seconds...");
+
+     // Update recording timer
+     let timeLeft = 10;
+     const timerInterval = setInterval(() => {
+       timeLeft--;
+       recordingIndicator.innerText = `● Recording... (${timeLeft}s)`;
+       if (timeLeft <= 0) {
+         clearInterval(timerInterval);
+       }
+     }, 1000);
+
+     setTimeout(() => {
+       if (mediaRecorder.state === "recording") {
+         mediaRecorder.stop();
+         console.log("⏹️ Recording stopped automatically");
+       }
+       clearInterval(timerInterval);
+     }, 10000);
+   } catch (error) {
+     console.error("❌ Stream error:", error);
+     Alert.alert(
+       "Camera Error",
+       error.message.includes("NotFoundError") ||
+         error.message.includes("NotAllowedError")
+         ? "Please allow camera and microphone access to start a neighborhood stream"
+         : `Error: ${error.message}`
+     );
+   }
+ };
 
   const testAd = {
     url: "https://www.tkqlhce.com/click-101316119-15402725", // Replace with your actual CJ.com affiliate link
@@ -1494,10 +1735,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   videoCaption: {
-   opacity: 0,
+    opacity: 0,
   },
   fileNameText: {
-  opacity: 0,
+    opacity: 0,
   },
   adContainer: {
     backgroundColor: "#1a1a1a",
@@ -1575,6 +1816,38 @@ const styles = StyleSheet.create({
     fontSize: 40,
   },
   videoFileName: {
- opacity: 0,
+    opacity: 0,
+  },
+  // Add to your StyleSheet:
+  streamPlaceholder: {
+    backgroundColor: "#1a1a1a",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  streamIcon: {
+    fontSize: 48,
+    color: "#00ffff",
+    marginBottom: 8,
+  },
+  streamText: {
+    color: "#00ffff",
+    fontSize: 14,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  streamPlayButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "rgba(255, 0, 0, 0.8)", // Red for "live"
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: "#fff",
+  },
+  streamPlayIcon: {
+    fontSize: 32,
+    color: "#fff",
+    marginLeft: 4,
   },
 });
