@@ -19,12 +19,9 @@ import { io } from "socket.io-client";
 import { gql, useQuery, useMutation } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
-import { useVideoPlayer, VideoView } from "expo-video";
-import WebTorrentMedia from "../../components/WebTorrentMedia";
 import AdMessage from "../../components/AdMessage";
-import { NeighborhoodVideoReassembler } from "../../components/NeighborhoodVideoReassembler";
 import ChatMediaRenderer from "../../components/ChatMediaRenderer";
-import { webtorrentManager } from "../../components/WebTorrentManager";
+import WebTorrentManager from "../../components/WebTorrentManager";
 
 const safeFileName = (asset) =>
   asset.name || asset.fileName || asset.uri.split("/").pop() || "media";
@@ -1536,6 +1533,7 @@ export default function NeighborhoodChatScreen() {
 
   return (
     <View style={styles.container}>
+      <WebTorrentManager />
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() =>
@@ -1570,6 +1568,9 @@ export default function NeighborhoodChatScreen() {
 
       <ScrollView style={styles.messagesList} ref={scrollViewRef}>
         {messages.map((item, index) => {
+          // 🟢 ADD NULL CHECK HERE TOO
+          if (!item) return null;
+
           const showAdHere = index % 20 === 0;
           return (
             <React.Fragment key={item.id}>
@@ -1586,11 +1587,8 @@ export default function NeighborhoodChatScreen() {
                     {item.sender?.username || "Unknown"}
                   </Text>
 
-                  <ChatMediaRenderer
-                    key={item.id}
-                    message={item}
-                    allMessages={messages} // ✅ Pass all messages
-                  />
+                  {/* 🟢 Ensure item is passed */}
+                  <ChatMediaRenderer message={item} />
 
                   {!item.imageUrl && !item.videoUrl && !item.fileUrl && (
                     <Text style={styles.messageText}>{item.content}</Text>
@@ -1601,21 +1599,8 @@ export default function NeighborhoodChatScreen() {
                   </Text>
                 </View>
               </View>
-              {showAdHere && adData?.randomAffiliateLink && (
-                <View style={styles.messageContainer}>
-                  <Image
-                    source={{
-                      uri: getProfilePhotoUrl(null), // System profile for ads
-                    }}
-                    style={styles.profileImage}
-                  />
-                  <View style={styles.messageContent}>
-                    <Text style={styles.username}>CommunityAdLinks</Text>
-                    <AdMessage ad={adData?.randomAffiliateLink} />
-                    <Text style={styles.timestamp}>Now</Text>
-                  </View>
-                </View>
-              )}
+
+              {/* ... rest ... */}
             </React.Fragment>
           );
         })}

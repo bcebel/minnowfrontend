@@ -1,80 +1,87 @@
-class WebTorrentManager {
-  constructor() {
-    this.client = null;
-    this.activeTorrents = new Map();
-  }
+import React, { useEffect } from "react";
 
-  async init() {
-    if (!window.WebTorrent) {
-      await new Promise((resolve) => {
+const WebTorrentManager = () => {
+  useEffect(() => {
+    // Initialize global WebTorrent client once
+    const initWebTorrent = async () => {
+      if (typeof window === "undefined") return;
+
+      if (!window.WebTorrent) {
         const script = document.createElement("script");
         script.src =
           "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-        script.onload = resolve;
         document.head.appendChild(script);
-      });
-    }
 
-    if (!this.client) {
-      this.client = new window.WebTorrent();
-      console.log("🌐 WebTorrent manager initialized");
-    }
+        await new Promise((resolve) => {
+          script.onload = resolve;
+        });
+      }
 
-    return this.client;
-  }
+      // Create single global client
+      if (!window.globalWebTorrentClient) {
+        window.globalWebTorrentClient = new window.WebTorrent({
+          tracker: {
+            pex: true,
+            lsd: true,
+          },
+          dht: true,
+        });
 
-  async seedChunks(chunkFiles, sessionId, fileName) {
-    await this.init();
+        console.log("🌐 Global WebTorrent client initialized");
 
-    // Check if already seeding
-    if (this.activeTorrents.has(sessionId)) {
-      console.log("✅ Already seeding session:", sessionId);
-      return this.activeTorrents.get(sessionId).magnetURI;
-    }
+        // Set default trackers
+        window.enhancedTrackers = [
+          "wss://tracker.openwebtorrent.com",
+          "wss://tracker.btorrent.xyz",
+          "wss://tracker.files.fm:7073/announce",
+        ];
+      }
+    };
+
+    initWebTorrent();
+
+    return () => {
+      // Don't destroy the client - keep it alive for seeding
+      console.log("🔄 WebTorrentManager unmounting (keeping client alive)");
+    };
+  }, []);
+
+  return null; // This is a headless component
+};
+
+export const webtorrentManager = {
+  getClient: () => window.globalWebTorrentClient,
+
+  seedChunks: async (chunkFiles, sessionId) => {
+    const client = window.globalWebTorrentClient;
+    if (!client) throw new Error("WebTorrent client not initialized");
 
     return new Promise((resolve, reject) => {
-      this.client.seed(
+      client.seed(
         chunkFiles,
         {
           name: `${sessionId}_multistream`,
-          announce: [
-            "wss://tracker.openwebtorrent.com",
-            "wss://tracker.btorrent.xyz",
-            "wss://tracker.files.fm:7073/announce",
-          ],
+          announce: window.enhancedTrackers,
         },
         (torrent) => {
-          console.log("✅ Torrent seeding started:", torrent.infoHash);
-          this.activeTorrents.set(sessionId, torrent);
-
-          // Keep alive
-          torrent.on("error", console.error);
-
+          console.log("✅ Chunks seeded:", torrent.magnetURI);
           resolve(torrent.magnetURI);
         }
       );
+
+      client.on("error", reject);
     });
-  }
+  },
 
-  getTorrent(sessionId) {
-    return this.activeTorrents.get(sessionId);
-  }
+  getStats: () => {
+    const client = window.globalWebTorrentClient;
+    if (!client) return { activeTorrents: 0, totalPeers: 0 };
 
-  stopSeeding(sessionId) {
-    const torrent = this.activeTorrents.get(sessionId);
-    if (torrent) {
-      this.activeTorrents.delete(sessionId);
-      console.log("🛑 Stopped seeding:", sessionId);
-    }
-  }
-
-  getStats() {
     return {
-      torrents: this.activeTorrents.size,
-      client: this.client ? "initialized" : "not initialized",
+      activeTorrents: client.torrents.length,
+      totalPeers: client.torrents.reduce((sum, t) => sum + t.numPeers, 0),
     };
-  }
-}
+  },
+};
 
-// Singleton instance
-export const webtorrentManager = new WebTorrentManager();
+export default WebTorrentManager;
