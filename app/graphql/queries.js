@@ -1,29 +1,7 @@
 // graphql/queries.js (frontend only)
 import { gql } from "@apollo/client";
 
-export const GET_NEIGHBORHOODS = gql`
-  query GetNeighborhoods {
-    neighborhoods {
-      id
-      name
-      description
-      type
-      owner {
-        username
-        profilePhoto
-        bio
-      }
-      members {
-        user {
-          username
-          profilePhoto
-          bio
-        }
-        role
-      }
-    }
-  }
-`;
+
 
 export const GET_USER_BY_USERNAME = gql`
   query GetUserByUsername($username: String!) {
@@ -68,20 +46,6 @@ export const GET_MY_NEIGHBORHOODS = gql`
   }
 `;
 
-export const JOIN_NEIGHBORHOOD = gql`
-  mutation JoinNeighborhood($neighborhoodId: ID!) {
-    joinNeighborhood(neighborhoodId: $neighborhoodId) {
-      id
-      name
-      members {
-        user {
-          username
-        }
-        role
-      }
-    }
-  }
-`;
 
 export const CREATE_NEIGHBORHOOD = gql`
   mutation CreateNeighborhood(
@@ -100,11 +64,6 @@ export const CREATE_NEIGHBORHOOD = gql`
   
 `;
 
-export const LEAVE_NEIGHBORHOOD = gql`
-  mutation LeaveNeighborhood($neighborhoodId: ID!) {
-    leaveNeighborhood(neighborhoodId: $neighborhoodId)
-  }
-`;
 
 // app/graphql/queries.js - Add this
 export const GET_NEIGHBORHOOD = gql`
@@ -131,5 +90,96 @@ export const GET_NEIGHBORHOOD = gql`
       }
       createdAt
     }
+  }
+`;
+
+export const MY_NEIGHBORHOODS = gql`
+  query MyNeighborhoods {
+    myNeighborhoods {
+      id
+      name
+      description
+      type
+      owner {
+        id
+        username
+        profilePhoto
+      }
+      members {
+        user {
+          id
+          username
+          profilePhoto
+        }
+        role
+        joinedAt
+      }
+      rules
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const GET_NEIGHBORHOODS = gql`
+  query Neighborhoods {
+    neighborhoods {
+      id
+      name
+      description
+      type
+      owner {
+        id
+        username
+        profilePhoto
+      }
+      members {
+        user {
+          id
+          username
+          profilePhoto
+        }
+        role
+        joinedAt
+      }
+      joinRequests {
+        user {
+          id
+          username
+          profilePhoto
+        }
+        requestedAt
+        status
+      }
+      rules
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const JOIN_NEIGHBORHOOD = gql`
+  mutation JoinNeighborhood($neighborhoodId: ID!) {
+    joinNeighborhood(neighborhoodId: $neighborhoodId) {
+      id
+      name
+      description
+      type
+      members {
+        user {
+          id
+          username
+          profilePhoto
+        }
+        role
+        joinedAt
+      }
+    }
+  }
+`;
+
+export const LEAVE_NEIGHBORHOOD = gql`
+  mutation LeaveNeighborhood($neighborhoodId: ID!) {
+    leaveNeighborhood(neighborhoodId: $neighborhoodId)
   }
 `;
