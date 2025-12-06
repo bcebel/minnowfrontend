@@ -426,8 +426,6 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingLeft: 10,
     backgroundColor: "#000000",
-    borderBottomWidth: 4,
-    borderBottomColor: "#FF00FF",
   },
   headerTitle: {
     fontSize: 32,
@@ -454,7 +452,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start", // LEFT ALIGNED
     padding: 15,
     paddingLeft: 10,
-    backgroundColor: "#111111",
+    backgroundColor: "#000000",
     borderWidth: 2,
     borderColor: "#00FF00",
     minWidth: 100,
@@ -475,12 +473,11 @@ const styles = StyleSheet.create({
   },
   mediaCard: {
     maxWidth: "75%",
-    maxHeight: 900,
     backgroundColor: "#000000",
     borderWidth: 3,
     borderColor: "#000000ff",
     overflow: "hidden",
-    shadowColor: "#FF00FF",
+    shadowColor: "#441744ff",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 15,
@@ -488,8 +485,7 @@ const styles = StyleSheet.create({
   },
   placeholderCard: {
 
-    backgroundColor: "#111111",
-    borderColor: "#ff00ff",
+    backgroundColor: "#000000",
     justifyContent: "center",
     alignItems: "flex-start", // LEFT ALIGNED
   },
@@ -505,20 +501,12 @@ const styles = StyleSheet.create({
     padding: 15,
     paddingLeft: 10,
     borderBottomWidth: 2,
-    borderBottomColor: "#0000FF",
   },
   title: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    marginBottom: 6,
-    textAlign: "left", // LEFT ALIGNED
+   opacity: 0, // LEFT ALIGNED
   },
   description: {
-    fontSize: 14,
-    color: "#CCCCCC",
-    textAlign: "left", // LEFT ALIGNED
-    lineHeight: 18,
+opacity: 0, // LEFT ALIGNED
   },
   fileTypeBadge: {
     flexDirection: "row",
@@ -531,16 +519,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   videoBadge: {
-    backgroundColor: "#FF0000",
-    borderColor: "#FFFFFF",
+opacity: 0, // LEFT ALIGNED
   },
   imageBadge: {
-    backgroundColor: "#00FF00",
-    borderColor: "#000000",
+opacity: 0, // LEFT ALIGNED
   },
   documentBadge: {
-    backgroundColor: "#0000FF",
-    borderColor: "#FFFFFF",
+opacity: 0, // LEFT ALIGNED
   },
   fileTypeText: {
     fontSize: 12,
@@ -548,10 +533,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   p2pBadge: {
-    color: "#FFFF00",
-    fontWeight: "bold",
-    marginLeft: 4,
-    fontSize: 12,
+opacity: 0, // LEFT ALIGNED
   },
   mediaWrapper: {
     width: "100%",
@@ -560,9 +542,8 @@ const styles = StyleSheet.create({
   documentContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#111111",
+    backgroundColor: "#000000",
     borderWidth: 3,
-    borderColor: "#0000FF",
     margin: 10,
     minHeight: 120,
   },
@@ -588,7 +569,6 @@ const styles = StyleSheet.create({
   unsupportedContainer: {
     backgroundColor: "#220000",
     borderWidth: 3,
-    borderColor: "#0000FF",
     margin: 10,
     alignItems: "flex-start", // LEFT ALIGNED
   },
@@ -601,8 +581,6 @@ const styles = StyleSheet.create({
     padding: 15,
     paddingLeft: 10,
     backgroundColor: "#111111",
-    borderTopWidth: 2,
-    borderTopColor: "#0000FF",
   },
   metadataRow: {
     flexDirection: "row",
