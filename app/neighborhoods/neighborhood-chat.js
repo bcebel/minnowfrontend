@@ -19,8 +19,6 @@ import { io } from "socket.io-client";
 import { gql, useQuery, useMutation } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
-import { useVideoPlayer, VideoView } from "expo-video";
-import WebTorrentMedia from "../../components/WebTorrentMedia";
 import AdMessage from "../../components/AdMessage";
 
 const safeFileName = (asset) =>
@@ -39,10 +37,6 @@ const getFileType = (fileName) => {
 };
 
 // Simple Video Player Component
-const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
-  const player = useVideoPlayer(url, (player) => {
-    player.loop = false;
-  });
 
   // 🎯 COMBINED: Auto-play + cleanup in one useEffect
   useEffect(() => {
@@ -673,6 +667,58 @@ export default function NeighborhoodChatScreen() {
 
     setSocket(newSocket);
   };
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Camera access required.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images", "videos"],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      const type = asset.type === "image" ? "image" : "video";
+
+      // 🎯 NEW: Check file size for videos
+      if (type === "video" && Platform.OS === "web") {
+        // Get file size
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        const fileSize = blob.size;
+
+        if (fileSize > 10 * 1024 * 1024) {
+          // 10MB
+          // Use chunked upload for large videos
+          await uploadChunkedVideo({
+            uri: asset.uri,
+            name:
+              asset.fileName ||
+              asset.uri.split("/").pop() ||
+              "camera-video.mp4",
+            size: fileSize,
+          });
+          return;
+        }
+      }
+
+      // Small files use regular upload
+      await unifiedUpload(
+        {
+          uri: asset.uri,
+          name: asset.fileName || asset.uri.split("/").pop() || "camera-media",
+          size: asset.fileSize || 0,
+        },
+        type,
+        asset.fileSize || 0,
+        ""
+      );
+    }
+  };
+  // open cameraconst openCamera = async () => {
   const takeCameraMedia = async () => {
     setUploading(true);
     setUploadType("camera");
@@ -684,23 +730,48 @@ export default function NeighborhoodChatScreen() {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaType.All, // photo + video
+        mediaTypes: ImagePicker.MediaType.All,
         quality: 0.8,
       });
 
-      if (result.canceled) return; // user hit cancel
+      if (result.canceled) return;
 
       const asset = result.assets[0];
       const type = asset.type === "image" ? "image" : "video";
 
-      // same fallback chain as pickFile
+      // 🎯 NEW: Get file size
+      let fileSize = 0;
+      if (type === "video") {
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        fileSize = blob.size;
+      }
+
       const fileName =
         asset.fileName ||
         asset.uri.split("/").pop() ||
         `${type}-${Date.now()}.${type === "image" ? "jpg" : "mp4"}`;
 
-      // identical call signature to unifiedUpload in pickFile
-      await unifiedUpload({ uri: asset.uri, name: fileName }, type, 0, "");
+      // Check for large videos
+      if (
+        type === "video" &&
+        Platform.OS === "web" &&
+        fileSize > 10 * 1024 * 1024
+      ) {
+        await uploadChunkedVideo({
+          uri: asset.uri,
+          name: fileName,
+          size: fileSize,
+        });
+        return;
+      }
+
+      await unifiedUpload(
+        { uri: asset.uri, name: fileName, size: fileSize },
+        type,
+        fileSize,
+        ""
+      );
     } catch (error) {
       console.error("Camera capture error:", error);
       Alert.alert("Error", "Failed to capture media");
@@ -709,33 +780,169 @@ export default function NeighborhoodChatScreen() {
       setUploadType(null);
     }
   };
+  // 🎯 Add this function in neighborhood-chat.js (near uploadChunkedVideo)
+  const sendMultistreamMessage = async (
+    torrent,
+    sessionId,
+    fileName,
+    totalChunks
+  ) => {
+    console.log("📤 Sending multistream message...");
+    console.log("Magnet URI:", torrent.magnetURI);
 
-  // open camera
-  const openCamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission needed", "Camera access required.");
-      return;
+    // Verify magnet link
+    if (!torrent.magnetURI.includes("urn:btih:")) {
+      console.error("❌ Invalid magnet link:", torrent.magnetURI);
+      throw new Error("Invalid magnet link generated");
     }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["images", "videos"],
-      quality: 0.8,
-    });
-    if (!result.canceled) {
-      const asset = result.assets[0];
-      const type = asset.type === "image" ? "image" : "video";
 
-      await unifiedUpload(
-        {
-          uri: asset.uri,
-          name: asset.fileName || asset.uri.split("/").pop() || "camera-media",
+    try {
+      await sendMessageMutation({
+        variables: {
+          content: `🎯 MULTISTREAM Torrent: ${totalChunks} chunks in one link`,
+          neighborhoodId: neighborhoodId,
+          fileName: `${fileName} (Multistream)`,
+          fileType: "video_multistream",
+          magnetLink: torrent.magnetURI,
+          sessionId: sessionId,
+          totalChunks: totalChunks,
+          imageUrl: null,
+          videoUrl: null,
+          fileUrl: null,
+          thumbnailUrl: null,
         },
-        type,
-        0,
-        ""
-      );
+      });
+
+      console.log("✅ Multistream message sent!");
+
+      // Monitor seeding
+      console.log("🌱 Now seeding:", torrent.name);
+      console.log("📊 Initial stats:", {
+        files: torrent.files.length,
+        fileNames: torrent.files.map((f) => f.name),
+        fileSizes: torrent.files.map((f) => f.length),
+        ready: torrent.ready,
+        peers: torrent.numPeers,
+      });
+
+      return torrent.magnetURI;
+    } catch (error) {
+      console.error("❌ Failed to send multistream message:", error);
+      throw error;
     }
   };
+
+  // 🎯 ADD THIS FUNCTION SOMEWHERE IN YOUR FILE:
+  const uploadChunkedVideo = async (asset) => {
+    console.log("🚀 uploadChunkedVideo called for:", asset.name);
+
+    const response = await fetch(asset.uri);
+    const blob = await response.blob();
+
+    const CHUNK_SIZE = 2 * 1024 * 1024;
+    const totalChunks = Math.ceil(blob.size / CHUNK_SIZE);
+    const sessionId = `video_${Date.now()}`;
+
+    // Create files
+    const chunkFiles = [];
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, blob.size);
+      const chunkBlob = blob.slice(start, end, "video/mp4");
+      const chunkFile = new File([chunkBlob], `chunk_${i}.mp4`, {
+        type: "video/mp4",
+        lastModified: Date.now(),
+      });
+      chunkFiles.push(chunkFile);
+    }
+
+    console.log("✅ Created", chunkFiles.length, "chunk files");
+
+    // Use the global client
+    const client = window.globalWebTorrentClient;
+
+    return new Promise((resolve) => {
+      client.seed(
+        chunkFiles,
+        {
+          name: `${sessionId}_multistream`,
+          announce: window.enhancedTrackers,
+        },
+        (torrent) => {
+          console.log("✅ Torrent created with files:", torrent.files.length);
+
+          // Send message
+          sendMessageMutation({
+            variables: {
+              content: `🎬 Video (${totalChunks} chunks)`,
+              neighborhoodId: neighborhoodId,
+              fileName: asset.name || "video.mp4",
+              fileType: "video_multistream",
+              magnetLink: torrent.magnetURI,
+              sessionId: sessionId,
+              totalChunks: totalChunks,
+              thumbnailUrl: null, // You can add thumbnail later
+            },
+          }).then(() => {
+            console.log("✅ Message sent!");
+            resolve();
+          });
+        }
+      );
+    });
+  };
+
+  const debugForceSeed = async () => {
+    // Get a magnet link from your chat
+    const magnetUri =
+      "magnet:?xt=urn:btih:3a9cb5f4fa3df2129ceae0bfd833c452deede717&dn=video_1764910082359_2mlo99wje_multis";
+
+    console.log("🔧 Force seeding existing torrent...");
+
+    if (!window.WebTorrent) {
+      const script = document.createElement("script");
+      script.src =
+        "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+      document.head.appendChild(script);
+      await new Promise((resolve) => (script.onload = resolve));
+    }
+
+    // Create client that WON'T be destroyed
+    if (!window.debugSeeder) {
+      window.debugSeeder = new window.WebTorrent();
+      console.log("🌐 Created debug seeder");
+    }
+
+    const client = window.debugSeeder;
+
+    // First download the torrent (so we have files)
+    client.add(magnetUri, (torrent) => {
+      console.log("📥 Downloaded torrent, now seeding...");
+      console.log(
+        "Torrent files:",
+        torrent.files.map((f) => f.name)
+      );
+
+      // The torrent automatically seeds after download
+      // But we need to keep the client alive
+
+      // Monitor
+      setInterval(() => {
+        console.log("🌱 Seeding:", {
+          peers: torrent.numPeers,
+          progress: torrent.progress,
+          uploaded: torrent.uploaded,
+        });
+      }, 5000);
+
+      Alert.alert(
+        "Seeding Started",
+        "Now try downloading from another browser!"
+      );
+    });
+  };
+
+  // Add this button somewhere in your UI
 
   // Send Message
   const sendMessage = async () => {
@@ -773,13 +980,36 @@ export default function NeighborhoodChatScreen() {
 
       if (!result.canceled) {
         const asset = result.assets[0];
-        // SIMPLE: Pass the actual type
         const type = asset.type === "image" ? "image" : "video";
 
+        // 🎯 NEW: Get file size for videos
+        let fileSize = asset.fileSize || 0;
+
+        if (type === "video" && Platform.OS === "web" && !fileSize) {
+          // Get size from blob if not provided
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          fileSize = blob.size;
+        }
+
+        // Check if large video
+        if (
+          type === "video" &&
+          Platform.OS === "web" &&
+          fileSize > 10 * 1024 * 1024
+        ) {
+          await uploadChunkedVideo({
+            uri: asset.uri,
+            name: safeFileName(asset),
+            size: fileSize,
+          });
+          return;
+        }
+
         await unifiedUpload(
-          { ...asset, name: safeFileName(asset) },
-          type, // Just pass the type directly
-          0,
+          { ...asset, name: safeFileName(asset), size: fileSize },
+          type,
+          fileSize,
           ""
         );
       }
@@ -1382,6 +1612,7 @@ export default function NeighborhoodChatScreen() {
 
   return (
     <View style={styles.container}>
+      <WebTorrentManager />
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() =>
@@ -1393,7 +1624,9 @@ export default function NeighborhoodChatScreen() {
         >
           <Text style={styles.galleryButtonText}> 🖼 GALLERY 🖼️</Text>
         </TouchableOpacity>
-
+        <TouchableOpacity onPress={debugForceSeed}>
+          <Text>🔧 Force Seed Test</Text>
+        </TouchableOpacity>
         <Text style={styles.roomTitle}>🏘️ {neighborhoodName}</Text>
         <TouchableOpacity
           onPress={() =>
@@ -1414,6 +1647,9 @@ export default function NeighborhoodChatScreen() {
 
       <ScrollView style={styles.messagesList} ref={scrollViewRef}>
         {messages.map((item, index) => {
+          // 🟢 ADD NULL CHECK HERE TOO
+          if (!item) return null;
+
           const showAdHere = index % 20 === 0;
           return (
             <React.Fragment key={item.id}>
@@ -1430,6 +1666,7 @@ export default function NeighborhoodChatScreen() {
                     {item.sender?.username || "Unknown"}
                   </Text>
 
+                  {/* 🟢 Ensure item is passed */}
                   <ChatMediaRenderer message={item} />
 
                   {!item.imageUrl && !item.videoUrl && !item.fileUrl && (
@@ -1441,21 +1678,8 @@ export default function NeighborhoodChatScreen() {
                   </Text>
                 </View>
               </View>
-              {showAdHere && adData?.randomAffiliateLink && (
-                <View style={styles.messageContainer}>
-                  <Image
-                    source={{
-                      uri: getProfilePhotoUrl(null), // System profile for ads
-                    }}
-                    style={styles.profileImage}
-                  />
-                  <View style={styles.messageContent}>
-                    <Text style={styles.username}>CommunityAdLinks</Text>
-                    <AdMessage ad={adData?.randomAffiliateLink} />{" "}
-                    <Text style={styles.timestamp}>Now</Text>
-                  </View>
-                </View>
-              )}
+
+              {/* ... rest ... */}
             </React.Fragment>
           );
         })}

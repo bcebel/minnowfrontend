@@ -29,14 +29,19 @@ export default function NeighborhoodCamera() {
     const totalChunks = Math.ceil(blob.size / CHUNK_SIZE);
     const chunkPromises = [];
 
-    for (let i = 0; i < totalChunks; i++) {
-      const start = i * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, blob.size);
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, blob.size);
 
-      // 🎉 THIS IS THE MAGIC!
-      const chunk = blob.slice(start, end, "video/mp4");
-      chunkPromises.push(chunk);
-    }
+    // 🎯 FIX: Create File objects, not Blobs!
+    const chunkBlob = blob.slice(start, end, "video/mp4");
+    const chunkFile = new File([chunkBlob], `chunk_${i}.mp4`, {
+      type: "video/mp4",
+      lastModified: Date.now(),
+    });
+
+    chunkPromises.push(chunkFile); // ✅ Push File, not Blob!
+  }
 
     // Now you have an array of blob chunks ready for WebTorrent!
     const allChunks = await Promise.all(chunkPromises);
