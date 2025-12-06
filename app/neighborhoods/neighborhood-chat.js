@@ -13,7 +13,7 @@ import {
   Platform,
 } from "react-native";
 import { Text } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, Link } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io } from "socket.io-client";
 import { gql, useQuery, useMutation } from "@apollo/client";
@@ -1724,6 +1724,16 @@ export default function NeighborhoodChatScreen() {
         >
           <Text style={styles.galleryButtonText}> 🖼 GALLERY 🖼️</Text>
         </TouchableOpacity>
+        <Link
+          href={`/neighborhoods/invite-links?neighborhoodId=${neighborhoodId}`}
+          asChild
+        >
+          <TouchableOpacity style={styles.inviteLinksButton}>
+            <Text style={styles.inviteLinksButtonText}>
+              🔗 Manage Invite Links
+            </Text>
+          </TouchableOpacity>
+        </Link>
 
         <Text style={styles.roomTitle}>🏘️ {neighborhoodName}</Text>
         <TouchableOpacity
@@ -2221,5 +2231,17 @@ const styles = StyleSheet.create({
   chunkText: {
     color: "#888",
     fontSize: 11,
+  },
+  inviteLinksButton: {
+    backgroundColor: "#9C27B0",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  inviteLinksButtonText: {
+    color: "#FFF",
+    fontWeight: "bold",
   },
 });

@@ -169,7 +169,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
         });
 
         // Different timeouts based on media type
-        const timeoutDuration = isVideo ? 2000 : 1000; // Videos get longer timeout
+        const timeoutDuration = isVideo ? 10000 : 25000; // Videos get longer timeout
 
         // Timeout fallback
         setTimeout(
@@ -333,7 +333,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
 }
 
 const styles = StyleSheet.create({
-
   container: {
     backgroundColor: "#000",
     borderRadius: 12,
@@ -342,7 +341,7 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "flex-start",
   },
-  
+
   mediaWrapper: {
     position: "relative",
   },
@@ -395,12 +394,10 @@ const styles = StyleSheet.create({
   },
 
   strategyText: {
-
     fontSize: 10,
     marginTop: 2,
   },
   loadingContainer: {
-
     backgroundColor: "#111",
   },
   status: {
@@ -435,7 +432,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#111",
   },
   fileName: {
-   opacity: 0,
+    opacity: 0,
   },
   magnetHint: {
     color: "#00ffff",

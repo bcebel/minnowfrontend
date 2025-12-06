@@ -183,3 +183,183 @@ export const LEAVE_NEIGHBORHOOD = gql`
     leaveNeighborhood(neighborhoodId: $neighborhoodId)
   }
 `;
+
+// graphql/queries.js
+// In your frontend, find the query that looks like:
+const VALIDATE_INVITE_LINK = gql`
+  query ValidateInviteLink($code: String!) {
+    validateInviteLink(code: $code) {
+      isValid
+      message
+      link {
+        id
+        code
+        name
+        maxUses
+        uses
+        expiresAt
+        role
+        isActive
+        createdAt
+        # createdBy might not exist in the response
+      }
+      neighborhood {
+        id
+        name
+        description
+        type
+        owner {
+          id
+          username
+          profilePhoto
+        }
+        memberCount
+      }
+    }
+  }
+`;
+// graphql/queries.js - Update CREATE_INVITE_LINK
+// graphql/queries.js
+export const CREATE_INVITE_LINK = gql`
+  mutation CreateInviteLink(
+    $neighborhoodId: ID!
+    $name: String
+    $maxUses: Int
+    $expiresInDays: Int
+    $role: String
+  ) {
+    createInviteLink(
+      neighborhoodId: $neighborhoodId
+      name: $name
+      maxUses: $maxUses
+      expiresInDays: $expiresInDays
+      role: $role
+    ) {
+      id
+      code
+      name
+      maxUses
+      uses
+      expiresAt
+      role
+      isActive
+      url
+      createdAt
+      createdBy {
+        id
+        username
+        profilePhoto
+      }
+    }
+  }
+`;
+
+export const UPDATE_INVITE_LINK = gql`
+  mutation UpdateInviteLink(
+    $linkId: ID!
+    $name: String
+    $maxUses: Int
+    $expiresAt: String
+    $isActive: Boolean
+  ) {
+    updateInviteLink(
+      linkId: $linkId
+      name: $name
+      maxUses: $maxUses
+      expiresAt: $expiresAt
+      isActive: $isActive
+    ) {
+      id
+      code
+      name
+      maxUses
+      uses
+      expiresAt
+      role
+      isActive
+      url
+      createdBy {
+        id
+        username
+        profilePhoto
+      }
+    }
+  }
+`;
+
+export const DELETE_INVITE_LINK = gql`
+  mutation DeleteInviteLink($linkId: ID!) {
+    deleteInviteLink(linkId: $linkId)
+  }
+`;
+
+// graphql/queries.js - Update the query
+export const GET_NEIGHBORHOOD_INVITE_LINKS = gql`
+  query NeighborhoodInviteLinks($neighborhoodId: ID!) {
+    neighborhoodInviteLinks(neighborhoodId: $neighborhoodId) {
+      id
+      code
+      name
+      maxUses
+      uses
+      expiresAt
+      role
+      isActive
+      url
+      createdAt
+      createdBy {
+        id
+        username
+        profilePhoto
+      }
+    }
+  }
+`;
+
+export const JOIN_VIA_INVITE_LINK = gql`
+  mutation JoinViaInviteLink($code: String!) {
+    joinViaInviteLink(code: $code) {
+      success
+      message
+      error
+      neighborhood {
+        id
+        name
+        description
+        type
+        members {
+          user {
+            id
+            username
+            profilePhoto
+          }
+          role
+        }
+      }
+    }
+  }
+`;
+
+export const REGISTER_AND_JOIN_VIA_LINK = gql`
+  mutation RegisterAndJoinViaLink(
+    $code: String!
+    $username: String!
+    $email: String!
+    $password: String!
+  ) {
+    registerAndJoinViaLink(
+      code: $code
+      username: $username
+      email: $email
+      password: $password
+    ) {
+      token
+      user {
+        id
+        username
+        email
+        profilePhoto
+      }
+    }
+  }
+`;
