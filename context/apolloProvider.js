@@ -31,9 +31,9 @@ export function useApolloClient() {
               keyFields: ["cid"], 
             },
             // Add 'Image' or other media types here if they have a CID
-            // Image: {
-            //   keyFields: ["cid"],
-            // },
+            Image: {
+             keyFields: ["cid"],
+            },
           },
         });
         
