@@ -3,13 +3,26 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Platform,
   View,
-  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
 } from "react-native";
 
+import { Image } from "expo-image";
+import * as FileSystem from "expo-file-system"; // 1. Import FileSystem
+
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
+
+// 2. Define a dedicated cache folder for our P2P media
+const CACHE_FOLDER = `${FileSystem.cacheDirectory}webtorrent_media/`;
+
+// Helper to ensure cache directory exists
+const ensureDirExists = async () => {
+  const dirInfo = await FileSystem.getInfoAsync(CACHE_FOLDER);
+  if (!dirInfo.exists) {
+    await FileSystem.makeDirectoryAsync(CACHE_FOLDER, { intermediates: true });
+  }
+};
 
 export default function WebTorrentMedia({ media, isFocused }) {
   const [mediaUrl, setMediaUrl] = useState(null);
@@ -17,24 +30,21 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const [progress, setProgress] = useState(0);
   const [peers, setPeers] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isCachedLocally, setIsCachedLocally] = useState(false); // Track source
+
   const videoRef = useRef(null);
   const torrentRef = useRef(null);
 
   const { magnetLink, fileName, fileType } = media;
 
   const getOptimalStrategy = (fileType, fileName) => {
-    if (fileType === "video") {
-      return "sequential"; // 🎬 Videos need order
-    } else if (fileType === "image") {
-      return "rarest"; // 🖼️ Images want speed
-    } else {
-      return "rarest"; // Default for documents, etc.
-    }
+    if (fileType === "video") return "sequential"; // 🎬 Videos need order
+    if (fileType === "image") return "rarest"; // 🖼️ Images want speed
+    return "rarest";
   };
 
   const strategy = getOptimalStrategy(fileType, fileName);
 
-  // Extract CID from various sources
   const extractCID = () => {
     if (media.cid) return media.cid;
     if (fileName) {
@@ -58,64 +68,119 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const cid = extractCID();
   const isImage = fileType === "image";
   const isVideo = fileType === "video";
+  const ipfsUrl = `https://${PINATA_GATEWAY}/ipfs/${cid}`;
+
+  // 3. Helper to save Blob to FileSystem (for Videos)
+  const saveBlobToCache = async (blobUrl, filename) => {
+    try {
+      // FileSystem write only works reliably on native apps, not web
+      if (Platform.OS === "web") return;
+
+      await ensureDirExists();
+      const localUri = CACHE_FOLDER + filename;
+
+      // Fetch blob data
+      const response = await fetch(blobUrl);
+      const blob = await response.blob();
+
+      // Convert to base64 to write to disk
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = async () => {
+        const base64data = reader.result.split(",")[1];
+        await FileSystem.writeAsStringAsync(localUri, base64data, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        console.log("💾 Video saved to local cache:", localUri);
+      };
+    } catch (e) {
+      console.warn("Failed to save video to cache:", e);
+    }
+  };
 
   useEffect(() => {
+    // ---------------------------------------------------------
+    // NATIVE APP LOGIC (Simplified for this snippet)
+    // ---------------------------------------------------------
     if (Platform.OS !== "web") {
-      // For native, use direct IPFS URL
       if (cid) {
-        setMediaUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
+        setMediaUrl(ipfsUrl);
       }
       setStatus("Loaded via IPFS");
       return;
     }
 
+    // ---------------------------------------------------------
+    // WEB / P2P LOGIC
+    // ---------------------------------------------------------
     const loadMedia = async () => {
+      // --- CACHE CHECK START ---
+      try {
+        if (isImage) {
+          // A. Image Cache Check (using expo-image internal cache)
+          const cachedPath = await Image.getCachePathAsync(ipfsUrl);
+          if (cachedPath) {
+            console.log("💾 Image found in Expo Cache");
+            setMediaUrl(ipfsUrl); // Expo Image will pick it up instantly from disk
+            setStatus("Ready (Cached)");
+            setIsCachedLocally(true);
+            return; // 🛑 EXIT: Skip P2P
+          }
+        } else if (isVideo) {
+          // B. Video Cache Check (Manual FileSystem check)
+          const cacheFilename = `${cid}.mp4`;
+          const localUri = CACHE_FOLDER + cacheFilename;
+          const fileInfo = await FileSystem.getInfoAsync(localUri);
+
+          if (fileInfo.exists) {
+            console.log("💾 Video found in Local Cache");
+            setMediaUrl(localUri);
+            setStatus("Ready (Local Cache)");
+            setIsCachedLocally(true);
+            return; // 🛑 EXIT: Skip P2P
+          }
+        }
+      } catch (err) {
+        console.warn("Cache check skipped:", err);
+      }
+      // --- CACHE CHECK END ---
+
       try {
         const client = window.globalWebTorrentClient;
 
-        // If no magnet link, use direct IPFS
         if (!magnetLink || !cid) {
           console.log("📁 No magnet link, using direct IPFS");
-          if (cid) {
-            setMediaUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
-          }
+          if (cid) setMediaUrl(ipfsUrl);
           setStatus("Loaded via IPFS");
           return;
         }
 
-        if (!client) {
-          throw new Error("Global WebTorrent client not found");
-        }
+        if (!client) throw new Error("Global WebTorrent client not found");
 
         setStatus(`Connecting to P2P swarm (${strategy} mode)...`);
 
-        // Check if torrent already exists
         let torrent = client.get(magnetLink);
 
         if (!torrent) {
-          // 🎯 CRITICAL: Add with optimal strategy
           torrent = client.add(magnetLink, {
-            strategy: strategy, // This is the key!
-
-            // Optimize based on media type
+            strategy: strategy,
             ...(isVideo
               ? {
-                  storeCacheSlots: 20, // Larger cache for videos
-                  preloadStoreSize: 10 * 1024 * 1024, // Preload 10MB
-                  destroyStoreOnDestroy: false, // Keep in cache
+                  storeCacheSlots: 20,
+                  preloadStoreSize: 10 * 1024 * 1024,
+                  destroyStoreOnDestroy: false,
                 }
               : {
-                  storeCacheSlots: 5, // Smaller cache for images
-                  preloadStoreSize: 2 * 1024 * 1024, // Preload 2MB
+                  storeCacheSlots: 5,
+                  preloadStoreSize: 2 * 1024 * 1024,
                 }),
           });
         }
 
         torrentRef.current = torrent;
 
-        // Add web seed for faster loading
         if (cid) {
-          torrent.addWebSeed(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
+          torrent.addWebSeed(ipfsUrl);
         }
 
         torrent.on("download", () => {
@@ -123,27 +188,22 @@ export default function WebTorrentMedia({ media, isFocused }) {
           setProgress(percent);
           setPeers(torrent.numPeers);
 
-          // Different status messages based on strategy
           if (strategy === "sequential") {
             setStatus(`Streaming: ${percent}% from ${torrent.numPeers} peers`);
           } else {
             setStatus(`Loading: ${percent}% from ${torrent.numPeers} peers`);
           }
 
-          // Start loading media when we have some data
-          // Different thresholds based on media type and strategy
-          const loadThreshold = isVideo ? 5 : 2; // Video needs 5%, images need 2%
+          const loadThreshold = isVideo ? 5 : 2;
 
           if (percent >= loadThreshold && !mediaUrl) {
             let file;
 
             if (isImage) {
-              // Look for image files
               file = torrent.files.find((f) =>
                 f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i)
               );
             } else {
-              // Look for video files
               file = torrent.files.find((f) =>
                 f.name.match(/\.(mp4|mov|webm|avi|mkv)$/i)
               );
@@ -154,29 +214,42 @@ export default function WebTorrentMedia({ media, isFocused }) {
                 if (!err) {
                   setMediaUrl(url);
                   setStatus(isImage ? "Image loaded via P2P" : "Ready to play");
+
+                  // --- SAVE LOGIC ---
+                  // If we have a good download, save it for next time
+                  // Only save videos if we are near completion to avoid saving broken files
+                  if (isVideo && percent > 95) {
+                    saveBlobToCache(url, `${cid}.mp4`);
+                  }
                 }
               });
             }
           }
         });
 
-        torrent.on("error", (err) => {
-          console.error("Torrent error:", err);
-          setStatus("P2P failed, using IPFS");
-          if (cid) {
-            setMediaUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
+        // Also save on completion to be safe
+        torrent.on("done", () => {
+          console.log("✅ Torrent done, ensuring cache save...");
+          if (isVideo && torrent.files[0]) {
+            torrent.files[0].getBlobURL((err, url) => {
+              if (!err) saveBlobToCache(url, `${cid}.mp4`);
+            });
           }
         });
 
-        // Different timeouts based on media type
-        const timeoutDuration = isVideo ? 10000 : 25000; // Videos get longer timeout
+        torrent.on("error", (err) => {
+          console.error("Torrent error:", err);
+          setStatus("P2P failed, using IPFS");
+          if (cid) setMediaUrl(ipfsUrl);
+        });
 
-        // Timeout fallback
+        const timeoutDuration = isVideo ? 10000 : 25000;
+
         setTimeout(
           () => {
             if (!mediaUrl && cid) {
               setStatus("P2P timeout, using IPFS");
-              setMediaUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
+              setMediaUrl(ipfsUrl);
             }
           },
           isFocused ? timeoutDuration : timeoutDuration * 3
@@ -184,19 +257,16 @@ export default function WebTorrentMedia({ media, isFocused }) {
       } catch (error) {
         console.error("Error loading media:", error);
         setStatus("Error, using IPFS fallback");
-        if (cid) {
-          setMediaUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
-        }
+        if (cid) setMediaUrl(ipfsUrl);
       }
     };
 
     loadMedia();
 
     return () => {
-      // Keep torrent alive for seeding
-      console.log("Keeping torrent alive for seeding");
+      // Cleanup
     };
-  }, [magnetLink, cid, isFocused, isImage, strategy]); // Added strategy to dependencies
+  }, [magnetLink, cid, isFocused, isImage, strategy]);
 
   // Video controls
   const handlePlay = () => {
@@ -226,12 +296,13 @@ export default function WebTorrentMedia({ media, isFocused }) {
       <View style={styles.container}>
         {isImage ? (
           <Image
-            source={{ uri: `https://${PINATA_GATEWAY}/ipfs/${cid}` }}
+            cachePolicy={"memory-disk"}
+            source={{ uri: ipfsUrl }}
             style={styles.image}
             resizeMode="contain"
           />
         ) : (
-          <Text style={styles.status}></Text>
+          <Text style={styles.status}>Native Video Player Placeholder</Text>
         )}
       </View>
     );
@@ -243,16 +314,14 @@ export default function WebTorrentMedia({ media, isFocused }) {
         <View style={styles.mediaWrapper}>
           {isImage ? (
             <Image
+              cachePolicy={"memory-disk"}
               source={{ uri: mediaUrl }}
               style={styles.image}
               resizeMode="contain"
-              onLoad={() => console.log("✅ Image loaded via", status)}
+              onLoad={() => console.log("✅ Image loaded")}
               onError={() => {
-                console.log("❌ Image load failed, falling back to IPFS");
                 setStatus("Image load failed");
-                if (cid) {
-                  setMediaUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
-                }
+                if (cid) setMediaUrl(ipfsUrl);
               }}
             />
           ) : (
@@ -262,19 +331,15 @@ export default function WebTorrentMedia({ media, isFocused }) {
                 src={mediaUrl}
                 controls
                 style={styles.video}
-                onLoadStart={() => console.log("Video loading")}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
                 onEnded={handleVideoEnd}
                 onError={() => {
                   setStatus("Video load failed");
-                  if (cid) {
-                    setMediaUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
-                  }
+                  if (cid) setMediaUrl(ipfsUrl);
                 }}
               />
 
-              {/* Custom video controls */}
               <View style={styles.controls}>
                 <TouchableOpacity
                   style={[
@@ -290,7 +355,9 @@ export default function WebTorrentMedia({ media, isFocused }) {
 
                 <View style={styles.statusInfo}>
                   <Text style={styles.statusText}>{status}</Text>
-                  <Text style={styles.peerText}>{peers} peers</Text>
+                  <Text style={styles.peerText}>
+                    {isCachedLocally ? "Local File" : `${peers} peers`}
+                  </Text>
                   <Text style={styles.strategyText}>
                     {strategy === "sequential" ? "🎬 Stream" : "⚡ Quick Load"}
                   </Text>
@@ -305,10 +372,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
           <Text style={styles.progress}>
             {progress}% • {peers} peers
           </Text>
-          <Text style={styles.strategyInfo}>
-            Mode:{" "}
-            {strategy === "sequential" ? "Streaming optimized" : "Fast preview"}
-          </Text>
           {progress > 0 && (
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, { width: `${progress}%` }]} />
@@ -317,14 +380,13 @@ export default function WebTorrentMedia({ media, isFocused }) {
         </View>
       )}
 
-      {/* Media info */}
       <View style={styles.mediaInfo}>
         <Text style={styles.fileName} numberOfLines={1}>
           {fileName || (isImage ? "Image" : "Video")}
         </Text>
         {magnetLink && (
           <Text style={styles.magnetHint}>
-            🔗 P2P {isImage ? "Image" : "Video"} - {peers} peers seeding
+            🔗 P2P {isImage ? "Image" : "Video"}
           </Text>
         )}
       </View>
@@ -341,7 +403,6 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "flex-start",
   },
-
   mediaWrapper: {
     position: "relative",
   },
@@ -392,13 +453,15 @@ const styles = StyleSheet.create({
     color: "#00ffff",
     fontSize: 12,
   },
-
   strategyText: {
     fontSize: 10,
     marginTop: 2,
+    color: "#aaa",
   },
   loadingContainer: {
     backgroundColor: "#111",
+    padding: 20,
+    alignItems: "center",
   },
   status: {
     color: "#FFF",
@@ -410,10 +473,6 @@ const styles = StyleSheet.create({
     color: "#00ffff",
     fontSize: 14,
     marginBottom: 8,
-  },
-  strategyInfo: {
-    fontSize: 12,
-    marginBottom: 12,
   },
   progressBar: {
     width: "80%",
