@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@apollo/client": "^3.12.6",
-    "@apollo3-cache-persist": "0.15.0",
+    "apollo3-cache-persist": "0.15.0",
     "@expo/metro-runtime": "~6.1.2",
     "@expo/vector-icons": "^15.0.2",
     "@filebase/sdk": "^1.0.6",
