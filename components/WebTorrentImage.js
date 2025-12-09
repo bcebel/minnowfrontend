@@ -131,7 +131,7 @@ export default function WebTorrentImage({ image, isFocused }) {
               setImageUrl(`https://${PINATA_GATEWAY}/ipfs/${cid}`);
             }
           },
-          isFocused ? 8000 : 30000
+          isFocused ? 80 : 300
         );
       } catch (error) {
         console.error("Error loading image:", error);

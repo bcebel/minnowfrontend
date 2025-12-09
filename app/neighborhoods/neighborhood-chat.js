@@ -38,7 +38,6 @@ const getFileType = (fileName) => {
   // if (["jpg", "jpeg", "png", "gif"].includes(ext)) return "image";
   return "unknown";
 };
-
 // Simple Video Player Component
 const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
   const player = useVideoPlayer(url, (player) => {
@@ -82,8 +81,6 @@ const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
     </TouchableOpacity>
   );
 };
-
-// FIXED ChatMediaRenderer - Only shows media when media exists
 // Updated ChatMediaRenderer with stream support
 const ChatMediaRenderer = ({ message }) => {
   const {
@@ -402,6 +399,7 @@ const ChatMediaRenderer = ({ message }) => {
 
       // Use your NeighborhoodVideoReassembler class!
       const reassembler = new NeighborhoodVideoReassembler(neighborhoodId);
+
       await reassembler.watchProgressive(chunkMessages);
     };
   };
@@ -488,9 +486,6 @@ const ChatMediaRenderer = ({ message }) => {
       </TouchableOpacity>
     );
   }
-  // --- END NEW LOGIC ---
-
-  // 🎯 SIMPLE RULES:
 
   // 1. If it has magnet link → WebTorrentMedia (handles both images and videos)
   if (magnetLink && (fileType === "image" || fileType === "video")) {
@@ -671,6 +666,7 @@ const formatTimestamp = (timestamp) => {
     return "Now";
   }
 };
+
 const getProfilePhotoUrl = (profilePhoto) => {
   if (!profilePhoto) {
     return "https://via.placeholder.com/40";
@@ -855,6 +851,7 @@ export default function NeighborhoodChatScreen() {
       socket?.disconnect();
     };
   }, [neighborhoodId]);
+
   const showRandomAd = async () => {
     try {
       console.log("🔄 Fetching random affiliate ad...");
@@ -898,6 +895,7 @@ export default function NeighborhoodChatScreen() {
 
     setSocket(newSocket);
   };
+
   const takeCameraMedia = async () => {
     setUploading(true);
     setUploadType("camera");
@@ -934,7 +932,6 @@ export default function NeighborhoodChatScreen() {
       setUploadType(null);
     }
   };
-
   // open camera
   const openCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -961,7 +958,6 @@ export default function NeighborhoodChatScreen() {
       );
     }
   };
-
   // Send Message
   const sendMessage = async () => {
     if (!newMessage.trim() || !socket) return;
@@ -987,7 +983,6 @@ export default function NeighborhoodChatScreen() {
       setNewMessage(messageContent);
     }
   };
-
   // In pickImage function
   const pickImage = async () => {
     try {
@@ -1012,7 +1007,6 @@ export default function NeighborhoodChatScreen() {
       Alert.alert("Error", "Failed to pick media");
     }
   };
-
   // Simple toggle in pickFile:
   const pickFile = async () => {
     const result = await DocumentPicker.getDocumentAsync();
@@ -1038,7 +1032,6 @@ export default function NeighborhoodChatScreen() {
       }
     }
   };
-
   // SIMPLE Upload - JUST STORE WHAT WE GET
   const unifiedUpload = async (asset, type, fileSize, mimeType) => {
     setUploading(true);
@@ -1239,6 +1232,7 @@ export default function NeighborhoodChatScreen() {
     }
 
     const client = new window.WebTorrent();
+
     return new Promise((resolve) => {
       client.seed(
         chunk,
@@ -1264,6 +1258,7 @@ export default function NeighborhoodChatScreen() {
         }
       );
     });
+
   };
   // Helper function
   const getMimeType = (filename) => {
@@ -1474,6 +1469,7 @@ export default function NeighborhoodChatScreen() {
       }
     });
   };
+
   const startNeighborhoodLiveStream = async () => {
     try {
       console.log("🔴 Starting TRUE live stream...");
@@ -1617,7 +1613,6 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  // 🎯 Stream controls UI
   const showStreamControls = (torrent, stream, preview) => {
     const controls = document.createElement("div");
     controls.style.cssText = `
@@ -1671,13 +1666,9 @@ export default function NeighborhoodChatScreen() {
     };
   };
 
-  const testAd = {
-    url: "https://www.tkqlhce.com/click-101316119-15402725", // Replace with your actual CJ.com affiliate link
-    title: "Test Ad",
-    id: "test-1",
-  };
   // Render Logic
   const messages = data?.neighborhoodMessages || [];
+
   const neighborhoodName =
     neighborhoodData?.neighborhood?.name || "Neighborhood";
 
