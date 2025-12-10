@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import * as FileSystem from "expo-file-system";
-import { useAuth } from "../context/AuthContext"; // Assuming you have auth context
+import { useAuth } from "../context/AuthProvider"; // Assuming you have auth context
 
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const CACHE_FOLDER = `${FileSystem.cacheDirectory}webtorrent_media/`;
