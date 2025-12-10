@@ -8,25 +8,42 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import * as FileSystem from "expo-file-system";
-import { useAuth } from "../context/AuthProvider"; // Assuming you have auth context
+import { useQuery, gql } from "@apollo/client"; // 👈 Import Apollo Client
 
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const CACHE_FOLDER = `${FileSystem.cacheDirectory}webtorrent_media/`;
 
+// 👇 Define GraphQL query for media metadata
+const GET_MEDIA = gql`
+  query GetMedia($cid: String!) {
+    media(cid: $cid) {
+      fileName
+      fileType
+      cid
+      magnetLink
+      isPublic
+      # Add other fields you need
+    }
+  }
+`;
+
+
+// Alternative: If you're using REST API via Apollo's RESTDataSource
+// (based on your earlier MediaAPI setup)
+const GET_MEDIA_REST = gql`
+  query GetMedia($cid: String!) {
+    media(cid: $cid) @rest(type: "Media", path: "/media/{args.cid}") {
+      fileName
+      fileType
+      cid
+      magnetLink
+      isPublic
+    }
+  }
+`;
+
 export default function WebTorrentMedia({ media, isFocused }) {
-  const { userToken, isAuthenticated } = useAuth(); // Get auth state
-  const [mediaData, setMediaData] = useState(null); // Store fetched metadata
-  const [mediaUrl, setMediaUrl] = useState(null);
-  const [status, setStatus] = useState("Loading metadata...");
-  const [progress, setProgress] = useState(0);
-  const [peers, setPeers] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isCachedLocally, setIsCachedLocally] = useState(false);
-
-  const videoRef = useRef(null);
-  const torrentRef = useRef(null);
-
-  // Extract CID first (needed for API call)
+  // Extract CID (same as before)
   const cid = (() => {
     if (media.cid) return media.cid;
     if (media.fileName) {
@@ -44,57 +61,49 @@ export default function WebTorrentMedia({ media, isFocused }) {
     return null;
   })();
 
-  // ------------------------------------------------------------
-  // EFFECT 1: FETCH MEDIA METADATA FROM API
-  // ------------------------------------------------------------
-  useEffect(() => {
-    if (!cid) {
-      setStatus("No CID available");
-      return;
+  // 👇 Use Apollo Client query hook
+  const { loading, error, data } = useQuery(GET_MEDIA, {
+    variables: { cid },
+    skip: !cid, // Skip if no CID
+    fetchPolicy: "cache-first", // Use cache if available
+    onCompleted: (data) => {
+      console.log("Media data fetched:", data);
+    },
+    onError: (error) => {
+      console.error("Failed to fetch media:", error);
     }
+  });
 
-    const fetchMediaMetadata = async () => {
-      try {
-        setStatus("Fetching metadata...");
-        
-        // Use the smart endpoint that auto-detects public/private
-        const response = await fetch(`/api/media/${cid}`, {
-          headers: isAuthenticated && userToken 
-            ? { 'Authorization': `Bearer ${userToken}` }
-            : {}
-        });
+  // State
+  const [mediaUrl, setMediaUrl] = useState(null);
+  const [status, setStatus] = useState("Loading...");
+  const [progress, setProgress] = useState(0);
+  const [peers, setPeers] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isCachedLocally, setIsCachedLocally] = useState(false);
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
+  const videoRef = useRef(null);
+  const torrentRef = useRef(null);
 
-        const data = await response.json();
-        setMediaData(data);
-        setStatus("Metadata loaded");
-        
-      } catch (error) {
-        console.error("Failed to fetch media metadata:", error);
-        setStatus("Metadata failed - using fallback");
-        
-        // Fallback to local media prop if API fails
-        setMediaData({
-          fileName: media.fileName,
-          fileType: media.fileType,
-          cid: cid,
-          magnetLink: media.magnetLink,
-          isPublic: media.isPublic || false // Default to private for safety
-        });
-      }
-    };
+  // 👇 Get mediaData from Apollo query result or fallback
+  const mediaData = data?.media || media;
 
-    fetchMediaMetadata();
-  }, [cid, isAuthenticated, userToken]); // ✅ Only depends on auth and CID
+  // Update status based on Apollo query state
+  useEffect(() => {
+    if (loading) {
+      setStatus("Fetching metadata...");
+    } else if (error) {
+      setStatus("Metadata failed - using fallback");
+    } else if (data) {
+      setStatus("Metadata loaded");
+    }
+  }, [loading, error, data]);
 
   // ------------------------------------------------------------
-  // EFFECT 2: LOAD MEDIA (WebTorrent/Cache) - DEPENDS ON mediaData
+  // EFFECT: LOAD MEDIA (WebTorrent/Cache) - DEPENDS ON mediaData
   // ------------------------------------------------------------
   useEffect(() => {
-    if (!mediaData) return; // Wait until we have metadata
+    if (!mediaData) return;
     
     const { magnetLink, fileName, fileType, isPublic } = mediaData;
     const isImage = fileType === "image";
@@ -243,8 +252,28 @@ export default function WebTorrentMedia({ media, isFocused }) {
       // Cleanup
       console.log("Cleaning up torrent");
     };
-  }, [mediaData, isFocused, cid]); // ✅ Depends on mediaData (fetched from API)
+  }, [mediaData, isFocused, cid]);
 
+  // Loading/error states from Apollo
+  if (loading && !mediaData) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.status}>Loading metadata...</Text>
+      </View>
+    );
+  }
+
+  if (error && !mediaData) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.status}>Failed to load metadata</Text>
+      </View>
+    );
+  }
+
+  const { fileName, fileType } = mediaData;
+  const isImage = fileType === "image";
+  const isVideo = fileType === "video";
   // Video controls
   const handlePlay = () => {
     if (videoRef.current) {
@@ -268,9 +297,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
     setStatus("Playback ended");
   };
 
-   const { fileName, fileType } = mediaData || media;
-  const isImage = fileType === "image";
-  const isVideo = fileType === "video";
+
 
   if (Platform.OS !== "web") {
     return (
