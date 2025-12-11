@@ -7,11 +7,12 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Image } from "expo-image";
-import * as FileSystem from "expo-file-system";
+import { File } from "expo-file-system";
 import { useQuery, gql } from "@apollo/client"; // 👈 Import Apollo Client
 
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const CACHE_FOLDER = `${FileSystem.cacheDirectory}webtorrent_media/`;
+
 
 // 👇 Define GraphQL query for media metadata
 const GET_VIDEO = gql`
@@ -165,9 +166,10 @@ try {
     const imageExt = fileName?.split('.').pop() || 'jpg';
     const cacheFilename = `${cid}.${imageExt}`;
     const localUri = CACHE_FOLDER + cacheFilename;
-    const fileInfo = await FileSystem.getInfoAsync(localUri);
+    const file = new File(localUri);
+    const info = await file.info();
     
-    if (fileInfo.exists) {
+    if (info.exists) {
       setMediaUrl(localUri);
       setStatus("Ready (Local Cache)");
       setIsCachedLocally(true);
@@ -176,9 +178,10 @@ try {
   } else if (isVideo) {
     const cacheFilename = `${cid}.mp4`;
     const localUri = CACHE_FOLDER + cacheFilename;
-    const fileInfo = await FileSystem.getInfoAsync(localUri);
+    const file = new File(localUri);
+    const info=await file.info();
     
-    if (fileInfo.exists) {
+    if (info.exists) {
       setMediaUrl(localUri);
       setStatus("Ready (Local Cache)");
       setIsCachedLocally(true);
