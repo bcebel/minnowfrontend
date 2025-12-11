@@ -158,29 +158,36 @@ export default function WebTorrentMedia({ media, isFocused }) {
     // WEB PLATFORM - P2P Logic
     const loadMedia = async () => {
       // --- CACHE CHECK ---
-      try {
-        if (isImage) {
-          const cachedPath = await Image.getCachePathAsync(ipfsUrl);
-          if (cachedPath) {
-            setMediaUrl(ipfsUrl);
-            setStatus("Ready (Cached)");
-            setIsCachedLocally(true);
-            return;
-          }
-        } else if (isVideo) {
-          const cacheFilename = `${cid}.mp4`;
-          const localUri = CACHE_FOLDER + cacheFilename;
-          const fileInfo = await FileSystem.getInfoAsync(localUri);
-          if (fileInfo.exists) {
-            setMediaUrl(localUri);
-            setStatus("Ready (Local Cache)");
-            setIsCachedLocally(true);
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn("Cache check skipped:", err);
-      }
+      // --- CACHE CHECK ---
+try {
+  if (isImage) {
+    // Use our own cache directory for images too
+    const imageExt = fileName?.split('.').pop() || 'jpg';
+    const cacheFilename = `${cid}.${imageExt}`;
+    const localUri = CACHE_FOLDER + cacheFilename;
+    const fileInfo = await FileSystem.getInfoAsync(localUri);
+    
+    if (fileInfo.exists) {
+      setMediaUrl(localUri);
+      setStatus("Ready (Local Cache)");
+      setIsCachedLocally(true);
+      return;
+    }
+  } else if (isVideo) {
+    const cacheFilename = `${cid}.mp4`;
+    const localUri = CACHE_FOLDER + cacheFilename;
+    const fileInfo = await FileSystem.getInfoAsync(localUri);
+    
+    if (fileInfo.exists) {
+      setMediaUrl(localUri);
+      setStatus("Ready (Local Cache)");
+      setIsCachedLocally(true);
+      return;
+    }
+  }
+} catch (err) {
+  console.warn("Cache check skipped:", err);
+}
 
       // --- P2P LOADING ---
       try {
