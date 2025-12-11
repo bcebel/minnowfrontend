@@ -14,43 +14,66 @@ const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const CACHE_FOLDER = `${FileSystem.cacheDirectory}webtorrent_media/`;
 
 // 👇 Define GraphQL query for media metadata
-const GET_MEDIA = gql`
-  query GetMedia($cid: String!) {
-    media(cid: $cid) {
-      fileName
-      fileType
+const GET_VIDEO = gql`
+  query GetVideo($videoId: ID!) {
+    video(id: $videoId) {
       cid
-      magnetLink
       isPublic
-      # Add other fields you need
+      fileType
+      fileName
+      magnetLink
     }
   }
 `;
 
-
-// Alternative: If you're using REST API via Apollo's RESTDataSource
-// (based on your earlier MediaAPI setup)
-const GET_MEDIA_REST = gql`
-  query GetMedia($cid: String!) {
-    media(cid: $cid) @rest(type: "Media", path: "/media/{args.cid}") {
-      fileName
-      fileType
+const GET_IMAGE = gql`
+  query GetImage($imageId: ID!) {
+    image(id: $imageId) {
       cid
-      magnetLink
       isPublic
+      fileType
+      fileName
+      magnetLink
     }
   }
 `;
+
+const getMediaType = (media) => {
+  const fileName = media.fileName || "";
+  const url = media.imageUrl || media.videoUrl || "";
+
+  // Check video extensions
+  if (
+    fileName.match(/\.(mp4|mov|webm|avi|mkv)$/i) ||
+    url.match(/\.(mp4|mov|webm|avi|mkv)$/i)
+  ) {
+    return "video";
+  }
+
+  // Check image extensions
+  if (
+    fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
+    url.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+  ) {
+    return "image";
+  }
+
+  // Default or unknown
+  return "unknown";
+};
+
 
 export default function WebTorrentMedia({ media, isFocused }) {
-
   
   // Extract CID (same as before)
   const cid = (() => {
     if (media.cid) return media.cid;
     if (media.fileName) {
       const cidFromFileName = media.fileName.split(".")[0];
-      if (cidFromFileName.startsWith("Qm") || cidFromFileName.startsWith("baf")) {
+      if (
+        cidFromFileName.startsWith("Qm") ||
+        cidFromFileName.startsWith("baf")
+      ) {
         return cidFromFileName;
       }
     }
@@ -63,18 +86,25 @@ export default function WebTorrentMedia({ media, isFocused }) {
     return null;
   })();
 
+  const mediaType = getMediaType(media);
+  
+    const { loading, error, data } = useQuery(
+      mediaType === "video" ? GET_VIDEO : GET_IMAGE,
+      {
+        variables: {
+          [mediaType === "video" ? "videoId" : "imageId"]: cid,
+        },
+        skip: !cid,
+      }
+    );
+  
+    const mediaData = data?.[mediaType] || media;
+    const { magnetLink, fileName, fileType, isPublic } = mediaData;
+    const isImage = fileType === "image" || mediaType === "image";
+    const isVideo = fileType === "video" || mediaType === "video";
+
   // 👇 Use Apollo Client query hook
-  const { loading, error, data } = useQuery(GET_MEDIA, {
-    variables: { cid },
-    skip: !cid, // Skip if no CID
-    fetchPolicy: "cache-first", // Use cache if available
-    onCompleted: (data) => {
-      console.log("Media data fetched:", data);
-    },
-    onError: (error) => {
-      console.error("Failed to fetch media:", error);
-    }
-  });
+
 
   // State
   const [mediaUrl, setMediaUrl] = useState(null);
@@ -88,7 +118,12 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const torrentRef = useRef(null);
 
   // 👇 Get mediaData from Apollo query result or fallback
-  const mediaData = data?.media || media;
+  const getStrategy = (fileType) => {
+    if (fileType === "video") return "sequential";
+    if (fileType === "image") return "rarest";
+    return "rarest";
+  };
+      const ipfsUrl = cid ? `https://${PINATA_GATEWAY}/ipfs/${cid}` : null;
 
   // Update status based on Apollo query state
   useEffect(() => {
@@ -106,11 +141,10 @@ export default function WebTorrentMedia({ media, isFocused }) {
   // ------------------------------------------------------------
   useEffect(() => {
     if (!mediaData) return;
-    
-    const { magnetLink, fileName, fileType, isPublic } = mediaData;
+
     const isImage = fileType === "image";
     const isVideo = fileType === "video";
-    const ipfsUrl = `https://${PINATA_GATEWAY}/ipfs/${cid}`;
+    const displayStrategy = getStrategy(fileType);
 
     // NATIVE PLATFORM
     if (Platform.OS !== "web") {
@@ -177,14 +211,16 @@ export default function WebTorrentMedia({ media, isFocused }) {
         if (!torrent) {
           torrent = client.add(magnetLink, {
             strategy: strategy,
-            ...(isVideo ? {
-              storeCacheSlots: 20,
-              preloadStoreSize: 10 * 1024 * 1024,
-              destroyStoreOnDestroy: false,
-            } : {
-              storeCacheSlots: 5,
-              preloadStoreSize: 2 * 1024 * 1024,
-            }),
+            ...(isVideo
+              ? {
+                  storeCacheSlots: 20,
+                  preloadStoreSize: 10 * 1024 * 1024,
+                  destroyStoreOnDestroy: false,
+                }
+              : {
+                  storeCacheSlots: 5,
+                  preloadStoreSize: 2 * 1024 * 1024,
+                }),
           });
         }
 
@@ -196,7 +232,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
           const percent = Math.round(torrent.progress * 100);
           setProgress(percent);
           setPeers(torrent.numPeers);
-          
+
           if (strategy === "sequential") {
             setStatus(`Streaming: ${percent}% from ${torrent.numPeers} peers`);
           } else {
@@ -234,13 +270,15 @@ export default function WebTorrentMedia({ media, isFocused }) {
         });
 
         // Timeout fallback
-        setTimeout(() => {
-          if (!mediaUrl && cid) {
-            setStatus("P2P timeout, using IPFS");
-            setMediaUrl(ipfsUrl);
-          }
-        }, isVideo ? 10000 : 25000);
-
+        setTimeout(
+          () => {
+            if (!mediaUrl && cid) {
+              setStatus("P2P timeout, using IPFS");
+              setMediaUrl(ipfsUrl);
+            }
+          },
+          isVideo ? 10000 : 25000
+        );
       } catch (error) {
         console.error("Error loading media:", error);
         setStatus("Error, using IPFS fallback");
@@ -254,7 +292,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
       // Cleanup
       console.log("Cleaning up torrent");
     };
-  }, [mediaData, isFocused, cid]);
+  }, [mediaData, isFocused, cid, ipfsUrl]);
 
   // Loading/error states from Apollo
   if (loading && !mediaData) {
@@ -273,9 +311,9 @@ export default function WebTorrentMedia({ media, isFocused }) {
     );
   }
 
-  const { magnetLink, fileName, fileType } = mediaData;
-  const isImage = fileType === "image";
-  const isVideo = fileType === "video";
+
+  
+  const strategy = getStrategy(fileType); // Calculate for render scope
   // Video controls
   const handlePlay = () => {
     if (videoRef.current) {
@@ -298,8 +336,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
     setIsPlaying(false);
     setStatus("Playback ended");
   };
-
-
 
   if (Platform.OS !== "web") {
     return (

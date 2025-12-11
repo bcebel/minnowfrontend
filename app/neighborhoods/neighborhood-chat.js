@@ -1749,7 +1749,6 @@ export default function NeighborhoodChatScreen() {
           const showAdHere = index % 20 === 0;
           return (
             <React.Fragment key={item.id}>
-              {/* Regular message first */}
               <View style={styles.messageContainer}>
                 <Image
                   source={{
@@ -1777,13 +1776,13 @@ export default function NeighborhoodChatScreen() {
                 <View style={styles.messageContainer}>
                   <Image
                     source={{
-                      uri: getProfilePhotoUrl(null), // System profile for ads
+                      uri: getProfilePhotoUrl(null)
                     }}
                     style={styles.profileImage}
                   />
                   <View style={styles.messageContent}>
                     <Text style={styles.username}>CommunityAdLinks</Text>
-                    <AdMessage ad={adData?.randomAffiliateLink} />{" "}
+                    <AdMessage ad={adData?.randomAffiliateLink} />
                     <Text style={styles.timestamp}>Now</Text>
                   </View>
                 </View>
