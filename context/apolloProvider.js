@@ -4,7 +4,7 @@ import {
   ApolloClient,
   InMemoryCache,
   ApolloProvider,
-  createHttpLink,
+  HttpLink,
 } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -45,7 +45,7 @@ export function useApolloClient() {
         });
         setCacheReady(true); // Cache is loaded from disk (or created)
 
-        const httpLink = createHttpLink({
+        const httpLink = new HttpLink({
           uri: `${BACKEND_URL}/graphql`,
           credentials: "include",
         });
