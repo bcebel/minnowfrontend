@@ -43,6 +43,8 @@ const GET_MEDIA_REST = gql`
 `;
 
 export default function WebTorrentMedia({ media, isFocused }) {
+
+  
   // Extract CID (same as before)
   const cid = (() => {
     if (media.cid) return media.cid;
@@ -271,7 +273,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
     );
   }
 
-  const { fileName, fileType } = mediaData;
+  const { magnetLink, fileName, fileType } = mediaData;
   const isImage = fileType === "image";
   const isVideo = fileType === "video";
   // Video controls
