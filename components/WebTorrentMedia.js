@@ -1,3 +1,4 @@
+// WebTorrentMedia.js
 import React, { useEffect, useRef, useState } from "react";
 import {
   Platform,
@@ -7,15 +8,16 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Image } from "expo-image";
-import * as FileSystem from "expo-file-system";
-import { File } from "expo-file-system";
-import { useQuery, gql } from "@apollo/client"; // 👈 Import Apollo Client
+import { File, Directory } from "expo-file-system";
+import { useQuery, gql } from "@apollo/client";
+
+// Import IndexedDB cache for web
+import { mediaCache } from "./mediaCache"; // Assuming you create this file
 
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const CACHE_FOLDER = `${FileSystem.cacheDirectory}webtorrent_media/`;
 
-
-// 👇 Define GraphQL query for media metadata
+// GraphQL Queries
 const GET_VIDEO = gql`
   query GetVideo($videoId: ID!) {
     video(id: $videoId) {
@@ -40,6 +42,7 @@ const GET_IMAGE = gql`
   }
 `;
 
+// Helper function to determine media type from fileName or URL
 const getMediaType = (media) => {
   const fileName = media.fileName || "";
   const url = media.imageUrl || media.videoUrl || "";
@@ -60,14 +63,29 @@ const getMediaType = (media) => {
     return "image";
   }
 
-  // Default or unknown
   return "unknown";
 };
 
+// Helper function to ensure cache directory exists (Native only)
+const ensureCacheDir = async () => {
+  if (Platform.OS === "web") return true;
+
+  try {
+    const cacheDir = new Directory(CACHE_FOLDER);
+    const dirInfo = await cacheDir.info();
+    if (!dirInfo.exists) {
+      await cacheDir.makeAsync();
+      console.log("Created cache directory:", CACHE_FOLDER);
+    }
+    return true;
+  } catch (error) {
+    console.error("Failed to ensure cache directory:", error);
+    return false;
+  }
+};
 
 export default function WebTorrentMedia({ media, isFocused }) {
-  
-  // Extract CID (same as before)
+  // Extract CID
   const cid = (() => {
     if (media.cid) return media.cid;
     if (media.fileName) {
@@ -88,25 +106,22 @@ export default function WebTorrentMedia({ media, isFocused }) {
     return null;
   })();
 
+  // Determine media type for GraphQL query
   const mediaType = getMediaType(media);
   
-    const { loading, error, data } = useQuery(
-      mediaType === "video" ? GET_VIDEO : GET_IMAGE,
-      {
-        variables: {
-          [mediaType === "video" ? "videoId" : "imageId"]: cid,
-        },
-        skip: !cid,
-      }
-    );
-  
-    const mediaData = data?.[mediaType] || media;
-    const { magnetLink, fileName, fileType, isPublic } = mediaData;
-    const isImage = fileType === "image" || mediaType === "image";
-    const isVideo = fileType === "video" || mediaType === "video";
-
-  // 👇 Use Apollo Client query hook
-
+  // GraphQL query for metadata
+  const { loading, error, data } = useQuery(
+    mediaType === "video" ? GET_VIDEO : GET_IMAGE,
+    {
+      variables: {
+        [mediaType === "video" ? "videoId" : "imageId"]: cid,
+      },
+      skip: !cid,
+      onError: (err) => {
+        console.log("GraphQL error (non-critical):", err.message);
+      },
+    }
+  );
 
   // State
   const [mediaUrl, setMediaUrl] = useState(null);
@@ -115,19 +130,35 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const [peers, setPeers] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isCachedLocally, setIsCachedLocally] = useState(false);
+  const [blobUrl, setBlobUrl] = useState(null); // For web blob URLs
 
   const videoRef = useRef(null);
   const torrentRef = useRef(null);
 
-  // 👇 Get mediaData from Apollo query result or fallback
+  // Get media data from GraphQL or fallback to props
+  const mediaData = data?.[mediaType] || media;
+  const { magnetLink, fileName, fileType, isPublic } = mediaData;
+  const isImage = fileType === "image" || mediaType === "image";
+  const isVideo = fileType === "video" || mediaType === "video";
+  const ipfsUrl = cid ? `https://${PINATA_GATEWAY}/ipfs/${cid}` : null;
+
+  // Strategy helper
   const getStrategy = (fileType) => {
     if (fileType === "video") return "sequential";
     if (fileType === "image") return "rarest";
     return "rarest";
   };
-      const ipfsUrl = cid ? `https://${PINATA_GATEWAY}/ipfs/${cid}` : null;
 
-  // Update status based on Apollo query state
+  // Cleanup function for blob URLs (Web only)
+  useEffect(() => {
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [blobUrl]);
+
+  // Update status based on GraphQL query state
   useEffect(() => {
     if (loading) {
       setStatus("Fetching metadata...");
@@ -138,86 +169,39 @@ export default function WebTorrentMedia({ media, isFocused }) {
     }
   }, [loading, error, data]);
 
-  // ------------------------------------------------------------
-  // EFFECT: LOAD MEDIA (WebTorrent/Cache) - DEPENDS ON mediaData
-  // ------------------------------------------------------------
-  useEffect(() => {
-    if (!mediaData) return;
+  // ============================================
+  // WEB-SPECIFIC LOADING FUNCTION
+  // ============================================
+  const loadMediaWeb = async () => {
+    if (!mediaData || !cid) return;
 
-    const isImage = fileType === "image";
-    const isVideo = fileType === "video";
-    const displayStrategy = getStrategy(fileType);
-
-    // NATIVE PLATFORM
-    if (Platform.OS !== "web") {
-      if (cid) {
-        setMediaUrl(ipfsUrl);
-        setStatus("Loaded via IPFS");
-      }
-      return;
-    }
-
-    // WEB PLATFORM - P2P Logic
-    const loadMedia = async () => {
-      // --- CACHE CHECK ---
-      // --- CACHE CHECK ---
-try {
-  if (isImage) {
-    // Use our own cache directory for images too
-    const imageExt = fileName?.split('.').pop() || 'jpg';
-    const cacheFilename = `${cid}.${imageExt}`;
-    const localUri = CACHE_FOLDER + cacheFilename;
-    const file = new File(localUri);
-    const info = await file.info();
-    
-    if (info.exists) {
-      setMediaUrl(localUri);
+    // 1. CHECK INDEXEDDB CACHE (FASTEST PATH)
+    const cached = await mediaCache.getMedia(cid);
+    if (cached) {
+      const newBlobUrl = URL.createObjectURL(cached.blob);
+      setBlobUrl(newBlobUrl);
+      setMediaUrl(newBlobUrl);
       setStatus("Ready (Local Cache)");
       setIsCachedLocally(true);
       return;
     }
-  } else if (isVideo) {
-    const cacheFilename = `${cid}.mp4`;
-    const localUri = CACHE_FOLDER + cacheFilename;
-    const file = new File(localUri);
-    const info=await file.info();
-    
-    if (info.exists) {
-      setMediaUrl(localUri);
-      setStatus("Ready (Local Cache)");
-      setIsCachedLocally(true);
-      return;
+
+    // 2. CHECK BROWSER CACHE (via expo-image for images only)
+    if (isImage && ipfsUrl) {
+      // expo-image handles its own browser cache
+      setMediaUrl(ipfsUrl);
+      setStatus("Checking browser cache...");
+      // Continue to P2P in background
     }
-  }
-} catch (err) {
-  console.warn("Cache check skipped:", err);
-}
 
-      // --- P2P LOADING ---
-      try {
-        const client = window.globalWebTorrentClient;
+    // 3. ATTEMPT P2P (WEBTORRENT)
+    try {
+      const client = window.globalWebTorrentClient;
 
-        // If no magnet link, use direct IPFS
-        if (!magnetLink || !cid) {
-          console.log("📁 No magnet link, using direct IPFS");
-          if (cid) setMediaUrl(ipfsUrl);
-          setStatus("Loaded via IPFS");
-          return;
-        }
-
-        if (!client) throw new Error("Global WebTorrent client not found");
-
-        // Get optimal strategy
-        const getOptimalStrategy = () => {
-          if (fileType === "video") return "sequential";
-          if (fileType === "image") return "rarest";
-          return "rarest";
-        };
-        const strategy = getOptimalStrategy();
-
+      if (client && magnetLink) {
+        const strategy = getStrategy(fileType);
         setStatus(`Connecting to P2P swarm (${strategy} mode)...`);
 
-        // Existing WebTorrent logic...
         let torrent = client.get(magnetLink);
         if (!torrent) {
           torrent = client.add(magnetLink, {
@@ -238,7 +222,7 @@ try {
         torrentRef.current = torrent;
         if (cid) torrent.addWebSeed(ipfsUrl);
 
-        // Event handlers...
+        // Event handlers
         torrent.on("download", () => {
           const percent = Math.round(torrent.progress * 100);
           setProgress(percent);
@@ -250,44 +234,6 @@ try {
             setStatus(`Loading: ${percent}% from ${torrent.numPeers} peers`);
           }
 
-          // Add this helper function
-const saveImageToCache = async (cid, blobUrl) => {
-  try {
-    const imageExt = fileName?.split('.').pop() || 'jpg';
-    const cacheFilename = `${cid}.${imageExt}`;
-    const localUri = CACHE_FOLDER + cacheFilename;
-    
-    const response = await fetch(blobUrl);
-    const blob = await response.blob();
-    const base64 = await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(blob);
-    });
-    
-    await FileSystem.writeAsStringAsync(localUri, base64.split(',')[1], {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    console.log(`✅ Image saved to cache: ${cacheFilename}`);
-  } catch (error) {
-    console.warn("Failed to save image to cache:", error);
-  }
-};
-
-// Update the P2P download section where you get the blob URL
-if (file) {
-  file.getBlobURL((err, url) => {
-    if (!err) {
-      setMediaUrl(url);
-      setStatus(isImage ? "Image loaded via P2P" : "Ready to play");
-      
-      // Save image to cache for future use
-      if (isImage) {
-        saveImageToCache(cid, url);
-      }
-    }
-  });
-}
           const loadThreshold = isVideo ? 5 : 2;
           if (percent >= loadThreshold && !mediaUrl) {
             let file;
@@ -302,9 +248,14 @@ if (file) {
             }
 
             if (file) {
-              file.getBlobURL((err, url) => {
-                if (!err) {
-                  setMediaUrl(url);
+              file.getBlob((err, blob) => {
+                if (!err && blob) {
+                  // Store in IndexedDB for future
+                  mediaCache.saveMedia(cid, blob, blob.type, fileName || `media_${cid.substring(0, 8)}`);
+                  
+                  const newBlobUrl = URL.createObjectURL(blob);
+                  setBlobUrl(newBlobUrl);
+                  setMediaUrl(newBlobUrl);
                   setStatus(isImage ? "Image loaded via P2P" : "Ready to play");
                 }
               });
@@ -314,56 +265,120 @@ if (file) {
 
         torrent.on("error", (err) => {
           console.error("Torrent error:", err);
-          setStatus("P2P failed, using IPFS");
-          if (cid) setMediaUrl(ipfsUrl);
+          setStatus("P2P failed, trying REST API...");
+          // Fall through to REST API
         });
 
         // Timeout fallback
-        setTimeout(
-          () => {
-            if (!mediaUrl && cid) {
-              setStatus("P2P timeout, using IPFS");
-              setMediaUrl(ipfsUrl);
-            }
-          },
-          isVideo ? 10000 : 25000
-        );
-      } catch (error) {
-        console.error("Error loading media:", error);
-        setStatus("Error, using IPFS fallback");
-        if (cid) setMediaUrl(ipfsUrl);
+        setTimeout(() => {
+          if (!mediaUrl && cid) {
+            setStatus("P2P timeout, trying REST API...");
+            loadFromRestAPI();
+          }
+        }, isVideo ? 10000 : 25000);
+
+        return;
+      }
+    } catch (torrentError) {
+      console.error("WebTorrent initialization error:", torrentError);
+    }
+
+    // 4. FALLBACK TO REST API (YOUR BACKUP)
+    loadFromRestAPI();
+  };
+
+  // REST API fallback function for web
+  const loadFromRestAPI = async () => {
+    if (!cid) return;
+    
+    setStatus("Loading from REST API...");
+    try {
+      // Replace with your actual REST API endpoint
+      const response = await fetch(`/api/media/${cid}`);
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      
+      const blob = await response.blob();
+      
+      // Store in IndexedDB
+      await mediaCache.saveMedia(
+        cid, 
+        blob, 
+        blob.type, 
+        fileName || `media_${cid.substring(0, 8)}`
+      );
+      
+      const newBlobUrl = URL.createObjectURL(blob);
+      setBlobUrl(newBlobUrl);
+      setMediaUrl(newBlobUrl);
+      setStatus("Loaded via REST API");
+    } catch (apiError) {
+      console.error("REST API failed:", apiError);
+      setStatus("All sources failed, using IPFS gateway");
+      if (ipfsUrl) {
+        setMediaUrl(ipfsUrl);
+      }
+    }
+  };
+
+  // ============================================
+  // NATIVE LOADING FUNCTION
+  // ============================================
+  const loadMediaNative = async () => {
+    if (!mediaData || !cid) return;
+
+    await ensureCacheDir();
+
+    // Check local filesystem cache
+    try {
+      const extension = isImage ? (fileName?.split('.').pop() || 'jpg') : 'mp4';
+      const cacheFilename = `${cid}.${extension}`;
+      const localUri = CACHE_FOLDER + cacheFilename;
+      
+      const file = new File(localUri);
+      const info = await file.info();
+      
+      if (info.exists) {
+        setMediaUrl(localUri);
+        setStatus("Ready (Local Cache)");
+        setIsCachedLocally(true);
+        return;
+      }
+    } catch (err) {
+      console.warn("Cache check skipped:", err);
+    }
+
+    // If no cache, use IPFS URL
+    if (ipfsUrl) {
+      setMediaUrl(ipfsUrl);
+      setStatus("Loaded via IPFS");
+    }
+  };
+
+  // ============================================
+  // MAIN LOADING EFFECT
+  // ============================================
+  useEffect(() => {
+    if (!mediaData || !cid) return;
+
+    if (Platform.OS === "web") {
+      loadMediaWeb();
+    } else {
+      loadMediaNative();
+    }
+
+    // Cleanup function
+    return () => {
+      if (torrentRef.current) {
+        console.log("Cleaning up torrent");
+        // Optional: Remove torrent if no longer needed
+        // torrentRef.current.destroy();
       }
     };
+  }, [mediaData, isFocused, cid]);
 
-    loadMedia();
-
-    return () => {
-      // Cleanup
-      console.log("Cleaning up torrent");
-    };
-  }, [mediaData, isFocused, cid, ipfsUrl]);
-
-  // Loading/error states from Apollo
-  if (loading && !mediaData) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.status}>Loading metadata...</Text>
-      </View>
-    );
-  }
-
-  if (error && !mediaData) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.status}>Failed to load metadata</Text>
-      </View>
-    );
-  }
-
-
-  
-  const strategy = getStrategy(fileType); // Calculate for render scope
-  // Video controls
+  // ============================================
+  // VIDEO CONTROLS
+  // ============================================
   const handlePlay = () => {
     if (videoRef.current) {
       videoRef.current.play();
@@ -386,23 +401,61 @@ if (file) {
     setStatus("Playback ended");
   };
 
+  // ============================================
+  // LOADING/ERROR STATES
+  // ============================================
+  if (loading && !mediaData) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.status}>Loading metadata...</Text>
+      </View>
+    );
+  }
+
+  if (error && !mediaData) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.status}>Failed to load metadata</Text>
+      </View>
+    );
+  }
+
+  // ============================================
+  // RENDER
+  // ============================================
+  
+  // For native, use simple IPFS loading
   if (Platform.OS !== "web") {
     return (
       <View style={styles.container}>
-        {isImage ? (
+        {isImage && ipfsUrl ? (
           <Image
             cachePolicy={"memory-disk"}
             source={{ uri: ipfsUrl }}
             style={styles.image}
             resizeMode="contain"
           />
+        ) : isVideo ? (
+          <View style={styles.videoContainer}>
+            <Text style={styles.status}>Native video: {ipfsUrl}</Text>
+            {/* For native video, you'd use a video player component here */}
+          </View>
         ) : (
-          <Text style={styles.status}>Native Video Player Placeholder</Text>
+          <Text style={styles.status}>Unsupported media type</Text>
         )}
+        <View style={styles.mediaInfo}>
+          <Text style={styles.fileName} numberOfLines={1}>
+            {fileName || (isImage ? "Image" : "Video")}
+          </Text>
+          <Text style={[styles.publicLabel, isPublic ? styles.public : styles.private]}>
+            {isPublic ? 'PUBLIC' : 'PRIVATE'}
+          </Text>
+        </View>
       </View>
     );
   }
 
+  // Web rendering
   return (
     <View style={styles.container}>
       {mediaUrl ? (
@@ -419,7 +472,7 @@ if (file) {
                 if (cid) setMediaUrl(ipfsUrl);
               }}
             />
-          ) : (
+          ) : isVideo ? (
             <>
               <video
                 ref={videoRef}
@@ -451,15 +504,15 @@ if (file) {
                 <View style={styles.statusInfo}>
                   <Text style={styles.statusText}>{status}</Text>
                   <Text style={styles.peerText}>
-                    {isCachedLocally ? "Local File" : `${peers} peers`}
+                    {isCachedLocally ? "Local Cache" : `${peers} peers`}
                   </Text>
                   <Text style={styles.strategyText}>
-                    {strategy === "sequential" ? "🎬 Stream" : "⚡ Quick Load"}
+                    {getStrategy(fileType) === "sequential" ? "🎬 Stream" : "⚡ Quick Load"}
                   </Text>
                 </View>
               </View>
             </>
-          )}
+          ) : null}
         </View>
       ) : (
         <View style={styles.loadingContainer}>
@@ -478,6 +531,9 @@ if (file) {
       <View style={styles.mediaInfo}>
         <Text style={styles.fileName} numberOfLines={1}>
           {fileName || (isImage ? "Image" : "Video")}
+        </Text>
+        <Text style={[styles.publicLabel, isPublic ? styles.public : styles.private]}>
+          {isPublic ? 'PUBLIC' : 'PRIVATE'}
         </Text>
         {magnetLink && (
           <Text style={styles.magnetHint}>
@@ -511,6 +567,12 @@ const styles = StyleSheet.create({
     height: undefined,
     backgroundColor: "#000",
     minHeight: 300,
+  },
+  videoContainer: {
+    minHeight: 300,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#111",
   },
   controls: {
     flexDirection: "row",
@@ -586,11 +648,32 @@ const styles = StyleSheet.create({
     backgroundColor: "#111",
   },
   fileName: {
-    opacity: 0,
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 4,
   },
   magnetHint: {
     color: "#00ffff",
     fontSize: 12,
     marginTop: 4,
+  },
+  publicLabel: {
+    fontSize: 10,
+    fontWeight: "bold",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 3,
+    overflow: "hidden",
+    alignSelf: "flex-start",
+    marginBottom: 4,
+  },
+  public: {
+    backgroundColor: "#4CAF50",
+    color: "white",
+  },
+  private: {
+    backgroundColor: "#F44336",
+    color: "white",
   },
 });
