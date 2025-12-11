@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Image } from "expo-image";
+import * as FileSystem from "expo-file-system";
 import { File } from "expo-file-system";
 import { useQuery, gql } from "@apollo/client"; // 👈 Import Apollo Client
 
