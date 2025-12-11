@@ -246,6 +246,44 @@ try {
             setStatus(`Loading: ${percent}% from ${torrent.numPeers} peers`);
           }
 
+          // Add this helper function
+const saveImageToCache = async (cid, blobUrl) => {
+  try {
+    const imageExt = fileName?.split('.').pop() || 'jpg';
+    const cacheFilename = `${cid}.${imageExt}`;
+    const localUri = CACHE_FOLDER + cacheFilename;
+    
+    const response = await fetch(blobUrl);
+    const blob = await response.blob();
+    const base64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+    
+    await FileSystem.writeAsStringAsync(localUri, base64.split(',')[1], {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    console.log(`✅ Image saved to cache: ${cacheFilename}`);
+  } catch (error) {
+    console.warn("Failed to save image to cache:", error);
+  }
+};
+
+// Update the P2P download section where you get the blob URL
+if (file) {
+  file.getBlobURL((err, url) => {
+    if (!err) {
+      setMediaUrl(url);
+      setStatus(isImage ? "Image loaded via P2P" : "Ready to play");
+      
+      // Save image to cache for future use
+      if (isImage) {
+        saveImageToCache(cid, url);
+      }
+    }
+  });
+}
           const loadThreshold = isVideo ? 5 : 2;
           if (percent >= loadThreshold && !mediaUrl) {
             let file;
