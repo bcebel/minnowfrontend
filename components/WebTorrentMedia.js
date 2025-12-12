@@ -1,4 +1,4 @@
-// WebTorrentMedia.js
+// WebTorrentMedia.js - Final Version
 import React, { useEffect, useRef, useState } from "react";
 import {
   Platform,
@@ -10,9 +10,33 @@ import {
 import { Image } from "expo-image";
 import { File, Directory } from "expo-file-system";
 import { useQuery, gql } from "@apollo/client";
-import { mediaCache } from "./mediaCache"; // Your IndexedDB cache
+
+// Import the SSR-safe mediaCache
+let mediaCache;
+if (Platform.OS === "web" && typeof window !== "undefined") {
+  // Only load the real IndexedDB cache in a real browser
+  try {
+    mediaCache = require("./mediaCache").mediaCache;
+  } catch (error) {
+    console.warn("Media cache failed to load:", error.message);
+    // Fallback mock for web if module fails
+    mediaCache = {
+      getMedia: async () => null,
+      saveMedia: async () => {},
+      hasMedia: async () => false,
+    };
+  }
+} else {
+  // Native or server-side: use mock
+  mediaCache = {
+    getMedia: async () => null,
+    saveMedia: async () => {},
+    hasMedia: async () => false,
+  };
+}
 
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
+const CACHE_FOLDER = "file:///cache/webtorrent_media/";
 
 // GraphQL Queries
 const GET_VIDEO = gql`
@@ -83,7 +107,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
   })();
 
   const mediaType = getMediaType(media);
-  
+
   const { loading, error, data } = useQuery(
     mediaType === "video" ? GET_VIDEO : GET_IMAGE,
     {
@@ -141,18 +165,18 @@ export default function WebTorrentMedia({ media, isFocused }) {
 
   // ==================== NATIVE CACHE FUNCTIONS ====================
   const getNativeCacheUri = (cid, fileName, isImage) => {
-    const extension = isImage ? (fileName?.split('.').pop() || 'jpg') : 'mp4';
-    return `file:///cache/webtorrent_media/${cid}.${extension}`;
+    const extension = isImage ? fileName?.split(".").pop() || "jpg" : "mp4";
+    return `${CACHE_FOLDER}${cid}.${extension}`;
   };
 
   const checkNativeCache = async () => {
     if (!cid || Platform.OS === "web") return null;
-    
+
     try {
       const cacheUri = getNativeCacheUri(cid, fileName, isImage);
       const file = new File(cacheUri);
       const info = await file.info();
-      
+
       if (info.exists) {
         return cacheUri;
       }
@@ -164,13 +188,12 @@ export default function WebTorrentMedia({ media, isFocused }) {
 
   const saveToNativeCache = async (cid, blobData, isImage) => {
     if (Platform.OS === "web") return;
-    
+
     try {
       // Create cache directory if it doesn't exist
-      const cacheDirUri = 'file:///cache/webtorrent_media/';
-      const cacheDir = new Directory(cacheDirUri);
+      const cacheDir = new Directory(CACHE_FOLDER);
       const dirInfo = await cacheDir.info();
-      
+
       if (!dirInfo.exists) {
         await cacheDir.makeAsync();
       }
@@ -178,22 +201,62 @@ export default function WebTorrentMedia({ media, isFocused }) {
       // Save file
       const cacheUri = getNativeCacheUri(cid, fileName, isImage);
       const file = new File(cacheUri);
-      
+
       // Convert blob to base64 for saving
       const base64 = await new Promise((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result);
         reader.readAsDataURL(blobData);
       });
-      
-      await file.writeAsStringAsync(base64.split(',')[1], {
-        encoding: 'base64',
+
+      await file.writeAsStringAsync(base64.split(",")[1], {
+        encoding: "base64",
       });
-      
+
       console.log(`✅ Saved to native cache: ${cid}`);
     } catch (error) {
       console.warn("Failed to save to native cache:", error);
     }
+  };
+
+  // ==================== NATIVE LOADING FUNCTION ====================
+  const loadMediaNative = async () => {
+    if (!cid) return;
+
+    // 1. Check CID-based file cache FIRST
+    const cachedUri = await checkNativeCache();
+    if (cachedUri) {
+      setMediaUrl(cachedUri);
+      setStatus("Ready (Local Cache)");
+      setIsCachedLocally(true);
+      return;
+    }
+
+    // 2. If not cached, fetch from your source chain
+    let fetchedBlob;
+    try {
+      // Try your REST API first
+      setStatus("Fetching from REST API...");
+      const response = await fetch(`/api/media/${cid}`);
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      fetchedBlob = await response.blob();
+    } catch (apiError) {
+      // Fallback to IPFS gateway
+      console.log("REST API failed, trying IPFS gateway...", apiError);
+      setStatus("Fetching from IPFS...");
+      const ipfsResponse = await fetch(ipfsUrl);
+      if (!ipfsResponse.ok) throw new Error("IPFS gateway failed");
+      fetchedBlob = await ipfsResponse.blob();
+    }
+
+    // 3. Save the fetched blob using your CID-based path
+    await saveToNativeCache(cid, fetchedBlob, isImage);
+
+    // 4. Update state to display from the new cached file URI
+    const newCacheUri = getNativeCacheUri(cid, fileName, isImage);
+    setMediaUrl(newCacheUri);
+    setStatus("Loaded and Cached");
+    setIsCachedLocally(true);
   };
 
   // ==================== WEB CACHE FUNCTIONS ====================
@@ -241,14 +304,16 @@ export default function WebTorrentMedia({ media, isFocused }) {
     if (!torrent) {
       torrent = client.add(magnetLink, {
         strategy: strategy,
-        ...(isVideo ? {
-          storeCacheSlots: 20,
-          preloadStoreSize: 10 * 1024 * 1024,
-          destroyStoreOnDestroy: false,
-        } : {
-          storeCacheSlots: 5,
-          preloadStoreSize: 2 * 1024 * 1024,
-        }),
+        ...(isVideo
+          ? {
+              storeCacheSlots: 20,
+              preloadStoreSize: 10 * 1024 * 1024,
+              destroyStoreOnDestroy: false,
+            }
+          : {
+              storeCacheSlots: 5,
+              preloadStoreSize: 2 * 1024 * 1024,
+            }),
       });
     }
 
@@ -285,7 +350,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
               if (!err && blob) {
                 // Save to IndexedDB
                 mediaCache.saveMedia(cid, blob, blob.type, fileName);
-                
+
                 const newBlobUrl = URL.createObjectURL(blob);
                 setBlobUrl(newBlobUrl);
                 setMediaUrl(newBlobUrl);
@@ -300,35 +365,38 @@ export default function WebTorrentMedia({ media, isFocused }) {
       torrent.on("error", (err) => {
         console.error("Torrent error:", err);
         setStatus("P2P failed, trying REST API...");
-        resolve(); // Continue to REST API
+        resolve();
       });
 
-      setTimeout(() => {
-        if (!mediaUrl && cid) {
-          setStatus("P2P timeout, trying REST API...");
-          resolve();
-        }
-      }, isVideo ? 10000 : 25000);
+      setTimeout(
+        () => {
+          if (!mediaUrl && cid) {
+            setStatus("P2P timeout, trying REST API...");
+            resolve();
+          }
+        },
+        isVideo ? 10000 : 25000
+      );
     });
   };
 
   const loadFromRestAPI = async () => {
     if (!cid) return;
-    
+
     setStatus("Loading from REST API...");
     try {
       const response = await fetch(`/api/media/${cid}`);
       if (!response.ok) throw new Error(`API error: ${response.status}`);
-      
+
       const blob = await response.blob();
-      
+
       // Save to appropriate cache
       if (Platform.OS === "web") {
         await mediaCache.saveMedia(cid, blob, blob.type, fileName);
       } else {
         await saveToNativeCache(cid, blob, isImage);
       }
-      
+
       const newBlobUrl = URL.createObjectURL(blob);
       setBlobUrl(newBlobUrl);
       setMediaUrl(newBlobUrl);
@@ -350,16 +418,8 @@ export default function WebTorrentMedia({ media, isFocused }) {
       if (Platform.OS === "web") {
         await loadMediaWeb();
       } else {
-        // Native: Check cache first
-        const cachedUri = await checkNativeCache();
-        if (cachedUri) {
-          setMediaUrl(cachedUri);
-          setStatus("Ready (Local Cache)");
-          setIsCachedLocally(true);
-        } else if (ipfsUrl) {
-          setMediaUrl(ipfsUrl);
-          setStatus("Loaded via IPFS");
-        }
+        // Native: Use the complete caching strategy
+        await loadMediaNative();
       }
     };
 
@@ -435,8 +495,13 @@ export default function WebTorrentMedia({ media, isFocused }) {
           <Text style={styles.fileName} numberOfLines={1}>
             {fileName || (isImage ? "Image" : "Video")}
           </Text>
-          <Text style={[styles.publicLabel, isPublic ? styles.public : styles.private]}>
-            {isPublic ? 'PUBLIC' : 'PRIVATE'}
+          <Text
+            style={[
+              styles.publicLabel,
+              isPublic ? styles.public : styles.private,
+            ]}
+          >
+            {isPublic ? "PUBLIC" : "PRIVATE"}
           </Text>
         </View>
       </View>
@@ -519,8 +584,13 @@ export default function WebTorrentMedia({ media, isFocused }) {
         <Text style={styles.fileName} numberOfLines={1}>
           {fileName || (isImage ? "Image" : "Video")}
         </Text>
-        <Text style={[styles.publicLabel, isPublic ? styles.public : styles.private]}>
-          {isPublic ? 'PUBLIC' : 'PRIVATE'}
+        <Text
+          style={[
+            styles.publicLabel,
+            isPublic ? styles.public : styles.private,
+          ]}
+        >
+          {isPublic ? "PUBLIC" : "PRIVATE"}
         </Text>
         {magnetLink && (
           <Text style={styles.magnetHint}>
