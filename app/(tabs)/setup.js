@@ -11,7 +11,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { useMutation } from "@apollo/client";
+import { useMutation, useQuery } from "@apollo/client";
 import { gql } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -20,18 +20,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-// Updated mutation with affiliateLinks
-// In your setup.js - Update the UPDATE_PROFILE mutation
+// --- GraphQL Definitions ---
+
 const UPDATE_PROFILE = gql`
   mutation UpdateProfile(
-    $bio: String, 
-    $profilePhoto: String, 
-    $affiliateLinks: [AffiliateLinkInput]  # Add this
+    $bio: String
+    $profilePhoto: String
+    $affiliateLinks: [AffiliateLinkInput]
   ) {
     updateProfile(
-      bio: $bio, 
-      profilePhoto: $profilePhoto, 
-      affiliateLinks: $affiliateLinks  # Add this
+      bio: $bio
+      profilePhoto: $profilePhoto
+      affiliateLinks: $affiliateLinks
     ) {
       id
       username
@@ -40,8 +40,23 @@ const UPDATE_PROFILE = gql`
       affiliateLinks {
         id
         url
-        title  # Make sure title is included here
+        title
         clicks
+      }
+    }
+  }
+`;
+
+const GET_PROFILE = gql`
+  query GetProfile {
+    myProfile {
+      id
+      bio
+      profilePhoto
+      affiliateLinks {
+        id
+        url
+        title
       }
     }
   }
@@ -50,21 +65,67 @@ const UPDATE_PROFILE = gql`
 export default function ProfileSetupScreen() {
   const router = useRouter();
   const [bio, setBio] = useState("");
-  const [profilePhoto, setProfilePhoto] = useState(null);
-  const [profilePhotoCid, setProfilePhotoCid] = useState(null);
+  const [profilePhoto, setProfilePhoto] = useState(null); // Local URI for new upload
+  const [profilePhotoCid, setProfilePhotoCid] = useState(null); // CID for saved/existing photo
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [affiliateLinks, setAffiliateLinks] = useState([
     { url: "", title: "" },
   ]);
 
-  // Mutation with error policy to handle null responses
+  // --- 1. Fetch Existing Profile Data ---
+  const {
+    loading: loadingProfile,
+    error: profileError,
+    data: profileData,
+  } = useQuery(GET_PROFILE, {
+    fetchPolicy: "cache-and-network",
+  });
+
   const [updateProfile] = useMutation(UPDATE_PROFILE, {
     errorPolicy: "all",
   });
 
+  // --- 2. Initialize State with Fetched Data ---
+  React.useEffect(() => {
+    if (profileData?.myProfile) {
+      const { bio, profilePhoto, affiliateLinks } = profileData.myProfile;
+
+      // 1. Set Bio
+      if (bio) {
+        setBio(bio);
+      }
+
+      // 2. Set Profile Photo CID
+      if (profilePhoto) {
+        setProfilePhotoCid(profilePhoto);
+      }
+
+      // 3. Set Affiliate Links
+      if (affiliateLinks && affiliateLinks.length > 0) {
+        // Use the fetched links
+        setAffiliateLinks(
+          affiliateLinks.map((link) => ({
+            url: link.url || "",
+            title: link.title || "",
+          }))
+        );
+      } else {
+        // If there are no links saved, start with one empty field
+        setAffiliateLinks([{ url: "", title: "" }]);
+      }
+    }
+
+    if (profileError) {
+      console.error("❌ Error loading profile:", profileError);
+      Alert.alert("Load Error", "Could not load existing profile data.");
+    }
+  }, [profileData, profileError]);
+  // ---------------------------------------------
+
   // Upload image to IPFS and get CID
   const uploadToIPFS = async (fileUri, fileName) => {
+    // ... (existing uploadToIPFS logic)
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) throw new Error("No authentication token found");
@@ -108,6 +169,7 @@ export default function ProfileSetupScreen() {
   };
 
   const pickImage = async () => {
+    // ... (existing pickImage logic)
     try {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -160,62 +222,77 @@ export default function ProfileSetupScreen() {
     setAffiliateLinks(updated);
   };
 
-const handleSave = async () => {
-  try {
-    setSaving(true);
+  const handleSave = async () => {
+    // ... (existing handleSave logic)
+    try {
+      setSaving(true);
 
-    // Filter out empty links and ensure both URL and Title are handled
-    const validLinks = affiliateLinks
-      .filter((link) => link.url.trim()) // Only links with URLs
-      .map((link) => ({
-        url: link.url,
-        title: link.title || "My Affiliate Link", // Default title if empty
-      }));
+      // Filter out empty links and ensure both URL and Title are handled
+      const validLinks = affiliateLinks
+        .filter((link) => link.url.trim()) // Only links with URLs
+        .map((link) => ({
+          url: link.url,
+          title: link.title || "My Affiliate Link", // Default title if empty
+        }));
 
-    console.log("🔄 Saving profile with links:", {
-      bio: bio || "",
-      profilePhoto: profilePhotoCid || "",
-      affiliateLinks: validLinks,
-    });
-
-    const { data, errors } = await updateProfile({
-      variables: {
+      console.log("🔄 Saving profile with links:", {
         bio: bio || "",
         profilePhoto: profilePhotoCid || "",
         affiliateLinks: validLinks,
-      },
-    });
+      });
 
-    // Handle response
-    if (errors && errors.length > 0) {
-      console.error("GraphQL errors:", errors);
-      throw new Error(errors[0].message);
+      const { data, errors } = await updateProfile({
+        variables: {
+          bio: bio || "",
+          profilePhoto: profilePhotoCid || "",
+          affiliateLinks: validLinks,
+        },
+      });
+
+      // Handle response
+      if (errors && errors.length > 0) {
+        console.error("GraphQL errors:", errors);
+        throw new Error(errors[0].message);
+      }
+
+      if (data?.updateProfile) {
+        console.log(
+          "✅ Profile saved successfully with links:",
+          data.updateProfile
+        );
+        Alert.alert("Success", "Profile setup complete!");
+        router.replace("/neighborhoods");
+      }
+    } catch (err) {
+      console.error("Error saving profile:", err);
+      Alert.alert("Error", "Failed to save profile: " + err.message);
+    } finally {
+      setSaving(false);
     }
-
-    if (data?.updateProfile) {
-      console.log(
-        "✅ Profile saved successfully with links:",
-        data.updateProfile
-      );
-      Alert.alert("Success", "Profile setup complete!");
-      router.replace("/neighborhoods");
-    }
-  } catch (err) {
-    console.error("Error saving profile:", err);
-    Alert.alert("Error", "Failed to save profile: " + err.message);
-  } finally {
-    setSaving(false);
-  }
-};
-
-  // Get display URL for the image
-  const getProfilePhotoUrl = () => {
-    if (profilePhoto) return profilePhoto;
-    if (profilePhotoCid)
-      return `https://${PINATA_GATEWAY}/ipfs/${profilePhotoCid}`;
-    return "https://via.placeholder.com/150";
   };
 
+  // Get display URL for the image (Only returns a string URL)
+  const getProfilePhotoUrl = () => {
+    if (profilePhoto) return profilePhoto; // Newly selected local image
+    if (profilePhotoCid)
+      return `https://${PINATA_GATEWAY}/ipfs/${profilePhotoCid}`; // Existing image
+    return "https://via.placeholder.com/150"; // Default placeholder
+  };
+
+  // --- 3. Full-Screen Loading Handler (THE KEY FIX) ---
+  if (loadingProfile) {
+    return (
+      <View style={[styles.container, styles.loadingOverlay]}>
+        <ActivityIndicator size="large" color="#00ffff" />
+        <Text style={styles.uploadingText}>
+          Loading Existing Profile Data...
+        </Text>
+      </View>
+    );
+  }
+  // ---------------------------------------------------
+
+  // 4. Final Render (Form displays populated data)
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Complete Your Profile</Text>
@@ -235,6 +312,7 @@ const handleSave = async () => {
             </View>
           ) : (
             <>
+              {/* Uses getProfilePhotoUrl, which now correctly returns a URL string */}
               <Image
                 source={{ uri: getProfilePhotoUrl() }}
                 style={styles.avatar}
@@ -258,7 +336,7 @@ const handleSave = async () => {
         <TextInput
           style={styles.bioInput}
           placeholder="Tell everyone about yourself... What are you passionate about? What do you do?"
-          value={bio}
+          value={bio} // Populated from state
           onChangeText={setBio}
           multiline
           numberOfLines={4}
@@ -273,6 +351,7 @@ const handleSave = async () => {
           Add affiliate links from CJ.com
         </Text>
 
+        {/* Maps over affiliateLinks state, which is populated in useEffect */}
         {affiliateLinks.map((link, index) => (
           <View key={index} style={styles.linkContainer}>
             <Text style={styles.label}>Title</Text>
@@ -330,11 +409,19 @@ const handleSave = async () => {
 }
 
 const styles = StyleSheet.create({
+  // ... (existing styles)
   container: {
     flex: 1,
     backgroundColor: "#000",
     padding: 20,
   },
+  // ... (other styles)
+  loadingOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  // ... (rest of the styles)
   title: {
     fontSize: 28,
     fontWeight: "bold",
