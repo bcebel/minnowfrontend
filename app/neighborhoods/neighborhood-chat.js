@@ -1713,18 +1713,19 @@ export default function NeighborhoodChatScreen() {
           }
           style={styles.galleryButton}
         >
-          <Text style={styles.galleryButtonText}> 🖼 GALLERY 🖼️</Text>
+          <Text style={styles.galleryButtonText}> 🖼 Gallery</Text>
         </TouchableOpacity>
-        <Link
-          href={`/neighborhoods/invite-links?neighborhoodId=${neighborhoodId}`}
-          asChild
+
+        <TouchableOpacity
+          onPress={() =>
+            router.push(
+              `/neighborhoods/invite-links?neighborhoodId=${neighborhoodId}`
+            )
+          }
+          style={styles.galleryButton}
         >
-          <TouchableOpacity style={styles.inviteLinksButton}>
-            <Text style={styles.inviteLinksButtonText}>
-              🔗 Manage Invite Links
-            </Text>
-          </TouchableOpacity>
-        </Link>
+          <Text style={styles.galleryButtonText}>📧 Invite</Text>
+        </TouchableOpacity>
 
         <Text style={styles.roomTitle}>🏘️ {neighborhoodName}</Text>
         <TouchableOpacity
@@ -1776,7 +1777,7 @@ export default function NeighborhoodChatScreen() {
                 <View style={styles.messageContainer}>
                   <Image
                     source={{
-                      uri: getProfilePhotoUrl(null)
+                      uri: getProfilePhotoUrl(null),
                     }}
                     style={styles.profileImage}
                   />
@@ -2223,7 +2224,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   inviteLinksButton: {
-    backgroundColor: "#9C27B0",
+    backgroundColor: "#000000",
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 6,
@@ -2231,7 +2232,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   inviteLinksButtonText: {
-    color: "#FFF",
+    color: "#00ffff",
     fontWeight: "bold",
   },
 });
