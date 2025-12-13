@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Linking,
+  Dimensions,
 } from "react-native";
 import { gql, useQuery } from "@apollo/client";
 import WebTorrentMedia from "../components/WebTorrentMedia";
@@ -434,6 +435,9 @@ export default function AllNeighborhoodsGallery() {
         data={mediaItems}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
+        horizontal={true}
+        pagingEnabled={true}
+        showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
         refreshing={refreshing}
         onRefresh={handleRefresh}
@@ -516,12 +520,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   listContainer: {
-    padding: 10,
-    paddingBottom: 20,
+    padding: 0, // Set to 0 or remove padding to avoid clipping
+    paddingBottom: 20, // Keep if you want space below the card
   },
   card: {
     backgroundColor: "#111111",
     borderRadius: 12,
+    // Add margin to separate cards visually (if desired)
+    marginHorizontal: 10,
+    // 👇 CRITICAL: Set card width to screen width minus margins
+    width: Dimensions.get("window").width - 20, // (Full width - left margin - right margin)
     marginBottom: 15,
     overflow: "hidden",
     borderWidth: 2,
