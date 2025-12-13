@@ -1,5 +1,5 @@
 // app/profile/setup.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,12 +11,12 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { useMutation, useQuery } from "@apollo/client";
-import { gql } from "@apollo/client";
+import { useMutation, useQuery, gql } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// --- Environment Variables ---
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -49,7 +49,7 @@ const UPDATE_PROFILE = gql`
 
 const GET_PROFILE = gql`
   query GetProfile {
-    myProfile {
+    me {
       id
       bio
       profilePhoto
@@ -62,48 +62,53 @@ const GET_PROFILE = gql`
   }
 `;
 
+// --- Utility: Get Full Image URL ---
+const getProfilePhotoUrl = (cid) => {
+  if (cid) return `https://${PINATA_GATEWAY}/ipfs/${cid}`;
+  return null;
+};
+
 export default function ProfileSetupScreen() {
   const router = useRouter();
+
+  // State for Form Inputs, initialized to empty/default
   const [bio, setBio] = useState("");
-  const [profilePhoto, setProfilePhoto] = useState(null); // Local URI for new upload
-  const [profilePhotoCid, setProfilePhotoCid] = useState(null); // CID for saved/existing photo
-  const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [profilePhotoCid, setProfilePhotoCid] = useState(null); // The CID that will be saved/updated
   const [affiliateLinks, setAffiliateLinks] = useState([
     { url: "", title: "" },
   ]);
 
-  // --- 1. Fetch Existing Profile Data ---
+  // State for UI/Loading
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // --- FETCH CURRENT DATA ---
   const {
     loading: loadingProfile,
-    error: profileError,
     data: profileData,
+    refetch: refetchProfile,
+    error: profileError,
   } = useQuery(GET_PROFILE, {
-    fetchPolicy: "cache-and-network",
+    fetchPolicy: "network-and-cache",
   });
 
   const [updateProfile] = useMutation(UPDATE_PROFILE, {
     errorPolicy: "all",
   });
 
-  // --- 2. Initialize State with Fetched Data ---
-  React.useEffect(() => {
-    if (profileData?.myProfile) {
-      const { bio, profilePhoto, affiliateLinks } = profileData.myProfile;
+  // --- POPULATE STATE FROM QUERY RESULT ---
+  useEffect(() => {
+    if (profileData?.me) {
+      const { bio, profilePhoto, affiliateLinks } = profileData.me;
 
-      // 1. Set Bio
-      if (bio) {
-        setBio(bio);
-      }
+      // Set Bio
+      setBio(bio || "");
 
-      // 2. Set Profile Photo CID
-      if (profilePhoto) {
-        setProfilePhotoCid(profilePhoto);
-      }
+      // Set Profile Photo CID
+      setProfilePhotoCid(profilePhoto || null);
 
-      // 3. Set Affiliate Links
+      // Set Affiliate Links: Use existing links, or one empty field if none exist
       if (affiliateLinks && affiliateLinks.length > 0) {
-        // Use the fetched links
         setAffiliateLinks(
           affiliateLinks.map((link) => ({
             url: link.url || "",
@@ -111,21 +116,16 @@ export default function ProfileSetupScreen() {
           }))
         );
       } else {
-        // If there are no links saved, start with one empty field
         setAffiliateLinks([{ url: "", title: "" }]);
       }
     }
+  }, [profileData]);
 
-    if (profileError) {
-      console.error("❌ Error loading profile:", profileError);
-      Alert.alert("Load Error", "Could not load existing profile data.");
-    }
-  }, [profileData, profileError]);
-  // ---------------------------------------------
+  // --- IMAGE UPLOAD LOGIC ---
 
-  // Upload image to IPFS and get CID
+  // Upload image to IPFS (retained from original logic)
   const uploadToIPFS = async (fileUri, fileName) => {
-    // ... (existing uploadToIPFS logic)
+    // ... (Your existing uploadToIPFS function body remains here) ...
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) throw new Error("No authentication token found");
@@ -137,8 +137,6 @@ export default function ProfileSetupScreen() {
       formData.append("video", blob, fileName || "profile-photo.jpg");
       formData.append("title", "Profile Photo");
       formData.append("description", "User profile photo");
-
-      console.log("🔄 Uploading profile photo to IPFS...");
 
       const res = await fetch(`${BACKEND_URL}/upload`, {
         method: "POST",
@@ -152,8 +150,6 @@ export default function ProfileSetupScreen() {
       }
 
       const result = await res.json();
-      console.log("✅ Profile photo uploaded:", result);
-
       const ipfsUrl = result.ipfsUrl;
       const cid = ipfsUrl.split("/ipfs/")[1];
 
@@ -169,7 +165,6 @@ export default function ProfileSetupScreen() {
   };
 
   const pickImage = async () => {
-    // ... (existing pickImage logic)
     try {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -179,7 +174,7 @@ export default function ProfileSetupScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -187,19 +182,19 @@ export default function ProfileSetupScreen() {
 
       if (!result.canceled) {
         const asset = result.assets[0];
-        setProfilePhoto(asset.uri);
         setUploading(true);
+        // Note: We don't set a temporary profilePhoto URI, we just upload and set the CID
+        // The display logic uses profilePhotoCid directly.
 
         try {
           const cid = await uploadToIPFS(asset.uri, "profile-photo.jpg");
-          setProfilePhotoCid(cid);
-          console.log("✅ Profile photo CID:", cid);
+          setProfilePhotoCid(cid); // This updates the photo to display and saves the CID for the mutation
+          Alert.alert("Upload Successful", "Photo uploaded and ready to save.");
         } catch (error) {
           Alert.alert(
             "Upload Failed",
-            "Could not upload profile photo to IPFS"
+            "Could not upload profile photo to IPFS."
           );
-          setProfilePhoto(null);
           setProfilePhotoCid(null);
         } finally {
           setUploading(false);
@@ -212,6 +207,7 @@ export default function ProfileSetupScreen() {
     }
   };
 
+  // --- AFFILIATE LINK LOGIC ---
   const addLinkField = () => {
     setAffiliateLinks([...affiliateLinks, { url: "", title: "" }]);
   };
@@ -222,24 +218,18 @@ export default function ProfileSetupScreen() {
     setAffiliateLinks(updated);
   };
 
+  // --- SAVE LOGIC ---
   const handleSave = async () => {
-    // ... (existing handleSave logic)
     try {
       setSaving(true);
 
-      // Filter out empty links and ensure both URL and Title are handled
+      // Only send links that have a URL
       const validLinks = affiliateLinks
-        .filter((link) => link.url.trim()) // Only links with URLs
+        .filter((link) => link.url.trim())
         .map((link) => ({
           url: link.url,
-          title: link.title || "My Affiliate Link", // Default title if empty
+          title: link.title || "My Affiliate Link", // Ensure a title is sent if URL is present
         }));
-
-      console.log("🔄 Saving profile with links:", {
-        bio: bio || "",
-        profilePhoto: profilePhotoCid || "",
-        affiliateLinks: validLinks,
-      });
 
       const { data, errors } = await updateProfile({
         variables: {
@@ -249,94 +239,139 @@ export default function ProfileSetupScreen() {
         },
       });
 
-      // Handle response
       if (errors && errors.length > 0) {
-        console.error("GraphQL errors:", errors);
         throw new Error(errors[0].message);
       }
 
       if (data?.updateProfile) {
-        console.log(
-          "✅ Profile saved successfully with links:",
-          data.updateProfile
-        );
-        Alert.alert("Success", "Profile setup complete!");
-        router.replace("/neighborhoods");
+        Alert.alert("Success", "Profile saved successfully!", [
+          {
+            text: "OK",
+            onPress: () => {
+              // The replace is good because it re-renders the page with the fresh data
+              router.replace("/profile/setup");
+            },
+          },
+        ]);
       }
     } catch (err) {
-      console.error("Error saving profile:", err);
-      Alert.alert("Error", "Failed to save profile: " + err.message);
+      Alert.alert(
+        "Error",
+        "Failed to save profile: " + (err.message || "Unknown error")
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  // Get display URL for the image (Only returns a string URL)
-  const getProfilePhotoUrl = () => {
-    if (profilePhoto) return profilePhoto; // Newly selected local image
-    if (profilePhotoCid)
-      return `https://${PINATA_GATEWAY}/ipfs/${profilePhotoCid}`; // Existing image
-    return "https://via.placeholder.com/150"; // Default placeholder
-  };
+  // --- RENDER LOGIC ---
 
-  // --- 3. Full-Screen Loading Handler (THE KEY FIX) ---
   if (loadingProfile) {
     return (
       <View style={[styles.container, styles.loadingOverlay]}>
         <ActivityIndicator size="large" color="#00ffff" />
-        <Text style={styles.uploadingText}>
-          Loading Existing Profile Data...
-        </Text>
+        <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
   }
-  // ---------------------------------------------------
 
-  // 4. Final Render (Form displays populated data)
+  if (profileError) {
+    return (
+      <View style={[styles.container, styles.loadingOverlay]}>
+        <Text style={styles.errorText}>
+          Error loading profile: {profileError.message}
+        </Text>
+        <TouchableOpacity style={styles.refetchButton} onPress={refetchProfile}>
+          <Text style={styles.refetchButtonText}>Try Again</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const photoUrl = getProfilePhotoUrl(profilePhotoCid);
+
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Complete Your Profile</Text>
+      <Text style={styles.title}>Your Profile Setup</Text>
 
-      <View style={styles.stepContainer}>
-        <Text style={styles.stepTitle}>About You</Text>
+      {/* 🚀 CURRENT SETUP DISPLAY (Read-Only View) 🚀 */}
+      <View style={styles.currentSection}>
+        <Text style={styles.sectionTitle}>Current Live Setup</Text>
 
+        {/* Profile Photo Display */}
+        <View style={styles.photoDisplaySection}>
+          <Text style={styles.label}>Profile Photo:</Text>
+          {photoUrl ? (
+            <Image source={{ uri: photoUrl }} style={styles.profileImage} />
+          ) : (
+            <View style={styles.noPhoto}>
+              <Text style={styles.noPhotoText}>No Profile Photo</Text>
+            </View>
+          )}
+          {profilePhotoCid && (
+            <Text style={styles.cidText}>
+              CID: {profilePhotoCid.substring(0, 15)}...
+            </Text>
+          )}
+        </View>
+
+        {/* Bio Display */}
+        <View style={styles.bioSection}>
+          <Text style={styles.label}>Bio:</Text>
+          {bio ? (
+            <Text style={styles.currentBio}>{bio}</Text>
+          ) : (
+            <Text style={styles.noData}>No bio set</Text>
+          )}
+        </View>
+
+        {/* Affiliate Links Display */}
+        <View style={styles.linksSection}>
+          <Text style={styles.label}>Affiliate Links:</Text>
+          {affiliateLinks.filter((l) => l.url.trim()).length > 0 ? (
+            affiliateLinks
+              .filter((l) => l.url.trim())
+              .map((link, index) => (
+                <View key={index} style={styles.linkItem}>
+                  <Text style={styles.linkTitle}>
+                    {link.title || "Untitled Link"}
+                  </Text>
+                  <Text style={styles.linkUrl}>{link.url}</Text>
+                </View>
+              ))
+          ) : (
+            <Text style={styles.noData}>No affiliate links set</Text>
+          )}
+        </View>
+      </View>
+
+      {/* 🛠️ UPDATE FORM (Editable Inputs) 🛠️ */}
+      <View style={styles.formSection}>
+        <Text style={styles.sectionTitle}>Update Profile Settings</Text>
+
+        {/* Photo Upload Button */}
         <TouchableOpacity
-          style={styles.avatarContainer}
+          style={styles.uploadButton}
           onPress={pickImage}
           disabled={uploading}
         >
           {uploading ? (
-            <View style={[styles.avatar, styles.uploadingAvatar]}>
-              <ActivityIndicator size="large" color="#00ffff" />
-              <Text style={styles.uploadingText}>Uploading to IPFS...</Text>
-            </View>
+            <ActivityIndicator color="#000" />
           ) : (
-            <>
-              {/* Uses getProfilePhotoUrl, which now correctly returns a URL string */}
-              <Image
-                source={{ uri: getProfilePhotoUrl() }}
-                style={styles.avatar}
-              />
-              <Text style={styles.avatarText}>
-                {profilePhotoCid
-                  ? "✅ Photo saved to IPFS"
-                  : "Tap to add photo"}
-              </Text>
-            </>
+            <Text style={styles.uploadButtonText}>
+              {profilePhotoCid
+                ? "Change Profile Photo"
+                : "Upload Profile Photo"}
+            </Text>
           )}
         </TouchableOpacity>
 
-        {profilePhotoCid && (
-          <Text style={styles.cidText}>
-            IPFS CID: {profilePhotoCid.substring(0, 20)}...
-          </Text>
-        )}
-
-        <Text style={styles.label}>Bio</Text>
+        {/* Bio Input */}
         <TextInput
           style={styles.bioInput}
-          placeholder="Tell everyone about yourself... What are you passionate about? What do you do?"
-          value={bio} // Populated from state
+          placeholder="Update your bio..."
+          placeholderTextColor="#666"
+          value={bio}
           onChangeText={setBio}
           multiline
           numberOfLines={4}
@@ -345,27 +380,21 @@ export default function ProfileSetupScreen() {
         />
         <Text style={styles.charCount}>{bio.length}/500</Text>
 
-        {/* Affiliate Links Section */}
-        <Text style={styles.sectionTitle}>Your Affiliate Links (Optional)</Text>
-        <Text style={styles.sectionDescription}>
-          Add affiliate links from CJ.com
-        </Text>
-
-        {/* Maps over affiliateLinks state, which is populated in useEffect */}
+        {/* Affiliate Links Input */}
+        <Text style={styles.label}>Edit Affiliate Links:</Text>
         {affiliateLinks.map((link, index) => (
-          <View key={index} style={styles.linkContainer}>
-            <Text style={styles.label}>Title</Text>
+          <View key={index} style={styles.linkInputGroup}>
             <TextInput
-              style={styles.input}
-              placeholder="Run your ad from CJ.Com Here"
+              style={styles.linkInput}
+              placeholder="Link Title (e.g., My Favorite Product)"
+              placeholderTextColor="#666"
               value={link.title}
               onChangeText={(text) => updateLink(index, "title", text)}
             />
-
-            <Text style={styles.label}>URL</Text>
             <TextInput
-              style={styles.input}
-              placeholder="a href="
+              style={styles.linkInput}
+              placeholder="Link URL (https://example.com)"
+              placeholderTextColor="#666"
               value={link.url}
               onChangeText={(text) => updateLink(index, "url", text)}
               keyboardType="url"
@@ -375,193 +404,260 @@ export default function ProfileSetupScreen() {
         ))}
 
         <TouchableOpacity style={styles.addButton} onPress={addLinkField}>
-          <Text style={styles.addButtonText}>+ Add Another Link</Text>
+          <Text style={styles.addButtonText}>+ Add Another Link Field</Text>
         </TouchableOpacity>
-      </View>
 
-      <View style={styles.buttonContainer}>
+        {/* Save Button */}
         <TouchableOpacity
-          style={[
-            styles.saveButton,
-            (!bio.trim() || saving) && styles.saveButtonDisabled,
-          ]}
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
-          disabled={!bio.trim() || saving}
+          disabled={saving || uploading} // Disable save if uploading photo
         >
           {saving ? (
             <ActivityIndicator color="#000" />
           ) : (
-            <Text style={styles.saveButtonText}>Complete Profile</Text>
+            <Text style={styles.saveButtonText}>SAVE & REFRESH PROFILE</Text>
           )}
         </TouchableOpacity>
       </View>
-
-      {!saving && (
-        <TouchableOpacity
-          style={styles.skipButton}
-          onPress={() => router.replace("/neighborhoods")}
-        >
-          <Text style={styles.skipButtonText}>Skip for now</Text>
-        </TouchableOpacity>
-      )}
     </ScrollView>
   );
 }
 
+// --- STYLES (Adjusted for better contrast and clarity) ---
 const styles = StyleSheet.create({
-  // ... (existing styles)
   container: {
     flex: 1,
     backgroundColor: "#000",
     padding: 20,
   },
-  // ... (other styles)
   loadingOverlay: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  // ... (rest of the styles)
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
+  loadingText: {
     color: "#00ffff",
+    marginTop: 20,
+    fontSize: 18,
+  },
+  errorText: {
+    color: "#ff0000",
+    fontSize: 16,
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 15,
   },
-  stepContainer: {
-    marginBottom: 30,
+  refetchButton: {
+    backgroundColor: "#222",
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ff0000",
   },
-  stepTitle: {
-    fontSize: 20,
+  refetchButtonText: {
+    color: "#ff0000",
     fontWeight: "bold",
+  },
+  title: {
+    fontSize: 32,
     color: "#00ffff",
-    marginBottom: 8,
+    fontWeight: "900",
+    textAlign: "center",
+    marginBottom: 30,
+    textShadowColor: "#00ffff66",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 5,
+  },
+  currentSection: {
+    backgroundColor: "#0A0A0A",
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 40,
+    borderWidth: 2,
+    borderColor: "#00AA00", // Green border for 'Current'
+    shadowColor: "#00AA00",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  formSection: {
+    backgroundColor: "#0A0A0A",
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 40,
+    borderWidth: 2,
+    borderColor: "#00ffff", // Cyan border for 'Update'
+    shadowColor: "#00ffff",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
+    elevation: 5,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#00ffff",
-    marginTop: 30,
-    marginBottom: 8,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    color: "#CCC",
+    fontSize: 22,
+    color: "#FFF",
+    fontWeight: "700",
     marginBottom: 20,
-    lineHeight: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#222",
+    paddingBottom: 10,
   },
-  avatarContainer: {
+  photoDisplaySection: {
     alignItems: "center",
-    marginBottom: 25,
+    marginBottom: 30,
   },
-  avatar: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    marginBottom: 10,
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     borderWidth: 3,
     borderColor: "#00ffff",
+    marginTop: 10,
   },
-  uploadingAvatar: {
+  noPhoto: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#111",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#111",
-  },
-  avatarText: {
-    color: "#00AA00",
-    fontSize: 14,
-  },
-  uploadingText: {
-    color: "#00ffff",
+    borderWidth: 1,
+    borderColor: "#333",
     marginTop: 10,
-    fontSize: 12,
+  },
+  noPhotoText: {
+    color: "#666",
   },
   cidText: {
     fontSize: 10,
     color: "#00AA00",
-    textAlign: "center",
+    marginTop: 8,
     fontFamily: "monospace",
-    marginTop: -10,
-    marginBottom: 10,
+  },
+  bioSection: {
+    marginBottom: 30,
   },
   label: {
     fontSize: 16,
-    color: "#00ffff",
-    marginBottom: 8,
-    marginTop: 15,
+    color: "#00AA00",
+    marginBottom: 10,
+    fontWeight: "600",
   },
-  bioInput: {
-    backgroundColor: "#111",
-    borderWidth: 1,
-    borderColor: "#333",
-    borderRadius: 8,
+  currentBio: {
+    fontSize: 14,
+    color: "#E0E0E0",
+    lineHeight: 20,
+    backgroundColor: "#1A1A1A",
     padding: 15,
-    color: "#FFF",
-    fontSize: 16,
-    minHeight: 120,
+    borderRadius: 8,
+    minHeight: 80,
+    borderColor: "#333",
+    borderLeftWidth: 3,
   },
-  input: {
-    backgroundColor: "#111",
-    borderWidth: 1,
-    borderColor: "#333",
-    borderRadius: 8,
+  noData: {
+    fontSize: 14,
+    color: "#888",
+    fontStyle: "italic",
+    backgroundColor: "#1A1A1A",
     padding: 15,
-    color: "#FFF",
-    fontSize: 16,
+    borderRadius: 8,
+    minHeight: 50,
+    justifyContent: "center",
+  },
+  linksSection: {
     marginBottom: 10,
   },
-  charCount: {
-    fontSize: 12,
-    color: "#00AA00",
-    textAlign: "right",
-    marginTop: 5,
-  },
-  linkContainer: {
-    backgroundColor: "#111",
-    padding: 15,
+  linkItem: {
+    backgroundColor: "#1A1A1A",
+    padding: 12,
     borderRadius: 8,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: "#333",
-  },
-  addButton: {
-    backgroundColor: "#333",
-    padding: 15,
-    borderRadius: 8,
-    alignItems: "center",
-    borderWidth: 1,
+    marginBottom: 8,
+    borderLeftWidth: 3,
     borderColor: "#00AA00",
   },
-  addButtonText: {
-    color: "#00ffff",
-    fontWeight: "bold",
+  linkTitle: {
+    fontSize: 14,
+    color: "#FFF",
+    fontWeight: "500",
   },
-  buttonContainer: {
-    marginBottom: 20,
+  linkUrl: {
+    fontSize: 12,
+    color: "#66ff66",
+    marginTop: 4,
   },
-  saveButton: {
+  uploadButton: {
     backgroundColor: "#00ffff",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
-    justifyContent: "center",
-    minHeight: 50,
+    marginBottom: 25,
+  },
+  uploadButtonText: {
+    color: "#000",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  bioInput: {
+    backgroundColor: "#1A1A1A",
+    borderRadius: 8,
+    padding: 15,
+    color: "#FFF",
+    fontSize: 16,
+    minHeight: 100,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#333",
+  },
+  charCount: {
+    color: "#00AA00",
+    fontSize: 12,
+    textAlign: "right",
+    marginBottom: 20,
+  },
+  linkInputGroup: {
+    marginBottom: 15,
+    borderLeftWidth: 3,
+    borderColor: "#00ffff50",
+    paddingLeft: 10,
+  },
+  linkInput: {
+    backgroundColor: "#1A1A1A",
+    borderRadius: 8,
+    padding: 15,
+    color: "#FFF",
+    fontSize: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#333",
+  },
+  addButton: {
+    backgroundColor: "#222",
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    marginBottom: 30,
+    borderWidth: 1,
+    borderColor: "#00AA00",
+  },
+  addButtonText: {
+    color: "#00AA00",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  saveButton: {
+    backgroundColor: "#00ffff",
+    padding: 18,
+    borderRadius: 8,
+    alignItems: "center",
   },
   saveButtonDisabled: {
     backgroundColor: "#333",
+    opacity: 0.6,
   },
   saveButtonText: {
     color: "#000",
+    fontSize: 18,
     fontWeight: "bold",
-    fontSize: 16,
-  },
-  skipButton: {
-    padding: 15,
-    alignItems: "center",
-  },
-  skipButtonText: {
-    color: "#00AA00",
-    fontSize: 14,
   },
 });
