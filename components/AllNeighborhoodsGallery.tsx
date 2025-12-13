@@ -392,10 +392,10 @@ export default function AllNeighborhoodsGallery() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>All Neighborhoods Gallery</Text>
+          <Text style={styles.headerTitle}>All Bubbles</Text>
           <Text style={styles.headerSubtitle}>
-            Your combined media from all neighborhoods
-          </Text>
+            Your combined media from all bubbles
+          </Text> 
         </View>
 
         <View style={styles.emptyState}>
