@@ -30,12 +30,18 @@ const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const getFileType = (fileName) => {
   if (!fileName) return "unknown";
   const ext = fileName.split(".").pop()?.toLowerCase();
-  // 🎯 FIX: Return "video" for video extensions
-  if (["mp4", "mov", "webm"].includes(ext)) return "video";
+
+  // 🎯 FIX 1: Ensure all common video types are listed
+  if (["mp4", "mov", "webm", "avi", "mkv"].includes(ext)) return "video";
+
+  // 🎯 FIX 2: Ensure HEIC/HEIF and WEBP are explicitly listed as images
+  if (
+    ["jpg", "jpeg", "png", "gif", "avif", "heic", "heif", "webp"].includes(ext)
+  )
+    return "image";
+
   if (["pdf", "doc", "docx"].includes(ext)) return "document";
-  // The logic in pickFile/unifiedUpload should handle images correctly
-  // but if you want to explicitly check for them here:
-  // if (["jpg", "jpeg", "png", "gif"].includes(ext)) return "image";
+
   return "unknown";
 };
 // Simple Video Player Component
@@ -653,6 +659,61 @@ const GET_RANDOM_AFFILIATE_LINK = gql`
       clicks
     }
   }
+    `;
+    
+    const GET_MY_VIDEOS = gql`
+  query GetMyVideos {
+    getMyVideos {
+      id
+      title
+      description
+      fileName
+      fileSize
+      fileType
+      cid
+      ipfsUrl
+      magnetLink
+      user {
+        id
+        username
+        profilePhoto
+      }
+      neighborhood {
+        id
+        name
+        description
+      }
+      createdAt
+    }
+  }
+`;
+
+const GET_ALL_IMAGES = gql`
+  query GetAllImages {
+    images {
+      id
+      title
+      description
+      fileName
+      fileSize
+      fileType
+      mimetype
+      cid
+      ipfsUrl
+      magnetLink
+      user {
+        id
+        username
+        profilePhoto
+      }
+      neighborhood {
+        id
+        name
+        description
+      }
+      createdAt
+    }
+  }
 `;
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -786,7 +847,10 @@ export default function NeighborhoodChatScreen() {
   const [messageCount, setMessageCount] = useState(0);
 
   const { data: adData, refetch: fetchRandomAd } = useQuery(
-    GET_RANDOM_AFFILIATE_LINK
+    GET_RANDOM_AFFILIATE_LINK,
+    {
+      skip: !isAuthenticated, // Only run once authentication is confirmed
+    }
   );
   console.log("adData:", adData);
   const TRACK_CLICK = gql`
@@ -801,7 +865,7 @@ export default function NeighborhoodChatScreen() {
     GET_NEIGHBORHOOD_INFO,
     {
       variables: { id: neighborhoodId },
-      //      skip: !neighborhoodId,
+      skip: !neighborhoodId,
     }
   );
 
@@ -810,7 +874,7 @@ export default function NeighborhoodChatScreen() {
     {
       variables: { neighborhoodId },
       fetchPolicy: "cache-and-network",
-      //      skip: !isAuthenticated || !neighborhoodId,
+      skip: !isAuthenticated || !neighborhoodId,
     }
   );
 
@@ -984,37 +1048,24 @@ export default function NeighborhoodChatScreen() {
     }
   };
   // In pickImage function
-  const pickImage = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images", "videos"],
-        quality: 0.8,
-      });
-
-      if (!result.canceled) {
-        const asset = result.assets[0];
-        // SIMPLE: Pass the actual type
-        const type = asset.type === "image" ? "image" : "video";
-
-        await unifiedUpload(
-          { ...asset, name: safeFileName(asset) },
-          type, // Just pass the type directly
-          0,
-          ""
-        );
-      }
-    } catch (error) {
-      Alert.alert("Error", "Failed to pick media");
-    }
-  };
-  // Simple toggle in pickFile:
   const pickFile = async () => {
-    const result = await DocumentPicker.getDocumentAsync();
+    // 🔑 Use DocumentPicker for general files (and files the user manually selects)
+    const result = await DocumentPicker.getDocumentAsync({
+      type: "*/*", // Allow all types
+    });
+
     if (!result.canceled) {
       const file = result.assets[0];
+      const type = getFileType(file.name || file.fileName); // Determine type
 
-      if (file.size > 10 * 1024 * 1024 && Platform.OS === "web") {
-        // Ask user
+      // 🎯 FIX 3: Don't default to 'video'. Use the determined type.
+
+      if (
+        type === "video" && // ONLY check for large video chunking
+        file.size > 10 * 1024 * 1024 &&
+        Platform.OS === "web"
+      ) {
+        // Ask user only for large videos
         Alert.alert(
           "Large Video",
           "Upload as chunked P2P video (faster for neighbors)?",
@@ -1022,16 +1073,18 @@ export default function NeighborhoodChatScreen() {
             {
               text: "Regular Upload",
               onPress: () =>
-                unifiedUpload(file, "video", file.size, file.mimeType),
+                unifiedUpload(file, type, file.size, file.mimeType),
             },
             { text: "Chunked P2P", onPress: () => uploadChunkedVideo(file) },
           ]
         );
       } else {
-        unifiedUpload(file, "video", file.size, file.mimeType);
+        // For all images, documents, and small videos, use regular upload
+        unifiedUpload(file, type, file.size, file.mimeType);
       }
     }
   };
+
   // SIMPLE Upload - JUST STORE WHAT WE GET
   const unifiedUpload = async (asset, type, fileSize, mimeType) => {
     setUploading(true);
@@ -1090,7 +1143,14 @@ export default function NeighborhoodChatScreen() {
         }
 
         console.log("📤 Sending message with thumbnail:", messageVariables);
-        await sendMessageMutation({ variables: messageVariables });
+        await sendMessageMutation({
+          variables: messageVariables,
+          refetchQueries: [
+            { query: GET_ALL_IMAGES }, // Assuming this is used by the gallery
+            { query: GET_MY_VIDEOS }, // Assuming this is used by the gallery
+            // If your gallery uses a combined query, list that too
+          ],
+        });
         console.log(`✅ ${type} uploaded successfully with thumbnail`);
       }
     } catch (error) {
@@ -1258,7 +1318,6 @@ export default function NeighborhoodChatScreen() {
         }
       );
     });
-
   };
   // Helper function
   const getMimeType = (filename) => {

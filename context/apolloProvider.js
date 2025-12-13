@@ -10,7 +10,15 @@ import { setContext } from "@apollo/client/link/context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // 💡 New Import for Persistence
 import { persistCache } from 'apollo3-cache-persist'; 
-
+import { View, ActivityIndicator, StyleSheet } from "react-native";
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000", // Match your dark theme
+  },
+});
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export function useApolloClient() {
@@ -85,13 +93,16 @@ export function useApolloClient() {
   // Return client only when both the client and the cache are ready
   return cacheReady ? client : null; 
 }
-
 export function ApolloProviderWrapper({ children }) {
   const client = useApolloClient();
 
-  // 💡 Modified: Wait until the Apollo Client is fully configured AND the cache is loaded from disk
+  // 🔑 FIX A: Return a loading component (not null)
   if (!client) {
-    return null; // or a loading spinner
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#00ffff" />
+      </View>
+    );
   }
 
   return <ApolloProvider client={client}>{children}</ApolloProvider>;
