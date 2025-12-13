@@ -1004,6 +1004,26 @@ const handleDeleteMessage = async (messageId) => {
 
     return () => {
       socket?.disconnect();
+      if (Platform.OS === "web" && window.globalWebTorrentClient) {
+        const client = window.globalWebTorrentClient;
+
+        console.log("🛑 Cleaning up ALL torrents from global client...");
+
+        // Iterate over ALL active torrents in the global client
+        client.torrents.forEach((torrent) => {
+          // OPTIONAL: Check if the torrent belongs to this neighborhood/session
+          // For safety and simplicity, we'll destroy all that are still active.
+
+          console.log(
+            `Destroying torrent: ${torrent.name || torrent.infoHash}`
+          );
+          torrent.destroy(() => {
+            console.log(`✅ Destroyed ${torrent.name} from global client.`);
+          });
+        });
+
+        // Optional: Forcefully prune WebRTC connections if needed, but destroying torrents usually handles this.
+      }
     };
   }, [neighborhoodId]);
 
@@ -1335,13 +1355,15 @@ const handleDeleteMessage = async (messageId) => {
       }
 
       function createTorrent() {
-        const client = new window.WebTorrent();
-
+        const client = window.globalWebTorrentClient;
+        if (!client) {
+          console.error("❌ Global WebTorrent client not found.");
+          return;
+        }
         client.seed(
           chunk,
           {
             name: `${sessionId}_chunk_${index}`,
-            announce: ["wss://tracker.openwebtorrent.com"],
           },
           (torrent) => {
             console.log(
@@ -1367,7 +1389,6 @@ const handleDeleteMessage = async (messageId) => {
                 thumbnailUrl: null,
               },
             }).then(() => {
-              client.destroy(); // Clean up this client
               resolve();
             });
           }
