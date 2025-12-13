@@ -1,5 +1,5 @@
 // app/neighborhood-chat.js
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   ScrollView,
@@ -660,7 +660,13 @@ const GET_RANDOM_AFFILIATE_LINK = gql`
     }
   }
     `;
-    
+
+    const DELETE_NEIGHBORHOOD_MESSAGE = gql`
+      mutation DeleteNeighborhoodMessage($messageId: ID!) {
+        deleteMessage(messageId: $messageId)
+      }
+    `;
+
     const GET_MY_VIDEOS = gql`
   query GetMyVideos {
     getMyVideos {
@@ -831,13 +837,14 @@ const handleFilePress = async (message) => {
 };
 
 export default function NeighborhoodChatScreen() {
+  
   const params = useLocalSearchParams();
   const router = useRouter();
   const neighborhoodId = params.neighborhoodId;
 
   const scrollViewRef = useRef(null);
   const messageInputRef = useRef(null);
-
+const [deleteMessageMutation] = useMutation(DELETE_NEIGHBORHOOD_MESSAGE);
   const [socket, setSocket] = useState(null);
   const [username, setUsername] = useState("");
   const [newMessage, setNewMessage] = useState("");
@@ -860,6 +867,76 @@ export default function NeighborhoodChatScreen() {
   `;
   const [trackClick] = useMutation(TRACK_CLICK);
 
+// Ensure Platform is imported
+
+const handleDeleteMessage = async (messageId) => {
+  console.log("Attempting to delete message ID:", messageId); // Log is confirmed working
+
+  // 🔑 NEW: Use a standard browser confirm for Web, Alert for native
+  const shouldProceed = await new Promise((resolve) => {
+    if (Platform.OS === "web") {
+      // Use browser's built-in confirm dialog (synchronous)
+      const proceed = window.confirm(
+        "Are you sure you want to permanently delete this message?"
+      );
+      resolve(proceed);
+    } else {
+      // Use React Native Alert (for iOS/Android)
+      Alert.alert(
+        "Delete Message",
+        "Are you sure you want to permanently delete this message?",
+        [
+          { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => resolve(true),
+          },
+        ]
+      );
+    }
+  });
+
+  if (!shouldProceed) {
+    console.log("Deletion cancelled by user.");
+    return; // Stop execution if the user cancels
+  }
+
+  // --- Deletion Logic Starts Here ---
+
+  try {
+    await deleteMessageMutation({
+      variables: { messageId },
+      update(cache) {
+        // ... cache modification logic ...
+        cache.modify({
+          fields: {
+            neighborhoodMessages(existingMessageRefs = [], { readField }) {
+              return existingMessageRefs.filter(
+                (messageRef) => readField("id", messageRef) !== messageId
+              );
+            },
+          },
+        });
+      },
+    });
+    console.log(`✅ Message ${messageId} deleted and cache updated.`);
+  } catch (error) {
+    console.error("❌ Deletion error:", error);
+
+    let errorMessage = "Failed to delete message due to an unknown error.";
+    if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+      errorMessage = error.graphQLErrors[0].message;
+    } else if (error.networkError) {
+      errorMessage = `Network Error: ${error.networkError.message}`;
+    } else {
+      errorMessage = error.message;
+    }
+
+    Alert.alert("Deletion Failed", errorMessage.replace("GraphQL error: ", ""));
+  }
+};
+
   // GraphQL Queries
   const { data: neighborhoodData, loading: neighborhoodLoading } = useQuery(
     GET_NEIGHBORHOOD_INFO,
@@ -880,6 +957,20 @@ export default function NeighborhoodChatScreen() {
 
   const [sendMessageMutation] = useMutation(SEND_NEIGHBORHOOD_MESSAGE);
 
+   const isNeighborhoodAdmin = useMemo(() => {
+     if (!username || !neighborhoodData?.neighborhood) return false;
+
+     const neighborhood = neighborhoodData.neighborhood;
+     const isOwner = neighborhood.owner?.username === username;
+
+     const member = neighborhood.members?.find(
+       (m) => m.user?.username === username
+     );
+     const isAdmin = member?.role === "admin";
+
+     return isOwner || isAdmin;
+   }, [neighborhoodData, username]);
+  
   useEffect(() => {
     // first ad on load
     fetchRandomAd();
@@ -1761,6 +1852,8 @@ export default function NeighborhoodChatScreen() {
     );
   }
 
+ 
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -1807,6 +1900,17 @@ export default function NeighborhoodChatScreen() {
       <ScrollView style={styles.messagesList} ref={scrollViewRef}>
         {messages.map((item, index) => {
           const showAdHere = index % 20 === 0;
+          const isSender = item.sender?.username === username;
+const pressHandler = isSender
+  ? (e) => {
+      // For web, prevent default menu
+      if (Platform.OS === "web") {
+        e.preventDefault();
+      }
+      handleDeleteMessage(item.id);
+    }
+  : undefined;
+
           return (
             <React.Fragment key={item.id}>
               <View style={styles.messageContainer}>
@@ -1816,6 +1920,8 @@ export default function NeighborhoodChatScreen() {
                   }}
                   style={styles.profileImage}
                 />
+
+                {/* 🔑 Message Content Wrapper */}
                 <View style={styles.messageContent}>
                   <Text style={styles.username}>
                     {item.sender?.username || "Unknown"}
@@ -1827,9 +1933,24 @@ export default function NeighborhoodChatScreen() {
                     <Text style={styles.messageText}>{item.content}</Text>
                   )}
 
-                  <Text style={styles.timestamp}>
-                    {formatTimestamp(item.createdAt)}
-                  </Text>
+                  {/* 🔑 NEW: TIMESTAMP AND DELETE ICON CONTAINER */}
+                  <View style={styles.timestampContainer}>
+                    <Text style={styles.timestamp}>
+                      {formatTimestamp(item.createdAt)}
+                    </Text>
+
+            
+                    {(isSender || isNeighborhoodAdmin) && (
+                      <TouchableOpacity
+                        onPress={() => handleDeleteMessage(item.id)}
+                        style={styles.deleteButton}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        {/* The trash icon you already have */}
+                        <Text style={styles.deleteIcon}>🗑️</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               </View>
               {showAdHere && adData?.randomAffiliateLink && (
@@ -1897,6 +2018,35 @@ export default function NeighborhoodChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  messageContent: {
+    flexShrink: 1, // Allows content to wrap
+    // Make sure this container holds the timestamp/delete button row nicely
+  },
+
+  timestampContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start", // Align timestamp and icon to the left
+    marginTop: 4,
+  },
+
+  timestamp: {
+    // Your existing timestamp style
+    fontSize: 10,
+    color: "#888",
+    marginRight: 10, // Add space between timestamp and icon
+  },
+
+  deleteButton: {
+    padding: 5,
+    backgroundColor: "yellow", // ⬅️ TEST COLOR
+    zIndex: 10, // ⬅️ Ensure it's on top
+  },
+
+  deleteIcon: {
+    fontSize: 14, // Small icon size
+    color: "red", // Clear visual cue for deletion
+  },
   container: {
     flex: 1,
     backgroundColor: "#000000",
@@ -1960,6 +2110,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messageContainer: {
+    color: "#fff",
     flexDirection: "row",
     padding: 12,
     borderBottomWidth: 1,
