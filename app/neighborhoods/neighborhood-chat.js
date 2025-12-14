@@ -1642,46 +1642,46 @@ const handleDeleteMessage = async (messageId) => {
   };
 
 
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamData, setStreamData] = useState(null);
+ const [isStreaming, setIsStreaming] = useState(false);
+ const [streamData, setStreamData] = useState(null);
 
-  const startNeighborhoodLiveStream = async () => {
-    try {
-      console.log("🔴 Starting live stream...");
+ const startNeighborhoodLiveStream = async () => {
+   try {
+     console.log("🔴 Starting live stream...");
 
-      if (Platform.OS !== "web") {
-        Alert.alert("Web Only", "Live streaming requires web browser");
-        return;
-      }
+     if (Platform.OS !== "web") {
+       Alert.alert("Web Only", "Live streaming requires web browser");
+       return;
+     }
 
-      // Get camera permission and stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720, facingMode: "user" },
-        audio: true,
-      });
+     // Get camera permission and stream
+     const stream = await navigator.mediaDevices.getUserMedia({
+       video: { width: 1280, height: 720, facingMode: "user" },
+       audio: true,
+     });
 
-      // Create full-screen stream UI
-      const container = document.createElement("div");
-      container.id = "streamContainer";
-      container.style.cssText = `
+     // Create full-screen stream UI
+     const container = document.createElement("div");
+     container.id = "streamContainer";
+     container.style.cssText = `
         position: fixed; top: 0; left: 0; right: 0; bottom: 0;
         background: black; z-index: 9999; display: flex;
         flex-direction: column; align-items: center; justify-content: center;
       `;
 
-      // Video preview
-      const preview = document.createElement("video");
-      preview.srcObject = stream;
-      preview.autoplay = true;
-      preview.muted = true;
-      preview.style.cssText = `
+     // Video preview
+     const preview = document.createElement("video");
+     preview.srcObject = stream;
+     preview.autoplay = true;
+     preview.muted = true;
+     preview.style.cssText = `
         width: 100%; max-width: 800px; height: auto;
         border: 3px solid #ff0000; border-radius: 12px;
       `;
 
-      // Control panel
-      const controls = document.createElement("div");
-      controls.style.cssText = `
+     // Control panel
+     const controls = document.createElement("div");
+     controls.style.cssText = `
         position: absolute; bottom: 20px; left: 50%;
         transform: translateX(-50%); background: rgba(0,0,0,0.9);
         padding: 20px; border-radius: 12px; display: flex;
@@ -1689,7 +1689,7 @@ const handleDeleteMessage = async (messageId) => {
         border: 2px solid #ff0000; min-width: 300px;
       `;
 
-      controls.innerHTML = `
+     controls.innerHTML = `
         <div style="font-size: 18px; font-weight: bold; color: #ff0000;">
           🔴 LIVE STREAMING
         </div>
@@ -1722,119 +1722,115 @@ const handleDeleteMessage = async (messageId) => {
         </div>
       `;
 
-      container.appendChild(preview);
-      container.appendChild(controls);
-      document.body.appendChild(container);
+     container.appendChild(preview);
+     container.appendChild(controls);
+     document.body.appendChild(container);
 
-      // Load WebTorrent
-      if (!window.WebTorrent) {
-        const script = document.createElement("script");
-        script.src =
-          "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-        document.head.appendChild(script);
-        await new Promise((resolve) => (script.onload = resolve));
-      }
+     // Load WebTorrent
+     if (!window.WebTorrent) {
+       const script = document.createElement("script");
+       script.src =
+         "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+       document.head.appendChild(script);
+       await new Promise((resolve) => (script.onload = resolve));
+     }
 
-      const client = new window.WebTorrent();
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "video/webm; codecs=vp8,opus",
-        videoBitsPerSecond: 1000000,
-      });
+     const client = new window.WebTorrent();
+     const mediaRecorder = new MediaRecorder(stream, {
+       mimeType: "video/webm; codecs=vp8,opus",
+       videoBitsPerSecond: 1000000,
+     });
 
-      const chunks = [];
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-      mediaRecorder.start(1000);
+     const chunks = [];
+     mediaRecorder.ondataavailable = (e) => {
+       if (e.data.size > 0) chunks.push(e.data);
+     };
+     mediaRecorder.start(1000);
 
-      // Seed the stream
-      const streamBlob = new Blob(chunks, { type: "video/webm" });
-      client.seed(
-        streamBlob,
-        { name: `live-${Date.now()}.webm` },
-        (torrent) => {
-          console.log("✅ Stream seeded:", torrent.magnetURI);
+     // Seed the stream
+     const streamBlob = new Blob(chunks, { type: "video/webm" });
+     client.seed(streamBlob, { name: `live-${Date.now()}.webm` }, (torrent) => {
+       console.log("✅ Stream seeded:", torrent.magnetURI);
 
-          // Post to chat with live_stream type
-          sendMessageMutation({
-            variables: {
-              content: "", // Empty content - the card will show everything
-              neighborhoodId: neighborhoodId,
-              fileName: username ? `${username}'s Live Stream` : "Live Stream",
-              fileType: "live_stream", // ⚠️ CRITICAL: Use live_stream type
-              magnetLink: torrent.magnetURI,
-              mimeType: "video/webm",
-              thumbnailUrl: null,
-            },
-          });
+       // Post to chat with live_stream type
+       sendMessageMutation({
+         variables: {
+           content: "", // Empty content - the card will show everything
+           neighborhoodId: neighborhoodId,
+           fileName: username ? `${username}'s Live Stream` : "Live Stream",
+           fileType: "live_stream", // ⚠️ CRITICAL: Use live_stream type
+           magnetLink: torrent.magnetURI,
+           mimeType: "video/webm",
+           thumbnailUrl: null,
+         },
+       });
 
-          // Update viewer count
-          const updateStats = setInterval(() => {
-            document.getElementById("viewerCount").textContent =
-              torrent.numPeers || 0;
-          }, 2000);
+       // Update viewer count
+       const updateStats = setInterval(() => {
+         document.getElementById("viewerCount").textContent =
+           torrent.numPeers || 0;
+       }, 2000);
 
-          // Duration counter
-          const startTime = Date.now();
-          const updateDuration = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            const mins = Math.floor(elapsed / 60)
-              .toString()
-              .padStart(2, "0");
-            const secs = (elapsed % 60).toString().padStart(2, "0");
-            document.getElementById("duration").textContent = `${mins}:${secs}`;
-          }, 1000);
+       // Duration counter
+       const startTime = Date.now();
+       const updateDuration = setInterval(() => {
+         const elapsed = Math.floor((Date.now() - startTime) / 1000);
+         const mins = Math.floor(elapsed / 60)
+           .toString()
+           .padStart(2, "0");
+         const secs = (elapsed % 60).toString().padStart(2, "0");
+         document.getElementById("duration").textContent = `${mins}:${secs}`;
+       }, 1000);
 
-          // Control buttons
-          let audioEnabled = true;
-          let videoEnabled = true;
+       // Control buttons
+       let audioEnabled = true;
+       let videoEnabled = true;
 
-          document.getElementById("toggleAudio").onclick = () => {
-            audioEnabled = !audioEnabled;
-            stream
-              .getAudioTracks()
-              .forEach((track) => (track.enabled = audioEnabled));
-            document.getElementById("toggleAudio").textContent = audioEnabled
-              ? "🎤 Mute"
-              : "🎤 Unmute";
-          };
+       document.getElementById("toggleAudio").onclick = () => {
+         audioEnabled = !audioEnabled;
+         stream
+           .getAudioTracks()
+           .forEach((track) => (track.enabled = audioEnabled));
+         document.getElementById("toggleAudio").textContent = audioEnabled
+           ? "🎤 Mute"
+           : "🎤 Unmute";
+       };
 
-          document.getElementById("toggleVideo").onclick = () => {
-            videoEnabled = !videoEnabled;
-            stream
-              .getVideoTracks()
-              .forEach((track) => (track.enabled = videoEnabled));
-            document.getElementById("toggleVideo").textContent = videoEnabled
-              ? "📹 Off"
-              : "📹 On";
-          };
+       document.getElementById("toggleVideo").onclick = () => {
+         videoEnabled = !videoEnabled;
+         stream
+           .getVideoTracks()
+           .forEach((track) => (track.enabled = videoEnabled));
+         document.getElementById("toggleVideo").textContent = videoEnabled
+           ? "📹 Off"
+           : "📹 On";
+       };
 
-          document.getElementById("stopStream").onclick = () => {
-            clearInterval(updateStats);
-            clearInterval(updateDuration);
-            mediaRecorder.stop();
-            torrent.destroy();
-            stream.getTracks().forEach((track) => track.stop());
-            document.body.removeChild(container);
+       document.getElementById("stopStream").onclick = () => {
+         clearInterval(updateStats);
+         clearInterval(updateDuration);
+         mediaRecorder.stop();
+         torrent.destroy();
+         stream.getTracks().forEach((track) => track.stop());
+         document.body.removeChild(container);
 
-            sendMessageMutation({
-              variables: {
-                content: "⏹️ Stream ended",
-                neighborhoodId: neighborhoodId,
-              },
-            });
+         sendMessageMutation({
+           variables: {
+             content: "⏹️ Stream ended",
+             neighborhoodId: neighborhoodId,
+           },
+         });
 
-            setIsStreaming(false);
-          };
-        }
-      );
+         setIsStreaming(false);
+       };
+     });
 
-      setIsStreaming(true);
-    } catch (error) {
-      console.error("❌ Stream error:", error);
-      Alert.alert("Stream Error", error.message);
-    }
-  };
+     setIsStreaming(true);
+   } catch (error) {
+     console.error("❌ Stream error:", error);
+     Alert.alert("Stream Error", error.message);
+   }
+ };
 
   const showStreamControls = (torrent, stream, preview) => {
     const controls = document.createElement("div");
