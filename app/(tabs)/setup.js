@@ -1,4 +1,3 @@
-// app/profile/setup.js
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -20,8 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-// --- GraphQL Definitions ---
-
+// --- GraphQL Definitions (Unchanged) ---
 const UPDATE_PROFILE = gql`
   mutation UpdateProfile(
     $bio: String
@@ -42,6 +40,7 @@ const UPDATE_PROFILE = gql`
         url
         title
         clicks
+        imageUrl
       }
     }
   }
@@ -57,12 +56,15 @@ const GET_PROFILE = gql`
         id
         url
         title
+        description
+        imageUrl
+        clicks
       }
     }
   }
 `;
 
-// --- Utility: Get Full Image URL ---
+// --- Utility: Get Full Image URL (Unchanged) ---
 const getProfilePhotoUrl = (cid) => {
   if (cid) return `https://${PINATA_GATEWAY}/ipfs/${cid}`;
   return null;
@@ -71,11 +73,11 @@ const getProfilePhotoUrl = (cid) => {
 export default function ProfileSetupScreen() {
   const router = useRouter();
 
-  // State for Form Inputs, initialized to empty/default
+  // State for Form Inputs: 'rawHtml' is the key for the single input field
   const [bio, setBio] = useState("");
-  const [profilePhotoCid, setProfilePhotoCid] = useState(null); // The CID that will be saved/updated
+  const [profilePhotoCid, setProfilePhotoCid] = useState(null);
   const [affiliateLinks, setAffiliateLinks] = useState([
-    { url: "", title: "" },
+    { rawHtml: "" }, // <-- Single field for raw HTML snippet
   ]);
 
   // State for UI/Loading
@@ -96,36 +98,32 @@ export default function ProfileSetupScreen() {
     errorPolicy: "all",
   });
 
-  // --- POPULATE STATE FROM QUERY RESULT ---
-  useEffect(() => {
-    if (profileData?.me) {
-      const { bio, profilePhoto, affiliateLinks } = profileData.me;
+  // --- POPULATE STATE FROM QUERY RESULT (FIXED) ---
+useEffect(() => {
+  if (profileData?.me) {
+    const { bio, profilePhoto, affiliateLinks: incomingLinks } = profileData.me;
 
-      // Set Bio
-      setBio(bio || "");
+    // 1. Photo and Bio
+    setBio(bio || "");
+    setProfilePhotoCid(profilePhoto || null);
 
-      // Set Profile Photo CID
-      setProfilePhotoCid(profilePhoto || null);
-
-      // Set Affiliate Links: Use existing links, or one empty field if none exist
-      if (affiliateLinks && affiliateLinks.length > 0) {
-        setAffiliateLinks(
-          affiliateLinks.map((link) => ({
-            url: link.url || "",
-            title: link.title || "",
-          }))
-        );
-      } else {
-        setAffiliateLinks([{ url: "", title: "" }]);
-      }
+    // 2. Affiliate Links: Use description field for raw HTML
+    if (incomingLinks && incomingLinks.length > 0) {
+      setAffiliateLinks(
+        incomingLinks.map((link) => ({
+          // Use description field which contains the raw HTML
+          rawHtml: link.description || link.url || "",
+        }))
+      );
+    } else {
+      setAffiliateLinks([{ rawHtml: "" }]);
     }
-  }, [profileData]);
+  }
+}, [profileData]);
 
-  // --- IMAGE UPLOAD LOGIC ---
+  // --- IMAGE UPLOAD LOGIC (Unchanged, but included for completeness) ---
 
-  // Upload image to IPFS (retained from original logic)
   const uploadToIPFS = async (fileUri, fileName) => {
-    // ... (Your existing uploadToIPFS function body remains here) ...
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) throw new Error("No authentication token found");
@@ -183,12 +181,10 @@ export default function ProfileSetupScreen() {
       if (!result.canceled) {
         const asset = result.assets[0];
         setUploading(true);
-        // Note: We don't set a temporary profilePhoto URI, we just upload and set the CID
-        // The display logic uses profilePhotoCid directly.
 
         try {
           const cid = await uploadToIPFS(asset.uri, "profile-photo.jpg");
-          setProfilePhotoCid(cid); // This updates the photo to display and saves the CID for the mutation
+          setProfilePhotoCid(cid);
           Alert.alert("Upload Successful", "Photo uploaded and ready to save.");
         } catch (error) {
           Alert.alert(
@@ -207,64 +203,56 @@ export default function ProfileSetupScreen() {
     }
   };
 
-  // --- AFFILIATE LINK LOGIC ---
+  // --- AFFILIATE LINK LOGIC (FIXED) ---
   const addLinkField = () => {
-    setAffiliateLinks([...affiliateLinks, { url: "", title: "" }]);
+    setAffiliateLinks([...affiliateLinks, { rawHtml: "" }]);
   };
 
-  const updateLink = (index, field, value) => {
+  // Simplified handler for the single rawHtml input
+  const updateLink = (index, value) => {
     const updated = [...affiliateLinks];
-    updated[index][field] = value;
+    updated[index].rawHtml = value;
     setAffiliateLinks(updated);
   };
 
-  // --- SAVE LOGIC ---
-  const handleSave = async () => {
-    try {
-      setSaving(true);
+  // --- SAVE LOGIC (FIXED) ---
+const handleSave = async () => {
+  try {
+    setSaving(true);
 
-      // Only send links that have a URL
-      const validLinks = affiliateLinks
-        .filter((link) => link.url.trim())
-        .map((link) => ({
-          url: link.url,
-          title: link.title || "My Affiliate Link", // Ensure a title is sent if URL is present
-        }));
+    // Format links as the old working code did
+    const validLinks = affiliateLinks
+      .filter((link) => link.rawHtml && link.rawHtml.trim())
+      .map((link) => ({
+        url: link.rawHtml, // Send raw HTML as url
+        title: "", // Empty title - backend will extract
+      }));
 
-      const { data, errors } = await updateProfile({
-        variables: {
-          bio: bio || "",
-          profilePhoto: profilePhotoCid || "",
-          affiliateLinks: validLinks,
-        },
-      });
+    console.log("Sending to backend:", validLinks);
 
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0].message);
-      }
+    const { data, errors } = await updateProfile({
+      variables: {
+        bio: bio || "",
+        profilePhoto: profilePhotoCid || "",
+        affiliateLinks: validLinks,
+      },
+    });
 
-      if (data?.updateProfile) {
-        Alert.alert("Success", "Profile saved successfully!", [
-          {
-            text: "OK",
-            onPress: () => {
-              // The replace is good because it re-renders the page with the fresh data
-              router.replace("/profile/setup");
-            },
-          },
-        ]);
-      }
-    } catch (err) {
-      Alert.alert(
-        "Error",
-        "Failed to save profile: " + (err.message || "Unknown error")
-      );
-    } finally {
-      setSaving(false);
+    if (errors && errors.length > 0) {
+      throw new Error(errors[0].message);
     }
-  };
 
-  // --- RENDER LOGIC ---
+    if (data?.updateProfile) {
+      Alert.alert("Success", "Profile saved successfully!");
+      refetchProfile();
+    }
+  } catch (err) {
+    Alert.alert("Error", err.message);
+  } finally {
+    setSaving(false);
+  }
+};
+  // --- RENDER LOGIC (Minor Fixes) ---
 
   if (loadingProfile) {
     return (
@@ -294,11 +282,11 @@ export default function ProfileSetupScreen() {
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Your Profile Setup</Text>
 
-      {/* 🚀 CURRENT SETUP DISPLAY (Read-Only View) 🚀 */}
+      {/* 🚀 CURRENT SETUP DISPLAY 🚀 */}
       <View style={styles.currentSection}>
         <Text style={styles.sectionTitle}>Current Live Setup</Text>
 
-        {/* Profile Photo Display */}
+        {/* Profile Photo Display (Uses bio and profilePhotoCid) */}
         <View style={styles.photoDisplaySection}>
           <Text style={styles.label}>Profile Photo:</Text>
           {photoUrl ? (
@@ -315,7 +303,7 @@ export default function ProfileSetupScreen() {
           )}
         </View>
 
-        {/* Bio Display */}
+        {/* Bio Display (Uses bio) */}
         <View style={styles.bioSection}>
           <Text style={styles.label}>Bio:</Text>
           {bio ? (
@@ -325,30 +313,73 @@ export default function ProfileSetupScreen() {
           )}
         </View>
 
-        {/* Affiliate Links Display */}
+        {/* Affiliate Links Display (FIXED filter) */}
         <View style={styles.linksSection}>
           <Text style={styles.label}>Affiliate Links:</Text>
-          {affiliateLinks.filter((l) => l.url.trim()).length > 0 ? (
+          {/* We now check if the link has content by reading the 'rawHtml' field, 
+              which contains the data loaded from the database's 'url' field. */}
+          {affiliateLinks.filter((l) => l.rawHtml && l.rawHtml.trim()).length >
+          0 ? (
             affiliateLinks
-              .filter((l) => l.url.trim())
-              .map((link, index) => (
-                <View key={index} style={styles.linkItem}>
-                  <Text style={styles.linkTitle}>
-                    {link.title || "Untitled Link"}
-                  </Text>
-                  <Text style={styles.linkUrl}>{link.url}</Text>
-                </View>
-              ))
+              .filter((l) => l.rawHtml && l.rawHtml.trim())
+              .map((link, index) => {
+                // Extract preview info
+                let previewText = "HTML Link Snippet";
+                let hasImage = link.rawHtml.includes("<img");
+
+                return (
+                  <View key={index} style={styles.linkItem}>
+                    <Text style={styles.linkTitle}>
+                      {hasImage ? "🖼️ Image Link" : "🔗 Text Link"}
+                    </Text>
+                    <Text style={styles.linkUrl}>
+                      {link.rawHtml.substring(0, 60)}...
+                    </Text>
+                    <View style={{ flexDirection: "row", marginTop: 5 }}>
+                      <View
+                        style={{
+                          backgroundColor: link.rawHtml.includes("href=")
+                            ? "#00AA00"
+                            : "#FF9900",
+                          paddingHorizontal: 8,
+                          paddingVertical: 2,
+                          borderRadius: 4,
+                          marginRight: 5,
+                        }}
+                      >
+                        <Text style={{ color: "#FFF", fontSize: 10 }}>
+                          {link.rawHtml.includes("href=")
+                            ? "Valid Link"
+                            : "No HREF"}
+                        </Text>
+                      </View>
+                      {hasImage && (
+                        <View
+                          style={{
+                            backgroundColor: "#0077CC",
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                            borderRadius: 4,
+                          }}
+                        >
+                          <Text style={{ color: "#FFF", fontSize: 10 }}>
+                            Has Image
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                );
+              })
           ) : (
             <Text style={styles.noData}>No affiliate links set</Text>
-          )}
+          )}{" "}
         </View>
       </View>
 
       {/* 🛠️ UPDATE FORM (Editable Inputs) 🛠️ */}
       <View style={styles.formSection}>
         <Text style={styles.sectionTitle}>Update Profile Settings</Text>
-
         {/* Photo Upload Button */}
         <TouchableOpacity
           style={styles.uploadButton}
@@ -365,7 +396,6 @@ export default function ProfileSetupScreen() {
             </Text>
           )}
         </TouchableOpacity>
-
         {/* Bio Input */}
         <TextInput
           style={styles.bioInput}
@@ -380,38 +410,30 @@ export default function ProfileSetupScreen() {
         />
         <Text style={styles.charCount}>{bio.length}/500</Text>
 
-        {/* Affiliate Links Input */}
-        <Text style={styles.label}>Edit Affiliate Links:</Text>
+        {/* Affiliate Links Input (SINGLE INPUT RESTORED) */}
+        <Text style={styles.label}>Paste Affiliate HTML Code Snippet:</Text>
         {affiliateLinks.map((link, index) => (
           <View key={index} style={styles.linkInputGroup}>
             <TextInput
-              style={styles.linkInput}
-              placeholder="Link Title (e.g., My Favorite Product)"
+              style={[styles.linkInput, { height: 100 }]}
+              placeholder="Paste your full affiliate HTML code snippet here (e.g., <a href=...)"
               placeholderTextColor="#666"
-              value={link.title}
-              onChangeText={(text) => updateLink(index, "title", text)}
-            />
-            <TextInput
-              style={styles.linkInput}
-              placeholder="Link URL (https://example.com)"
-              placeholderTextColor="#666"
-              value={link.url}
-              onChangeText={(text) => updateLink(index, "url", text)}
-              keyboardType="url"
+              value={link.rawHtml}
+              onChangeText={(text) => updateLink(index, text)}
+              multiline
               autoCapitalize="none"
+              textAlignVertical="top"
             />
           </View>
         ))}
-
         <TouchableOpacity style={styles.addButton} onPress={addLinkField}>
           <Text style={styles.addButtonText}>+ Add Another Link Field</Text>
         </TouchableOpacity>
 
-        {/* Save Button */}
         <TouchableOpacity
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
-          disabled={saving || uploading} // Disable save if uploading photo
+          disabled={saving || uploading}
         >
           {saving ? (
             <ActivityIndicator color="#000" />
@@ -424,7 +446,7 @@ export default function ProfileSetupScreen() {
   );
 }
 
-// --- STYLES (Adjusted for better contrast and clarity) ---
+// --- STYLES (Unchanged) ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
