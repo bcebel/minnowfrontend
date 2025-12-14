@@ -496,73 +496,7 @@ const ChatMediaRenderer = ({ message }) => {
     document.body.appendChild(closeBtn);
   };
 
-  // 🎯 Also update your handleMagnetPlay to log torrent stats
-  const handleMagnetPlay = async (magnetUri) => {
-    if (Platform.OS !== "web") return;
 
-    setIsLoadingTorrent(true);
-
-    try {
-      // Ensure global client
-      if (!window.globalWebTorrentClient) {
-        window.globalWebTorrentClient = new WebTorrent({
-          tracker: { pex: true, lsd: true },
-          dht: true,
-        });
-      }
-
-      const client = window.globalWebTorrentClient;
-
-      // Check if torrent already exists
-      const existing = client.get(magnetUri);
-      if (existing) {
-        console.log("♻️ Using existing torrent:", existing.name);
-        const file = existing.files.find((f) => f.name.endsWith(".webm"));
-        if (file) {
-          createVideoPlayer(file, existing);
-          setIsLoadingTorrent(false);
-          return;
-        }
-      }
-
-      // Add new torrent
-      client.add(magnetUri, { live: true }, (torrent) => {
-        console.log("📊 Torrent stats:", {
-          name: torrent.name,
-          infoHash: torrent.infoHash,
-          peers: torrent.numPeers,
-          downloaded: torrent.downloaded,
-          downloadSpeed: torrent.downloadSpeed,
-          progress: torrent.progress,
-        });
-
-        // Log peer discovery
-        torrent.on("wire", (wire) => {
-          console.log("🔗 New peer:", wire.peerId?.substring(0, 10));
-        });
-
-        const file = torrent.files.find(
-          (f) => f.name.endsWith(".webm") || f.name.includes("live")
-        );
-
-        if (file) {
-          createVideoPlayer(file, torrent);
-        } else {
-          Alert.alert("No Video", "No playable video file found in torrent");
-          console.log(
-            "Available files:",
-            torrent.files.map((f) => f.name)
-          );
-        }
-
-        setIsLoadingTorrent(false);
-      });
-    } catch (error) {
-      console.error("❌ Torrent error:", error);
-      Alert.alert("Error", error.message);
-      setIsLoadingTorrent(false);
-    }
-  };
 
   // 🆕 MANUAL STREAMING FALLBACK
   const manualStreamPlayback = (file, video) => {
