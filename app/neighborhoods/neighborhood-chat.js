@@ -212,6 +212,20 @@ const ChatMediaRenderer = ({ message }) => {
     fileType: message.fileType,
     magnetLink: message.magnetLink?.substring(0, 50) + "...",
   });
+  if (!message) return null;
+
+  // 🔥 Filter out invalid/malformed live_stream messages
+  if (
+    message.fileType === "live_stream" &&
+    (!message.magnetLink || message.magnetLink.includes("undefined"))
+  ) {
+    return (
+      <View style={styles.liveStreamCard}>
+        <Text style={styles.liveTitle}>📡 Stream initializing...</Text>
+        <ActivityIndicator size="small" color="#ff4444" />
+      </View>
+    );
+  }
 
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
 
@@ -264,47 +278,75 @@ const ChatMediaRenderer = ({ message }) => {
     }
   };
 
-  const handleMagnetPlay = async (magnetUri) => {
-    if (Platform.OS !== "web") return;
+const handleMagnetPlay = async (magnetUri) => {
+  if (Platform.OS !== "web") return;
+  setIsLoadingTorrent(true);
 
-    setIsLoadingTorrent(true);
+  try {
+    // 🔁 Use global client — create if missing (and attach!)
+    let client = window.globalWebTorrentClient;
+    if (!client) {
+      console.warn("🔧 Creating global WebTorrent client on-demand");
+      client = new window.WebTorrent();
+      window.globalWebTorrentClient = client; // critical!
+    }
 
-    try {
-      if (!window.WebTorrent) {
-        const script = document.createElement("script");
-        script.src =
-          "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-        document.head.appendChild(script);
-        await new Promise((resolve) => (script.onload = resolve));
+    // 🧪 Log existing torrents to debug duplicates
+    console.log("📊 Global client has", client.torrents.length, "torrents");
+
+    // 🔍 Check if already added (avoid duplicate adds)
+    const existing = client.get(magnetUri);
+    if (existing) {
+      console.log("✅ Reusing existing torrent:", existing.name);
+      const file = existing.files.find(
+        (f) => f.name.endsWith(".webm") || f.name.endsWith(".mp4")
+      );
+      if (file) {
+        createVideoPlayer(file, existing);
+        setIsLoadingTorrent(false);
+        return;
       }
+    }
 
-      const client = window.globalWebTorrentClient || new window.WebTorrent();
-      if (!window.globalWebTorrentClient)
-        window.globalWebTorrentClient = client;
+    // ➕ Add torrent (USE CALLBACK — NOT PROMISE)
+    client.add(magnetUri, { live: true }, (torrent) => {
+      console.log("✅ Added to global client:", torrent.name, torrent.infoHash);
 
-      client.add(magnetUri, { live: true }, (torrent) => {
-        console.log("✅ Torrent loaded:", torrent.name);
-
-        const file = torrent.files.find(
-          (f) => f.name.endsWith(".webm") || f.name.includes("live")
-        );
-
-        if (!file) {
-          Alert.alert("Error", "No video file in torrent");
-          setIsLoadingTorrent(false);
-          return;
-        }
-
-        // 🎯 USE THIS WORKING PLAYBACK METHOD:
-        createVideoPlayer(file, torrent);
+      torrent.on("error", (err) => {
+        console.error("❌ Torrent error:", err);
+        Alert.alert("Stream Error", err.message);
         setIsLoadingTorrent(false);
       });
-    } catch (error) {
-      console.error("❌ Torrent error:", error);
-      Alert.alert("Playback Error", error.message);
+
+      // Wait until metadata is ready
+      if (!torrent.ready) {
+        torrent.once("ready", () => readyHandler(torrent));
+      } else {
+        readyHandler(torrent);
+      }
+    });
+  } catch (err) {
+    console.error("💥 handleMagnetPlay error:", err);
+    Alert.alert("Playback Failed", err.message);
+    setIsLoadingTorrent(false);
+  }
+
+  function readyHandler(torrent) {
+    const file = torrent.files.find(
+      (f) => f.name.endsWith(".webm") || f.name.endsWith(".mp4")
+    );
+
+    if (!file) {
+      Alert.alert("❌ No video", "No .webm/.mp4 file in torrent");
       setIsLoadingTorrent(false);
+      return;
     }
-  };
+
+    console.log("🎬 Found file:", file.name, file.length, "bytes");
+    createVideoPlayer(file, torrent);
+    setIsLoadingTorrent(false);
+  }
+};
 
   // 🆕 WORKING VIDEO PLAYER FUNCTION
   // 🎯 UPDATED: Robust video player with multiple fallback methods
@@ -1262,29 +1304,20 @@ const handleDeleteMessage = async (messageId) => {
 
     checkAuth();
 
-    return () => {
-      socket?.disconnect();
-      if (Platform.OS === "web" && window.globalWebTorrentClient) {
-        const client = window.globalWebTorrentClient;
-
-        console.log("🛑 Cleaning up ALL torrents from global client...");
-
-        // Iterate over ALL active torrents in the global client
-        client.torrents.forEach((torrent) => {
-          // OPTIONAL: Check if the torrent belongs to this neighborhood/session
-          // For safety and simplicity, we'll destroy all that are still active.
-
-          console.log(
-            `Destroying torrent: ${torrent.name || torrent.infoHash}`
-          );
-          torrent.destroy(() => {
-            console.log(`✅ Destroyed ${torrent.name} from global client.`);
-          });
-        });
-
-        // Optional: Forcefully prune WebRTC connections if needed, but destroying torrents usually handles this.
+return () => {
+  socket?.disconnect();
+  // 🛑 Only clean up LIVE streams — don't destroy all torrents!
+  if (Platform.OS === "web" && window.globalWebTorrentClient) {
+    const client = window.globalWebTorrentClient;
+    console.log("🧹 Cleaning up *live* torrents only...");
+    client.torrents.forEach((torrent) => {
+      if (torrent.name?.includes("live-") || torrent.name?.includes("clip_")) {
+        console.log(`🗑️ Destroying live torrent: ${torrent.name}`);
+        torrent.destroy();
       }
-    };
+    });
+  }
+};
   }, [neighborhoodId]);
 
   const showRandomAd = async () => {
@@ -1919,33 +1952,38 @@ const broadcastLiveClip = async () => {
 
   try {
     setUploading(true);
+
+    // 1. Get stream
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { width: 640, height: 360 },
       audio: true,
     });
 
-    const client = window.globalWebTorrentClient;
-    if (!client) throw new Error("WebTorrent client not ready");
-
-    const options = { mimeType: "video/webm;codecs=vp8,opus" };
-    const mediaRecorder = new MediaRecorder(stream, options);
+    // 2. Record
     const chunks = [];
+    const mr = new MediaRecorder(stream, {
+      mimeType: "video/webm;codecs=vp8,opus",
+    });
+    mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
 
-    mediaRecorder.ondataavailable = (e) =>
-      e.data.size > 0 && chunks.push(e.data);
-
-    mediaRecorder.onstop = async () => {
+    mr.onstop = async () => {
       const blob = new Blob(chunks, { type: "video/webm" });
-      const thumbnailUrl = await captureStreamThumbnail(stream);
+      const client = window.globalWebTorrentClient;
+      if (!client) {
+        Alert.alert("❌", "Global WebTorrent client missing");
+        setUploading(false);
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
 
-      // 🔥 KEY: Wait for seeding to complete BEFORE sending message
+      // ✅ 3. Seed → get magnet → post (ALL inside callback)
       client.seed(
         blob,
-        { name: `live-clip-${Date.now()}.webm` },
+        { name: `live-${Date.now()}.webm` },
         async (torrent) => {
-          console.log("✅ Clip seeded:", torrent.magnetURI);
+          console.log("✅ Seeded:", torrent.magnetURI);
 
-          // ✅ ONLY NOW: send the message — with magnet ready
+          // 🚫 No `messageVars` — inline variables only
           try {
             await sendMessageMutation({
               variables: {
@@ -1953,14 +1991,17 @@ const broadcastLiveClip = async () => {
                 neighborhoodId: neighborhoodId,
                 fileName: username ? `${username}'s Live Clip` : "Live Clip",
                 fileType: "live_stream",
-                magnetLink: torrent.magnetURI, // ✅ guaranteed non-null
-                thumbnailUrl,
+                magnetLink: torrent.magnetURI,
+                thumbnailUrl: null,
+                imageUrl: null,
+                videoUrl: null,
+                fileUrl: null,
               },
             });
-            console.log("📤 Live clip message sent with magnet");
+            console.log("📤 Clip posted to chat");
           } catch (err) {
-            console.error("❌ Failed to post message:", err);
-            Alert.alert("⚠️ Broadcast complete, but post failed");
+            console.error("❌ Post failed:", err);
+            Alert.alert("Posted", "Clip seeded, but message failed.");
           }
 
           stream.getTracks().forEach((t) => t.stop());
@@ -1969,12 +2010,12 @@ const broadcastLiveClip = async () => {
       );
     };
 
-    mediaRecorder.start();
-    Alert.alert("🎤 Recording", "Clip ends in 10s", [{ text: "OK" }]);
-    setTimeout(() => mediaRecorder.stop(), 10_000);
+    mr.start();
+    Alert.alert("🎤 Recording", "10s live clip...", [{ text: "OK" }]);
+    setTimeout(() => mr.stop(), 10_000);
   } catch (err) {
-    console.error("❌ Clip error:", err);
-    Alert.alert("Broadcast Failed", err.message);
+    console.error("💥 Clip error:", err);
+    Alert.alert("Error", err.message);
     setUploading(false);
   }
 };
@@ -2232,7 +2273,90 @@ const broadcastLiveClip = async () => {
           onSubmitEditing={sendMessage}
           editable={!!socket}
         />
+        {__DEV__ && (
+          <TouchableOpacity
+            style={{
+              backgroundColor: "#ff4444",
+              padding: 12,
+              margin: 10,
+              borderRadius: 8,
+              alignItems: "center",
+            }}
+            onPress={async () => {
+              if (Platform.OS !== "web") {
+                Alert.alert("Web only");
+                return;
+              }
+              try {
+                // 1. Record 5s
+                const stream = await navigator.mediaDevices.getUserMedia({
+                  video: true,
+                  audio: true,
+                });
+                const chunks = [];
+                const mr = new MediaRecorder(stream, {
+                  mimeType: "video/webm;codecs=vp8,opus",
+                });
+                mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+                mr.onstop = async () => {
+                  const blob = new Blob(chunks, { type: "video/webm" });
+                  const url = URL.createObjectURL(blob);
+                  console.log("✅ Blob ready", blob.size, "bytes →", url);
 
+                  // 2. Play it locally FIRST (sanity check)
+                  const video = document.createElement("video");
+                  video.controls = true;
+                  video.src = url;
+                  video.style.cssText = `
+            position: fixed; top: 20%; left: 20%; width: 60%; 
+            background: black; z-index: 9999;
+          `;
+                  document.body.appendChild(video);
+                  video
+                    .play()
+                    .catch((e) =>
+                      console.warn("Play failed (user gesture needed)", e)
+                    );
+
+                  // 3. Seed to WebTorrent
+                  const client = window.globalWebTorrentClient;
+client.seed(blob, { name: "test.webm" }, (torrent) => {
+  console.log("🌱 Torrent:", {
+    name: torrent.name,
+    magnet: torrent.magnetURI,
+    infoHash: torrent.infoHash,
+    ready: torrent.ready,
+    done: torrent.done,
+    length: torrent.length,
+    numPeers: torrent.numPeers,
+    downloaded: torrent.downloaded,
+    uploaded: torrent.uploaded,
+    wires: torrent.wires.length,
+  });
+
+  // Wait until at least announced
+  torrent.on("ready", () => {
+    console.log("📡 Torrent ready and announced");
+    navigator.clipboard.writeText(torrent.magnetURI);
+    alert("✅ Magnet copied — wait 3s, then test in incognito");
+  });
+});
+                  stream.getTracks().forEach((t) => t.stop());
+                };
+                mr.start();
+                setTimeout(() => mr.stop(), 5000);
+                alert("🎥 Recording 5s test clip...");
+              } catch (e) {
+                console.error(e);
+                alert("❌ Test failed: " + e.message);
+              }
+            }}
+          >
+            <Text style={{ color: "white", fontWeight: "bold" }}>
+              🧪 SELF-TEST: Record → Seed → Post
+            </Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={[
             styles.sendButton,

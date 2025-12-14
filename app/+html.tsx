@@ -151,8 +151,7 @@ export default function Root({ children }: PropsWithChildren) {
         lsd: true,
         announce: [
           'wss://tracker.openwebtorrent.com',
-          'wss://tracker.btorrent.xyz',
-          'wss://tracker.files.fm:7073/announce'
+          'wss://tracker.btorrent.xyz' 
         ]
       },
       dht: {                          // browser can still *query* DHT via UDP relays
