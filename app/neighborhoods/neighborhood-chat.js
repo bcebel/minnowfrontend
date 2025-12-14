@@ -25,9 +25,47 @@ import AdMessage from "../../components/AdMessage";
 import { NeighborhoodVideoReassembler } from "../../components/NeighborhoodVideoReassembler";
 import LiveStreamMessage from "../../components/LiveStreamMessage";
 import LiveStreamPlayer from "../../components/LiveStreamPlayer";
+
 const playStream = (magnetLink) => {
   if (Platform.OS !== "web") {
     Alert.alert("Web Only", "Stream playback requires web browser");
+    return;
+  }
+
+  // 1. Use the GLOBAL client that's already running
+  const client = window.globalWebTorrentClient;
+  if (!client) {
+    alert("Global WebTorrent client not found. Please refresh.");
+    return;
+  }
+
+  // 2. Check if the torrent is already in the client (being seeded)
+  const existingTorrent = client.get(magnetLink);
+  if (existingTorrent) {
+    console.log("📦 Torrent already in client, ready to play!");
+    renderTorrentVideo(existingTorrent);
+    return;
+  }
+
+  // 3. If not, add it to the SAME global client
+  console.log("➕ Adding magnet to global client:", magnetLink);
+  client.add(magnetLink, (torrent) => {
+    console.log("✅ Torrent added to global client:", torrent.name);
+    // Add error logging
+    torrent.on("error", (err) => console.error("Torrent error:", err));
+    torrent.on("warning", (warn) => console.warn("Torrent warning:", warn));
+
+    renderTorrentVideo(torrent);
+  });
+};
+
+const renderTorrentVideo = (torrent) => {
+  const file = torrent.files.find(
+    (file) => file.name.endsWith(".webm") || file.name.endsWith(".mp4")
+  );
+
+  if (!file) {
+    alert("❌ No playable video file found in torrent");
     return;
   }
 
@@ -166,6 +204,12 @@ const ChatMediaRenderer = ({ message }) => {
     fileType,
     thumbnailUrl,
   } = message;
+  console.log("🔍 ChatMediaRenderer Debug:", {
+    message,
+    hasMagnetLink: !!message.magnetLink,
+    fileType: message.fileType,
+    magnetLink: message.magnetLink?.substring(0, 50) + "...",
+  });
 
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
 
@@ -218,6 +262,176 @@ const ChatMediaRenderer = ({ message }) => {
     }
   };
 
+  // 🆕 NEW: Handle magnet link playback
+  // 🆕 NEW: Handle magnet link playback - FIXED VERSION
+  const handleMagnetPlay = async (magnetUri) => {
+    if (Platform.OS !== "web") {
+      Alert.alert(
+        "Web Only",
+        "P2P stream playback is available on web browsers only",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    setIsLoadingTorrent(true);
+
+    try {
+      // Load WebTorrent if needed
+      if (!window.WebTorrent) {
+        const script = document.createElement("script");
+        script.src =
+          "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+        document.head.appendChild(script);
+
+        await new Promise((resolve) => {
+          script.onload = resolve;
+        });
+      }
+
+      // 🎯 CRITICAL: Use the GLOBAL WebTorrent client, not a new one!
+      const client = window.globalWebTorrentClient || new window.WebTorrent();
+      if (!window.globalWebTorrentClient) {
+        window.globalWebTorrentClient = client;
+      }
+
+      console.log(
+        "🌐 Using WebTorrent client:",
+        client === window.globalWebTorrentClient ? "GLOBAL" : "NEW"
+      );
+
+      // 🎯 CHECK: Is this a live stream? Look at fileType or magnet link
+      const isLiveStream =
+        message.fileType === "live_stream" || magnetUri.includes("live-");
+
+      if (isLiveStream) {
+        console.log("🎥 Detected LIVE stream, adding with live:true option");
+        // For live streams, use { live: true } option
+        client.add(magnetUri, { live: true }, (torrent) => {
+          console.log("📥 LIVE stream torrent loaded:", torrent.name);
+
+          // Get video file
+          const file = torrent.files.find(
+            (f) => f.name.endsWith(".webm") || f.name.includes("live")
+          );
+
+          if (file) {
+            // Create video element
+            const video = document.createElement("video");
+            video.controls = true;
+            video.autoplay = true;
+            video.style.cssText = `
+            position: fixed; 
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            z-index: 2000; 
+            background: black;
+            object-fit: contain;
+          `;
+
+            // Stream directly to video
+            file.streamTo(video);
+
+            // Add close button
+            const closeBtn = document.createElement("button");
+            closeBtn.textContent = "✕ CLOSE";
+            closeBtn.style.cssText = `
+            position: fixed; 
+            top: 20px; right: 20px;
+            background: #ff4444; 
+            color: white;
+            border: none; 
+            padding: 10px 20px;
+            border-radius: 6px; 
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 2001; 
+            cursor: pointer;
+          `;
+
+            closeBtn.onclick = () => {
+              document.body.removeChild(video);
+              document.body.removeChild(closeBtn);
+              torrent.destroy();
+            };
+
+            document.body.appendChild(video);
+            document.body.appendChild(closeBtn);
+          } else {
+            console.error("❌ No video file found in LIVE torrent");
+            Alert.alert("Stream Error", "No video stream found");
+          }
+
+          setIsLoadingTorrent(false);
+        });
+      } else {
+        // For NON-LIVE torrents (recorded streams)
+        console.log("📼 Detected RECORDED stream");
+        client.add(magnetUri, (torrent) => {
+          console.log("✅ Torrent loaded:", torrent.name);
+
+          // Get the first video file
+          const file = torrent.files.find(
+            (f) =>
+              f.name.endsWith(".webm") ||
+              f.name.endsWith(".mp4") ||
+              f.name.endsWith(".mov")
+          );
+
+          if (file) {
+            // For non-live, create blob URL
+            file.getBlobURL((err, url) => {
+              if (err) {
+                console.error("❌ Error getting blob URL:", err);
+                // Fallback: stream directly
+                const video = document.createElement("video");
+                video.controls = true;
+                video.autoplay = true;
+                video.style.cssText = `
+                position: fixed; 
+                top: 0; left: 0; right: 0; bottom: 0;
+                width: 100%; height: 100%;
+                z-index: 2000; 
+                background: black;
+              `;
+                document.body.appendChild(video);
+                file.streamTo(video);
+
+                // Add close button
+                const closeBtn = document.createElement("button");
+                closeBtn.textContent = "✕ CLOSE";
+                closeBtn.style.cssText = `
+                position: fixed; top: 20px; right: 20px;
+                background: #ff4444; color: white;
+                border: none; padding: 10px 20px;
+                border-radius: 6px; z-index: 2001;
+              `;
+                closeBtn.onclick = () => {
+                  document.body.removeChild(video);
+                  document.body.removeChild(closeBtn);
+                };
+                document.body.appendChild(closeBtn);
+
+                setIsLoadingTorrent(false);
+                return;
+              }
+
+              setTorrentStreamUrl(url);
+              setIsLoadingTorrent(false);
+            });
+          } else {
+            console.error("❌ No video file found in torrent");
+            Alert.alert("Playback Error", "No video stream found");
+            setIsLoadingTorrent(false);
+          }
+        });
+      }
+    } catch (error) {
+      console.error("❌ Torrent playback error:", error);
+      Alert.alert("Playback Error", error.message);
+      setIsLoadingTorrent(false);
+    }
+  };
   // 🆕 Helper to fetch chunks (you'll need to implement this)
   const fetchChunksBySession = async (sessionId) => {
     // This depends on your backend - you might need to:
@@ -301,35 +515,34 @@ const ChatMediaRenderer = ({ message }) => {
   if (message.fileType === "live_stream") {
     return (
       <View style={styles.liveStreamCard}>
-        <Text>🔴 LIVE STREAM</Text>
-        <Text>{message.fileName}</Text>
+        <Text style={styles.liveTitle}>🔴 LIVE STREAM</Text>
+        <Text style={styles.streamFileName}>{message.fileName}</Text>
 
         {message.magnetLink && (
-          <TouchableOpacity
-            onPress={() => {
-              // Copy to clipboard
-              if (Platform.OS === "web") {
-                navigator.clipboard.writeText(message.magnetLink);
-                alert("Magnet link copied!");
-              } else {
-                Clipboard.setString(message.magnetLink);
-                Alert.alert("Copied", "Magnet link copied to clipboard");
-              }
-            }}
-          >
-            <Text style={styles.magnetLink} numberOfLines={2}>
-              📎 Magnet Link (tap to copy)
-            </Text>
-          </TouchableOpacity>
-        )}
+          <View style={styles.magnetContainer}>
+            <TouchableOpacity
+              onPress={() => {
+                // Copy to clipboard
+                if (Platform.OS === "web") {
+                  navigator.clipboard.writeText(message.magnetLink);
+                  alert("Magnet link copied!");
+                }
+              }}
+              style={styles.copyButton}
+            >
+              <Text style={styles.copyButtonText}>📋 Copy Magnet Link</Text>
+            </TouchableOpacity>
 
-        {/* Optional: Add a play button */}
-        <TouchableOpacity
-          style={styles.playButton}
-          onPress={() => playStream(message.magnetLink)}
-        >
-          <Text style={styles.playButtonText}>▶️ Watch Replay</Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.playButton}
+              onPress={() => handleMagnetPlay(message.magnetLink)}
+            >
+              <Text style={styles.playButtonText}>
+                {isLoadingTorrent ? "⏳ Loading..." : "▶️ Watch Stream"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
   }
@@ -340,177 +553,6 @@ const ChatMediaRenderer = ({ message }) => {
       return `https://${PINATA_GATEWAY}/ipfs/${cid}`;
     }
     return url;
-  };
-
-  // 🆕 NEW: Handle magnet link playback
-  const handleMagnetPlay = async (magnetUri) => {
-    if (Platform.OS !== "web") {
-      Alert.alert(
-        "Web Only",
-        "P2P stream playback is available on web browsers only",
-        [{ text: "OK" }]
-      );
-      return;
-    }
-    // Add this to handle LIVE magnet links
-    const handleLiveStream = async (magnetUri) => {
-      setIsLoadingTorrent(true);
-
-      try {
-        if (!window.WebTorrent) {
-          const script = document.createElement("script");
-          script.src =
-            "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-          document.head.appendChild(script);
-          await new Promise((resolve) => (script.onload = resolve));
-        }
-
-        const client = new window.WebTorrent();
-
-        // 🎯 KEY: Add with live option
-        client.add(magnetUri, { live: true }, (torrent) => {
-          console.log("📥 Joining LIVE stream:", torrent.name);
-
-          // Get video file
-          const file = torrent.files.find(
-            (f) => f.name.endsWith(".webm") || f.name.includes("live")
-          );
-
-          if (file) {
-            // Create video element for playback
-            const video = document.createElement("video");
-            video.controls = true;
-            video.autoplay = true;
-            video.style.cssText = `
-          position: fixed; top: 50%; left: 50%; 
-          transform: translate(-50%, -50%);
-          width: 80vw; max-width: 800px;
-          z-index: 2000; background: black;
-          border: 3px solid #ff0000;
-        `;
-
-            // Stream the file
-            file.streamTo(video);
-
-            // Add close button
-            const closeBtn = document.createElement("button");
-            closeBtn.textContent = "✕";
-            closeBtn.style.cssText = `
-          position: fixed; top: 20px; right: 20px;
-          background: #ff0000; color: white;
-          border: none; width: 40px; height: 40px;
-          border-radius: 20px; font-size: 20px;
-          z-index: 2001; cursor: pointer;
-        `;
-            closeBtn.onclick = () => {
-              document.body.removeChild(video);
-              document.body.removeChild(closeBtn);
-              torrent.destroy();
-            };
-
-            document.body.appendChild(video);
-            document.body.appendChild(closeBtn);
-
-            setIsLoadingTorrent(false);
-          }
-        });
-      } catch (error) {
-        console.error("❌ Live stream join error:", error);
-        Alert.alert("Stream Error", "Could not join live stream");
-        setIsLoadingTorrent(false);
-      }
-    };
-
-    setIsLoadingTorrent(true);
-
-    try {
-      // Load WebTorrent if needed
-      if (!window.WebTorrent) {
-        const script = document.createElement("script");
-        script.src =
-          "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-        document.head.appendChild(script);
-
-        await new Promise((resolve) => {
-          script.onload = resolve;
-        });
-      }
-
-      const client = new window.WebTorrent();
-
-      // Add the magnet link
-      client.add(magnetUri, (torrent) => {
-        console.log("✅ Torrent loaded:", torrent.name);
-
-        // Get the first video file
-        const file = torrent.files.find(
-          (f) =>
-            f.name.endsWith(".webm") ||
-            f.name.endsWith(".mp4") ||
-            f.name.endsWith(".mov")
-        );
-
-        if (file) {
-          // Create a blob URL for the video
-          file.getBlobURL((err, url) => {
-            if (err) {
-              console.error("❌ Error getting blob URL:", err);
-              Alert.alert("Playback Error", "Could not load stream");
-              setIsLoadingTorrent(false);
-              return;
-            }
-
-            setTorrentStreamUrl(url);
-            setShowVideoPlayer(true);
-            setIsLoadingTorrent(false);
-          });
-        } else {
-          console.error("❌ No video file found in torrent");
-          Alert.alert("Playback Error", "No video stream found");
-          setIsLoadingTorrent(false);
-        }
-      });
-    } catch (error) {
-      console.error("❌ Torrent playback error:", error);
-      Alert.alert("Playback Error", error.message);
-      setIsLoadingTorrent(false);
-    }
-
-    // In ChatMediaRenderer
-    if (message.fileType === "video_chunk") {
-      // This is part of a chunked video
-      return (
-        <TouchableOpacity
-          onPress={() => startChunkedVideoPlayback(message.sessionId)}
-          style={styles.chunkedVideoContainer}
-        >
-          <Image
-            source={{
-              uri: thumbnailUrl || "https://via.placeholder.com/320x240",
-            }}
-            style={styles.videoThumbnail}
-          />
-          <View style={styles.chunkBadge}>
-            <Text style={styles.chunkText}>
-              🧩 {message.chunkIndex + 1}/{message.totalChunks}
-            </Text>
-          </View>
-          <Text style={styles.videoFileName}>
-            {message.fileName || "Neighborhood Video"}
-          </Text>
-        </TouchableOpacity>
-      );
-    }
-
-    const startChunkedVideoPlayback = async (sessionId) => {
-      // Get all chunks for this session
-      const chunkMessages = await fetchChunksBySession(sessionId);
-
-      // Use your NeighborhoodVideoReassembler class!
-      const reassembler = new NeighborhoodVideoReassembler(neighborhoodId);
-
-      await reassembler.watchProgressive(chunkMessages);
-    };
   };
 
   // --- VIDEO LOGIC ---
@@ -1842,7 +1884,10 @@ const startNeighborhoodLiveStream = async () => {
       await new Promise((resolve) => (script.onload = resolve));
     }
 
-    const client = new window.WebTorrent();
+    const client = window.globalWebTorrentClient;
+    if (!client) {
+      window.globalWebTorrentClient = new WebTorrent();
+    }
     const mediaRecorder = new MediaRecorder(stream, {
       mimeType: "video/webm; codecs=vp8,opus",
       videoBitsPerSecond: 1000000,
