@@ -498,8 +498,6 @@ const ChatMediaRenderer = ({ message }) => {
     document.body.appendChild(closeBtn);
   };
 
-
-
   // 🆕 MANUAL STREAMING FALLBACK
   const manualStreamPlayback = (file, video) => {
     try {
@@ -632,37 +630,34 @@ const ChatMediaRenderer = ({ message }) => {
     return null;
   }
 
+  // Inside ChatMediaRenderer
   if (message.fileType === "live_stream") {
+    const safeMagnet =
+      message.magnetLink && !message.magnetLink.includes("undefined")
+        ? message.magnetLink
+        : null;
+
+    if (!safeMagnet) {
+      return (
+        <View style={styles.liveStreamCard}>
+          <Text style={styles.liveTitle}>📡 Broadcasting...</Text>
+          <ActivityIndicator color="#ff4444" />
+        </View>
+      );
+    }
+
     return (
       <View style={styles.liveStreamCard}>
         <Text style={styles.liveTitle}>🔴 LIVE STREAM</Text>
         <Text style={styles.streamFileName}>{message.fileName}</Text>
-
-        {message.magnetLink && (
-          <View style={styles.magnetContainer}>
-            <TouchableOpacity
-              onPress={() => {
-                // Copy to clipboard
-                if (Platform.OS === "web") {
-                  navigator.clipboard.writeText(message.magnetLink);
-                  alert("Magnet link copied!");
-                }
-              }}
-              style={styles.copyButton}
-            >
-              <Text style={styles.copyButtonText}>📋 Copy Magnet Link</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.playButton}
-              onPress={() => handleMagnetPlay(message.magnetLink)}
-            >
-              <Text style={styles.playButtonText}>
-                {isLoadingTorrent ? "⏳ Loading..." : "▶️ Watch Stream"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        <TouchableOpacity
+          style={styles.playButton}
+          onPress={() => handleMagnetPlay(safeMagnet)}
+        >
+          <Text style={styles.playButtonText}>
+            {isLoadingTorrent ? "⏳ Loading..." : "▶️ Watch Stream"}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -1884,28 +1879,31 @@ const handleDeleteMessage = async (messageId) => {
     }
   };
 
-  const captureStreamThumbnail = (videoElement) => {
-    return new Promise((resolve) => {
+const captureStreamThumbnail = (stream) => {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.muted = true;
+    video.srcObject = stream;
+    video.play();
+
+    const onFrame = () => {
       const canvas = document.createElement("canvas");
       canvas.width = 320;
       canvas.height = 240;
       const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, 320, 240);
+      resolve(canvas.toDataURL("image/jpeg", 0.7));
+      video.removeEventListener("play", onFrame);
+    };
 
-      // Wait for video to have data
-      if (videoElement.readyState >= 2) {
-        ctx.drawImage(videoElement, 0, 0, 320, 240);
-        const thumbnailUrl = canvas.toDataURL("image/jpeg", 0.8);
-        resolve(thumbnailUrl);
-      } else {
-        videoElement.onloadeddata = () => {
-          ctx.drawImage(videoElement, 0, 0, 320, 240);
-          const thumbnailUrl = canvas.toDataURL("image/jpeg", 0.8);
-          resolve(thumbnailUrl);
-        };
-      }
-    });
-  };
-
+    video.addEventListener("play", onFrame);
+    // Fallback timeout
+    setTimeout(() => {
+      video.removeEventListener("play", onFrame);
+      resolve(null);
+    }, 2000);
+  });
+};
 
   
 
@@ -1913,248 +1911,71 @@ const [isStreaming, setIsStreaming] = useState(false);
 const [streamData, setStreamData] = useState(null);
 
   
-  
-const startNeighborhoodLiveStream = async () => {
+const broadcastLiveClip = async () => {
+  if (Platform.OS !== "web") {
+    Alert.alert("Web Only", "Live clip requires browser");
+    return;
+  }
+
   try {
-    console.log("🔴 Starting live stream...");
-
-    if (Platform.OS !== "web") {
-      Alert.alert("Web Only", "Live streaming requires web browser");
-      return;
-    }
-
-    // Get camera permission and stream
+    setUploading(true);
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 1280, height: 720, facingMode: "user" },
+      video: { width: 640, height: 360 },
       audio: true,
     });
 
-    // Create full-screen stream UI
-    const container = document.createElement("div");
-    container.id = "streamContainer";
-    container.style.cssText = `
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: black; z-index: 9999; display: flex;
-        flex-direction: column; align-items: center; justify-content: center;
-      `;
-
-    // Video preview
-    const preview = document.createElement("video");
-    preview.srcObject = stream;
-    preview.autoplay = true;
-    preview.muted = true;
-    preview.style.cssText = `
-        width: 100%; max-width: 800px; height: auto;
-        border: 3px solid #ff0000; border-radius: 12px;
-      `;
-
-    // Control panel
-    const controls = document.createElement("div");
-    controls.style.cssText = `
-        position: absolute; bottom: 20px; left: 50%;
-        transform: translateX(-50%); background: rgba(0,0,0,0.9);
-        padding: 20px; border-radius: 12px; display: flex;
-        flex-direction: column; align-items: center; gap: 15px;
-        border: 2px solid #ff0000; min-width: 300px;
-      `;
-
-    controls.innerHTML = `
-        <div style="font-size: 18px; font-weight: bold; color: #ff0000;">
-          🔴 LIVE STREAMING
-        </div>
-        <div style="display: flex; gap: 20px; align-items: center;">
-          <div style="text-align: center;">
-            <div style="font-size: 24px; font-weight: bold; color: #00ffff;" id="viewerCount">0</div>
-            <div style="font-size: 12px; color: #888;">Viewers</div>
-          </div>
-          <div style="text-align: center;">
-            <div style="font-size: 24px; font-weight: bold; color: #00ff00;" id="duration">00:00</div>
-            <div style="font-size: 12px; color: #888;">Duration</div>
-          </div>
-        </div>
-        <div style="display: flex; gap: 10px;">
-          <button id="toggleAudio" style="
-            background: #00ff00; color: black; border: none;
-            padding: 10px 20px; border-radius: 6px; cursor: pointer;
-            font-weight: bold; font-size: 14px;
-          ">🎤 Mute</button>
-          <button id="toggleVideo" style="
-            background: #00ffff; color: black; border: none;
-            padding: 10px 20px; border-radius: 6px; cursor: pointer;
-            font-weight: bold; font-size: 14px;
-          ">📹 Off</button>
-          <button id="stopStream" style="
-            background: #ff4444; color: white; border: none;
-            padding: 10px 20px; border-radius: 6px; cursor: pointer;
-            font-weight: bold; font-size: 14px;
-          ">⏹️ End</button>
-        </div>
-      `;
-
-    container.appendChild(preview);
-    container.appendChild(controls);
-    document.body.appendChild(container);
-
-    // Load WebTorrent
-    if (!window.WebTorrent) {
-      const script = document.createElement("script");
-      script.src =
-        "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-      document.head.appendChild(script);
-      await new Promise((resolve) => (script.onload = resolve));
-    }
-
     const client = window.globalWebTorrentClient;
-    if (!client) {
-      window.globalWebTorrentClient = new WebTorrent();
-    }
-   let torrent;
-   let hasSeeded = false;
+    if (!client) throw new Error("WebTorrent client not ready");
 
-   mediaRecorder.ondataavailable = (e) => {
-     if (e.data.size > 0) {
-       // Add chunk to array
-       chunks.push(e.data);
+    const options = { mimeType: "video/webm;codecs=vp8,opus" };
+    const mediaRecorder = new MediaRecorder(stream, options);
+    const chunks = [];
 
-       // ✅ WAIT for first chunk before seeding!
-       if (!hasSeeded && chunks.length > 0) {
-         hasSeeded = true;
+    mediaRecorder.ondataavailable = (e) =>
+      e.data.size > 0 && chunks.push(e.data);
 
-         // Create blob from first chunk
-         const streamBlob = new Blob(chunks, { type: "video/webm" });
-         client.seed(
-           streamBlob,
-           { name: `live-${Date.now()}.webm` },
-           (newTorrent) => {
-             torrent = newTorrent;
-             console.log(
-               "✅ Stream seeded with data:",
-               streamBlob.size,
-               "bytes"
-             );
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: "video/webm" });
+      const thumbnailUrl = await captureStreamThumbnail(stream);
 
-             // Post to chat with magnet link
-             const messageVariables = {
-               content: "",
-               neighborhoodId: neighborhoodId,
-               fileName: username ? `${username}'s Live Stream` : "Live Stream",
-               fileType: "live_stream",
-               magnetLink: newTorrent.magnetURI,
-               mimeType: "video/webm",
-               thumbnailUrl: null,
-             };
+      // 🔥 KEY: Wait for seeding to complete BEFORE sending message
+      client.seed(
+        blob,
+        { name: `live-clip-${Date.now()}.webm` },
+        async (torrent) => {
+          console.log("✅ Clip seeded:", torrent.magnetURI);
 
-             sendMessageMutation({ variables: messageVariables });
+          // ✅ ONLY NOW: send the message — with magnet ready
+          try {
+            await sendMessageMutation({
+              variables: {
+                content: "",
+                neighborhoodId: neighborhoodId,
+                fileName: username ? `${username}'s Live Clip` : "Live Clip",
+                fileType: "live_stream",
+                magnetLink: torrent.magnetURI, // ✅ guaranteed non-null
+                thumbnailUrl,
+              },
+            });
+            console.log("📤 Live clip message sent with magnet");
+          } catch (err) {
+            console.error("❌ Failed to post message:", err);
+            Alert.alert("⚠️ Broadcast complete, but post failed");
+          }
 
-             // ✅ Append FUTURE chunks to the torrent
-             mediaRecorder.ondataavailable = (e2) => {
-               if (e2.data.size > 0 && torrent) {
-                 chunks.push(e2.data);
-                 torrent.append(e2.data);
-               }
-             };
-           }
-         );
-       }
-     }
-   };
-   mediaRecorder.start(1000);
+          stream.getTracks().forEach((t) => t.stop());
+          setUploading(false);
+        }
+      );
+    };
 
-    // Seed the stream
-    const streamBlob = new Blob(chunks, { type: "video/webm" });
-    client.seed(streamBlob, { name: `live-${Date.now()}.webm` }, (torrent) => {
-      console.log("✅ Stream seeded:", torrent.magnetURI);
-
-      // Post to chat with live_stream type
-      const messageVariables = {
-        content: "", // Empty content - the card will show everything
-        neighborhoodId: neighborhoodId,
-        fileName: username ? `${username}'s Live Stream` : "Live Stream",
-        fileType: "live_stream", // ⚠️ CRITICAL: Use live_stream type
-        magnetLink: torrent.magnetURI,
-        mimeType: "video/webm",
-        thumbnailUrl: null,
-        imageUrl: null,
-        videoUrl: null,
-        fileUrl: null,
-      };
-
-      console.log("📤 Sending live stream message:", messageVariables);
-
-      sendMessageMutation({
-        variables: messageVariables,
-      })
-        .then((result) => {
-          console.log("✅ Live stream message sent:", result.data);
-        })
-        .catch((error) => {
-          console.error("❌ Failed to send live stream message:", error);
-        });
-
-      // Update viewer count
-      const updateStats = setInterval(() => {
-        document.getElementById("viewerCount").textContent =
-          torrent.numPeers || 0;
-      }, 2000);
-
-      // Duration counter
-      const startTime = Date.now();
-      const updateDuration = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        const mins = Math.floor(elapsed / 60)
-          .toString()
-          .padStart(2, "0");
-        const secs = (elapsed % 60).toString().padStart(2, "0");
-        document.getElementById("duration").textContent = `${mins}:${secs}`;
-      }, 1000);
-
-      // Control buttons
-      let audioEnabled = true;
-      let videoEnabled = true;
-
-      document.getElementById("toggleAudio").onclick = () => {
-        audioEnabled = !audioEnabled;
-        stream
-          .getAudioTracks()
-          .forEach((track) => (track.enabled = audioEnabled));
-        document.getElementById("toggleAudio").textContent = audioEnabled
-          ? "🎤 Mute"
-          : "🎤 Unmute";
-      };
-
-      document.getElementById("toggleVideo").onclick = () => {
-        videoEnabled = !videoEnabled;
-        stream
-          .getVideoTracks()
-          .forEach((track) => (track.enabled = videoEnabled));
-        document.getElementById("toggleVideo").textContent = videoEnabled
-          ? "📹 Off"
-          : "📹 On";
-      };
-
-      document.getElementById("stopStream").onclick = () => {
-        clearInterval(updateStats);
-        clearInterval(updateDuration);
-        mediaRecorder.stop();
-        torrent.destroy();
-        stream.getTracks().forEach((track) => track.stop());
-        document.body.removeChild(container);
-
-        sendMessageMutation({
-          variables: {
-            content: "⏹️ Stream ended",
-            neighborhoodId: neighborhoodId,
-          },
-        });
-
-        setIsStreaming(false);
-      };
-    });
-
-    setIsStreaming(true);
-  } catch (error) {
-    console.error("❌ Stream error:", error);
-    Alert.alert("Stream Error", error.message);
+    mediaRecorder.start();
+    Alert.alert("🎤 Recording", "Clip ends in 10s", [{ text: "OK" }]);
+    setTimeout(() => mediaRecorder.stop(), 10_000);
+  } catch (err) {
+    console.error("❌ Clip error:", err);
+    Alert.alert("Broadcast Failed", err.message);
+    setUploading(false);
   }
 };
 
@@ -2293,13 +2114,12 @@ const startNeighborhoodLiveStream = async () => {
       )}
 
       <ScrollView style={styles.messagesList} ref={scrollViewRef}>
-        
         {messages.map((item, index) => {
           const showAdHere = index % 20 === 0;
-            <NeighborhoodLiveStreamRecorder
-              neighborhoodId={neighborhoodId}
-              username={username}
-            />;
+          <NeighborhoodLiveStreamRecorder
+            neighborhoodId={neighborhoodId}
+            username={username}
+          />;
           {
             item.fileType === "live_stream" ? (
               <LiveStreamMessage message={item} />
@@ -2313,15 +2133,15 @@ const startNeighborhoodLiveStream = async () => {
             );
           }
           const isSender = item.sender?.username === username;
-const pressHandler = isSender
-  ? (e) => {
-      // For web, prevent default menu
-      if (Platform.OS === "web") {
-        e.preventDefault();
-      }
-      handleDeleteMessage(item.id);
-    }
-  : undefined;
+          const pressHandler = isSender
+            ? (e) => {
+                // For web, prevent default menu
+                if (Platform.OS === "web") {
+                  e.preventDefault();
+                }
+                handleDeleteMessage(item.id);
+              }
+            : undefined;
 
           return (
             <React.Fragment key={item.id}>
@@ -2351,7 +2171,6 @@ const pressHandler = isSender
                       {formatTimestamp(item.createdAt)}
                     </Text>
 
-            
                     {(isSender || isNeighborhoodAdmin) && (
                       <TouchableOpacity
                         onPress={() => handleDeleteMessage(item.id)}
@@ -2395,11 +2214,11 @@ const pressHandler = isSender
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.streamButton}
-          onPress={startNeighborhoodLiveStream}
+          style={[styles.streamButton, { backgroundColor: "#00AA00" }]}
+          onPress={broadcastLiveClip}
           disabled={uploading}
         >
-          <Text style={styles.streamButtonText}>{uploading ? "🔄" : "🎥"}</Text>
+          <Text style={styles.streamButtonText}>🎙️</Text>
         </TouchableOpacity>
       </View>
       <View>
