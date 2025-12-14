@@ -23,6 +23,7 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentMedia from "../../components/WebTorrentMedia";
 import AdMessage from "../../components/AdMessage";
 import { NeighborhoodVideoReassembler } from "../../components/NeighborhoodVideoReassembler";
+ import LiveStreamMessage from "../../components/LiveStreamMessage";
 
 const safeFileName = (asset) =>
   asset.name || asset.fileName || asset.uri.split("/").pop() || "media";
@@ -1997,9 +1998,21 @@ const startNeighborhoodLiveStream = async () => {
       )}
 
       <ScrollView style={styles.messagesList} ref={scrollViewRef}>
+        
         {messages.map((item, index) => {
           const showAdHere = index % 20 === 0;
-          
+          {
+            item.fileType === "live_stream" ? (
+              <LiveStreamMessage message={item} />
+            ) : (
+              <>
+                <ChatMediaRenderer message={item} />
+                {!item.imageUrl && !item.videoUrl && !item.fileUrl && (
+                  <Text style={styles.messageText}>{item.content}</Text>
+                )}
+              </>
+            );
+          }
           const isSender = item.sender?.username === username;
 const pressHandler = isSender
   ? (e) => {
