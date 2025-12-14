@@ -1985,16 +1985,57 @@ const startNeighborhoodLiveStream = async () => {
     if (!client) {
       window.globalWebTorrentClient = new WebTorrent();
     }
-    const mediaRecorder = new MediaRecorder(stream, {
-      mimeType: "video/webm; codecs=vp8,opus",
-      videoBitsPerSecond: 1000000,
-    });
+   let torrent;
+   let hasSeeded = false;
 
-    const chunks = [];
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunks.push(e.data);
-    };
-    mediaRecorder.start(1000);
+   mediaRecorder.ondataavailable = (e) => {
+     if (e.data.size > 0) {
+       // Add chunk to array
+       chunks.push(e.data);
+
+       // ✅ WAIT for first chunk before seeding!
+       if (!hasSeeded && chunks.length > 0) {
+         hasSeeded = true;
+
+         // Create blob from first chunk
+         const streamBlob = new Blob(chunks, { type: "video/webm" });
+         client.seed(
+           streamBlob,
+           { name: `live-${Date.now()}.webm` },
+           (newTorrent) => {
+             torrent = newTorrent;
+             console.log(
+               "✅ Stream seeded with data:",
+               streamBlob.size,
+               "bytes"
+             );
+
+             // Post to chat with magnet link
+             const messageVariables = {
+               content: "",
+               neighborhoodId: neighborhoodId,
+               fileName: username ? `${username}'s Live Stream` : "Live Stream",
+               fileType: "live_stream",
+               magnetLink: newTorrent.magnetURI,
+               mimeType: "video/webm",
+               thumbnailUrl: null,
+             };
+
+             sendMessageMutation({ variables: messageVariables });
+
+             // ✅ Append FUTURE chunks to the torrent
+             mediaRecorder.ondataavailable = (e2) => {
+               if (e2.data.size > 0 && torrent) {
+                 chunks.push(e2.data);
+                 torrent.append(e2.data);
+               }
+             };
+           }
+         );
+       }
+     }
+   };
+   mediaRecorder.start(1000);
 
     // Seed the stream
     const streamBlob = new Blob(chunks, { type: "video/webm" });
