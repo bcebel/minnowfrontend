@@ -186,7 +186,7 @@ export const LEAVE_NEIGHBORHOOD = gql`
 
 // graphql/queries.js
 // In your frontend, find the query that looks like:
-const VALIDATE_INVITE_LINK = gql`
+export const VALIDATE_INVITE_LINK = gql`
   query ValidateInviteLink($code: String!) {
     validateInviteLink(code: $code) {
       isValid

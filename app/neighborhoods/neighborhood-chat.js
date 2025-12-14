@@ -25,6 +25,8 @@ import AdMessage from "../../components/AdMessage";
 import { NeighborhoodVideoReassembler } from "../../components/NeighborhoodVideoReassembler";
 import LiveStreamMessage from "../../components/LiveStreamMessage";
 import LiveStreamPlayer from "../../components/LiveStreamPlayer";
+import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer"; 
+import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
 
 const playStream = (magnetLink) => {
   if (Platform.OS !== "web") {
@@ -540,7 +542,28 @@ const ChatMediaRenderer = ({ message }) => {
     // or use a context/global state
     return []; // Placeholder
   };
+  if (message.fileType === "live_stream_chunked") {
+    return (
+      <NeighborhoodLiveStreamPlayer
+        sessionId={message.sessionId}
+        streamTitle={message.fileName}
+      />
+    );
+  }
 
+  // 2️⃣ Handle video_chunk (INDIVIDUAL CHUNK MESSAGE)
+  if (message.fileType === "video_chunk") {
+    return (
+      <View style={styles.chunkIndicator}>
+        <Text style={styles.chunkText}>
+          🧩 Part {message.chunkIndex + 1} of live stream
+        </Text>
+        {message.chunkIndex === 0 && (
+          <Text style={styles.liveBadge}>🔴 LIVE</Text>
+        )}
+      </View>
+    );
+  }
   // 🆕 Render chunked video
   if (message.fileType === "video_chunked") {
     // Master message with thumbnail
@@ -2273,6 +2296,10 @@ const startNeighborhoodLiveStream = async () => {
         
         {messages.map((item, index) => {
           const showAdHere = index % 20 === 0;
+            <NeighborhoodLiveStreamRecorder
+              neighborhoodId={neighborhoodId}
+              username={username}
+            />;
           {
             item.fileType === "live_stream" ? (
               <LiveStreamMessage message={item} />
