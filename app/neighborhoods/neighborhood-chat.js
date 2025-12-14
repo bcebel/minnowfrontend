@@ -237,14 +237,32 @@ const ChatMediaRenderer = ({ message }) => {
         <Text>🔴 LIVE STREAM</Text>
         <Text>{message.fileName}</Text>
 
-        {/* THIS SHOWS THE MAGNET LINK */}
         {message.magnetLink && (
-          <TouchableOpacity onPress={() => copyToClipboard(message.magnetLink)}>
-            <Text style={styles.magnetLink}>
-              Magnet: {message.magnetLink.substring(0, 50)}...
+          <TouchableOpacity
+            onPress={() => {
+              // Copy to clipboard
+              if (Platform.OS === "web") {
+                navigator.clipboard.writeText(message.magnetLink);
+                alert("Magnet link copied!");
+              } else {
+                Clipboard.setString(message.magnetLink);
+                Alert.alert("Copied", "Magnet link copied to clipboard");
+              }
+            }}
+          >
+            <Text style={styles.magnetLink} numberOfLines={2}>
+              📎 Magnet Link (tap to copy)
             </Text>
           </TouchableOpacity>
         )}
+
+        {/* Optional: Add a play button */}
+        <TouchableOpacity
+          style={styles.playButton}
+          onPress={() => playStream(message.magnetLink)}
+        >
+          <Text style={styles.playButtonText}>▶️ Watch Replay</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -2557,5 +2575,42 @@ const styles = StyleSheet.create({
   inviteLinksButtonText: {
     color: "#00ffff",
     fontWeight: "bold",
+  },
+
+  liveStreamCard: {
+    backgroundColor: '#ffeded',
+    padding: 12,
+    borderRadius: 10,
+    marginVertical: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff4444',
+  },
+  liveTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ff4444',
+    marginBottom: 4,
+  },
+  fileName: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333',
+  },
+  magnetLink: {
+    fontSize: 13,
+    color: '#0066cc',
+    textDecorationLine: 'underline',
+    marginBottom: 8,
+  },
+  playButton: {
+    backgroundColor: '#0066cc',
+    padding: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  playButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
