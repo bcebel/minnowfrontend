@@ -13,6 +13,7 @@ import {
   Platform,
 } from "react-native";
 import { Text } from "react-native";
+import { Blob } from "expo-blob";
 import { useLocalSearchParams, useRouter, Link } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io } from "socket.io-client";
@@ -1570,7 +1571,9 @@ return () => {
     console.log("🎬 Starting chunked video upload...");
 
     const response = await fetch(asset.uri);
-    const originalBlob = await response.blob();
+  
+    const arrayBuffer = await response.arrayBuffer();
+    const originalBlob = new Blob({ arrayBuffer, type: "video/mp4" });
 
     // Parameters
     const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunks (adjustable)
