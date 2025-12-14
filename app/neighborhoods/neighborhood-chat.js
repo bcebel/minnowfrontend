@@ -1751,14 +1751,16 @@ const startNeighborhoodLiveStream = async () => {
     client.seed(streamBlob, { name: `live-${Date.now()}.webm` }, (torrent) => {
       console.log("✅ Stream seeded:", torrent.magnetURI);
 
-      // Post to chat
+      // Post to chat with live_stream type
       sendMessageMutation({
         variables: {
-          content: "🔴 LIVE NOW! Click to watch",
+          content: "", // Empty content - the card will show everything
           neighborhoodId: neighborhoodId,
-          fileName: "LIVE_STREAM.webm",
-          fileType: "live_stream",
+          fileName: username ? `${username}'s Live Stream` : "Live Stream",
+          fileType: "live_stream", // ⚠️ CRITICAL: Use live_stream type
           magnetLink: torrent.magnetURI,
+          mimeType: "video/webm",
+          thumbnailUrl: null,
         },
       });
 
