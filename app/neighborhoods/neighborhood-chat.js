@@ -230,6 +230,23 @@ const ChatMediaRenderer = ({ message }) => {
     return null;
   }
 
+  if (message.fileType === "live_stream") {
+    return (
+      <View style={styles.liveStreamCard}>
+        <Text>🔴 LIVE STREAM</Text>
+        <Text>{message.fileName}</Text>
+
+        {/* THIS SHOWS THE MAGNET LINK */}
+        {message.magnetLink && (
+          <TouchableOpacity onPress={() => copyToClipboard(message.magnetLink)}>
+            <Text style={styles.magnetLink}>
+              Magnet: {message.magnetLink.substring(0, 50)}...
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }
   const getPinataUrl = (url) => {
     if (!url) return null;
     if (url.includes("/ipfs/")) {
@@ -1982,6 +1999,7 @@ const startNeighborhoodLiveStream = async () => {
       <ScrollView style={styles.messagesList} ref={scrollViewRef}>
         {messages.map((item, index) => {
           const showAdHere = index % 20 === 0;
+          
           const isSender = item.sender?.username === username;
 const pressHandler = isSender
   ? (e) => {
