@@ -23,8 +23,75 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentMedia from "../../components/WebTorrentMedia";
 import AdMessage from "../../components/AdMessage";
 import { NeighborhoodVideoReassembler } from "../../components/NeighborhoodVideoReassembler";
- import LiveStreamMessage from "../../components/LiveStreamMessage";
+import LiveStreamMessage from "../../components/LiveStreamMessage";
+import LiveStreamPlayer from "../../components/LiveStreamPlayer";
+const playStream = (magnetLink) => {
+  if (Platform.OS !== "web") {
+    Alert.alert("Web Only", "Stream playback requires web browser");
+    return;
+  }
 
+  // Load WebTorrent if needed
+  if (!window.WebTorrent) {
+    const script = document.createElement("script");
+    script.src =
+      "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+    document.head.appendChild(script);
+    script.onload = () => playWithWebTorrent(magnetLink);
+  } else {
+    playWithWebTorrent(magnetLink);
+  }
+};
+
+const playWithWebTorrent = (magnetLink) => {
+  const client = new window.WebTorrent();
+
+  client.add(magnetLink, (torrent) => {
+    // Find video file
+    const file = torrent.files.find(
+      (file) => file.name.endsWith(".webm") || file.name.endsWith(".mp4")
+    );
+
+    if (file) {
+      // Create video player UI (similar to your stream UI)
+      const container = document.createElement("div");
+      container.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: black; z-index: 9999; display: flex;
+        flex-direction: column; align-items: center; justify-content: center;
+      `;
+
+      const video = document.createElement("video");
+      video.controls = true;
+      video.autoplay = true;
+      video.style.cssText = `
+        width: 100%; max-width: 800px; height: auto;
+        border: 3px solid #0066cc; border-radius: 12px;
+      `;
+
+      const closeBtn = document.createElement("button");
+      closeBtn.textContent = "Close";
+      closeBtn.style.cssText = `
+        background: #ff4444; color: white; border: none;
+        padding: 10px 20px; border-radius: 6px; cursor: pointer;
+        font-weight: bold; margin-top: 20px;
+      `;
+      closeBtn.onclick = () => {
+        document.body.removeChild(container);
+        torrent.destroy();
+      };
+
+      container.appendChild(video);
+      container.appendChild(closeBtn);
+      document.body.appendChild(container);
+
+      // Render video
+      file.renderTo(video);
+    } else {
+      alert("No video file found in stream");
+    }
+  });
+};
 const safeFileName = (asset) =>
   asset.name || asset.fileName || asset.uri.split("/").pop() || "media";
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
@@ -1678,9 +1745,13 @@ const handleDeleteMessage = async (messageId) => {
   };
 
 
+  
+
 const [isStreaming, setIsStreaming] = useState(false);
 const [streamData, setStreamData] = useState(null);
 
+  
+  
 const startNeighborhoodLiveStream = async () => {
   try {
     console.log("🔴 Starting live stream...");
