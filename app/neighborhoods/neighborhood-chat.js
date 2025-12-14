@@ -1172,6 +1172,7 @@ const [deleteMessageMutation] = useMutation(DELETE_NEIGHBORHOOD_MESSAGE);
 
 // Ensure Platform is imported
 
+  
 const handleDeleteMessage = async (messageId) => {
   console.log("Attempting to delete message ID:", messageId); // Log is confirmed working
 
@@ -1665,7 +1666,17 @@ return () => {
             console.log(
               `✅ Chunk ${index + 1}/${totalChunks} seeded:`,
               torrent.magnetURI
+              , {
+    index: i,
+    magnet: torrent.magnetURI,
+    size: chunk.size,
+  }
             );
+            console.log("🌱 CHUNK SEEDED:", {
+              index: i,
+              magnet: torrent.magnetURI,
+              size: chunk.size,
+            });
 
             // Send chunk message to chat
             sendMessageMutation({
@@ -1949,76 +1960,58 @@ const [streamData, setStreamData] = useState(null);
   
 const broadcastLiveClip = async () => {
   if (Platform.OS !== "web") {
-    Alert.alert("Web Only", "Live clip requires browser");
+    Alert.alert("Web Only", "Live streaming requires a browser");
     return;
   }
 
   try {
     setUploading(true);
 
-    // 1. Get stream
+    // 1. Get camera + mic
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { width: 640, height: 360 },
       audio: true,
     });
 
-    // 2. Record
+    // 2. Record for 10 seconds
     const chunks = [];
-    const mr = new MediaRecorder(stream, {
+    const mediaRecorder = new MediaRecorder(stream, {
       mimeType: "video/webm;codecs=vp8,opus",
     });
-    mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
 
-    mr.onstop = async () => {
+    mediaRecorder.ondataavailable = (e) =>
+      e.data.size > 0 && chunks.push(e.data);
+
+    mediaRecorder.onstop = async () => {
+      // 3. Create blob and seed
       const blob = new Blob(chunks, { type: "video/webm" });
       const client = window.globalWebTorrentClient;
-      if (!client) {
-        Alert.alert("❌", "Global WebTorrent client missing");
-        setUploading(false);
-        stream.getTracks().forEach((t) => t.stop());
-        return;
-      }
 
-      // ✅ 3. Seed → get magnet → post (ALL inside callback)
-      client.seed(
-        blob,
-        { name: `live-${Date.now()}.webm` },
-        async (torrent) => {
-          console.log("✅ Seeded:", torrent.magnetURI);
+      client.seed(blob, { name: `live-${Date.now()}.webm` }, (torrent) => {
+        // 4. Post to chat as P2P live stream
+        sendMessageMutation({
+          variables: {
+            content: "",
+            neighborhoodId,
+            fileName: username ? `${username}'s Live Clip` : "Live Clip",
+            fileType: "live_stream",
+            magnetLink: torrent.magnetURI,
+            thumbnailUrl: null,
+          },
+        });
+      });
 
-          // 🚫 No `messageVars` — inline variables only
-          try {
-            await sendMessageMutation({
-              variables: {
-                content: "",
-                neighborhoodId: neighborhoodId,
-                fileName: username ? `${username}'s Live Clip` : "Live Clip",
-                fileType: "live_stream",
-                magnetLink: torrent.magnetURI,
-                thumbnailUrl: null,
-                imageUrl: null,
-                videoUrl: null,
-                fileUrl: null,
-              },
-            });
-            console.log("📤 Clip posted to chat");
-          } catch (err) {
-            console.error("❌ Post failed:", err);
-            Alert.alert("Posted", "Clip seeded, but message failed.");
-          }
-
-          stream.getTracks().forEach((t) => t.stop());
-          setUploading(false);
-        }
-      );
+      // Cleanup
+      stream.getTracks().forEach((t) => t.stop());
+      setUploading(false);
     };
 
-    mr.start();
-    Alert.alert("🎤 Recording", "10s live clip...", [{ text: "OK" }]);
-    setTimeout(() => mr.stop(), 10_000);
+    mediaRecorder.start();
+    Alert.alert("🎤 Recording", "10-second clip starting...");
+    setTimeout(() => mediaRecorder.stop(), 10_000); // 10s clip
   } catch (err) {
-    console.error("💥 Clip error:", err);
-    Alert.alert("Error", err.message);
+    console.error("Broadcast error:", err);
+    Alert.alert("Failed", err.message);
     setUploading(false);
   }
 };
@@ -2258,11 +2251,19 @@ const broadcastLiveClip = async () => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.streamButton, { backgroundColor: "#00AA00" }]}
+          style={{
+            backgroundColor: "#00AA00",
+            padding: 12,
+            margin: 10,
+            borderRadius: 8,
+            alignItems: "center",
+          }}
           onPress={broadcastLiveClip}
           disabled={uploading}
         >
-          <Text style={styles.streamButtonText}>🎙️</Text>
+          <Text style={{ color: "white", fontWeight: "bold" }}>
+            🎙️ Broadcast Live Clip (P2P)
+          </Text>
         </TouchableOpacity>
       </View>
       <View>
@@ -2323,27 +2324,29 @@ const broadcastLiveClip = async () => {
 
                   // 3. Seed to WebTorrent
                   const client = window.globalWebTorrentClient;
-client.seed(blob, { name: "test.webm" }, (torrent) => {
-  console.log("🌱 Torrent:", {
-    name: torrent.name,
-    magnet: torrent.magnetURI,
-    infoHash: torrent.infoHash,
-    ready: torrent.ready,
-    done: torrent.done,
-    length: torrent.length,
-    numPeers: torrent.numPeers,
-    downloaded: torrent.downloaded,
-    uploaded: torrent.uploaded,
-    wires: torrent.wires.length,
-  });
+                  client.seed(blob, { name: "test.webm" }, (torrent) => {
+                    console.log("🌱 Torrent:", {
+                      name: torrent.name,
+                      magnet: torrent.magnetURI,
+                      infoHash: torrent.infoHash,
+                      ready: torrent.ready,
+                      done: torrent.done,
+                      length: torrent.length,
+                      numPeers: torrent.numPeers,
+                      downloaded: torrent.downloaded,
+                      uploaded: torrent.uploaded,
+                      wires: torrent.wires.length,
+                    });
 
-  // Wait until at least announced
-  torrent.on("ready", () => {
-    console.log("📡 Torrent ready and announced");
-    navigator.clipboard.writeText(torrent.magnetURI);
-    alert("✅ Magnet copied — wait 3s, then test in incognito");
-  });
-});
+                    // Wait until at least announced
+                    torrent.on("ready", () => {
+                      console.log("📡 Torrent ready and announced");
+                      navigator.clipboard.writeText(torrent.magnetURI);
+                      alert(
+                        "✅ Magnet copied — wait 3s, then test in incognito"
+                      );
+                    });
+                  });
                   stream.getTracks().forEach((t) => t.stop());
                 };
                 mr.start();
