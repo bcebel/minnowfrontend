@@ -1,7 +1,23 @@
-// components/NeighborhoodLiveStreamPlayer.jsx
-import { useState } from "react";
-import { View, TouchableOpacity, Text, ActivityIndicator } from "react-native";
-import { NeighborhoodVideoReassembler } from "../utils/NeighborhoodVideoReassembler";
+// components/NeighborhoodLiveStreamPlayer.jsx (Conceptual Implementation)
+
+import React, { useRef, useEffect, useState } from "react";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { gql, useSubscription } from "@apollo/client";
+
+import { NeighborhoodVideoReassembler } from "./NeighborhoodVideoReassembler";
+
+// 1. Apollo Subscription Query
+const CHUNK_SUBSCRIPTION = gql`
+  subscription OnNewChunk($sessionId: String!) {
+    newVideoChunk(sessionId: $sessionId) {
+      id
+      magnetLink
+      chunkIndex
+      sessionId
+      fileType 
+    }
+  }
+`;
 
 export default function NeighborhoodLiveStreamPlayer({
   sessionId,
@@ -9,36 +25,52 @@ export default function NeighborhoodLiveStreamPlayer({
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [reassembler, setReassembler] = useState(null);
+  // Change state to useRef for the object that manages the stream connection
+  const reassemblerRef = useRef(null);
 
+  // 2. Use Subscription Hook
+  const { data } = useSubscription(CHUNK_SUBSCRIPTION, {
+    variables: { sessionId },
+    skip: !isPlaying, // Only subscribe when playing
+    shouldResubscribe: true,
+  });
+
+  // 3. Process new chunk data from subscription
+  useEffect(() => {
+    // Check if a new chunk message arrived and if the player is active
+    if (data?.newVideoChunk && reassemblerRef.current) {
+      console.log(`📡 New chunk received: ${data.newVideoChunk.chunkIndex}`);
+      // This is the CRUCIAL line: feed the chunk to the reassembler for downloading/buffering
+      reassemblerRef.current.appendChunk(data.newVideoChunk);
+    }
+  }, [data]);
+
+  // 4. Update the startWatching logic
   const startWatching = async () => {
+    // ⚠️ CRITICAL: Ensure we are only running on web for this logic
+    if (typeof window === "undefined" || Platform.OS !== "web") {
+      alert("Live streaming is only supported in web browsers.");
+      return;
+    }
+
     setIsLoading(true);
 
     // Make sure WebTorrent is loaded
     if (!window.WebTorrent) {
-      const script = document.createElement("script");
-      script.src =
-        "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-      document.head.appendChild(script);
-      await new Promise((resolve) => (script.onload = resolve));
+      // ... (your existing WebTorrent loading logic) ...
     }
 
     try {
+      // 4a. Create and store the Reassembler instance
       const reassembler = new NeighborhoodVideoReassembler(sessionId);
-      setReassembler(reassembler);
+      reassemblerRef.current = reassembler;
 
-      await reassembler.startLivePlayback();
+      // 4b. Start the playback process (initializes MSE and UI)
+      await reassembler.startLivePlayback(); // This now returns the UI element
 
+      // The stream starts listening for chunks immediately
       setIsPlaying(true);
       setIsLoading(false);
-
-      // Auto-update status
-      const statusInterval = setInterval(() => {
-        if (!document.getElementById("liveStreamPlayer")) {
-          clearInterval(statusInterval);
-          setIsPlaying(false);
-        }
-      }, 1000);
     } catch (error) {
       console.error("❌ Failed to start playback:", error);
       setIsLoading(false);
@@ -47,62 +79,47 @@ export default function NeighborhoodLiveStreamPlayer({
   };
 
   const stopWatching = () => {
-    if (reassembler) {
-      reassembler.stopPlayback();
+    if (reassemblerRef.current) {
+      reassemblerRef.current.stopPlayback();
+      reassemblerRef.current = null; // Clear reference
     }
     setIsPlaying(false);
   };
 
+  // 5. Add a cleanup effect to stop the stream on unmount
+  useEffect(() => {
+    return () => {
+      stopWatching();
+    };
+  }, []);
+
   return (
     <View style={{ marginVertical: 10 }}>
-      {!isPlaying ? (
-        <TouchableOpacity
-          onPress={startWatching}
-          disabled={isLoading}
-          style={{
-            backgroundColor: "#00cc00",
-            padding: 15,
-            borderRadius: 10,
-            alignItems: "center",
-            opacity: isLoading ? 0.7 : 1,
-          }}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <>
-              <Text
-                style={{ color: "white", fontWeight: "bold", fontSize: 16 }}
-              >
-                ▶️ WATCH LIVE STREAM
-              </Text>
-              <Text style={{ color: "white", fontSize: 12, marginTop: 5 }}>
-                {streamTitle || "Neighborhood Live"}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      ) : (
-        <View style={{ alignItems: "center" }}>
-          <Text style={{ color: "#00cc00", fontWeight: "bold" }}>
-            🔴 LIVE STREAM PLAYING
-          </Text>
-          <Text style={{ fontSize: 12, color: "#666", marginTop: 5 }}>
-            Close the video player to stop
-          </Text>
-          <TouchableOpacity
-            onPress={stopWatching}
-            style={{
-              backgroundColor: "#ff4444",
-              padding: 10,
-              borderRadius: 6,
-              marginTop: 10,
-            }}
-          >
-            <Text style={{ color: "white" }}>Stop Watching</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      {/* ... rest of your JSX UI ... */}
     </View>
   );
 }
+
+
+const styles = StyleSheet.create({
+  container: {
+    // ... styles
+  },
+  title: {
+    // ... styles
+  },
+  videoPlayer: {
+    width: "100%",
+    height: 300,
+    backgroundColor: "black",
+  },
+  statusBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  statusText: {
+    marginLeft: 10,
+    color: "#00ff00",
+  },
+});
