@@ -1,5 +1,11 @@
 // app/neighborhood-chat.js
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import {
   View,
   ScrollView,
@@ -196,8 +202,13 @@ const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
     </TouchableOpacity>
   );
 };
-// Updated ChatMediaRenderer with stream support
-const ChatMediaRenderer = ({ message }) => {
+
+function ChatMediaRenderer({
+  message,
+  onStreamActive,
+  liveChunks = [],
+  clearProcessedChunk = () => {},
+}) {
   const {
     imageUrl,
     videoUrl,
@@ -279,75 +290,79 @@ const ChatMediaRenderer = ({ message }) => {
     }
   };
 
-const handleMagnetPlay = async (magnetUri) => {
-  if (Platform.OS !== "web") return;
-  setIsLoadingTorrent(true);
+  const handleMagnetPlay = async (magnetUri) => {
+    if (Platform.OS !== "web") return;
+    setIsLoadingTorrent(true);
 
-  try {
-    // 🔁 Use global client — create if missing (and attach!)
-    let client = window.globalWebTorrentClient;
-    if (!client) {
-      console.warn("🔧 Creating global WebTorrent client on-demand");
-      client = new window.WebTorrent();
-      window.globalWebTorrentClient = client; // critical!
+    try {
+      // 🔁 Use global client — create if missing (and attach!)
+      let client = window.globalWebTorrentClient;
+      if (!client) {
+        console.warn("🔧 Creating global WebTorrent client on-demand");
+        client = new window.WebTorrent();
+        window.globalWebTorrentClient = client; // critical!
+      }
+
+      // 🧪 Log existing torrents to debug duplicates
+      console.log("📊 Global client has", client.torrents.length, "torrents");
+
+      // 🔍 Check if already added (avoid duplicate adds)
+      const existing = client.get(magnetUri);
+      if (existing) {
+        console.log("✅ Reusing existing torrent:", existing.name);
+        const file = existing.files.find(
+          (f) => f.name.endsWith(".webm") || f.name.endsWith(".mp4")
+        );
+        if (file) {
+          createVideoPlayer(file, existing);
+          setIsLoadingTorrent(false);
+          return;
+        }
+      }
+
+      // ➕ Add torrent (USE CALLBACK — NOT PROMISE)
+      client.add(magnetUri, { live: true }, (torrent) => {
+        console.log(
+          "✅ Added to global client:",
+          torrent.name,
+          torrent.infoHash
+        );
+
+        torrent.on("error", (err) => {
+          console.error("❌ Torrent error:", err);
+          Alert.alert("Stream Error", err.message);
+          setIsLoadingTorrent(false);
+        });
+
+        // Wait until metadata is ready
+        if (!torrent.ready) {
+          torrent.once("ready", () => readyHandler(torrent));
+        } else {
+          readyHandler(torrent);
+        }
+      });
+    } catch (err) {
+      console.error("💥 handleMagnetPlay error:", err);
+      Alert.alert("Playback Failed", err.message);
+      setIsLoadingTorrent(false);
     }
 
-    // 🧪 Log existing torrents to debug duplicates
-    console.log("📊 Global client has", client.torrents.length, "torrents");
-
-    // 🔍 Check if already added (avoid duplicate adds)
-    const existing = client.get(magnetUri);
-    if (existing) {
-      console.log("✅ Reusing existing torrent:", existing.name);
-      const file = existing.files.find(
+    function readyHandler(torrent) {
+      const file = torrent.files.find(
         (f) => f.name.endsWith(".webm") || f.name.endsWith(".mp4")
       );
-      if (file) {
-        createVideoPlayer(file, existing);
+
+      if (!file) {
+        Alert.alert("❌ No video", "No .webm/.mp4 file in torrent");
         setIsLoadingTorrent(false);
         return;
       }
-    }
 
-    // ➕ Add torrent (USE CALLBACK — NOT PROMISE)
-    client.add(magnetUri, { live: true }, (torrent) => {
-      console.log("✅ Added to global client:", torrent.name, torrent.infoHash);
-
-      torrent.on("error", (err) => {
-        console.error("❌ Torrent error:", err);
-        Alert.alert("Stream Error", err.message);
-        setIsLoadingTorrent(false);
-      });
-
-      // Wait until metadata is ready
-      if (!torrent.ready) {
-        torrent.once("ready", () => readyHandler(torrent));
-      } else {
-        readyHandler(torrent);
-      }
-    });
-  } catch (err) {
-    console.error("💥 handleMagnetPlay error:", err);
-    Alert.alert("Playback Failed", err.message);
-    setIsLoadingTorrent(false);
-  }
-
-  function readyHandler(torrent) {
-    const file = torrent.files.find(
-      (f) => f.name.endsWith(".webm") || f.name.endsWith(".mp4")
-    );
-
-    if (!file) {
-      Alert.alert("❌ No video", "No .webm/.mp4 file in torrent");
+      console.log("🎬 Found file:", file.name, file.length, "bytes");
+      createVideoPlayer(file, torrent);
       setIsLoadingTorrent(false);
-      return;
     }
-
-    console.log("🎬 Found file:", file.name, file.length, "bytes");
-    createVideoPlayer(file, torrent);
-    setIsLoadingTorrent(false);
-  }
-};
+  };
 
   // 🆕 WORKING VIDEO PLAYER FUNCTION
   // 🎯 UPDATED: Robust video player with multiple fallback methods
@@ -578,20 +593,33 @@ const handleMagnetPlay = async (magnetUri) => {
     // 1. Filter messages in frontend from existing data
     // 2. Query backend for chunk messages
     // For now, let's assume we filter from existing messages
-
     // You'll need access to all messages - might need to pass as prop
     // or use a context/global state
     return []; // Placeholder
   };
   if (message.fileType === "live_stream_chunked") {
+    useEffect(() => {
+      // This assumes ChatMediaRenderer receives an 'onStreamActive' prop
+      if (message.sessionId && onStreamActive) {
+        onStreamActive(message.sessionId);
+      }
+    }, [message.sessionId, onStreamActive]);
+
     return (
       <NeighborhoodLiveStreamPlayer
         sessionId={message.sessionId}
         streamTitle={message.fileName}
+        // ⬅️ CRUCIAL NEW PROP: Pass the current queue of chunks
+        initialChunks={liveChunks.filter(
+          (c) => c.sessionId === message.sessionId
+        )}
+        // ⬅️ CRUCIAL NEW PROP: Pass a function to clear chunks after they are processed
+        clearProcessedChunk={(chunkId) => {
+          /* implementation needed in parent */
+        }}
       />
     );
   }
-
   // 2️⃣ Handle video_chunk (INDIVIDUAL CHUNK MESSAGE)
   if (message.fileType === "video_chunk") {
     return (
@@ -855,7 +883,7 @@ const handleMagnetPlay = async (magnetUri) => {
       </View>
     </View>
   );
-};
+}
 // GraphQL Queries
 const GET_NEIGHBORHOOD_MESSAGES = gql`
   query GetNeighborhoodMessages($neighborhoodId: ID!) {
@@ -1140,14 +1168,17 @@ const handleFilePress = async (message) => {
 };
 
 export default function NeighborhoodChatScreen() {
-  
   const params = useLocalSearchParams();
   const router = useRouter();
   const neighborhoodId = params.neighborhoodId;
 
   const scrollViewRef = useRef(null);
   const messageInputRef = useRef(null);
-const [deleteMessageMutation] = useMutation(DELETE_NEIGHBORHOOD_MESSAGE);
+  const socketRef = useRef(null);
+  // 🆕 New state to track the current active session
+  const [activeStreamSessionId, setActiveStreamSessionId] = useState(null);
+  const [liveChunks, setLiveChunks] = useState([]);
+  const [deleteMessageMutation] = useMutation(DELETE_NEIGHBORHOOD_MESSAGE);
   const [socket, setSocket] = useState(null);
   const [username, setUsername] = useState("");
   const [newMessage, setNewMessage] = useState("");
@@ -1155,6 +1186,7 @@ const [deleteMessageMutation] = useMutation(DELETE_NEIGHBORHOOD_MESSAGE);
   const [uploading, setUploading] = useState(false);
   const [uploadType, setUploadType] = useState(null);
   const [messageCount, setMessageCount] = useState(0);
+
 
   const { data: adData, refetch: fetchRandomAd } = useQuery(
     GET_RANDOM_AFFILIATE_LINK,
@@ -1168,78 +1200,97 @@ const [deleteMessageMutation] = useMutation(DELETE_NEIGHBORHOOD_MESSAGE);
       trackAffiliateClick(id: $id)
     }
   `;
+
+
   const [trackClick] = useMutation(TRACK_CLICK);
+const handleStreamActive = useCallback((sessionId) => {
+  // Only set if a stream is starting or being rendered
+  setActiveStreamSessionId(sessionId);
+  console.log(`Live Stream started with Session ID: ${sessionId}`);
+}, []);
 
-// Ensure Platform is imported
-
-  
-const handleDeleteMessage = async (messageId) => {
-  console.log("Attempting to delete message ID:", messageId); // Log is confirmed working
-
-  // 🔑 NEW: Use a standard browser confirm for Web, Alert for native
-  const shouldProceed = await new Promise((resolve) => {
-    if (Platform.OS === "web") {
-      // Use browser's built-in confirm dialog (synchronous)
-      const proceed = window.confirm(
-        "Are you sure you want to permanently delete this message?"
-      );
-      resolve(proceed);
-    } else {
-      // Use React Native Alert (for iOS/Android)
-      Alert.alert(
-        "Delete Message",
-        "Are you sure you want to permanently delete this message?",
-        [
-          { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-          {
-            text: "Delete",
-            style: "destructive",
-            onPress: () => resolve(true),
-          },
-        ]
-      );
-    }
-  });
-
-  if (!shouldProceed) {
-    console.log("Deletion cancelled by user.");
-    return; // Stop execution if the user cancels
-  }
-
-  // --- Deletion Logic Starts Here ---
-
-  try {
-    await deleteMessageMutation({
-      variables: { messageId },
-      update(cache) {
-        // ... cache modification logic ...
-        cache.modify({
-          fields: {
-            neighborhoodMessages(existingMessageRefs = [], { readField }) {
-              return existingMessageRefs.filter(
-                (messageRef) => readField("id", messageRef) !== messageId
-              );
-            },
-          },
-        });
-      },
+const clearProcessedChunk = useCallback(
+  (chunkId) => {
+    // Remove the chunk from the global queue once the Player has started processing it
+    setLiveChunks((prevChunks) => {
+      const updatedChunks = prevChunks.filter((chunk) => chunk.id !== chunkId);
+      // Ensure the array only holds chunks for the currently active stream
+      return updatedChunks.filter((c) => c.sessionId === activeStreamSessionId);
     });
-    console.log(`✅ Message ${messageId} deleted and cache updated.`);
-  } catch (error) {
-    console.error("❌ Deletion error:", error);
+  },
+  [activeStreamSessionId]
+);
 
-    let errorMessage = "Failed to delete message due to an unknown error.";
-    if (error.graphQLErrors && error.graphQLErrors.length > 0) {
-      errorMessage = error.graphQLErrors[0].message;
-    } else if (error.networkError) {
-      errorMessage = `Network Error: ${error.networkError.message}`;
-    } else {
-      errorMessage = error.message;
+  const handleDeleteMessage = async (messageId) => {
+    console.log("Attempting to delete message ID:", messageId); // Log is confirmed working
+
+    // 🔑 NEW: Use a standard browser confirm for Web, Alert for native
+    const shouldProceed = await new Promise((resolve) => {
+      if (Platform.OS === "web") {
+        // Use browser's built-in confirm dialog (synchronous)
+        const proceed = window.confirm(
+          "Are you sure you want to permanently delete this message?"
+        );
+        resolve(proceed);
+      } else {
+        // Use React Native Alert (for iOS/Android)
+        Alert.alert(
+          "Delete Message",
+          "Are you sure you want to permanently delete this message?",
+          [
+            { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+            {
+              text: "Delete",
+              style: "destructive",
+              onPress: () => resolve(true),
+            },
+          ]
+        );
+      }
+    });
+
+    if (!shouldProceed) {
+      console.log("Deletion cancelled by user.");
+      return; // Stop execution if the user cancels
     }
 
-    Alert.alert("Deletion Failed", errorMessage.replace("GraphQL error: ", ""));
-  }
-};
+    // --- Deletion Logic Starts Here ---
+
+    try {
+      await deleteMessageMutation({
+        variables: { messageId },
+        update(cache) {
+          // ... cache modification logic ...
+          cache.modify({
+            fields: {
+              neighborhoodMessages(existingMessageRefs = [], { readField }) {
+                return existingMessageRefs.filter(
+                  (messageRef) => readField("id", messageRef) !== messageId
+                );
+              },
+            },
+          });
+        },
+      });
+      console.log(`✅ Message ${messageId} deleted and cache updated.`);
+    } catch (error) {
+      console.error("❌ Deletion error:", error);
+
+      let errorMessage = "Failed to delete message due to an unknown error.";
+      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+        errorMessage = error.graphQLErrors[0].message;
+      } else if (error.networkError) {
+        errorMessage = `Network Error: ${error.networkError.message}`;
+      } else {
+        errorMessage = error.message;
+      }
+
+      Alert.alert(
+        "Deletion Failed",
+        errorMessage.replace("GraphQL error: ", "")
+      );
+    }
+  };
 
   // GraphQL Queries
   const { data: neighborhoodData, loading: neighborhoodLoading } = useQuery(
@@ -1261,20 +1312,59 @@ const handleDeleteMessage = async (messageId) => {
 
   const [sendMessageMutation] = useMutation(SEND_NEIGHBORHOOD_MESSAGE);
 
-   const isNeighborhoodAdmin = useMemo(() => {
-     if (!username || !neighborhoodData?.neighborhood) return false;
+  const isNeighborhoodAdmin = useMemo(() => {
+    if (!username || !neighborhoodData?.neighborhood) return false;
 
-     const neighborhood = neighborhoodData.neighborhood;
-     const isOwner = neighborhood.owner?.username === username;
+    const neighborhood = neighborhoodData.neighborhood;
+    const isOwner = neighborhood.owner?.username === username;
 
-     const member = neighborhood.members?.find(
-       (m) => m.user?.username === username
-     );
-     const isAdmin = member?.role === "admin";
+    const member = neighborhood.members?.find(
+      (m) => m.user?.username === username
+    );
+    const isAdmin = member?.role === "admin";
 
-     return isOwner || isAdmin;
-   }, [neighborhoodData, username]);
+    return isOwner || isAdmin;
+  }, [neighborhoodData, username]);
+
+useEffect(() => {
+  // 1. Initialize Socket.io connection (if not already done)
+  if (!socketRef.current) {
+    socketRef.current = io(BACKEND_URL);
+  }
+
+  const socket = socketRef.current;
+
+  // 2. Listen for new messages pushed from the server
+  socket.on("neighborhoodMessage", (newMessage) => {
+    // Assume newMessage comes directly from your GraphQL subscription payload
+
+    // 3. Check if it's a new video chunk for the active stream
+    if (
+      newMessage.fileType === "video_chunk" &&
+      newMessage.sessionId === activeStreamSessionId
+    ) {
+      // 4. Add the chunk to the live queue
+      setLiveChunks((prevChunks) => [...prevChunks, newMessage]);
+      console.log(`📡 New live chunk added to queue: ${newMessage.chunkIndex}`);
+    }
+  });
+
+  return () => {
+    socket.off("neighborhoodMessage");
+  };
+}, [activeStreamSessionId]);
   
+  const renderMessage = (message) => (
+    <View key={message.id}>
+      <ChatMediaRenderer
+        message={message}
+        onStreamActive={handleStreamActive}
+        liveChunks={liveChunks} 
+        clearProcessedChunk={clearProcessedChunk}
+      />
+    </View>
+  );
+
   useEffect(() => {
     // first ad on load
     fetchRandomAd();
@@ -1306,20 +1396,23 @@ const handleDeleteMessage = async (messageId) => {
 
     checkAuth();
 
-return () => {
-  socket?.disconnect();
-  // 🛑 Only clean up LIVE streams — don't destroy all torrents!
-  if (Platform.OS === "web" && window.globalWebTorrentClient) {
-    const client = window.globalWebTorrentClient;
-    console.log("🧹 Cleaning up *live* torrents only...");
-    client.torrents.forEach((torrent) => {
-      if (torrent.name?.includes("live-") || torrent.name?.includes("clip_")) {
-        console.log(`🗑️ Destroying live torrent: ${torrent.name}`);
-        torrent.destroy();
+    return () => {
+      socket?.disconnect();
+      // 🛑 Only clean up LIVE streams — don't destroy all torrents!
+      if (Platform.OS === "web" && window.globalWebTorrentClient) {
+        const client = window.globalWebTorrentClient;
+        console.log("🧹 Cleaning up *live* torrents only...");
+        client.torrents.forEach((torrent) => {
+          if (
+            torrent.name?.includes("live-") ||
+            torrent.name?.includes("clip_")
+          ) {
+            console.log(`🗑️ Destroying live torrent: ${torrent.name}`);
+            torrent.destroy();
+          }
+        });
       }
-    });
-  }
-};
+    };
   }, [neighborhoodId]);
 
   const showRandomAd = async () => {
@@ -1572,7 +1665,7 @@ return () => {
     console.log("🎬 Starting chunked video upload...");
 
     const response = await fetch(asset.uri);
-  
+
     const arrayBuffer = await response.arrayBuffer();
     const originalBlob = new Blob({ arrayBuffer, type: "video/mp4" });
 
@@ -1665,12 +1758,12 @@ return () => {
           (torrent) => {
             console.log(
               `✅ Chunk ${index + 1}/${totalChunks} seeded:`,
-              torrent.magnetURI
-              , {
-    index: i,
-    magnet: torrent.magnetURI,
-    size: chunk.size,
-  }
+              torrent.magnetURI,
+              {
+                index: i,
+                magnet: torrent.magnetURI,
+                size: chunk.size,
+              }
             );
             console.log("🌱 CHUNK SEEDED:", {
               index: i,
@@ -1926,95 +2019,92 @@ return () => {
     }
   };
 
-const captureStreamThumbnail = (stream) => {
-  return new Promise((resolve) => {
-    const video = document.createElement("video");
-    video.muted = true;
-    video.srcObject = stream;
-    video.play();
+  const captureStreamThumbnail = (stream) => {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      video.muted = true;
+      video.srcObject = stream;
+      video.play();
 
-    const onFrame = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = 320;
-      canvas.height = 240;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, 320, 240);
-      resolve(canvas.toDataURL("image/jpeg", 0.7));
-      video.removeEventListener("play", onFrame);
-    };
+      const onFrame = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 320;
+        canvas.height = 240;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, 320, 240);
+        resolve(canvas.toDataURL("image/jpeg", 0.7));
+        video.removeEventListener("play", onFrame);
+      };
 
-    video.addEventListener("play", onFrame);
-    // Fallback timeout
-    setTimeout(() => {
-      video.removeEventListener("play", onFrame);
-      resolve(null);
-    }, 2000);
-  });
-};
-
-  
-
-const [isStreaming, setIsStreaming] = useState(false);
-const [streamData, setStreamData] = useState(null);
-
-  
-const broadcastLiveClip = async () => {
-  if (Platform.OS !== "web") {
-    Alert.alert("Web Only", "Live streaming requires a browser");
-    return;
-  }
-
-  try {
-    setUploading(true);
-
-    // 1. Get camera + mic
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 640, height: 360 },
-      audio: true,
+      video.addEventListener("play", onFrame);
+      // Fallback timeout
+      setTimeout(() => {
+        video.removeEventListener("play", onFrame);
+        resolve(null);
+      }, 2000);
     });
+  };
 
-    // 2. Record for 10 seconds
-    const chunks = [];
-    const mediaRecorder = new MediaRecorder(stream, {
-      mimeType: "video/webm;codecs=vp8,opus",
-    });
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamData, setStreamData] = useState(null);
 
-    mediaRecorder.ondataavailable = (e) =>
-      e.data.size > 0 && chunks.push(e.data);
+  const broadcastLiveClip = async () => {
+    if (Platform.OS !== "web") {
+      Alert.alert("Web Only", "Live streaming requires a browser");
+      return;
+    }
 
-    mediaRecorder.onstop = async () => {
-      // 3. Create blob and seed
-      const blob = new Blob(chunks, { type: "video/webm" });
-      const client = window.globalWebTorrentClient;
+    try {
+      setUploading(true);
 
-      client.seed(blob, { name: `live-${Date.now()}.webm` }, (torrent) => {
-        // 4. Post to chat as P2P live stream
-        sendMessageMutation({
-          variables: {
-            content: "",
-            neighborhoodId,
-            fileName: username ? `${username}'s Live Clip` : "Live Clip",
-            fileType: "live_stream",
-            magnetLink: torrent.magnetURI,
-            thumbnailUrl: null,
-          },
-        });
+      // 1. Get camera + mic
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 360 },
+        audio: true,
       });
 
-      // Cleanup
-      stream.getTracks().forEach((t) => t.stop());
-      setUploading(false);
-    };
+      // 2. Record for 10 seconds
+      const chunks = [];
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "video/webm;codecs=vp8,opus",
+      });
 
-    mediaRecorder.start();
-    Alert.alert("🎤 Recording", "10-second clip starting...");
-    setTimeout(() => mediaRecorder.stop(), 10_000); // 10s clip
-  } catch (err) {
-    console.error("Broadcast error:", err);
-    Alert.alert("Failed", err.message);
-    setUploading(false);
-  }
-};
+      mediaRecorder.ondataavailable = (e) =>
+        e.data.size > 0 && chunks.push(e.data);
+
+      mediaRecorder.onstop = async () => {
+        // 3. Create blob and seed
+        const blob = new Blob(chunks, { type: "video/webm" });
+        const client = window.globalWebTorrentClient;
+
+        client.seed(blob, { name: `live-${Date.now()}.webm` }, (torrent) => {
+          // 4. Post to chat as P2P live stream
+          sendMessageMutation({
+            variables: {
+              content: "",
+              neighborhoodId,
+              fileName: username ? `${username}'s Live Clip` : "Live Clip",
+              fileType: "live_stream",
+              magnetLink: torrent.magnetURI,
+              thumbnailUrl: null,
+            },
+          });
+        });
+
+        // Cleanup
+        stream.getTracks().forEach((t) => t.stop());
+        setUploading(false);
+      };
+
+      mediaRecorder.start();
+      Alert.alert("🎤 Recording", "10-second clip starting...");
+      setTimeout(() => mediaRecorder.stop(), 10_000); // 10s clip
+    } catch (err) {
+      console.error("Broadcast error:", err);
+      Alert.alert("Failed", err.message);
+      setUploading(false);
+    }
+  };
 
   const showStreamControls = (torrent, stream, preview) => {
     const controls = document.createElement("div");
@@ -2104,8 +2194,6 @@ const broadcastLiveClip = async () => {
       </View>
     );
   }
-
- 
 
   return (
     <View style={styles.container}>
