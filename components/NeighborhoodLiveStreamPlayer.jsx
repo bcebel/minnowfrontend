@@ -1,142 +1,184 @@
-// components/NeighborhoodLiveStreamPlayer.jsx (Conceptual Implementation)
+import React, { useRef, useEffect, useState, useCallback } from "react";
 
-import React, { useRef, useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
-import { gql, useSubscription } from "@apollo/client";
+const CHUNK_TIMEOUT_MS = 10000;
 
-import { NeighborhoodVideoReassembler } from "./NeighborhoodVideoReassembler";
-
-// 1. Apollo Subscription Query
-const CHUNK_SUBSCRIPTION = gql`
-  subscription OnNewChunk($sessionId: String!) {
-    newVideoChunk(sessionId: $sessionId) {
-      id
-      magnetLink
-      chunkIndex
-      sessionId
-      fileType 
-    }
-  }
-`;
-export default function NeighborhoodLiveStreamPlayer({
+const NeighborhoodLiveStreamPlayer = ({
   sessionId,
-  streamTitle,
-  initialChunks, // ⬅️ NEW PROP (The queue)
-  clearProcessedChunk, // ⬅️ NEW PROP (Callback)
-}) {
+  initialChunks = [],
+  clearProcessedChunk,
+}) => {
+  const videoRef = useRef(null);
+  const mediaSourceRef = useRef(null);
+  const sourceBufferRef = useRef(null);
+  const chunkQueueRef = useRef([]);
+  const nextChunkIndexRef = useRef(0);
 
-    const [isLoading, setIsLoading] = useState(false);
-    const [isPlaying, setIsPlaying] = useState(false);
-    // Change state to useRef for the object that manages the stream connection
-    const reassemblerRef = useRef(null);
+  const [status, setStatus] = useState("Waiting for stream to start...");
+  const [peerCount, setPeerCount] = useState(0);
 
-    // 2. Use Subscription Hook
-    const { data } = useSubscription(CHUNK_SUBSCRIPTION, {
-      variables: { sessionId },
-      skip: !isPlaying, // Only subscribe when playing
-      shouldResubscribe: true,
-    });
-  
-    const stopWatching = () => {
-      if (reassemblerRef.current) {
-        reassemblerRef.current.stopPlayback();
-        reassemblerRef.current = null; // Clear reference
-      }
-      setIsPlaying(false);
-    };
-    const startWatching = async () => {
-      // ⚠️ CRITICAL: Ensure we are only running on web for this logic
-      if (typeof window === "undefined" || Platform.OS !== "web") {
-        alert("Live streaming is only supported in web browsers.");
-        return;
-      }
-
-      setIsLoading(true);
-
-      // Make sure WebTorrent is loaded
-      if (!window.WebTorrent) {
-        // ... (your existing WebTorrent loading logic) ...
-      }
-
-      try {
-        // 4a. Create and store the Reassembler instance
-        const reassembler = new NeighborhoodVideoReassembler(sessionId);
-        reassemblerRef.current = reassembler;
-
-        // 4b. Start the playback process (initializes MSE and UI)
-        await reassembler.startLivePlayback(); // This now returns the UI element
-
-        // The stream starts listening for chunks immediately
-        setIsPlaying(true);
-        setIsLoading(false);
-      } catch (error) {
-        console.error("❌ Failed to start playback:", error);
-        setIsLoading(false);
-        alert(`Playback error: ${error.message}`);
-      }
-    };
-
-
-    // 3. Process new chunk data from subscription
-    useEffect(() => {
-      // Check if a new chunk message arrived and if the player is active
-      if (data?.newVideoChunk && reassemblerRef.current) {
-        console.log(`📡 New chunk received: ${data.newVideoChunk.chunkIndex}`);
-        // This is the CRUCIAL line: feed the chunk to the reassembler for downloading/buffering
-        reassemblerRef.current.appendChunk(data.newVideoChunk);
-      }
-    }, [data]);
-
-
-  // 🆕 New useEffect to feed incoming chunks to the reassembler
-  useEffect(() => {
-    if (initialChunks.length > 0 && reassemblerRef.current) {
-      // Process all new chunks in the queue
-      initialChunks.forEach((chunk) => {
-        // Reassembler handles adding to its internal buffer queue
-        reassemblerRef.current.appendChunk(chunk);
-        // Tell the parent chat to remove it from the global queue
-        clearProcessedChunk(chunk.id);
-      });
+  // 1. Get the Client Safely
+  // DO NOT use "const WebTorrentClient = window.globalWebTorrentClient;" at the top level!
+  const getClient = useCallback(() => {
+    // This check ensures we only access 'window' when it exists (i.e., in the browser)
+    if (typeof window !== "undefined" && window.globalWebTorrentClient) {
+      return window.globalWebTorrentClient;
     }
-  }, [initialChunks, reassemblerRef.current]);
-  // 4. Update the startWatching logic
-
-
-  // 5. Add a cleanup effect to stop the stream on unmount
-  useEffect(() => {
-    return () => {
-      stopWatching();
-    };
+    return null;
   }, []);
 
+  // 2. Download and Append Logic (Updated to use getClient)
+  const processChunkQueue = useCallback(() => {
+    // ... (Your existing logic) ...
+
+    // Get the global torrent client safely
+    const client = getClient();
+    if (!client) {
+      setStatus("P2P Client Not Ready (Waiting for browser mount).");
+      return;
+    }
+
+    // Get the next chunk we are waiting for (must be sequential!)
+    const nextChunk = chunkQueueRef.current.find(
+      (c) => c.chunkIndex === nextChunkIndexRef.current
+    );
+
+    if (!nextChunk) {
+      // We are waiting for the next sequential chunk to arrive
+      return;
+    }
+
+    // Remove from local queue and prepare for download
+    chunkQueueRef.current = chunkQueueRef.current.filter(
+      (c) => c.chunkIndex !== nextChunk.chunkIndex
+    );
+
+    setStatus(`Downloading Chunk #${nextChunk.chunkIndex + 1}...`);
+
+    // Add the torrent for this chunk magnet link
+    const torrent = client.add(
+      nextChunk.magnetLink,
+      {
+        name: `live-chunk-${nextChunk.chunkIndex}-${sessionId}`,
+      },
+      (torrent) => {
+        // The file should be the first one in the torrent
+        const file = torrent.files[0];
+
+        file.getBuffer((err, buffer) => {
+          if (err) {
+            console.error("Error downloading chunk buffer:", err);
+            setStatus(`Error downloading chunk #${nextChunk.chunkIndex + 1}`);
+            torrent.destroy();
+            return;
+          }
+
+          // Append the buffer to the MediaSource
+          try {
+            sourceBufferRef.current.appendBuffer(buffer);
+
+            sourceBufferRef.current.addEventListener(
+              "updateend",
+              () => {
+                // Success! Move to the next chunk
+                nextChunkIndexRef.current += 1;
+                setStatus(`Playing Chunk #${nextChunkIndexRef.current}`);
+                clearProcessedChunk(nextChunk.id); // Tell parent to clear chunk from liveChunks
+                torrent.destroy();
+                processChunkQueue(); // Check for the next chunk
+              },
+              { once: true }
+            );
+          } catch (e) {
+            console.error("MediaSource Append Error:", e);
+            setStatus("Stream Reassembly Failed.");
+            torrent.destroy();
+          }
+        });
+
+        
+
+        // Update peer count (optional)
+        torrent.on("wire", () => setPeerCount(torrent.numPeers));
+      }
+    );
+  }, [sessionId, clearProcessedChunk, getClient]);
+
+  // 2. Initial Setup (MediaSource/Video)
+  useEffect(() => {
+    // MediaSource is only for Web
+    if (typeof window === "undefined" || !videoRef.current) return;
+
+    mediaSourceRef.current = new MediaSource();
+    videoRef.current.src = URL.createObjectURL(mediaSourceRef.current);
+
+    mediaSourceRef.current.addEventListener(
+      "sourceopen",
+      () => {
+        // MIME type must match what your MediaRecorder outputs (e.g., 'video/webm; codecs="vp8"')
+       const mimeType = 'video/webm; codecs="vp8, opus"';
+        if (!MediaSource.isTypeSupported(mimeType)) {
+          setStatus("Browser does not support the stream format!");
+          return;
+        }
+
+        sourceBufferRef.current =
+          mediaSourceRef.current.addSourceBuffer(mimeType);
+
+        // Start processing any chunks that arrived before the player was ready
+        processChunkQueue();
+      },
+      { once: true }
+    );
+
+    // Cleanup function
+    return () => {
+      // Destroy all related torrents when the component unmounts
+      const client = window.globalWebTorrentClient;
+      client?.torrents.forEach((t) => {
+        if (t.name.includes(sessionId)) {
+          t.destroy();
+        }
+      });
+    };
+  }, [sessionId, processChunkQueue, getClient]);
+
+  // 3. Handle Incoming Chunks
+  useEffect(() => {
+    // Add all new chunks to the queue
+    if (initialChunks.length > 0) {
+      initialChunks.forEach((chunk) => {
+        if (
+          !chunkQueueRef.current.find((c) => c.chunkIndex === chunk.chunkIndex)
+        ) {
+          chunkQueueRef.current.push(chunk);
+        }
+      });
+      // Sort the queue to ensure we always try for index 0, then 1, etc.
+      chunkQueueRef.current.sort((a, b) => a.chunkIndex - b.chunkIndex);
+
+      // Trigger processing whenever new chunks arrive
+      processChunkQueue();
+    }
+  }, [initialChunks, processChunkQueue]);
+
   return (
-    <View style={{ marginVertical: 10 }}>
-      {/* ... rest of your JSX UI ... */}
-    </View>
+    <div style={{ padding: 10, backgroundColor: "black", borderRadius: 8 }}>
+      <video
+        ref={videoRef}
+        controls
+        autoPlay
+        playsInline
+        muted // Start muted to satisfy browser autoplay policy
+        style={{ width: "100%", height: "auto", display: "block" }}
+      />
+      <div style={{ color: "white", fontSize: 12, marginTop: 5 }}>
+        Status: **{status}** | Peers: **{peerCount}**
+      </div>
+      <button onClick={() => videoRef.current?.play()} style={{ marginTop: 5 }}>
+        Unmute / Start Playback
+      </button>
+    </div>
   );
-}
+};
 
-
-const styles = StyleSheet.create({
-  container: {
-    // ... styles
-  },
-  title: {
-    // ... styles
-  },
-  videoPlayer: {
-    width: "100%",
-    height: 300,
-    backgroundColor: "black",
-  },
-  statusBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 10,
-  },
-  statusText: {
-    marginLeft: 10,
-    color: "#00ff00",
-  },
-});
+export default NeighborhoodLiveStreamPlayer;

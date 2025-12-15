@@ -203,20 +203,10 @@ const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
   );
 };
 
-function ChatMediaRenderer({
-  message,
-  onStreamActive,
-  liveChunks = [],
-  clearProcessedChunk = () => {},
+function ChatMediaRenderer({ message, onStreamActive, liveChunks = [], clearProcessedChunk = () => {}
 }) {
   const {
-    imageUrl,
-    videoUrl,
-    fileUrl,
-    magnetLink,
-    fileName,
-    fileType,
-    thumbnailUrl,
+    imageUrl, videoUrl, fileUrl, magnetLink, fileName, fileType, thumbnailUrl,
   } = message;
   console.log("🔍 ChatMediaRenderer Debug:", {
     message,
@@ -227,10 +217,8 @@ function ChatMediaRenderer({
   if (!message) return null;
 
   // 🔥 Filter out invalid/malformed live_stream messages
-  if (
-    message.fileType === "live_stream" &&
-    (!message.magnetLink || message.magnetLink.includes("undefined"))
-  ) {
+  if (message.fileType === "live_stream" &&
+    (!message.magnetLink || message.magnetLink.includes("undefined"))) {
     return (
       <View style={styles.liveStreamCard}>
         <Text style={styles.liveTitle}>📡 Stream initializing...</Text>
@@ -322,11 +310,7 @@ function ChatMediaRenderer({
 
       // ➕ Add torrent (USE CALLBACK — NOT PROMISE)
       client.add(magnetUri, { live: true }, (torrent) => {
-        console.log(
-          "✅ Added to global client:",
-          torrent.name,
-          torrent.infoHash
-        );
+        console.log("✅ Added to global client:", torrent.name, torrent.infoHash);
 
         torrent.on("error", (err) => {
           console.error("❌ Torrent error:", err);
@@ -463,8 +447,7 @@ function ChatMediaRenderer({
                     updateStatus("Trying alternative codec...");
                     try {
                       mediaSource.removeSourceBuffer(sourceBuffer);
-                      const altMime =
-                        'video/mp4; codecs="avc1.42E01E,mp4a.40.2"';
+                      const altMime = 'video/mp4; codecs="avc1.42E01E,mp4a.40.2"';
                       const newBuffer = mediaSource.addSourceBuffer(altMime);
                       newBuffer.appendBuffer(chunk);
                     } catch (altErr) {
@@ -597,27 +580,34 @@ function ChatMediaRenderer({
     // or use a context/global state
     return []; // Placeholder
   };
-  if (message.fileType === "live_stream_chunked") {
+if (message.fileType === "live_stream_chunked") {
+    // Check 2: Does it have a Session ID?
+    if (!message.sessionId) {
+        return <Text style={{ color: 'red' }}>Error: Stream missing ID!</Text>;
+    }
+
+    // Call the parent handler to start monitoring this session
     useEffect(() => {
-      // This assumes ChatMediaRenderer receives an 'onStreamActive' prop
-      if (message.sessionId && onStreamActive) {
         onStreamActive(message.sessionId);
-      }
     }, [message.sessionId, onStreamActive]);
 
     return (
-      <NeighborhoodLiveStreamPlayer
-        sessionId={message.sessionId}
-        streamTitle={message.fileName}
-        // ⬅️ CRUCIAL NEW PROP: Pass the current queue of chunks
-        initialChunks={liveChunks.filter(
-          (c) => c.sessionId === message.sessionId
-        )}
-        // ⬅️ CRUCIAL NEW PROP: Pass a function to clear chunks after they are processed
-        clearProcessedChunk={(chunkId) => {
-          /* implementation needed in parent */
-        }}
-      />
+      <View
+        style={{ marginVertical: 10, borderWidth: 1, borderColor: "#00ffff" }}
+      >
+        <Text style={{ fontWeight: "bold" }}>{message.content}</Text>
+
+        {/* 🔑 Render the player for the master message */}
+        <NeighborhoodLiveStreamPlayer
+          sessionId={message.sessionId}
+          initialChunks={liveChunks.filter(
+            (c) => c.sessionId === message.sessionId
+          )}
+          clearProcessedChunk={clearProcessedChunk}
+          streamTitle={message.fileName}
+        />
+        <Text>📡 Peers: {liveChunks.length} chunks available.</Text>
+      </View>
     );
   }
   // 2️⃣ Handle video_chunk (INDIVIDUAL CHUNK MESSAGE)
@@ -645,9 +635,7 @@ function ChatMediaRenderer({
 
     return (
       <TouchableOpacity
-        onPress={() =>
-          handleChunkedVideo(message.sessionId, message.totalChunks)
-        }
+        onPress={() => handleChunkedVideo(message.sessionId, message.totalChunks)}
         style={styles.chunkedVideoContainer}
         disabled={isDownloadingChunks}
       >
@@ -655,8 +643,7 @@ function ChatMediaRenderer({
           <Image
             source={{ uri: message.thumbnailUrl }}
             style={styles.videoThumbnail}
-            resizeMode="cover"
-          />
+            resizeMode="cover" />
         ) : (
           <View style={[styles.videoThumbnail, styles.videoPlaceholder]}>
             <Text style={styles.videoIcon}>🎬</Text>
@@ -703,10 +690,9 @@ function ChatMediaRenderer({
 
   // Inside ChatMediaRenderer
   if (message.fileType === "live_stream") {
-    const safeMagnet =
-      message.magnetLink && !message.magnetLink.includes("undefined")
-        ? message.magnetLink
-        : null;
+    const safeMagnet = message.magnetLink && !message.magnetLink.includes("undefined")
+      ? message.magnetLink
+      : null;
 
     if (!safeMagnet) {
       return (
@@ -759,8 +745,7 @@ function ChatMediaRenderer({
         <Image
           source={{ uri: thumbnailUrl }}
           style={styles.videoThumbnail}
-          resizeMode="cover"
-        />
+          resizeMode="cover" />
         <View style={styles.videoOverlay}>
           <Text style={styles.playIcon}>▶️</Text>
         </View>
@@ -780,8 +765,7 @@ function ChatMediaRenderer({
       return (
         <SimpleVideoPlayer
           url={torrentStreamUrl}
-          fileName={fileName || "Live Stream"}
-        />
+          fileName={fileName || "Live Stream"} />
       );
     }
 
@@ -796,8 +780,7 @@ function ChatMediaRenderer({
           <Image
             source={{ uri: thumbnailUrl }}
             style={styles.videoThumbnail}
-            resizeMode="cover"
-          />
+            resizeMode="cover" />
         ) : (
           <View style={[styles.videoThumbnail, styles.streamPlaceholder]}>
             <Text style={styles.streamIcon}>🎥</Text>
@@ -841,8 +824,7 @@ function ChatMediaRenderer({
         <Image
           source={{ uri: pinataUrl }}
           style={styles.messageImage}
-          resizeMode="cover"
-        />
+          resizeMode="cover" />
         {fileName && <Text style={styles.fileNameText}>{fileName}</Text>}
       </TouchableOpacity>
     );
@@ -898,6 +880,8 @@ const GET_NEIGHBORHOOD_MESSAGES = gql`
       fileName
       fileType
       thumbnailUrl
+      sessionId 
+      chunkIndex
       magnetLink
       sender {
         id
@@ -944,6 +928,9 @@ const SEND_NEIGHBORHOOD_MESSAGE = gql`
     $magnetLink: String
     $mimeType: String
     $thumbnailUrl: String
+    $sessionId: String
+    $chunkIndex: Int
+    $totalChunks: Int
   ) {
     sendMessage(
       content: $content
@@ -956,7 +943,10 @@ const SEND_NEIGHBORHOOD_MESSAGE = gql`
       fileUrl: $fileUrl
       magnetLink: $magnetLink
       mimeType: $mimeType
-      thumbnailUrl: $thumbnailUrl # 🆕 ADD THIS LINE
+      sessionId: $sessionId
+      chunkIndex: $chunkIndex
+      totalChunks: $totalChunks
+      thumbnailUrl: $thumbnailUrl
     ) {
       id
       content
@@ -964,6 +954,9 @@ const SEND_NEIGHBORHOOD_MESSAGE = gql`
       videoUrl
       fileUrl
       fileName
+      sessionId
+      chunkIndex
+      totalChunks
       fileType
       magnetLink
       mimeType
@@ -1187,7 +1180,6 @@ export default function NeighborhoodChatScreen() {
   const [uploadType, setUploadType] = useState(null);
   const [messageCount, setMessageCount] = useState(0);
 
-
   const { data: adData, refetch: fetchRandomAd } = useQuery(
     GET_RANDOM_AFFILIATE_LINK,
     {
@@ -1201,25 +1193,28 @@ export default function NeighborhoodChatScreen() {
     }
   `;
 
-
   const [trackClick] = useMutation(TRACK_CLICK);
-const handleStreamActive = useCallback((sessionId) => {
-  // Only set if a stream is starting or being rendered
-  setActiveStreamSessionId(sessionId);
-  console.log(`Live Stream started with Session ID: ${sessionId}`);
-}, []);
+  const handleStreamActive = useCallback((sessionId) => {
+    // Only set if a stream is starting or being rendered
+    setActiveStreamSessionId(sessionId);
+    console.log(`Live Stream started with Session ID: ${sessionId}`);
+  }, []);
 
-const clearProcessedChunk = useCallback(
-  (chunkId) => {
-    // Remove the chunk from the global queue once the Player has started processing it
-    setLiveChunks((prevChunks) => {
-      const updatedChunks = prevChunks.filter((chunk) => chunk.id !== chunkId);
-      // Ensure the array only holds chunks for the currently active stream
-      return updatedChunks.filter((c) => c.sessionId === activeStreamSessionId);
-    });
-  },
-  [activeStreamSessionId]
-);
+  const clearProcessedChunk = useCallback(
+    (chunkId) => {
+      // Remove the chunk from the global queue once the Player has started processing it
+      setLiveChunks((prevChunks) => {
+        const updatedChunks = prevChunks.filter(
+          (chunk) => chunk.id !== chunkId
+        );
+        // Ensure the array only holds chunks for the currently active stream
+        return updatedChunks.filter(
+          (c) => c.sessionId === activeStreamSessionId
+        );
+      });
+    },
+    [activeStreamSessionId]
+  );
 
   const handleDeleteMessage = async (messageId) => {
     console.log("Attempting to delete message ID:", messageId); // Log is confirmed working
@@ -1326,40 +1321,42 @@ const clearProcessedChunk = useCallback(
     return isOwner || isAdmin;
   }, [neighborhoodData, username]);
 
-useEffect(() => {
-  // 1. Initialize Socket.io connection (if not already done)
-  if (!socketRef.current) {
-    socketRef.current = io(BACKEND_URL);
-  }
-
-  const socket = socketRef.current;
-
-  // 2. Listen for new messages pushed from the server
-  socket.on("neighborhoodMessage", (newMessage) => {
-    // Assume newMessage comes directly from your GraphQL subscription payload
-
-    // 3. Check if it's a new video chunk for the active stream
-    if (
-      newMessage.fileType === "video_chunk" &&
-      newMessage.sessionId === activeStreamSessionId
-    ) {
-      // 4. Add the chunk to the live queue
-      setLiveChunks((prevChunks) => [...prevChunks, newMessage]);
-      console.log(`📡 New live chunk added to queue: ${newMessage.chunkIndex}`);
+  useEffect(() => {
+    // 1. Initialize Socket.io connection (if not already done)
+    if (!socketRef.current) {
+      socketRef.current = io(BACKEND_URL);
     }
-  });
 
-  return () => {
-    socket.off("neighborhoodMessage");
-  };
-}, [activeStreamSessionId]);
-  
+    const socket = socketRef.current;
+
+    // 2. Listen for new messages pushed from the server
+    socket.on("neighborhoodMessage", (newMessage) => {
+      // Assume newMessage comes directly from your GraphQL subscription payload
+
+      // 3. Check if it's a new video chunk for the active stream
+      if (
+        newMessage.fileType === "video_chunk" &&
+        newMessage.sessionId === activeStreamSessionId
+      ) {
+        // 4. Add the chunk to the live queue
+        setLiveChunks((prevChunks) => [...prevChunks, newMessage]);
+        console.log(
+          `📡 New live chunk added to queue: ${newMessage.chunkIndex}`
+        );
+      }
+    });
+
+    return () => {
+      socket.off("neighborhoodMessage");
+    };
+  }, [activeStreamSessionId]);
+
   const renderMessage = (message) => (
     <View key={message.id}>
       <ChatMediaRenderer
         message={message}
         onStreamActive={handleStreamActive}
-        liveChunks={liveChunks} 
+        liveChunks={liveChunks}
         clearProcessedChunk={clearProcessedChunk}
       />
     </View>
@@ -1531,8 +1528,14 @@ useEffect(() => {
     try {
       await sendMessageMutation({
         variables: {
-          content: messageContent,
+          content: "🔴 LIVE NOW! Tap to watch",
           neighborhoodId: neighborhoodId,
+          fileName: `${username}'s Live Stream`,
+          fileType: "live_stream_chunked",
+
+          // 🔑 CRITICAL FIX: Ensure the sessionId is included in the variables
+          sessionId: sessionId,
+          // totalChunks: 0, // optional
         },
       });
       console.log("✅ Neighborhood message sent");
@@ -1723,77 +1726,74 @@ useEffect(() => {
     return true;
   };
 
-  const uploadSingleChunk = async (
+  // In NeighborhoodChatScreen.js
+
+  const uploadSingleChunk = (
     chunk,
     index,
     sessionId,
     totalChunks,
     fileName
   ) => {
-    return new Promise((resolve) => {
-      // Load WebTorrent if needed
-      if (!window.WebTorrent) {
-        const script = document.createElement("script");
-        script.src =
-          "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-        document.head.appendChild(script);
-        script.onload = () => {
-          createTorrent();
-        };
-      } else {
-        createTorrent();
+    return new Promise((resolve, reject) => {
+      const client = window.globalWebTorrentClient;
+      if (!client) {
+        console.error(
+          "❌ Global WebTorrent client not found. Cannot seed chunk."
+        );
+        // Reject the promise so the chunk process doesn't hang
+        return reject(new Error("WebTorrent client not initialized."));
       }
 
-      function createTorrent() {
-        const client = window.globalWebTorrentClient;
-        if (!client) {
-          console.error("❌ Global WebTorrent client not found.");
-          return;
-        }
-        client.seed(
-          chunk,
-          {
-            name: `${sessionId}_chunk_${index}`,
-          },
-          (torrent) => {
-            console.log(
-              `✅ Chunk ${index + 1}/${totalChunks} seeded:`,
-              torrent.magnetURI,
-              {
-                index: i,
-                magnet: torrent.magnetURI,
-                size: chunk.size,
-              }
-            );
-            console.log("🌱 CHUNK SEEDED:", {
-              index: i,
+      client.seed(
+        chunk,
+        {
+          // Ensure the torrent name is unique and easy to identify/destroy
+          name: `${sessionId}_chunk_${index}`,
+        },
+        (torrent) => {
+          console.log(
+            `✅ Chunk ${
+              index + 1
+            }/${totalChunks} seeded. Magnet URI generated.`,
+            {
+              index: index, // Use the correct variable name 'index'
               magnet: torrent.magnetURI,
               size: chunk.size,
-            });
+            }
+          );
 
-            // Send chunk message to chat
-            sendMessageMutation({
-              variables: {
-                content: `Part ${index + 1}/${totalChunks} of "${fileName}"`,
-                neighborhoodId: neighborhoodId,
-                fileName: `chunk_${index}.mp4`,
-                fileType: "video_chunk",
-                magnetLink: torrent.magnetURI,
-                chunkIndex: index,
-                sessionId: sessionId,
-                totalChunks: totalChunks,
-                // Null for chunks
-                imageUrl: null,
-                videoUrl: null,
-                fileUrl: null,
-                thumbnailUrl: null,
-              },
-            }).then(() => {
+          // Send chunk message to chat via GraphQL mutation
+          sendMessageMutation({
+            variables: {
+              content: `Part ${index + 1}/${totalChunks} of "${fileName}"`,
+              neighborhoodId: neighborhoodId,
+              fileName: `chunk_${index}.mp4`,
+              fileType: "video_chunk",
+              magnetLink: torrent.magnetURI,
+
+              // 🔑 CRITICAL DATA FOR PLAYER REASSEMBLY:
+              chunkIndex: index,
+              sessionId: sessionId,
+              totalChunks: totalChunks,
+
+              // Ensure these are null for chunks
+              imageUrl: null,
+              videoUrl: null,
+              fileUrl: null,
+              thumbnailUrl: null,
+            },
+          })
+            .then(() => {
+              // Resolve the promise, allowing the next chunk to process
               resolve();
+            })
+            .catch((err) => {
+              console.error("❌ Error sending chunk message:", err);
+              reject(err);
             });
-          }
-        );
-      }
+        }
+      );
     });
   };
 
@@ -2045,64 +2045,146 @@ useEffect(() => {
     });
   };
 
-  const [isStreaming, setIsStreaming] = useState(false);
   const [streamData, setStreamData] = useState(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState(null);
+  const mediaRecorderRef = useRef(null); // Ref for MediaRecorder instance
+  const streamRef = useRef(null); // Ref for the media stream (camera/mic)
+  // Ensure the button calls this function:
+  // <TouchableOpacity onPress={broadcastLiveClipChunked} disabled={isStreaming}>
 
-  const broadcastLiveClip = async () => {
+  const broadcastLiveClipChunked = async () => {
     if (Platform.OS !== "web") {
       Alert.alert("Web Only", "Live streaming requires a browser");
       return;
     }
 
-    try {
-      setUploading(true);
+    // Prevent double-streaming
+    if (isStreaming) {
+      Alert.alert("Already Live", "You are already broadcasting a stream.");
+      return;
+    }
 
-      // 1. Get camera + mic
+    // 1. Setup Session Identifiers
+    const sessionId = `live_${Date.now()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+    const totalChunks = 0; // We don't know the total yet for a live stream
+
+    try {
+      setUploading(true); // Assuming you use this state
+
+      // 2. Get Camera and Microphone Stream
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 360 },
         audio: true,
       });
 
-      // 2. Record for 10 seconds
-      const chunks = [];
+      // Save stream and set state
+      streamRef.current = stream;
+      setActiveSessionId(sessionId);
+      setIsStreaming(true);
+      Alert.alert("🎤 Live", "Stream starting and messages being sent...");
+
+      // 3. Send the Master Message
+      await sendMessageMutation({
+        variables: {
+          content: "🔴 LIVE BROADCAST (P2P) - Tap to Play",
+          neighborhoodId: neighborhoodId,
+          fileName: username
+            ? `${username}'s Live Broadcast`
+            : "Live Broadcast",
+          fileType: "live_stream_chunked", // 🔑 CRITICAL: Use the chunked type
+          sessionId: sessionId, // 🔑 CRITICAL: Pass the Session ID
+          totalChunks: totalChunks, // Placeholder
+          thumbnailUrl: null,
+        },
+      });
+
+      // 4. Setup MediaRecorder for Chunking
       const mediaRecorder = new MediaRecorder(stream, {
+        // Use mimeType supported by Media Source Extensions (MSE)
+        // 'video/webm;codecs=vp8,opus' is a safe cross-browser choice
         mimeType: "video/webm;codecs=vp8,opus",
       });
 
-      mediaRecorder.ondataavailable = (e) =>
-        e.data.size > 0 && chunks.push(e.data);
+      mediaRecorderRef.current = mediaRecorder;
+      let chunkIndex = 0;
 
-      mediaRecorder.onstop = async () => {
-        // 3. Create blob and seed
-        const blob = new Blob(chunks, { type: "video/webm" });
-        const client = window.globalWebTorrentClient;
+      // 5. Handle Data Available Event (Chunking Logic)
+      mediaRecorder.ondataavailable = async (e) => {
+        if (e.data.size > 0) {
+          console.log(
+            `📦 MediaRecorder captured chunk ${chunkIndex}. Size: ${e.data.size}`
+          );
 
-        client.seed(blob, { name: `live-${Date.now()}.webm` }, (torrent) => {
-          // 4. Post to chat as P2P live stream
-          sendMessageMutation({
-            variables: {
-              content: "",
-              neighborhoodId,
-              fileName: username ? `${username}'s Live Clip` : "Live Clip",
-              fileType: "live_stream",
-              magnetLink: torrent.magnetURI,
-              thumbnailUrl: null,
-            },
-          });
-        });
-
-        // Cleanup
-        stream.getTracks().forEach((t) => t.stop());
-        setUploading(false);
+          // Send each chunk to WebTorrent and then chat
+          await uploadSingleChunk(
+            e.data, // This is the Blob chunk (video/webm)
+            chunkIndex++,
+            sessionId,
+            totalChunks, // Placeholder 0
+            "Live Stream"
+          );
+        }
       };
 
-      mediaRecorder.start();
-      Alert.alert("🎤 Recording", "10-second clip starting...");
-      setTimeout(() => mediaRecorder.stop(), 10_000); // 10s clip
+      // 6. Start recording and collecting chunks every 5 seconds
+      mediaRecorder.start(5000); // 5000ms = 5-second chunks
+
+      setUploading(false); // Done with the initial setup
     } catch (err) {
-      console.error("Broadcast error:", err);
-      Alert.alert("Failed", err.message);
+      console.error("❌ Live Broadcast failed:", err);
+      Alert.alert("Failed to Start Stream", err.message);
+
+      // Cleanup on failure
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      setIsStreaming(false);
       setUploading(false);
+    }
+  };
+
+  // You will also need a function to stop the stream
+  const stopLiveStream = () => {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      mediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+    }
+
+    // Send the final "Stream ended" message
+    sendMessageMutation({
+      variables: {
+        content: "⏹️ Stream ended",
+        neighborhoodId: neighborhoodId,
+        // The following are correctly NULL for the end message:
+        sessionId: null,
+        chunkIndex: null,
+        totalChunks: null,
+      },
+    });
+
+    // Cleanup state
+    setIsStreaming(false);
+    setActiveSessionId(null);
+
+    // Stop and destroy torrents related to this session (Optional, but good cleanup)
+    if (
+      Platform.OS === "web" &&
+      window.globalWebTorrentClient &&
+      activeSessionId
+    ) {
+      window.globalWebTorrentClient.torrents.forEach((t) => {
+        if (t.name.includes(activeSessionId)) {
+          t.destroy();
+        }
+      });
     }
   };
 
@@ -2159,7 +2241,6 @@ useEffect(() => {
     };
   };
 
-  // Render Logic
   const messages = data?.neighborhoodMessages || [];
 
   const neighborhoodName =
@@ -2237,98 +2318,23 @@ useEffect(() => {
           <Text style={styles.warningText}>Connecting...</Text>
         </View>
       )}
-
+      // ... inside the ScrollView component ...
       <ScrollView style={styles.messagesList} ref={scrollViewRef}>
         {messages.map((item, index) => {
+          // Check for ad placement
           const showAdHere = index % 20 === 0;
-          <NeighborhoodLiveStreamRecorder
-            neighborhoodId={neighborhoodId}
-            username={username}
-          />;
-          {
-            item.fileType === "live_stream" ? (
-              <LiveStreamMessage message={item} />
-            ) : (
-              <>
-                <ChatMediaRenderer message={item} />
-                {!item.imageUrl && !item.videoUrl && !item.fileUrl && (
-                  <Text style={styles.messageText}>{item.content}</Text>
-                )}
-              </>
-            );
-          }
-          const isSender = item.sender?.username === username;
-          const pressHandler = isSender
-            ? (e) => {
-                // For web, prevent default menu
-                if (Platform.OS === "web") {
-                  e.preventDefault();
-                }
-                handleDeleteMessage(item.id);
-              }
-            : undefined;
 
           return (
             <React.Fragment key={item.id}>
-              <View style={styles.messageContainer}>
-                <Image
-                  source={{
-                    uri: getProfilePhotoUrl(item.sender?.profilePhoto),
-                  }}
-                  style={styles.profileImage}
-                />
+              {renderMessage(item)}
 
-                {/* 🔑 Message Content Wrapper */}
-                <View style={styles.messageContent}>
-                  <Text style={styles.username}>
-                    {item.sender?.username || "Unknown"}
-                  </Text>
-
-                  <ChatMediaRenderer message={item} />
-
-                  {!item.imageUrl && !item.videoUrl && !item.fileUrl && (
-                    <Text style={styles.messageText}>{item.content}</Text>
-                  )}
-
-                  {/* 🔑 NEW: TIMESTAMP AND DELETE ICON CONTAINER */}
-                  <View style={styles.timestampContainer}>
-                    <Text style={styles.timestamp}>
-                      {formatTimestamp(item.createdAt)}
-                    </Text>
-
-                    {(isSender || isNeighborhoodAdmin) && (
-                      <TouchableOpacity
-                        onPress={() => handleDeleteMessage(item.id)}
-                        style={styles.deleteButton}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        {/* The trash icon you already have */}
-                        <Text style={styles.deleteIcon}>🗑️</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              </View>
               {showAdHere && adData?.randomAffiliateLink && (
-                <View style={styles.messageContainer}>
-                  <Image
-                    source={{
-                      uri: getProfilePhotoUrl(null),
-                    }}
-                    style={styles.profileImage}
-                  />
-                  <View style={styles.messageContent}>
-                    <Text style={styles.username}>CommunityAdLinks</Text>
-                    <AdMessage ad={adData?.randomAffiliateLink} />
-                    <Text style={styles.timestamp}>Now</Text>
-                  </View>
-                </View>
+                <View style={styles.messageContainer}></View>
               )}
             </React.Fragment>
           );
         })}
       </ScrollView>
-
       <View style={styles.inputContainer}>
         <TouchableOpacity style={styles.uploadButton} onPress={pickFile}>
           <Text style={styles.uploadButtonText}>📎</Text>
@@ -2339,18 +2345,15 @@ useEffect(() => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={{
-            backgroundColor: "#00AA00",
-            padding: 12,
-            margin: 10,
-            borderRadius: 8,
-            alignItems: "center",
-          }}
-          onPress={broadcastLiveClip}
+          style={[
+            styles.streamButton,
+            isStreaming ? styles.stopStreamButton : styles.startStreamButton,
+          ]}
+          onPress={isStreaming ? stopLiveStream : broadcastLiveClipChunked}
           disabled={uploading}
         >
-          <Text style={{ color: "white", fontWeight: "bold" }}>
-            🎙️ Broadcast Live Clip (P2P)
+          <Text style={styles.streamButtonText}>
+            {isStreaming ? "⏹️ Stop Live" : "🎙️ Go Live (P2P)"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -2446,9 +2449,10 @@ useEffect(() => {
               }
             }}
           >
-            <Text style={{ color: "white", fontWeight: "bold" }}>
-              🧪 SELF-TEST: Record → Seed → Post
-            </Text>
+            <NeighborhoodLiveStreamRecorder
+              neighborhoodId={neighborhoodId}
+              username={username}
+            />
           </TouchableOpacity>
         )}
         <TouchableOpacity
@@ -2698,18 +2702,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#00ffff",
   },
-  streamButton: {
-    padding: 12,
-    marginRight: 10,
-    backgroundColor: "#FF4444",
-    borderRadius: 25,
-    justifyContent: "center",
-  },
-  streamButtonText: {
-    fontSize: 18,
-    color: "#FFFFFF",
-    fontWeight: "bold",
-  },
+
   // LARGER VIDEO PLAYER STYLES
   videoContainer: {
     marginBottom: 8,
@@ -2896,39 +2889,60 @@ const styles = StyleSheet.create({
   },
 
   liveStreamCard: {
-    backgroundColor: '#ffeded',
+    backgroundColor: "#ffeded",
     padding: 12,
     borderRadius: 10,
     marginVertical: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#ff4444',
+    borderLeftColor: "#ff4444",
   },
   liveTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#ff4444',
+    fontWeight: "bold",
+    color: "#ff4444",
     marginBottom: 4,
   },
   fileName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
-    color: '#333',
+    color: "#333",
   },
   magnetLink: {
     fontSize: 13,
-    color: '#0066cc',
-    textDecorationLine: 'underline',
+    color: "#0066cc",
+    textDecorationLine: "underline",
     marginBottom: 8,
   },
   playButton: {
-    backgroundColor: '#0066cc',
+    backgroundColor: "#0066cc",
     padding: 8,
     borderRadius: 6,
-    alignItems: 'center',
+    alignItems: "center",
   },
   playButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: "white",
+    fontWeight: "bold",
   },
+  // ... inside your styles object ...
+  streamButton: {
+    padding: 12,
+    marginHorizontal: 5,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    flexGrow: 1, // Allows the button to take up remaining space
+  },
+  startStreamButton: {
+    backgroundColor: "#00AA00", // Green for Go Live
+  },
+  stopStreamButton: {
+    backgroundColor: "#FF3333", // Red for Stop Live
+  },
+  streamButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 14,
+  },
+ 
 });
