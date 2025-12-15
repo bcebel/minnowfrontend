@@ -150,11 +150,15 @@ export default function Root({ children }: PropsWithChildren) {
         pex: true,
         lsd: true,
         announce: [
-          'wss://tracker.openwebtorrent.com',
-          'wss://tracker.btorrent.xyz' 
+   'wss://tracker.webtorrent.io',
+  'wss://tracker.openwebtorrent.com',
+  'wss://tracker.files.fm:7073/announce',
+  'wss://qbt.torrentcloud.tech:443/announce',
+  'wss://dennis.pm:8000/announce',
+  'wss://ws.bittorrent.com',
         ]
       },
-      dht: {                          // browser can still *query* DHT via UDP relays
+      dht: {
         bootstrap: [
           'router.bittorrent.com:6881',
           'dht.transmissionbt.com:6881',
@@ -185,11 +189,12 @@ export default function Root({ children }: PropsWithChildren) {
       
       // Pre-load common trackers for better P2P discovery
       window.enhancedTrackers = [
-        'wss://tracker.openwebtorrent.com',
-        'wss://tracker.btorrent.xyz', 
-        'wss://tracker.files.fm:7073/announce',
-        'udp://tracker.opentrackr.org:1337/announce',
-        'udp://open.tracker.cl:1337/announce'
+'wss://tracker.webtorrent.io',
+  'wss://tracker.openwebtorrent.com',
+  'wss://tracker.files.fm:7073/announce',
+  'wss://qbt.torrentcloud.tech:443/announce',
+  'wss://dennis.pm:8000/announce',
+  'wss://ws.bittorrent.com'
       ];
     `,
           }}
