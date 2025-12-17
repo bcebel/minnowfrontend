@@ -135,7 +135,8 @@ export default function Root({ children }: PropsWithChildren) {
           sizes="16x16"
           href="/favicon-16x16.png"
         />
-
+<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>eruda.init();</script>
         {/* WebTorrent Script */}
         <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js" />
         <script
