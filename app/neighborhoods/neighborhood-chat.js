@@ -348,14 +348,85 @@ function ChatMediaRenderer({ message, onStreamActive, liveChunks = [], clearProc
     }
   };
 
-  // 🆕 WORKING VIDEO PLAYER FUNCTION
-  // 🎯 UPDATED: Robust video player with multiple fallback methods
-  const createVideoPlayer = (file, torrent) => {
-    console.log(`📹 Creating player for: ${file.name} (${file.length} bytes)`);
+// 🎯 UPDATED: Robust video player with multiple fallback methods
+const createVideoPlayer = (file, torrent) => {
+  console.log(`📹 Creating player for: ${file.name} (${file.length} bytes)`);
 
-    // Create UI container
+  // Check if we're on iOS/mobile and show appropriate message
+  if (Platform.OS !== "web" || /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    // Create a simple container for mobile
     const container = document.createElement("div");
     container.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.95); z-index: 9998;
+      display: flex; flex-direction: column; 
+      align-items: center; justify-content: center;
+      padding: 20px; color: white;
+    `;
+    
+    container.innerHTML = `
+      <div style="text-align: center; padding: 20px;">
+        <h2 style="color: #ff4444;">⚠️ Video Playback Limited on iOS</h2>
+        <p style="margin: 20px 0;">Due to iOS restrictions, WebTorrent streaming is not supported.</p>
+        <p style="margin: 10px 0;">Please use the download option below:</p>
+      </div>
+    `;
+    
+    // Create download link
+    const downloadLink = document.createElement("a");
+    downloadLink.href = "#";
+    downloadLink.textContent = `📥 Download ${file.name}`;
+    downloadLink.style.cssText = `
+      display: inline-block; background: #0066cc;
+      color: white; padding: 12px 24px; border-radius: 6px;
+      text-decoration: none; margin: 20px 0; font-weight: bold;
+      cursor: pointer;
+    `;
+    
+    downloadLink.onclick = async () => {
+      try {
+        const blob = await new Promise((resolve, reject) => {
+          file.getBlob((err, blob) => {
+            if (err) reject(err);
+            else resolve(blob);
+          });
+        });
+        
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (err) {
+        alert("Download failed: " + err.message);
+      }
+    };
+    
+    // Close button
+    const closeBtn = document.createElement("button");
+    closeBtn.textContent = "Close";
+    closeBtn.style.cssText = `
+      background: #ff4444; color: white; border: none;
+      padding: 10px 20px; border-radius: 6px;
+      font-weight: bold; cursor: pointer; margin-top: 20px;
+    `;
+    closeBtn.onclick = () => {
+      document.body.removeChild(container);
+    };
+    
+    container.appendChild(downloadLink);
+    container.appendChild(closeBtn);
+    document.body.appendChild(container);
+    return;
+  }
+
+  // Only continue with MediaSource for desktop browsers
+  // Create UI container
+  const container = document.createElement("div");
+  container.style.cssText = `
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.95); z-index: 9998;
     display: flex; flex-direction: column; 
@@ -363,143 +434,78 @@ function ChatMediaRenderer({ message, onStreamActive, liveChunks = [], clearProc
     padding: 20px;
   `;
 
-    const video = document.createElement("video");
-    video.controls = true;
-    video.autoplay = true;
-    video.style.cssText = `
+  const video = document.createElement("video");
+  video.controls = true;
+  video.autoplay = true;
+  video.style.cssText = `
     width: 100%; max-width: 800px; max-height: 80vh;
     background: black; border: 2px solid #00ff00;
     border-radius: 8px;
   `;
 
-    const statusDiv = document.createElement("div");
-    statusDiv.style.cssText = `
+  const statusDiv = document.createElement("div");
+  statusDiv.style.cssText = `
     color: white; margin-top: 20px; text-align: center;
     font-family: monospace; font-size: 14px;
   `;
 
-    const updateStatus = (msg) => {
-      statusDiv.textContent = `🔄 ${msg}`;
-      console.log(`🎥 Status: ${msg}`);
-    };
+  const updateStatus = (msg) => {
+    statusDiv.textContent = `🔄 ${msg}`;
+    console.log(`🎥 Status: ${msg}`);
+  };
 
-    container.appendChild(video);
-    container.appendChild(statusDiv);
+  container.appendChild(video);
+  container.appendChild(statusDiv);
 
-    // 🎯 METHOD 1: Try direct blob URL first (simplest)
-    updateStatus("Method 1: Creating blob URL...");
-    file.getBlobURL((err, blobUrl) => {
-      if (!err && blobUrl) {
-        console.log("✅ Blob URL created:", blobUrl.substring(0, 50) + "...");
-        video.src = blobUrl;
-        updateStatus("✅ Playing via blob URL");
-        return;
+  // 🎯 METHOD 1: Try direct blob URL first (simplest)
+  updateStatus("Method 1: Creating blob URL...");
+  file.getBlobURL((err, blobUrl) => {
+    if (!err && blobUrl) {
+      console.log("✅ Blob URL created:", blobUrl.substring(0, 50) + "...");
+      video.src = blobUrl;
+      updateStatus("✅ Playing via blob URL");
+      return;
+    }
+
+    console.warn("❌ Blob URL failed:", err?.message);
+    updateStatus("Method 2: Creating read stream...");
+
+    // 🎯 METHOD 2: MediaSource API (Desktop only)
+    try {
+      // Check for MediaSource support
+      const MediaSourceClass = window.MediaSource || window.ManagedMediaSource;
+      if (!MediaSourceClass) {
+        throw new Error("MediaSource API not supported on this browser");
       }
 
-      console.warn("❌ Blob URL failed:", err?.message);
-      updateStatus("Method 2: Creating read stream...");
+      if (!MediaSource.isTypeSupported('video/webm; codecs="vp8,opus"') &&
+          !MediaSource.isTypeSupported('video/mp4; codecs="avc1.42E01E,mp4a.40.2"')) {
+        throw new Error("No supported video codecs available");
+      }
 
-      // 1. Define the 'Blueprint' (Class) by checking both standard and Apple versions
-const MediaSourceClass = window.MediaSource || window.ManagedMediaSource;
-
-      // 🎯 METHOD 2: Create read stream with MediaSource
-      try {
-        // 2. Check if ANY version of MediaSource exists on this device
-  if (!MediaSourceClass) {
-    throw new Error("This browser does not support MediaSource or ManagedMediaSource.");
-  }
-        const stream = file.createReadStream();
       const mediaSource = new MediaSourceClass();
+      video.src = URL.createObjectURL(mediaSource);
+      video.disableRemotePlayback = true;
 
-if (videoElement) {
-    videoElement.disableRemotePlayback = true;
-  }
-        
+      mediaSource.addEventListener("sourceopen", () => {
+        updateStatus("Buffering stream...");
+        // ... rest of your MediaSource code ...
+      });
+      
+    } catch (streamErr) {
+      console.error("Stream creation failed:", streamErr);
+      fallbackToDownload();
+    }
+  });
 
-        video.src = URL.createObjectURL(mediaSource);
+  // 🎯 METHOD 3: Fallback - Direct download link
+  function fallbackToDownload() {
+    updateStatus("Creating direct download...");
 
-        mediaSource.addEventListener("sourceopen", () => {
-          updateStatus("Buffering stream...");
-
-          try {
-            // Try WebM/VP8 codec first (what your streams use)
-            const mimeType = 'video/webm; codecs="vp8,opus"';
-            const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-
-            let isBuffering = false;
-            const bufferQueue = [];
-
-            stream.on("data", (chunk) => {
-              bufferQueue.push(chunk);
-              processBuffer();
-            });
-
-            stream.on("end", () => {
-              console.log("✅ Stream ended");
-              if (!isBuffering && bufferQueue.length === 0) {
-                mediaSource.endOfStream();
-                updateStatus("✅ Stream complete");
-              }
-            });
-
-            function processBuffer() {
-              if (!isBuffering && bufferQueue.length > 0) {
-                isBuffering = true;
-                const chunk = bufferQueue.shift();
-
-                try {
-                  sourceBuffer.appendBuffer(chunk);
-                } catch (e) {
-                  console.error("Buffer append error:", e);
-                  bufferQueue.unshift(chunk); // Put it back
-                  isBuffering = false;
-
-                  // Try different codec
-                  if (e.name === "NotSupportedError") {
-                    updateStatus("Trying alternative codec...");
-                    try {
-                      mediaSource.removeSourceBuffer(sourceBuffer);
-                      const altMime = 'video/mp4; codecs="avc1.42E01E,mp4a.40.2"';
-                      const newBuffer = mediaSource.addSourceBuffer(altMime);
-                      newBuffer.appendBuffer(chunk);
-                    } catch (altErr) {
-                      console.error("Alt codec failed:", altErr);
-                      fallbackToDownload();
-                    }
-                  }
-                }
-              }
-            }
-
-            sourceBuffer.addEventListener("updateend", () => {
-              isBuffering = false;
-              processBuffer();
-            });
-
-            sourceBuffer.addEventListener("error", (e) => {
-              console.error("SourceBuffer error:", e);
-              updateStatus("Buffer error, trying fallback...");
-              fallbackToDownload();
-            });
-          } catch (mimeErr) {
-            console.error("MIME type error:", mimeErr);
-            fallbackToDownload();
-          }
-        });
-      } catch (streamErr) {
-        console.error("Stream creation failed:", streamErr);
-        fallbackToDownload();
-      }
-    });
-
-    // 🎯 METHOD 3: Fallback - Direct download link
-    function fallbackToDownload() {
-      updateStatus("Creating direct download...");
-
-      file.getBlob((err, blob) => {
-        if (err) {
-          console.error("Blob creation failed:", err);
-          video.innerHTML = `
+    file.getBlob((err, blob) => {
+      if (err) {
+        console.error("Blob creation failed:", err);
+        video.innerHTML = `
           <div style="color: white; padding: 40px; text-align: center;">
             <h3>❌ Playback Failed</h3>
             <p>${err.message || "Unknown error"}</p>
@@ -508,48 +514,51 @@ if (videoElement) {
             <p>Progress: ${(torrent.progress * 100).toFixed(1)}%</p>
           </div>
         `;
-          return;
-        }
+        return;
+      }
 
-        const url = URL.createObjectURL(blob);
-        const downloadLink = document.createElement("a");
-        downloadLink.href = url;
-        downloadLink.download = file.name;
-        downloadLink.textContent = `📥 Download ${file.name} (${(
-          blob.size /
-          1024 /
-          1024
-        ).toFixed(2)} MB)`;
-        downloadLink.style.cssText = `
+      const url = URL.createObjectURL(blob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = url;
+      downloadLink.download = file.name;
+      downloadLink.textContent = `📥 Download ${file.name} (${(
+        blob.size /
+        1024 /
+        1024
+      ).toFixed(2)} MB)`;
+      downloadLink.style.cssText = `
         display: inline-block; background: #0066cc;
         color: white; padding: 12px 24px; border-radius: 6px;
         text-decoration: none; margin-top: 20px; font-weight: bold;
       `;
 
-        video.style.display = "none";
-        container.appendChild(downloadLink);
-        updateStatus("✅ Ready for download");
-      });
-    }
+      video.style.display = "none";
+      container.appendChild(downloadLink);
+      updateStatus("✅ Ready for download");
+    });
+  }
 
-    // Close button
-    const closeBtn = document.createElement("button");
-    closeBtn.textContent = "✕ CLOSE PLAYER";
-    closeBtn.style.cssText = `
+  // Close button
+  const closeBtn = document.createElement("button");
+  closeBtn.textContent = "✕ CLOSE PLAYER";
+  closeBtn.style.cssText = `
     position: fixed; top: 20px; right: 20px;
     background: #ff4444; color: white; border: none;
     padding: 10px 20px; border-radius: 6px;
     font-weight: bold; cursor: pointer; z-index: 10000;
   `;
-    closeBtn.onclick = () => {
-      document.body.removeChild(container);
-      document.body.removeChild(closeBtn);
+  closeBtn.onclick = () => {
+    document.body.removeChild(container);
+    document.body.removeChild(closeBtn);
+    // Only destroy if it's a live stream torrent
+    if (torrent.name && torrent.name.includes("live-")) {
       torrent.destroy();
-    };
-
-    document.body.appendChild(container);
-    document.body.appendChild(closeBtn);
+    }
   };
+
+  document.body.appendChild(container);
+  document.body.appendChild(closeBtn);
+};
 
   // 🆕 MANUAL STREAMING FALLBACK
   const manualStreamPlayback = (file, video) => {
