@@ -399,10 +399,22 @@ function ChatMediaRenderer({ message, onStreamActive, liveChunks = [], clearProc
       console.warn("❌ Blob URL failed:", err?.message);
       updateStatus("Method 2: Creating read stream...");
 
+      // 1. Define the 'Blueprint' (Class) by checking both standard and Apple versions
+const MediaSourceClass = window.MediaSource || window.ManagedMediaSource;
+
       // 🎯 METHOD 2: Create read stream with MediaSource
       try {
+        // 2. Check if ANY version of MediaSource exists on this device
+  if (!MediaSourceClass) {
+    throw new Error("This browser does not support MediaSource or ManagedMediaSource.");
+  }
         const stream = file.createReadStream();
-        const mediaSource = new MediaSource();
+      const mediaSource = new MediaSourceClass();
+
+if (videoElement) {
+    videoElement.disableRemotePlayback = true;
+  }
+        
 
         video.src = URL.createObjectURL(mediaSource);
 
