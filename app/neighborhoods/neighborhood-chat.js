@@ -348,83 +348,11 @@ function ChatMediaRenderer({ message, onStreamActive, liveChunks = [], clearProc
     }
   };
 
-// 🎯 UPDATED: Robust video player with multiple fallback methods
+// 🎯 SIMPLIFIED: Use WebTorrent's built-in streaming
 const createVideoPlayer = (file, torrent) => {
-  console.log(`📹 Creating player for: ${file.name} (${file.length} bytes)`);
+  console.log(`📹 Creating player for: ${file.name}`);
 
-  // Check if we're on iOS/mobile and show appropriate message
-  if (Platform.OS !== "web" || /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-    // Create a simple container for mobile
-    const container = document.createElement("div");
-    container.style.cssText = `
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.95); z-index: 9998;
-      display: flex; flex-direction: column; 
-      align-items: center; justify-content: center;
-      padding: 20px; color: white;
-    `;
-    
-    container.innerHTML = `
-      <div style="text-align: center; padding: 20px;">
-        <h2 style="color: #ff4444;">⚠️ Video Playback Limited on iOS</h2>
-        <p style="margin: 20px 0;">Due to iOS restrictions, WebTorrent streaming is not supported.</p>
-        <p style="margin: 10px 0;">Please use the download option below:</p>
-      </div>
-    `;
-    
-    // Create download link
-    const downloadLink = document.createElement("a");
-    downloadLink.href = "#";
-    downloadLink.textContent = `📥 Download ${file.name}`;
-    downloadLink.style.cssText = `
-      display: inline-block; background: #0066cc;
-      color: white; padding: 12px 24px; border-radius: 6px;
-      text-decoration: none; margin: 20px 0; font-weight: bold;
-      cursor: pointer;
-    `;
-    
-    downloadLink.onclick = async () => {
-      try {
-        const blob = await new Promise((resolve, reject) => {
-          file.getBlob((err, blob) => {
-            if (err) reject(err);
-            else resolve(blob);
-          });
-        });
-        
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      } catch (err) {
-        alert("Download failed: " + err.message);
-      }
-    };
-    
-    // Close button
-    const closeBtn = document.createElement("button");
-    closeBtn.textContent = "Close";
-    closeBtn.style.cssText = `
-      background: #ff4444; color: white; border: none;
-      padding: 10px 20px; border-radius: 6px;
-      font-weight: bold; cursor: pointer; margin-top: 20px;
-    `;
-    closeBtn.onclick = () => {
-      document.body.removeChild(container);
-    };
-    
-    container.appendChild(downloadLink);
-    container.appendChild(closeBtn);
-    document.body.appendChild(container);
-    return;
-  }
-
-  // Only continue with MediaSource for desktop browsers
-  // Create UI container
+  // Create UI container (same as before)
   const container = document.createElement("div");
   container.style.cssText = `
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -443,109 +371,20 @@ const createVideoPlayer = (file, torrent) => {
     border-radius: 8px;
   `;
 
-  const statusDiv = document.createElement("div");
-  statusDiv.style.cssText = `
-    color: white; margin-top: 20px; text-align: center;
-    font-family: monospace; font-size: 14px;
-  `;
-
-  const updateStatus = (msg) => {
-    statusDiv.textContent = `🔄 ${msg}`;
-    console.log(`🎥 Status: ${msg}`);
-  };
-
   container.appendChild(video);
-  container.appendChild(statusDiv);
-
-  // 🎯 METHOD 1: Try direct blob URL first (simplest)
-  updateStatus("Method 1: Creating blob URL...");
-  file.getBlobURL((err, blobUrl) => {
-    if (!err && blobUrl) {
-      console.log("✅ Blob URL created:", blobUrl.substring(0, 50) + "...");
-      video.src = blobUrl;
-      updateStatus("✅ Playing via blob URL");
-      return;
-    }
-
-    console.warn("❌ Blob URL failed:", err?.message);
-    updateStatus("Method 2: Creating read stream...");
-
-    // 🎯 METHOD 2: MediaSource API (Desktop only)
-    try {
-      // Check for MediaSource support
-    // 1. SAFER: Define both potential classes as variables first to avoid any direct reference error.
-const ManagedMediaSource = window.ManagedMediaSource; // Will be undefined if not available
-const StandardMediaSource = window.MediaSource; // Will be undefined if not available
-const MediaSourceClass = ManagedMediaSource || StandardMediaSource;
-
-if (!MediaSourceClass) {
-    // Provide a clear error message
-    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const errorMsg = isIOS
-        ? "Your version of iOS Safari does not support the required streaming API. Please update your device or use a different browser."
-        : "Your browser does not support the required video streaming API (MediaSource).";
-    throw new Error(errorMsg);
-}
-
-      if (!MediaSource.isTypeSupported('video/webm; codecs="vp8,opus"') &&
-          !MediaSource.isTypeSupported('video/mp4; codecs="avc1.42E01E,mp4a.40.2"')) {
-        throw new Error("No supported video codecs available");
-      }
-
-      const mediaSource = new MediaSourceClass();
-      video.src = URL.createObjectURL(mediaSource);
-      video.disableRemotePlayback = true;
-
-      mediaSource.addEventListener("sourceopen", () => {
-        updateStatus("Buffering stream...");
-        // ... rest of your MediaSource code ...
-      });
-      
-    } catch (streamErr) {
-      console.error("Stream creation failed:", streamErr);
-      fallbackToDownload();
+  
+  // 🚀 THE MAGIC: One line instead of 100+
+  file.streamTo(video, (err) => {
+    if (err) {
+      console.error('❌ Stream error:', err);
+      // Fallback to download
+      fallbackToDownload(file, torrent, container, video);
+    } else {
+      console.log('✅ Streaming via WebTorrent');
     }
   });
 
-  // 🎯 METHOD 3: Fallback - Direct download link
-  function fallbackToDownload() {
-    updateStatus("Creating direct download...");
-
-    file.getBlob((err, blob) => {
-      if (err) {
-        console.error("Blob creation failed:", err);
-        video.innerHTML = `
-          <div style="color: white; padding: 40px; text-align: center;">
-            <h3>❌ Playback Failed</h3>
-            <p>${err.message || "Unknown error"}</p>
-            <p>Torrent: ${torrent.name}</p>
-            <p>Peers: ${torrent.numPeers}</p>
-            <p>Progress: ${(torrent.progress * 100).toFixed(1)}%</p>
-          </div>
-        `;
-        return;
-      }
-
-      const url = URL.createObjectURL(blob);
-      const downloadLink = document.createElement("a");
-      downloadLink.href = url;
-      downloadLink.download = file.name;
-      downloadLink.textContent = `📥 Download ${file.name} (${(
-        blob.size /
-        1024 /
-        1024
-      ).toFixed(2)} MB)`;
-      downloadLink.style.cssText = `
-        display: inline-block; background: #0066cc;
-        color: white; padding: 12px 24px; border-radius: 6px;
-        text-decoration: none; margin-top: 20px; font-weight: bold;
-      `;
-
-      video.style.display = "none";
-      container.appendChild(downloadLink);
-      updateStatus("✅ Ready for download");
-    });
-  }
+  // ... rest of your UI code (close button, etc.) remains the same
 
   // Close button
   const closeBtn = document.createElement("button");
