@@ -473,10 +473,19 @@ const createVideoPlayer = (file, torrent) => {
     // 🎯 METHOD 2: MediaSource API (Desktop only)
     try {
       // Check for MediaSource support
-      const MediaSourceClass = window.MediaSource || window.ManagedMediaSource;
-      if (!MediaSourceClass) {
-        throw new Error("MediaSource API not supported on this browser");
-      }
+    // 1. SAFER: Define both potential classes as variables first to avoid any direct reference error.
+const ManagedMediaSource = window.ManagedMediaSource; // Will be undefined if not available
+const StandardMediaSource = window.MediaSource; // Will be undefined if not available
+const MediaSourceClass = ManagedMediaSource || StandardMediaSource;
+
+if (!MediaSourceClass) {
+    // Provide a clear error message
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const errorMsg = isIOS
+        ? "Your version of iOS Safari does not support the required streaming API. Please update your device or use a different browser."
+        : "Your browser does not support the required video streaming API (MediaSource).";
+    throw new Error(errorMsg);
+}
 
       if (!MediaSource.isTypeSupported('video/webm; codecs="vp8,opus"') &&
           !MediaSource.isTypeSupported('video/mp4; codecs="avc1.42E01E,mp4a.40.2"')) {
