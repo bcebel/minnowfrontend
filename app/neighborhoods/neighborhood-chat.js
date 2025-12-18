@@ -32,7 +32,7 @@ import AdMessage from "../../components/AdMessage";
 import { NeighborhoodVideoReassembler } from "../../components/NeighborhoodVideoReassembler";
 import LiveStreamMessage from "../../components/LiveStreamMessage";
 import LiveStreamPlayer from "../../components/LiveStreamPlayer";
-import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer"; 
+import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer";
 import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
 
 const playStream = (magnetLink) => {
@@ -203,10 +203,20 @@ const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
   );
 };
 
-function ChatMediaRenderer({ message, onStreamActive, liveChunks = [], clearProcessedChunk = () => {}
+function ChatMediaRenderer({
+  message,
+  onStreamActive,
+  liveChunks = [],
+  clearProcessedChunk = () => {},
 }) {
   const {
-    imageUrl, videoUrl, fileUrl, magnetLink, fileName, fileType, thumbnailUrl,
+    imageUrl,
+    videoUrl,
+    fileUrl,
+    magnetLink,
+    fileName,
+    fileType,
+    thumbnailUrl,
   } = message;
   console.log("🔍 ChatMediaRenderer Debug:", {
     message,
@@ -217,8 +227,10 @@ function ChatMediaRenderer({ message, onStreamActive, liveChunks = [], clearProc
   if (!message) return null;
 
   // 🔥 Filter out invalid/malformed live_stream messages
-  if (message.fileType === "live_stream" &&
-    (!message.magnetLink || message.magnetLink.includes("undefined"))) {
+  if (
+    message.fileType === "live_stream" &&
+    (!message.magnetLink || message.magnetLink.includes("undefined"))
+  ) {
     return (
       <View style={styles.liveStreamCard}>
         <Text style={styles.liveTitle}>📡 Stream initializing...</Text>
@@ -310,7 +322,11 @@ function ChatMediaRenderer({ message, onStreamActive, liveChunks = [], clearProc
 
       // ➕ Add torrent (USE CALLBACK — NOT PROMISE)
       client.add(magnetUri, { live: true }, (torrent) => {
-        console.log("✅ Added to global client:", torrent.name, torrent.infoHash);
+        console.log(
+          "✅ Added to global client:",
+          torrent.name,
+          torrent.infoHash
+        );
 
         torrent.on("error", (err) => {
           console.error("❌ Torrent error:", err);
@@ -348,13 +364,88 @@ function ChatMediaRenderer({ message, onStreamActive, liveChunks = [], clearProc
     }
   };
 
-// 🎯 SIMPLIFIED: Use WebTorrent's built-in streaming
-const createVideoPlayer = (file, torrent) => {
-  console.log(`📹 Creating player for: ${file.name}`);
+  // 🎯 UPDATED: Robust video player with multiple fallback methods
+  const createVideoPlayer = (file, torrent) => {
+    console.log(`📹 Creating player for: ${file.name} (${file.length} bytes)`);
 
-  // Create UI container (same as before)
-  const container = document.createElement("div");
-  container.style.cssText = `
+    // Check if we're on iOS/mobile and show appropriate message
+    if (
+      Platform.OS !== "web" ||
+      /iPhone|iPad|iPod/i.test(navigator.userAgent)
+    ) {
+      // Create a simple container for mobile
+      const container = document.createElement("div");
+      container.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.95); z-index: 9998;
+      display: flex; flex-direction: column; 
+      align-items: center; justify-content: center;
+      padding: 20px; color: white;
+    `;
+
+      container.innerHTML = `
+      <div style="text-align: center; padding: 20px;">
+        <h2 style="color: #ff4444;">⚠️ Video Playback Limited on iOS</h2>
+        <p style="margin: 20px 0;">Due to iOS restrictions, WebTorrent streaming is not supported.</p>
+        <p style="margin: 10px 0;">Please use the download option below:</p>
+      </div>
+    `;
+
+      // Create download link
+      const downloadLink = document.createElement("a");
+      downloadLink.href = "#";
+      downloadLink.textContent = `📥 Download ${file.name}`;
+      downloadLink.style.cssText = `
+      display: inline-block; background: #0066cc;
+      color: white; padding: 12px 24px; border-radius: 6px;
+      text-decoration: none; margin: 20px 0; font-weight: bold;
+      cursor: pointer;
+    `;
+
+      downloadLink.onclick = async () => {
+        try {
+          const blob = await new Promise((resolve, reject) => {
+            file.getBlob((err, blob) => {
+              if (err) reject(err);
+              else resolve(blob);
+            });
+          });
+
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = file.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (err) {
+          alert("Download failed: " + err.message);
+        }
+      };
+
+      // Close button
+      const closeBtn = document.createElement("button");
+      closeBtn.textContent = "Close";
+      closeBtn.style.cssText = `
+      background: #ff4444; color: white; border: none;
+      padding: 10px 20px; border-radius: 6px;
+      font-weight: bold; cursor: pointer; margin-top: 20px;
+    `;
+      closeBtn.onclick = () => {
+        document.body.removeChild(container);
+      };
+
+      container.appendChild(downloadLink);
+      container.appendChild(closeBtn);
+      document.body.appendChild(container);
+      return;
+    }
+
+    // Only continue with MediaSource for desktop browsers
+    // Create UI container
+    const container = document.createElement("div");
+    container.style.cssText = `
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.95); z-index: 9998;
     display: flex; flex-direction: column; 
@@ -362,51 +453,124 @@ const createVideoPlayer = (file, torrent) => {
     padding: 20px;
   `;
 
-  const video = document.createElement("video");
-  video.controls = true;
-  video.autoplay = true;
-  video.style.cssText = `
+    const video = document.createElement("video");
+    video.controls = true;
+    video.autoplay = true;
+    video.style.cssText = `
     width: 100%; max-width: 800px; max-height: 80vh;
     background: black; border: 2px solid #00ff00;
     border-radius: 8px;
   `;
 
-  container.appendChild(video);
-  
-  // 🚀 THE MAGIC: One line instead of 100+
-  file.streamTo(video, (err) => {
-    if (err) {
-      console.error('❌ Stream error:', err);
-      // Fallback to download
-      fallbackToDownload(file, torrent, container, video);
-    } else {
-      console.log('✅ Streaming via WebTorrent');
+    const statusDiv = document.createElement("div");
+    statusDiv.style.cssText = `
+    color: white; margin-top: 20px; text-align: center;
+    font-family: monospace; font-size: 14px;
+  `;
+
+    const updateStatus = (msg) => {
+      statusDiv.textContent = `🔄 ${msg}`;
+      console.log(`🎥 Status: ${msg}`);
+    };
+
+    container.appendChild(video);
+    container.appendChild(statusDiv);
+
+    // 🎯 METHOD 1: Try direct blob URL first (simplest)
+    updateStatus("Method 1: Creating blob URL...");
+    file.getBlobURL((err, blobUrl) => {
+      if (!err && blobUrl) {
+        console.log("✅ Blob URL created:", blobUrl.substring(0, 50) + "...");
+        video.src = blobUrl;
+        updateStatus("✅ Playing via blob URL");
+        return;
+      }
+
+      console.warn("❌ Blob URL failed:", err?.message);
+      updateStatus("Method 2: Creating read stream...");
+
+      // 🎯 METHOD 2: MediaSource API (Desktop only)
+      try {
+    
+        function getMediaSource() {
+          return self.ManagedMediaSource || self.MediaSource
+        }
+        
+        const mediaSource = getMediaSource();
+        video.src = URL.createObjectURL(mediaSource);
+        video.disableRemotePlayback = true;
+
+        mediaSource.addEventListener("sourceopen", () => {
+          updateStatus("Buffering stream...");
+          // ... rest of your MediaSource code ...
+        });
+      } catch (streamErr) {
+        console.error("Stream creation failed:", streamErr);
+        fallbackToDownload();
+      }
+    });
+
+    // 🎯 METHOD 3: Fallback - Direct download link
+    function fallbackToDownload() {
+      updateStatus("Creating direct download...");
+
+      file.getBlob((err, blob) => {
+        if (err) {
+          console.error("Blob creation failed:", err);
+          video.innerHTML = `
+          <div style="color: white; padding: 40px; text-align: center;">
+            <h3>❌ Playback Failed</h3>
+            <p>${err.message || "Unknown error"}</p>
+            <p>Torrent: ${torrent.name}</p>
+            <p>Peers: ${torrent.numPeers}</p>
+            <p>Progress: ${(torrent.progress * 100).toFixed(1)}%</p>
+          </div>
+        `;
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const downloadLink = document.createElement("a");
+        downloadLink.href = url;
+        downloadLink.download = file.name;
+        downloadLink.textContent = `📥 Download ${file.name} (${(
+          blob.size /
+          1024 /
+          1024
+        ).toFixed(2)} MB)`;
+        downloadLink.style.cssText = `
+        display: inline-block; background: #0066cc;
+        color: white; padding: 12px 24px; border-radius: 6px;
+        text-decoration: none; margin-top: 20px; font-weight: bold;
+      `;
+
+        video.style.display = "none";
+        container.appendChild(downloadLink);
+        updateStatus("✅ Ready for download");
+      });
     }
-  });
 
-  // ... rest of your UI code (close button, etc.) remains the same
-
-  // Close button
-  const closeBtn = document.createElement("button");
-  closeBtn.textContent = "✕ CLOSE PLAYER";
-  closeBtn.style.cssText = `
+    // Close button
+    const closeBtn = document.createElement("button");
+    closeBtn.textContent = "✕ CLOSE PLAYER";
+    closeBtn.style.cssText = `
     position: fixed; top: 20px; right: 20px;
     background: #ff4444; color: white; border: none;
     padding: 10px 20px; border-radius: 6px;
     font-weight: bold; cursor: pointer; z-index: 10000;
   `;
-  closeBtn.onclick = () => {
-    document.body.removeChild(container);
-    document.body.removeChild(closeBtn);
-    // Only destroy if it's a live stream torrent
-    if (torrent.name && torrent.name.includes("live-")) {
-      torrent.destroy();
-    }
-  };
+    closeBtn.onclick = () => {
+      document.body.removeChild(container);
+      document.body.removeChild(closeBtn);
+      // Only destroy if it's a live stream torrent
+      if (torrent.name && torrent.name.includes("live-")) {
+        torrent.destroy();
+      }
+    };
 
-  document.body.appendChild(container);
-  document.body.appendChild(closeBtn);
-};
+    document.body.appendChild(container);
+    document.body.appendChild(closeBtn);
+  };
 
   // 🆕 MANUAL STREAMING FALLBACK
   const manualStreamPlayback = (file, video) => {
@@ -449,15 +613,15 @@ const createVideoPlayer = (file, torrent) => {
     // or use a context/global state
     return []; // Placeholder
   };
-if (message.fileType === "live_stream_chunked") {
+  if (message.fileType === "live_stream_chunked") {
     // Check 2: Does it have a Session ID?
     if (!message.sessionId) {
-        return <Text style={{ color: 'red' }}>Error: Stream missing ID!</Text>;
+      return <Text style={{ color: "red" }}>Error: Stream missing ID!</Text>;
     }
 
     // Call the parent handler to start monitoring this session
     useEffect(() => {
-        onStreamActive(message.sessionId);
+      onStreamActive(message.sessionId);
     }, [message.sessionId, onStreamActive]);
 
     return (
@@ -504,7 +668,9 @@ if (message.fileType === "live_stream_chunked") {
 
     return (
       <TouchableOpacity
-        onPress={() => handleChunkedVideo(message.sessionId, message.totalChunks)}
+        onPress={() =>
+          handleChunkedVideo(message.sessionId, message.totalChunks)
+        }
         style={styles.chunkedVideoContainer}
         disabled={isDownloadingChunks}
       >
@@ -512,7 +678,8 @@ if (message.fileType === "live_stream_chunked") {
           <Image
             source={{ uri: message.thumbnailUrl }}
             style={styles.videoThumbnail}
-            resizeMode="cover" />
+            resizeMode="cover"
+          />
         ) : (
           <View style={[styles.videoThumbnail, styles.videoPlaceholder]}>
             <Text style={styles.videoIcon}>🎬</Text>
@@ -559,9 +726,10 @@ if (message.fileType === "live_stream_chunked") {
 
   // Inside ChatMediaRenderer
   if (message.fileType === "live_stream") {
-    const safeMagnet = message.magnetLink && !message.magnetLink.includes("undefined")
-      ? message.magnetLink
-      : null;
+    const safeMagnet =
+      message.magnetLink && !message.magnetLink.includes("undefined")
+        ? message.magnetLink
+        : null;
 
     if (!safeMagnet) {
       return (
@@ -614,7 +782,8 @@ if (message.fileType === "live_stream_chunked") {
         <Image
           source={{ uri: thumbnailUrl }}
           style={styles.videoThumbnail}
-          resizeMode="cover" />
+          resizeMode="cover"
+        />
         <View style={styles.videoOverlay}>
           <Text style={styles.playIcon}>▶️</Text>
         </View>
@@ -634,7 +803,8 @@ if (message.fileType === "live_stream_chunked") {
       return (
         <SimpleVideoPlayer
           url={torrentStreamUrl}
-          fileName={fileName || "Live Stream"} />
+          fileName={fileName || "Live Stream"}
+        />
       );
     }
 
@@ -649,7 +819,8 @@ if (message.fileType === "live_stream_chunked") {
           <Image
             source={{ uri: thumbnailUrl }}
             style={styles.videoThumbnail}
-            resizeMode="cover" />
+            resizeMode="cover"
+          />
         ) : (
           <View style={[styles.videoThumbnail, styles.streamPlaceholder]}>
             <Text style={styles.streamIcon}>🎥</Text>
@@ -693,7 +864,8 @@ if (message.fileType === "live_stream_chunked") {
         <Image
           source={{ uri: pinataUrl }}
           style={styles.messageImage}
-          resizeMode="cover" />
+          resizeMode="cover"
+        />
         {fileName && <Text style={styles.fileNameText}>{fileName}</Text>}
       </TouchableOpacity>
     );
@@ -749,7 +921,7 @@ const GET_NEIGHBORHOOD_MESSAGES = gql`
       fileName
       fileType
       thumbnailUrl
-      sessionId 
+      sessionId
       chunkIndex
       magnetLink
       sender {
@@ -852,15 +1024,15 @@ const GET_RANDOM_AFFILIATE_LINK = gql`
       clicks
     }
   }
-    `;
+`;
 
-    const DELETE_NEIGHBORHOOD_MESSAGE = gql`
-      mutation DeleteNeighborhoodMessage($messageId: ID!) {
-        deleteMessage(messageId: $messageId)
-      }
-    `;
+const DELETE_NEIGHBORHOOD_MESSAGE = gql`
+  mutation DeleteNeighborhoodMessage($messageId: ID!) {
+    deleteMessage(messageId: $messageId)
+  }
+`;
 
-    const GET_MY_VIDEOS = gql`
+const GET_MY_VIDEOS = gql`
   query GetMyVideos {
     getMyVideos {
       id
@@ -2813,5 +2985,4 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 14,
   },
- 
 });

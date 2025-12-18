@@ -18,7 +18,10 @@ export class NeighborhoodVideoReassembler {
     const statusDiv = container.querySelector("#stream-status");
 
     // 2. Setup MSE
-    const mediaSource = new MediaSource();
+    function getMediaSource() {
+      return self.ManagedMediaSource || self.MediaSource
+    }
+    const mediaSource = getMediaSource();
     video.src = URL.createObjectURL(mediaSource);
 
     // Use a reference to track the source buffer and prevent race conditions
