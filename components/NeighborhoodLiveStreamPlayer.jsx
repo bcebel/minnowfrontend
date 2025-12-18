@@ -58,7 +58,8 @@ const NeighborhoodLiveStreamPlayer = ({
     setStatus(`Downloading Chunk #${nextChunk.chunkIndex + 1}...`);
 
     // 4. Download and Append
-    client.add(nextChunk.magnetLink, (torrent) => {
+    // Add strategy and live option for better performance in live streaming
+    client.add(nextChunk.magnetLink, { strategy: 'sequential', live: true }, (torrent) => {
       const file = torrent.files[0];
 
       // Use the 'done' event, not just 'wire' or 'add'
@@ -177,13 +178,26 @@ const NeighborhoodLiveStreamPlayer = ({
   });
   // This effect handles adding new chunks to the queue whenever they arrive.
   useEffect(() => {
+    console.log(`[Player] Received ${initialChunks.length} initialChunks.`);
     if (initialChunks.length > 0) {
+      let chunksAdded = 0;
       initialChunks.forEach((chunk) => {
-        if (chunk.fileType === "video_chunk" && !chunkQueueRef.current.find(c => c.chunkIndex === chunk.chunkIndex)) {
-          chunkQueueRef.current.push(chunk);
+        if (chunk.fileType === "video_chunk") {
+          const isAlreadyInQueue = chunkQueueRef.current.find(c => c.chunkIndex === chunk.chunkIndex);
+          if (!isAlreadyInQueue) {
+            console.log(`[Player] Adding chunk #${chunk.chunkIndex} to internal queue.`);
+            chunkQueueRef.current.push(chunk);
+            chunksAdded++;
+          }
         }
       });
-      chunkQueueRef.current.sort((a, b) => a.chunkIndex - b.chunkIndex);
+
+      if (chunksAdded > 0) {
+        chunkQueueRef.current.sort((a, b) => a.chunkIndex - b.chunkIndex);
+      }
+      
+      console.log(`[Player] Current internal queue contains indices: [${chunkQueueRef.current.map(c => c.chunkIndex).join(', ')}]`);
+      console.log(`[Player] Triggering queue processing. Looking for chunk #${nextChunkIndexRef.current}`);
       // Trigger processing, which will run if the buffer is ready.
       processChunkQueueRef.current();
     }

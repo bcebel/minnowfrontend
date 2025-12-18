@@ -209,6 +209,7 @@ function ChatMediaRenderer({
   liveChunks = [],
   clearProcessedChunk = () => {},
 }) {
+  console.log("Rendering message type:", message.fileType, "sessionId:", message.sessionId);
   const {
     imageUrl,
     videoUrl,
