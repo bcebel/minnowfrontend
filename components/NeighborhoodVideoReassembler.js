@@ -7,7 +7,128 @@ export class NeighborhoodVideoReassembler {
     this.onChunkDownload = null; // Callback for progress
   }
 
+  // 🆕 NEW: The core function for live MSE playback
+  async startLivePlayback(sessionId, onChunkReady) {
+    if (typeof window === "undefined") return;
+    if (!this.client) await this.init();
 
+    // 1. Create UI
+    const container = this.createPlayerUI();
+    const video = container.querySelector("video");
+    const statusDiv = container.querySelector("#stream-status");
+
+    // 2. Setup MSE with ManagedMediaSource detection
+    const getMediaSourceClass = () => {
+      if (typeof window.ManagedMediaSource !== "undefined") {
+        console.log("📱 Using ManagedMediaSource (Safari)");
+        return window.ManagedMediaSource;
+      }
+      if (typeof window.MediaSource !== "undefined") {
+        console.log("🌐 Using standard MediaSource");
+        return window.MediaSource;
+      }
+      throw new Error("MediaSource API is not supported in this browser.");
+    };
+
+    const MediaSourceClass = getMediaSourceClass();
+    const mediaSource = new MediaSourceClass();
+    video.src = URL.createObjectURL(mediaSource);
+
+    // Use a reference to track the source buffer and prevent race conditions
+    let sourceBuffer = null;
+    let isBuffering = false;
+    let bufferQueue = [];
+
+    mediaSource.addEventListener("sourceopen", () => {
+      try {
+        // NOTE: Must match the mimeType used in the Recorder!
+        const mimeType = 'video/webm; codecs="vp8,opus"';
+        if (!MediaSourceClass.isTypeSupported(mimeType)) {
+          statusDiv.textContent = "Error: Codec not supported.";
+          return;
+        }
+        sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+        statusDiv.textContent = "Waiting for first chunk...";
+
+        sourceBuffer.addEventListener("updateend", () => {
+          isBuffering = false;
+          processBufferQueue(); // Process next in queue
+        });
+      } catch (error) {
+        statusDiv.textContent = `MSE Error: ${error.message}`;
+      }
+    });
+
+    // 3. Define the main buffering loop
+    const processBufferQueue = async () => {
+      if (
+        isBuffering ||
+        bufferQueue.length === 0 ||
+        !sourceBuffer ||
+        sourceBuffer.updating
+      ) {
+        return;
+      }
+
+      isBuffering = true;
+      const nextChunk = bufferQueue.shift(); // Get the oldest chunk
+
+      try {
+        statusDiv.textContent = `Downloading chunk ${nextChunk.chunkIndex}...`;
+
+        // Use the method from the previous response:
+        const buffer = await this.downloadChunkBuffer(nextChunk);
+
+        statusDiv.textContent = `Appending chunk ${nextChunk.chunkIndex}...`;
+        sourceBuffer.appendBuffer(buffer);
+
+        // Start playing after the first chunk is buffered
+        if (video.paused) {
+          video
+            .play()
+            .catch((e) => console.warn("Video auto-play blocked:", e));
+        }
+      } catch (error) {
+        statusDiv.textContent = `Chunk Error: ${error.message}`;
+        isBuffering = false; // Allow queue to be processed again
+      }
+    };
+
+    // 4. Expose the append function for the React component (via subscription)
+    this.appendChunk = (chunkMessage) => {
+      bufferQueue.push(chunkMessage);
+      statusDiv.textContent = `New chunk ${chunkMessage.chunkIndex} received.`;
+      processBufferQueue();
+    };
+
+    this.stopPlayback = () => {
+      // Cleanup logic
+      if (mediaSource.readyState === "open") {
+        mediaSource.endOfStream();
+      }
+      if (video.src) {
+        URL.revokeObjectURL(video.src);
+      }
+      this.client.destroy();
+      document.body.removeChild(container);
+    };
+
+    // 5. Return the UI container to handle the initial render
+    return container;
+  }
+
+  // Add to NeighborhoodVideoReassembler class
+  stopPlayback() {
+    if (this.client) {
+      this.client.destroy();
+    }
+    // Find and remove the player container
+    const container = document.getElementById("liveStreamPlayer");
+    if (container) {
+      document.body.removeChild(container);
+    }
+  }
+  
   // 🆕 NEW: Function to create the standalone player UI
   createPlayerUI() {
     const container = document.createElement("div");

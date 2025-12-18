@@ -1,5 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 
+
+
 const CHUNK_TIMEOUT_MS = 10000;
 
 const NeighborhoodLiveStreamPlayer = ({
@@ -37,6 +39,7 @@ const NeighborhoodLiveStreamPlayer = ({
       return;
     }
 
+    
     // 2. Find the next sequential chunk we need
     const nextChunk = chunkQueueRef.current.find(
       (c) => c.chunkIndex === nextChunkIndexRef.current
@@ -98,40 +101,47 @@ const NeighborhoodLiveStreamPlayer = ({
       return;
     }
 
-    mediaSourceRef.current = new MediaSourceClass();
-    videoRef.current.src = URL.createObjectURL(mediaSourceRef.current);
+    const mediaSource = new MediaSourceClass();
+    mediaSourceRef.current = mediaSource;
+    videoRef.current.src = URL.createObjectURL(mediaSource);
 
-    mediaSourceRef.current.addEventListener(
-      "sourceopen",
-      () => {
-        // MIME type must match what your MediaRecorder outputs (e.g., 'video/webm; codecs="vp8"')
-   const potentialMimeTypes = [
-     'video/webm;codecs=vp8,opus', // Exact match from recorder (no quotes, no space)
-     'video/webm; codecs="vp8, opus"',
-     'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', // H.264 for Safari
-     "video/webm", // Fallback
-   ];
+    const onSourceOpen = () => {
+      console.log("MediaSource is open, creating SourceBuffer...");
+      // Now that the source is open, we can add the buffer.
+      const potentialMimeTypes = [
+        'video/webm;codecs=vp8,opus',
+        'video/webm; codecs="vp8, opus"',
+        'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
+        "video/webm",
+      ];
+      const supportedMimeType = potentialMimeTypes.find((t) =>
+        MediaSourceClass.isTypeSupported(t)
+      );
 
-   const supportedMimeType = potentialMimeTypes.find((t) =>
-     MediaSourceClass.isTypeSupported(t)
-   );
+      if (supportedMimeType && mediaSource.readyState === 'open') {
+        try {
+          const sourceBuffer = mediaSource.addSourceBuffer(supportedMimeType);
+          sourceBuffer.addEventListener("updateend", processChunkQueue);
+          sourceBufferRef.current = sourceBuffer;
+          // Now that the buffer is ready, process any chunks that have already arrived.
+          processChunkQueue();
+        } catch (e) {
+          console.error("Error adding source buffer:", e);
+          setStatus("Error setting up video buffer.");
+        }
+      } else {
+        setStatus("No supported stream format found!");
+      }
+    };
 
-   if (supportedMimeType) {
-     sourceBufferRef.current =
-       mediaSourceRef.current.addSourceBuffer(supportedMimeType);
-     // Add the persistent updateend listener here
-     sourceBufferRef.current.addEventListener("updateend", processChunkQueue);
-   } else {
-     setStatus("No supported stream format found!");
-   }
-        // Start processing any chunks that arrived before the player was ready
-        processChunkQueue();
-      },
-      { once: true }
-    );
+    mediaSource.addEventListener("sourceopen", onSourceOpen);
 
     // Cleanup function
     return () => {
+      mediaSource.removeEventListener("sourceopen", onSourceOpen);
+      if (sourceBufferRef.current) {
+        sourceBufferRef.current.removeEventListener("updateend", processChunkQueue);
+      }
       // Destroy all related torrents when the component unmounts
       const client = window.globalWebTorrentClient;
       client?.torrents.forEach((t) => {
@@ -140,7 +150,7 @@ const NeighborhoodLiveStreamPlayer = ({
         }
       });
     };
-  }, [sessionId, processChunkQueue, getClient]);
+  }, [sessionId, clearProcessedChunk, getClient, processChunkQueue]);
 
   // 3. Handle Incoming Chunks
   // 3. Handle Incoming Chunks (NeighborhoodLiveStreamPlayer.jsx)

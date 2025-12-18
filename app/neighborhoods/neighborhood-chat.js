@@ -2184,7 +2184,7 @@ export default function NeighborhoodChatScreen() {
     const sessionId = `live_${Date.now()}_${Math.random()
       .toString(36)
       .substr(2, 9)}`;
-    const totalChunks = 0; // We don't know the total yet for a live stream
+  const totalChunks = -1; // We don't know the total yet for a live stream
 
     try {
       setUploading(true); // Assuming you use this state
@@ -2433,7 +2433,6 @@ export default function NeighborhoodChatScreen() {
           <Text style={styles.warningText}>Connecting...</Text>
         </View>
       )}
-      // ... inside the ScrollView component ...
       <ScrollView style={styles.messagesList} ref={scrollViewRef}>
         {messages.map((item, index) => {
           // Check for ad placement
@@ -2530,7 +2529,16 @@ export default function NeighborhoodChatScreen() {
 
                   // 3. Seed to WebTorrent
                   const client = window.globalWebTorrentClient;
-                  client.seed(blob, { name: "test.webm" }, (torrent) => {
+                  client.seed(blob, {
+                    name: "test.webm",
+                    announce: [
+                      'wss://tracker.openwebtorrent.com',
+                      'wss://tracker.btorrent.xyz',
+                      'wss://tracker.fastcast.nz',
+                      'wss://tracker.webtorrent.dev',
+                      'wss://tracker.webtorrent.io'
+                    ],
+                  }, (torrent) => {
                     console.log("🌱 Torrent:", {
                       name: torrent.name,
                       magnet: torrent.magnetURI,
