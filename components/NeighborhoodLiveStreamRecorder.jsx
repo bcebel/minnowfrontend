@@ -15,6 +15,9 @@ const SEND_MESSAGE = gql`
     $magnetLink: String
     $mimeType: String
     $thumbnailUrl: String
+    $sessionId: String
+    $chunkIndex: Int
+    $totalChunks: Int
   ) {
     sendMessage(
       content: $content
@@ -27,7 +30,10 @@ const SEND_MESSAGE = gql`
       fileUrl: $fileUrl
       magnetLink: $magnetLink
       mimeType: $mimeType
-      thumbnailUrl: $thumbnailUrl # 🆕 ADD THIS LINE
+      thumbnailUrl: $thumbnailUrl
+      sessionId: $sessionId
+      chunkIndex: $chunkIndex
+      totalChunks: $totalChunks
     ) {
       id
       content
@@ -38,7 +44,10 @@ const SEND_MESSAGE = gql`
       fileType
       magnetLink
       mimeType
-      thumbnailUrl # 🆕 ADD THIS LINE
+      thumbnailUrl
+      sessionId
+      chunkIndex
+      totalChunks
       room
       createdAt
       sender {

@@ -69,21 +69,13 @@ const NeighborhoodLiveStreamPlayer = ({
             return;
           }
 
-          // 5. Append the Buffer (REQUIRES updateend Listener)
+          // 5. Append the Buffer
           sourceBuffer.appendBuffer(buffer);
 
-          // 6. Listen for Success (only runs once per append)
-          sourceBuffer.addEventListener(
-            "updateend",
-            () => {
-              // Success! Move to the next index and call the queue function again
-              nextChunkIndexRef.current += 1;
-              setStatus(`Playing Chunk #${nextChunkIndexRef.current}`);
-              clearProcessedChunk(nextChunk.id); // Notify parent (chat)
-              processChunkQueue(); // Check for the next sequential chunk
-            },
-            { once: true } // Crucial: only run this listener once
-          );
+          // Success! Move to the next index. The persistent 'updateend' listener will call processChunkQueue()
+          nextChunkIndexRef.current += 1;
+          setStatus(`Playing Chunk #${nextChunkIndexRef.current}`);
+          clearProcessedChunk(nextChunk.id); // Notify parent (chat)
         });
       });
       // Add error/peer listeners here for debugging
@@ -126,6 +118,8 @@ const NeighborhoodLiveStreamPlayer = ({
    if (supportedMimeType) {
      sourceBufferRef.current =
        mediaSourceRef.current.addSourceBuffer(supportedMimeType);
+     // Add the persistent updateend listener here
+     sourceBufferRef.current.addEventListener("updateend", processChunkQueue);
    } else {
      setStatus("No supported stream format found!");
    }
