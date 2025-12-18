@@ -106,6 +106,7 @@ const NeighborhoodLiveStreamPlayer = ({
       () => {
         // MIME type must match what your MediaRecorder outputs (e.g., 'video/webm; codecs="vp8"')
    const potentialMimeTypes = [
+     'video/webm;codecs=vp8,opus', // Exact match from recorder (no quotes, no space)
      'video/webm; codecs="vp8, opus"',
      'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', // H.264 for Safari
      "video/webm", // Fallback

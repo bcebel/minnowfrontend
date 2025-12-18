@@ -500,10 +500,93 @@ function ChatMediaRenderer({
         video.src = URL.createObjectURL(mediaSource);
         video.disableRemotePlayback = true;
 
-        mediaSource.addEventListener("sourceopen", () => {
-          updateStatus("Buffering stream...");
-          // ... rest of your MediaSource code ...
-        });
+mediaSource.addEventListener("sourceopen", () => {
+  updateStatus("Creating stream source...");
+
+  try {
+    // 1. Create SourceBuffer with the correct MIME type
+    const mimeType = 'video/webm; codecs="vp8,opus"'; // Match your WebTorrent files
+    const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+
+    // 2. Create a readable stream from the WebTorrent file
+    const stream = file.createReadStream();
+    let isBuffering = false;
+    const bufferQueue = [];
+
+    updateStatus("Starting stream...");
+
+    // 3. When data arrives from WebTorrent, add it to the queue
+    stream.on("data", (chunk) => {
+      bufferQueue.push(chunk);
+      processBuffer();
+    });
+
+    // 4. Handle stream end
+    stream.on("end", () => {
+      console.log("✅ Stream download complete");
+      if (!isBuffering && bufferQueue.length === 0) {
+        mediaSource.endOfStream();
+        updateStatus("✅ Stream complete");
+      }
+    });
+
+    // 5. Process the buffer queue
+    function processBuffer() {
+      if (isBuffering || bufferQueue.length === 0) return;
+
+      if (sourceBuffer.updating) {
+        // SourceBuffer is busy, try again later
+        setTimeout(processBuffer, 50);
+        return;
+      }
+
+      isBuffering = true;
+      const chunk = bufferQueue.shift();
+
+      try {
+        sourceBuffer.appendBuffer(chunk);
+      } catch (err) {
+        console.error("❌ Buffer append error:", err);
+        // Handle MIME type fallback if needed
+        if (err.name === "NotSupportedError") {
+          updateStatus("Trying MP4 fallback...");
+          try {
+            mediaSource.removeSourceBuffer(sourceBuffer);
+            const altMime = 'video/mp4; codecs="avc1.42E01E,mp4a.40.2"';
+            const newBuffer = mediaSource.addSourceBuffer(altMime);
+            newBuffer.appendBuffer(chunk);
+          } catch (altErr) {
+            console.error("Alt codec failed:", altErr);
+            fallbackToDownload();
+          }
+        }
+      }
+    }
+
+    // 6. When a buffer append is complete, process next chunk
+    sourceBuffer.addEventListener("updateend", () => {
+      isBuffering = false;
+      processBuffer();
+
+      // Auto-play when we have enough data
+      if (video.paused && mediaSource.readyState === "open") {
+        video.play().catch((e) => console.warn("Auto-play blocked:", e));
+      }
+    });
+
+    sourceBuffer.addEventListener("error", (e) => {
+      console.error("SourceBuffer error:", e);
+      updateStatus("Buffer error, trying fallback...");
+      fallbackToDownload();
+    });
+  } catch (error) {
+    console.error("❌ Source setup failed:", error);
+    updateStatus(`Error: ${error.message}`);
+    fallbackToDownload();
+  }
+});
+
+
       } catch (streamErr) {
         console.error("Stream creation failed:", streamErr);
         fallbackToDownload();
