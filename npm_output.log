@@ -7,6 +7,7 @@ env: export EXPO_PUBLIC_BACKEND_URL FILEBASE_ACCESS_KEY FILEBASE_SECRET_KEY FILE
 Starting project at /app
 Starting Metro Bundler
 The following packages should be updated for best compatibility with the installed expo version:
+  @react-native-picker/picker@2.11.4 - expected version: 2.11.1
   expo@54.0.23 - expected version: ~54.0.30
   expo-constants@18.0.11 - expected version: ~18.0.12
   expo-file-system@19.0.20 - expected version: ~19.0.21
@@ -18,21 +19,13 @@ Your project may not work correctly until you install the expected versions of t
 Waiting on http://localhost:8081
 Logs for your project will appear below.
 Web node_modules/expo-router/entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
-Web node_modules/expo-router/entry.js ▓▓▓░░░░░░░░░░░░░ 21.6% ( 80/179)
-λ node_modules/expo-router/node/render.js ▓▓▓░░░░░░░░░░░░░ 22.3% (185/392)
-Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓░░░░░░░░░ 45.3% (192/319)
-λ node_modules/expo-router/node/render.js ▓▓▓▓▓▓▓▓▓░░░░░░░ 58.3% (510/668)
-Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓░░░░░░░░░ 45.3% (361/547)
-λ node_modules/expo-router/node/render.js ▓▓▓▓▓▓▓▓▓▓░░░░░░ 64.8% (601/779)
-Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓░░░░░░░ 56.4% (545/726)
-λ node_modules/expo-router/node/render.js ▓▓▓▓▓▓▓▓▓▓░░░░░░ 65.6% (791/978)
-Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓░░░░░░ 65.5% (726/897)
-λ node_modules/expo-router/node/render.js ▓▓▓▓▓▓▓▓▓▓▓▓░░░░ 78.8% (1003/1164)
-Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓░░░░ 80.9% (1091/1213)
-λ node_modules/expo-router/node/render.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 83.7% (1174/1283)
-Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 94.1% (1527/1574)
-λ node_modules/expo-router/node/render.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 98.2% (1451/1464)
-λ Bundled 25114ms node_modules/expo-router/node/render.js (1480 modules)
+Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓░░░░░░░ 60.1% ( 854/1102)
+λ node_modules/expo-router/node/render.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 72.9% (853/999)
+Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 92.6% (1489/1547)
+λ node_modules/expo-router/node/render.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 95.1% (1429/1525)
+Web Bundled 8240ms node_modules/expo-router/entry.js (1633 modules)
+λ node_modules/expo-router/node/render.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 96.6% (1640/1671)
+λ Bundled 11120ms node_modules/expo-router/node/render.js (1682 modules)
 "textShadow*" style props are deprecated. Use "textShadow".
 "shadow*" style props are deprecated. Use "boxShadow".
 λ  WARN  Route "./blobinfo.js" is missing the required default export. Ensure a React component is exported as default.
@@ -40,13 +33,11 @@ Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 λ  WARN  Route "./graphql/queries.js" is missing the required default export. Ensure a React component is exported as default.
 λ  WARN  Route "./theme.ts" is missing the required default export. Ensure a React component is exported as default.
 λ  WARN  Route "./utils/uploadUtils.js" is missing the required default export. Ensure a React component is exported as default.
-Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.0% (1606/1619)
-Web Bundled 29783ms node_modules/expo-router/entry.js (1627 modules)
-Error: Premature close
-    at ServerResponse.onclose (node:internal/streams/end-of-stream:171:30)
-    at ServerResponse.emit (node:events:531:35)
-    at emitCloseNT (node:_http_server:1066:10)
-    at Socket.onServerResponseClose (node:_http_server:285:5)
-    at Socket.emit (node:events:531:35)
-    at TCP.<anonymous> (node:net:346:12)
-    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+Web node_modules/expo-router/entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web node_modules/expo-router/entry.js ▓▓▓▓▓░░░░░░░░░░░ 37.1% ( 50/193)
+Web node_modules/expo-router/entry.js ▓▓▓▓▓░░░░░░░░░░░ 37.1% (229/484)
+Web node_modules/expo-router/entry.js ▓▓▓▓▓▓░░░░░░░░░░ 39.2% (448/720)
+Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓░░░░░░░░░ 47.5% (666/996)
+Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 69.4% ( 965/1161)
+Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 83.1% (1210/1407)
+Web Bundled 24109ms node_modules/expo-router/entry.js (1634 modules)

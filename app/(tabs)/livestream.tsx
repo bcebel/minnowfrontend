@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
@@ -5,23 +6,31 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
 } from "react-native";
 import { gql, useQuery } from "@apollo/client";
 import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer";
+import LivestreamRecorder from "../../components/LivestreamRecorder";
+import { Picker } from "@react-native-picker/picker";
+
+const GET_MY_NEIGHBORHOODS = gql`
+  query GetMyNeighborhoods {
+    myNeighborhoods {
+      id
+      name
+    }
+  }
+`;
 
 const GET_ACTIVE_LIVESTREAMS = gql`
   query GetActiveLivestreams {
-    messages(fileType: "live_stream_chunked") {
+    livestreams {
       id
-      content
-      fileName
-      fileType
+      title
       sessionId
-      chunkIndex
-      magnetLink
-      sender {
+      neighborhood {
         id
-        username
+        name
       }
     }
   }
@@ -29,7 +38,7 @@ const GET_ACTIVE_LIVESTREAMS = gql`
 
 const GET_LIVESTREAM_CHUNKS = gql`
   query GetLivestreamChunks($sessionId: String!) {
-    messages(fileType: "video_chunk", sessionId: $sessionId) {
+    livestreamChunks(sessionId: $sessionId) {
       id
       sessionId
       chunkIndex
@@ -39,7 +48,7 @@ const GET_LIVESTREAM_CHUNKS = gql`
 `;
 
 function Livestream({ stream }) {
-  const { loading, error, data } = useQuery(GET_LIVESTREAM_CHUNKS, {
+  const { data } = useQuery(GET_LIVESTREAM_CHUNKS, {
     variables: { sessionId: stream.sessionId },
     pollInterval: 5000,
   });
@@ -47,8 +56,8 @@ function Livestream({ stream }) {
   const [liveChunks, setLiveChunks] = useState([]);
 
   useEffect(() => {
-    if (data && data.messages) {
-      setLiveChunks(data.messages);
+    if (data && data.livestreamChunks) {
+      setLiveChunks(data.livestreamChunks);
     }
   }, [data]);
 
@@ -60,7 +69,7 @@ function Livestream({ stream }) {
 
   return (
     <View style={styles.streamContainer}>
-      <Text style={styles.streamTitle}>{stream.fileName || "Livestream"}</Text>
+      <Text style={styles.streamTitle}>{stream.title || "Livestream"}</Text>
       <NeighborhoodLiveStreamPlayer
         sessionId={stream.sessionId}
         initialChunks={liveChunks}
@@ -71,33 +80,93 @@ function Livestream({ stream }) {
 }
 
 export default function LivestreamScreen() {
-  const { loading, error, data } = useQuery(GET_ACTIVE_LIVESTREAMS, {
-    pollInterval: 10000, // Refresh every 10 seconds
+  const {
+    loading: streamsLoading,
+    error: streamsError,
+    data: streamsData,
+    refetch,
+  } = useQuery(GET_ACTIVE_LIVESTREAMS, {
+    pollInterval: 10000,
   });
 
-  if (loading && !data) {
+  const {
+    loading: hoodsLoading,
+    error: hoodsError,
+    data: hoodsData,
+  } = useQuery(GET_MY_NEIGHBORHOODS);
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [selectedHood, setSelectedHood] = useState(null);
+
+  const handleGoLive = () => {
+    if (selectedHood) {
+      setIsRecording(true);
+    } else {
+      alert("Please select a neighborhood to start a livestream.");
+    }
+  };
+
+  const handleStreamEnd = () => {
+    setIsRecording(false);
+    refetch();
+  };
+
+  if ((streamsLoading && !streamsData) || (hoodsLoading && !hoodsData)) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" />
-        <Text style={styles.text}>Loading Livestreams...</Text>
+        <Text style={styles.text}>Loading data...</Text>
       </View>
     );
   }
 
-  if (error) {
+  if (streamsError || hoodsError) {
     return (
       <View style={styles.container}>
-        <Text style={styles.text}>Error loading streams.</Text>
-        <Text style={styles.text}>{error.message}</Text>
+        <Text style={styles.text}>Error loading data.</Text>
+        {streamsError && (
+          <Text style={styles.text}>{streamsError.message}</Text>
+        )}
+        {hoodsError && <Text style={styles.text}>{hoodsError.message}</Text>}
       </View>
     );
   }
 
-  const activeStreams = data ? data.messages : [];
+  const activeStreams = streamsData ? streamsData.livestreams : [];
+  const neighborhoods = hoodsData ? hoodsData.myNeighborhoods : [];
+
+  if (isRecording) {
+    return (
+      <View style={styles.container}>
+        <LivestreamRecorder
+          neighborhoodId={selectedHood}
+          onStreamEnd={handleStreamEnd}
+        />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.scrollView}>
       <View style={styles.container}>
+        <Text style={styles.title}>Livestreams</Text>
+
+        <View style={styles.controlsContainer}>
+          <Picker
+            selectedValue={selectedHood}
+            style={styles.picker}
+            onValueChange={(itemValue) => setSelectedHood(itemValue)}
+          >
+            <Picker.Item label="Select a neighborhood..." value={null} />
+            {neighborhoods.map((hood) => (
+              <Picker.Item key={hood.id} label={hood.name} value={hood.id} />
+            ))}
+          </Picker>
+          <TouchableOpacity style={styles.goLiveButton} onPress={handleGoLive}>
+            <Text style={styles.goLiveButtonText}>Go Live</Text>
+          </TouchableOpacity>
+        </View>
+
         <Text style={styles.title}>Active Livestreams</Text>
         {activeStreams.length > 0 ? (
           activeStreams.map((stream) => (
@@ -144,5 +213,26 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 10,
+  },
+  controlsContainer: {
+    width: "100%",
+    maxWidth: 600,
+    marginBottom: 20,
+  },
+  picker: {
+    backgroundColor: "#333",
+    color: "white",
+    marginBottom: 10,
+  },
+  goLiveButton: {
+    backgroundColor: "#ff4444",
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  goLiveButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
   },
 });
