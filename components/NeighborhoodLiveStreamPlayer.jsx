@@ -96,10 +96,17 @@ const NeighborhoodLiveStreamPlayer = ({
 
   // 2. Initial Setup (MediaSource/Video)
   useEffect(() => {
-    // MediaSource is only for Web
+    // MediaSource is only for Web, with a check for Apple's ManagedMediaSource
     if (typeof window === "undefined" || !videoRef.current) return;
 
-    mediaSourceRef.current = new MediaSource();
+    const MediaSourceClass = window.ManagedMediaSource || window.MediaSource;
+
+    if (!MediaSourceClass) {
+      setStatus("MediaSource API not supported.");
+      return;
+    }
+
+    mediaSourceRef.current = new MediaSourceClass();
     videoRef.current.src = URL.createObjectURL(mediaSourceRef.current);
 
     mediaSourceRef.current.addEventListener(
@@ -113,7 +120,7 @@ const NeighborhoodLiveStreamPlayer = ({
    ];
 
    const supportedMimeType = potentialMimeTypes.find((t) =>
-     MediaSource.isTypeSupported(t)
+     MediaSourceClass.isTypeSupported(t)
    );
 
    if (supportedMimeType) {
