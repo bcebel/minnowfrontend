@@ -171,6 +171,10 @@ const NeighborhoodLiveStreamPlayer = ({
     };
   }, [sessionId]); // <-- Re-run ONLY if the session ID changes.
 
+  console.log("NeighborhoodLiveStreamPlayer props:", {
+    sessionId,
+    initialChunks: initialChunks.length,
+  });
   // This effect handles adding new chunks to the queue whenever they arrive.
   useEffect(() => {
     if (initialChunks.length > 0) {

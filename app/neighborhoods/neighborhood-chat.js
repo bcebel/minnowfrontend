@@ -238,7 +238,7 @@ function ChatMediaRenderer({
       </View>
     );
   }
-
+console.log("Rendering message type:", message.fileType, "sessionId:", message.sessionId);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
 
   // 🆕 NEW: State for WebTorrent stream playback
@@ -369,6 +369,7 @@ function ChatMediaRenderer({
     console.log(`📹 Creating player for: ${file.name} (${file.length} bytes)`);
 
     // Check if we're on iOS/mobile and show appropriate message
+    /*
     if (
       Platform.OS !== "web" ||
       /iPhone|iPad|iPod/i.test(navigator.userAgent)
@@ -441,7 +442,7 @@ function ChatMediaRenderer({
       document.body.appendChild(container);
       return;
     }
-
+*/
     // Only continue with MediaSource for desktop browsers
     // Create UI container
     const container = document.createElement("div");
@@ -818,10 +819,17 @@ mediaSource.addEventListener("sourceopen", () => {
       <View style={styles.liveStreamCard}>
         <Text style={styles.liveTitle}>🔴 LIVE STREAM</Text>
         <Text style={styles.streamFileName}>{message.fileName}</Text>
-        <TouchableOpacity
-          style={styles.playButton}
-          onPress={() => handleMagnetPlay(safeMagnet)}
-        >
+          <TouchableOpacity
+        style={styles.playButton}
+onPress={() => {
+  // 1. Tell the parent component a stream with this sessionId is active
+  if (message.sessionId) {
+    onStreamActive(message.sessionId);
+  }
+  // 2. You could also trigger the NeighborhoodLiveStreamPlayer directly here
+  // For example, by setting a state that forces its render
+  console.log("Activating live stream session:", message.sessionId);
+}}>
           <Text style={styles.playButtonText}>
             {isLoadingTorrent ? "⏳ Loading..." : "▶️ Watch Stream"}
           </Text>
