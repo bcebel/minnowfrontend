@@ -645,16 +645,7 @@ function ChatMediaRenderer({
   }
   // 2️⃣ Handle video_chunk (INDIVIDUAL CHUNK MESSAGE)
   if (message.fileType === "video_chunk") {
-    return (
-      <View style={styles.chunkIndicator}>
-        <Text style={styles.chunkText}>
-          🧩 Part {message.chunkIndex + 1} of live stream
-        </Text>
-        {message.chunkIndex === 0 && (
-          <Text style={styles.liveBadge}>🔴 LIVE</Text>
-        )}
-      </View>
-    );
+    return null; // Don't render anything for individual chunks
   }
   // 🆕 Render chunked video
   if (message.fileType === "video_chunked") {
