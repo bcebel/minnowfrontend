@@ -89,15 +89,7 @@ export default function NeighborhoodLiveStreamRecorder({
         client.seed(
           chunkData,
           {
-            name: `live-${sessionIdRef.current}-chunk-${index}.webm`,
-            // Add robust trackers for better browser-to-browser connectivity
-            announce: [
-              'wss://tracker.openwebtorrent.com',
-              'wss://tracker.btorrent.xyz',
-              'wss://tracker.fastcast.nz',
-              'wss://tracker.webtorrent.dev',
-              'wss://tracker.webtorrent.io'
-            ],
+            name: `live-${sessionIdRef.current}-chunk-${index}.webm`
           },
           (torrent) => {
             console.log(`✅ Chunk ${index} seeded:`, torrent.magnetURI);

@@ -145,29 +145,17 @@ export default function Root({ children }: PropsWithChildren) {
       // Global WebTorrent client for cross-component seeding
       if (!window.globalWebTorrentClient) {
         console.log('🌪️ Initializing global WebTorrent client for P2P seeding');
-        window.globalWebTorrentClient = new WebTorrent(
-        {
-      tracker: {
-        pex: true,
-        lsd: true,
-        announce: [
-   'wss://tracker.webtorrent.io',
-  'wss://tracker.openwebtorrent.com',
-  'wss://tracker.files.fm:7073/announce',
-  'wss://qbt.torrentcloud.tech:443/announce',
-  'wss://dennis.pm:8000/announce',
-  'wss://ws.bittorrent.com',
-        ]
-      },
-      dht: {
-        bootstrap: [
-          'router.bittorrent.com:6881',
-          'dht.transmissionbt.com:6881',
-          'dht.libtorrent.org:25401'
-        ]
-      }
-    }
-        );
+        window.globalWebTorrentClient = new WebTorrent({
+          tracker: {
+            announce: [
+              'wss://tracker.webtorrent.io',
+              'wss://tracker.openwebtorrent.com',
+              'wss://tracker.btorrent.xyz',
+              'wss://tracker.fastcast.nz',
+              'wss://tracker.webtorrent.dev',
+            ]
+          }
+        });
         
         // Optimize for seeding
         window.globalWebTorrentClient.on('torrent', (torrent) => {

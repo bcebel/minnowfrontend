@@ -2530,14 +2530,7 @@ export default function NeighborhoodChatScreen() {
                   // 3. Seed to WebTorrent
                   const client = window.globalWebTorrentClient;
                   client.seed(blob, {
-                    name: "test.webm",
-                    announce: [
-                      'wss://tracker.openwebtorrent.com',
-                      'wss://tracker.btorrent.xyz',
-                      'wss://tracker.fastcast.nz',
-                      'wss://tracker.webtorrent.dev',
-                      'wss://tracker.webtorrent.io'
-                    ],
+                    name: "test.webm"
                   }, (torrent) => {
                     console.log("🌱 Torrent:", {
                       name: torrent.name,

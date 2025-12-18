@@ -90,12 +90,19 @@ const NeighborhoodLiveStreamPlayer = ({
   }, [sessionId, clearProcessedChunk, getClient]);
 
   // 2. Initial Setup (MediaSource/Video)
+  // This ref holds the latest version of the processChunkQueue callback,
+  // which prevents our main setup Effect from re-running.
+  const processChunkQueueRef = useRef(processChunkQueue);
   useEffect(() => {
-    // MediaSource is only for Web, with a check for Apple's ManagedMediaSource
+    processChunkQueueRef.current = processChunkQueue;
+  }, [processChunkQueue]);
+
+  // This effect runs only once (or when sessionId changes) to set up the MediaSource and player.
+  useEffect(() => {
+    console.log("Setting up media source for session:", sessionId);
     if (typeof window === "undefined" || !videoRef.current) return;
 
     const MediaSourceClass = window.ManagedMediaSource || window.MediaSource;
-
     if (!MediaSourceClass) {
       setStatus("MediaSource API not supported.");
       return;
@@ -103,34 +110,44 @@ const NeighborhoodLiveStreamPlayer = ({
 
     const mediaSource = new MediaSourceClass();
     mediaSourceRef.current = mediaSource;
-    videoRef.current.src = URL.createObjectURL(mediaSource);
+    const videoUrl = URL.createObjectURL(mediaSource);
+    videoRef.current.src = videoUrl;
 
     const onSourceOpen = () => {
       console.log("MediaSource is open, creating SourceBuffer...");
-      // Now that the source is open, we can add the buffer.
-      const potentialMimeTypes = [
-        'video/webm;codecs=vp8,opus',
-        'video/webm; codecs="vp8, opus"',
-        'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
-        "video/webm",
-      ];
-      const supportedMimeType = potentialMimeTypes.find((t) =>
-        MediaSourceClass.isTypeSupported(t)
-      );
-
-      if (supportedMimeType && mediaSource.readyState === 'open') {
+      // A double-check that the source is still open before proceeding.
+      if (mediaSource.readyState === 'open') {
         try {
+          const potentialMimeTypes = [
+            'video/webm;codecs=vp8,opus',
+            'video/webm; codecs="vp8, opus"',
+            'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
+            "video/webm",
+          ];
+          const supportedMimeType = potentialMimeTypes.find((t) =>
+            MediaSourceClass.isTypeSupported(t)
+          );
+
+          if (!supportedMimeType) {
+            setStatus("No supported stream format found!");
+            return;
+          }
+
           const sourceBuffer = mediaSource.addSourceBuffer(supportedMimeType);
-          sourceBuffer.addEventListener("updateend", processChunkQueue);
+          
+          // Stash the handler so we can remove it correctly in cleanup.
+          const updateEndHandler = () => processChunkQueueRef.current();
+          sourceBuffer.addEventListener("updateend", updateEndHandler);
+          sourceBuffer.cleanup = () => sourceBuffer.removeEventListener("updateend", updateEndHandler);
+
           sourceBufferRef.current = sourceBuffer;
+          
           // Now that the buffer is ready, process any chunks that have already arrived.
-          processChunkQueue();
+          processChunkQueueRef.current();
         } catch (e) {
           console.error("Error adding source buffer:", e);
           setStatus("Error setting up video buffer.");
         }
-      } else {
-        setStatus("No supported stream format found!");
       }
     };
 
@@ -138,45 +155,35 @@ const NeighborhoodLiveStreamPlayer = ({
 
     // Cleanup function
     return () => {
+      console.log("Cleaning up media source for session:", sessionId);
       mediaSource.removeEventListener("sourceopen", onSourceOpen);
-      if (sourceBufferRef.current) {
-        sourceBufferRef.current.removeEventListener("updateend", processChunkQueue);
+      if (sourceBufferRef.current?.cleanup) {
+        sourceBufferRef.current.cleanup();
       }
-      // Destroy all related torrents when the component unmounts
       const client = window.globalWebTorrentClient;
-      client?.torrents.forEach((t) => {
-        if (t.name.includes(sessionId)) {
-          t.destroy();
-        }
-      });
+      if (client) {
+        client.torrents.forEach((t) => {
+          if (t.name.includes(sessionId)) {
+            t.destroy();
+          }
+        });
+      }
     };
-  }, [sessionId, clearProcessedChunk, getClient, processChunkQueue]);
+  }, [sessionId]); // <-- Re-run ONLY if the session ID changes.
 
-  // 3. Handle Incoming Chunks
-  // 3. Handle Incoming Chunks (NeighborhoodLiveStreamPlayer.jsx)
+  // This effect handles adding new chunks to the queue whenever they arrive.
   useEffect(() => {
     if (initialChunks.length > 0) {
       initialChunks.forEach((chunk) => {
-        // 🔑 1. Filter: Only process video chunks for this stream's session
-        if (chunk.fileType === "video_chunk") {
-          // 🔑 2. Uniqueness Check: Only add it if it's not already in the queue
-          if (
-            !chunkQueueRef.current.find(
-              (c) => c.chunkIndex === chunk.chunkIndex
-            )
-          ) {
-            chunkQueueRef.current.push(chunk);
-          }
+        if (chunk.fileType === "video_chunk" && !chunkQueueRef.current.find(c => c.chunkIndex === chunk.chunkIndex)) {
+          chunkQueueRef.current.push(chunk);
         }
       });
-
-      // 3. Sort: Ensure the queue is sequential (0, 1, 2, ...)
       chunkQueueRef.current.sort((a, b) => a.chunkIndex - b.chunkIndex);
-
-      // 4. Trigger processing whenever new chunks arrive
-      processChunkQueue();
+      // Trigger processing, which will run if the buffer is ready.
+      processChunkQueueRef.current();
     }
-  }, [initialChunks, processChunkQueue]);
+  }, [initialChunks]);
 
   return (
     <div style={{ padding: 10, backgroundColor: "black", borderRadius: 8 }}>
