@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
@@ -35,9 +34,10 @@ const GET_ACTIVE_LIVESTREAMS = gql`
   }
 `;
 
+// Corrected query to use "streamChunks"
 const GET_LIVESTREAM_CHUNKS = gql`
   query GetLivestreamChunks($sessionId: String!) {
-    livestreamChunks(sessionId: $sessionId) {
+    streamChunks(sessionId: $sessionId) {
       id
       sessionId
       chunkIndex
@@ -69,17 +69,29 @@ const LIVESTREAM_CHUNK_SUBSCRIPTION = gql`
 function Livestream({ stream }) {
   const [liveChunks, setLiveChunks] = useState([]);
 
-  // Use subscription instead of polling
+  // 1. Fetch initial chunks that might already exist
+  const { data: initialData } = useQuery(GET_LIVESTREAM_CHUNKS, {
+    variables: { sessionId: stream.sessionId },
+    skip: !stream.sessionId,
+  });
+
+  // 2. Listen for new chunks via GraphQL subscription
   const { data: subscriptionData } = useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
     variables: { sessionId: stream.sessionId },
   });
 
-  // Handle incoming chunks from the subscription
+  // 3. Load initial chunks once
+  useEffect(() => {
+    if (initialData?.streamChunks) {
+      setLiveChunks(initialData.streamChunks);
+    }
+  }, [initialData]);
+
+  // 4. Add new chunks as they arrive from the subscription
   useEffect(() => {
     if (subscriptionData?.livestreamChunkAdded) {
       const newChunk = subscriptionData.livestreamChunkAdded;
       setLiveChunks((prevChunks) => {
-        // Only add if not already present (shouldn't happen with subscriptions, but for safety)
         if (!prevChunks.some(chunk => chunk.id === newChunk.id)) {
           return [...prevChunks, newChunk];
         }
@@ -87,7 +99,6 @@ function Livestream({ stream }) {
       });
     }
   }, [subscriptionData]);
-
 
   const clearProcessedChunk = useCallback((chunkId) => {
     setLiveChunks((prevChunks) =>
@@ -142,7 +153,7 @@ export default function LivestreamScreen() {
     refetch();
   };
 
-  if (meLoading || (streamsLoading && !streamsData) || (hoodsLoading && !hoodsData)) {
+  if (meLoading || streamsLoading || hoodsLoading) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" />
@@ -155,17 +166,15 @@ export default function LivestreamScreen() {
     return (
       <View style={styles.container}>
         <Text style={styles.text}>Error loading data.</Text>
-        {streamsError && (
-          <Text style={styles.text}>{streamsError.message}</Text>
-        )}
+        {streamsError && <Text style={styles.text}>{streamsError.message}</Text>}
         {hoodsError && <Text style={styles.text}>{hoodsError.message}</Text>}
         {meError && <Text style={styles.text}>{meError.message}</Text>}
       </View>
     );
   }
 
-  const activeStreams = streamsData ? streamsData.streams : [];
-  const neighborhoods = hoodsData ? hoodsData.myNeighborhoods : [];
+  const activeStreams = streamsData?.streams || [];
+  const neighborhoods = hoodsData?.myNeighborhoods || [];
 
   if (isRecording) {
     return (

@@ -36,25 +36,16 @@ const SEND_MESSAGE = gql`
       totalChunks: $totalChunks
     ) {
       id
-      content
-      imageUrl
-      videoUrl
-      fileUrl
-      fileName
-      fileType
-      magnetLink
-      mimeType
-      thumbnailUrl
+    }
+  }
+`;
+
+const CREATE_STREAM = gql`
+  mutation CreateStream($title: String!, $neighborhoodId: ID!) {
+    createStream(title: $title, neighborhoodId: $neighborhoodId) {
+      id
       sessionId
-      chunkIndex
-      totalChunks
-      room
-      createdAt
-      sender {
-        id
-        username
-        profilePhoto
-      }
+      title
     }
   }
 `;
@@ -62,7 +53,7 @@ const SEND_MESSAGE = gql`
 export default function NeighborhoodLiveStreamRecorder({
   neighborhoodId,
   username,
-  onStreamEnd, // New prop
+  onStreamEnd,
 }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [chunkCount, setChunkCount] = useState(0);
@@ -74,8 +65,8 @@ export default function NeighborhoodLiveStreamRecorder({
   const isProcessingQueueRef = useRef(false);
 
   const [sendMessage] = useMutation(SEND_MESSAGE);
+  const [createStreamMutation] = useMutation(CREATE_STREAM);
 
-  // 3. The new sequential processor
   const processSeedQueue = async () => {
     if (isProcessingQueueRef.current || chunkQueueRef.current.length === 0) {
       return;
@@ -84,13 +75,12 @@ export default function NeighborhoodLiveStreamRecorder({
 
     const client = window.globalWebTorrentClient;
 
-    // Promise-wrapper for seeding and sending
     const seedAndSend = (chunkData, index) => {
       return new Promise((resolve, reject) => {
         client.seed(
           chunkData,
           {
-            name: `live-${sessionIdRef.current}-chunk-${index}.webm`
+            name: `live-${sessionIdRef.current}-chunk-${index}.webm`,
           },
           (torrent) => {
             console.log(`✅ Chunk ${index} seeded:`, torrent.magnetURI);
@@ -151,8 +141,21 @@ export default function NeighborhoodLiveStreamRecorder({
         });
       }
 
-      // 1. Reset all state for the new stream
-      sessionIdRef.current = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const streamTitle = `${username}'s Live Stream`;
+      const { data: streamData } = await createStreamMutation({
+        variables: {
+          title: streamTitle,
+          neighborhoodId: neighborhoodId,
+        },
+      });
+
+      if (!streamData?.createStream?.sessionId) {
+        throw new Error("Failed to create stream session on the backend.");
+      }
+      
+      const newSessionId = streamData.createStream.sessionId;
+      sessionIdRef.current = newSessionId;
+
       chunkIndexRef.current = 0;
       chunkQueueRef.current = [];
       isProcessingQueueRef.current = false;
@@ -172,35 +175,16 @@ export default function NeighborhoodLiveStreamRecorder({
 
       const CHUNK_DURATION = 5000;
 
-      // 2. ondataavailable now just adds to the queue
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           console.log(`➡️ Chunk received, adding to queue.`);
           chunkQueueRef.current.push(e.data);
-          processSeedQueue(); // Trigger the processor
+          processSeedQueue();
         }
       };
 
-      await sendMessage({
-        variables: {
-          content: "🔴 LIVE NOW! Tap to watch",
-          room: "neighborhood",
-          neighborhoodId: neighborhoodId,
-          fileName: `${username}'s Live Stream`,
-          fileType: "live_stream_chunked",
-          sessionId: sessionIdRef.current,
-        },
-      });
-
       mediaRecorder.start(CHUNK_DURATION);
       setIsStreaming(true);
-
-      // UI setup (remains the same)
-      const container = document.createElement("div");
-      container.id = "streamUI";
-      container.style.cssText = `...`; // (style code omitted for brevity)
-      document.body.appendChild(container);
-      // ... UI innerHTML and interval setup ...
 
     } catch (error) {
       console.error("❌ Stream start error:", error);
@@ -208,14 +192,12 @@ export default function NeighborhoodLiveStreamRecorder({
     }
   };
 
-  // 4. stopStream is now async and waits for the queue
   const stopStream = async () => {
     if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.stop();
     }
     streamRef.current?.getTracks().forEach((track) => track.stop());
 
-    // Wait for the queue to finish processing any remaining chunks
     const waitForQueue = async () => {
       while (isProcessingQueueRef.current) {
         console.log("Waiting for chunk queue to finish...");
@@ -238,7 +220,7 @@ export default function NeighborhoodLiveStreamRecorder({
     if (ui) document.body.removeChild(ui);
 
     setIsStreaming(false);
-    if (onStreamEnd) { // Call the callback
+    if (onStreamEnd) {
       onStreamEnd();
     }
   };
