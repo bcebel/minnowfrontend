@@ -143,13 +143,12 @@ export default function NeighborhoodLiveStreamPlayer({ initialChunks, clearProce
 
 const { height, width } = Dimensions.get('window');
 
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  video: { flex: 1 },
+  container: { flex: 1, 
+              backgroundColor: '#000',
   backgroundColor: '#000',
   borderWidth: 1,
   borderColor: 'transparent',
 },
-                                 video: {flex:1},
+video: {flex:1},
 });
