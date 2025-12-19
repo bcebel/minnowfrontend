@@ -63,6 +63,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => null,
         }}
       />
+      <Tabs.Screen
+        name="livestream"
+        options={{
+          title: "📺",
+          tabBarIcon: ({ color }) => null,
+        }}
+      />
     </Tabs>
   );
 }
