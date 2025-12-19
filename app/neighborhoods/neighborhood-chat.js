@@ -40,16 +40,35 @@ const getFileType = (fileName) => {
 
 
 // Simple Video Player Component
-const SimpleVideoPlayer = ({ url, fileName }) => {
+const SimpleVideoPlayer = ({ url, fileName, thumbnailUrl }) => {
+  const [showThumbnail, setShowThumbnail] = useState(!!thumbnailUrl);
   const player = useVideoPlayer(url, (player) => {
     player.loop = false;
   });
 
+  if (showThumbnail) {
+    return (
+      <TouchableOpacity
+        style={styles.videoThumbnailContainer}
+        onPress={() => {
+          setShowThumbnail(false);
+          player.play();
+        }}
+      >
+        <Image
+          source={{ uri: thumbnailUrl }}
+          style={styles.videoThumbnail}
+          resizeMode="cover"
+        />
+        <View style={styles.videoOverlay}>
+          <Text style={styles.playIcon}>▶️</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
   return (
-    <TouchableOpacity
-      style={styles.videoContainer}
-      onPress={() => player.play()}
-    >
+    <View style={styles.videoContainer}>
       <VideoView
         player={player}
         style={styles.videoPlayer}
@@ -62,7 +81,7 @@ const SimpleVideoPlayer = ({ url, fileName }) => {
           {fileName}
         </Text>
       )}
-    </TouchableOpacity>
+    </View>
   );
 };
 
@@ -85,33 +104,6 @@ const ChatMediaRenderer = ({ message }) => {
   if (!hasAnyMedia) {
     return null;
   }
-
-    // Show thumbnail for videos
-  if (videoUrl && thumbnailUrl) {
-    return (
-      <TouchableOpacity
-        onPress={() => {
-          console.log("Opening video:", videoUrl);
-          // You could open in a video player or full screen
-        }}
-        style={styles.videoThumbnailContainer}
-      >
-        <Image
-          source={{ uri: thumbnailUrl }}
-          style={styles.videoThumbnail}
-          resizeMode="cover"
-        />
-        <View style={styles.videoOverlay}>
-          <Text style={styles.playIcon}>▶️</Text>
-        </View>
-        {fileName && (
-          <Text style={styles.videoFileName} numberOfLines={1}>
-            {fileName}
-          </Text>
-        )}
-      </TouchableOpacity>
-    );
-  }
   // Helper to get Pinata URL
   const getPinataUrl = (url) => {
     if (!url) return null;
@@ -128,7 +120,10 @@ const ChatMediaRenderer = ({ message }) => {
   if (magnetLink && (fileType === "image" || fileType === "video")) {
     return (
       <View style={styles.magnetContainer}>
-        <WebTorrentMedia media={message} isFocused={true} />
+        <WebTorrentMedia
+          media={{ ...message, thumbnailUrl: getPinataUrl(thumbnailUrl) }}
+          isFocused={true}
+        />
       </View>
     );
   }
@@ -152,7 +147,13 @@ const ChatMediaRenderer = ({ message }) => {
   if (videoUrl || fileType === "video") {
     const pinataUrl = getPinataUrl(videoUrl);
     console.log("🎥 Direct video:", pinataUrl);
-    return <SimpleVideoPlayer url={pinataUrl} fileName={fileName || "Video"} />;
+    return (
+      <SimpleVideoPlayer
+        url={pinataUrl}
+        fileName={fileName || "Video"}
+        thumbnailUrl={getPinataUrl(thumbnailUrl)}
+      />
+    );
   }
 
   // 4. If it's a file → File download
@@ -205,6 +206,7 @@ const GET_NEIGHBORHOOD_MESSAGES = gql`
       fileName
       fileType
       magnetLink
+      thumbnailUrl
       sender {
         id
         username
