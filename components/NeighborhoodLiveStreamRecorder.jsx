@@ -62,6 +62,7 @@ const SEND_MESSAGE = gql`
 export default function NeighborhoodLiveStreamRecorder({
   neighborhoodId,
   username,
+  onStreamEnd, // New prop
 }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [chunkCount, setChunkCount] = useState(0);
@@ -237,6 +238,9 @@ export default function NeighborhoodLiveStreamRecorder({
     if (ui) document.body.removeChild(ui);
 
     setIsStreaming(false);
+    if (onStreamEnd) { // Call the callback
+      onStreamEnd();
+    }
   };
 
   return (
