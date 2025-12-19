@@ -1,9 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 
-
-
-const CHUNK_TIMEOUT_MS = 10000;
-
 const NeighborhoodLiveStreamPlayer = ({
   sessionId,
   initialChunks = [],
@@ -12,97 +8,81 @@ const NeighborhoodLiveStreamPlayer = ({
   const videoRef = useRef(null);
   const mediaSourceRef = useRef(null);
   const sourceBufferRef = useRef(null);
-  const chunkQueueRef = useRef([]);
   const nextChunkIndexRef = useRef(0);
 
   const [status, setStatus] = useState("Waiting for stream to start...");
   const [peerCount, setPeerCount] = useState(0);
 
-  // 1. Get the Client Safely
-  // DO NOT use "const WebTorrentClient = window.globalWebTorrentClient;" at the top level!
+  // Correctly use useState for the chunk queue to ensure re-renders
+  const [chunkQueue, setChunkQueue] = useState([]);
+
   const getClient = useCallback(() => {
-    // This check ensures we only access 'window' when it exists (i.e., in the browser)
     if (typeof window !== "undefined" && window.globalWebTorrentClient) {
       return window.globalWebTorrentClient;
     }
     return null;
   }, []);
 
-  // 2. Download and Append Logic (Updated to use getClient)
   const processChunkQueue = useCallback(() => {
-    // 1. Check for player/client readiness
     const client = getClient();
     const sourceBuffer = sourceBufferRef.current;
     if (!client || !sourceBuffer || sourceBuffer.updating) {
-      // If the buffer is busy, just wait for the 'updateend' listener to call this function again.
-      // If the client isn't ready, the useEffect will call us back.
       return;
     }
-
     
-    // 2. Find the next sequential chunk we need
-    const nextChunk = chunkQueueRef.current.find(
+    const nextChunk = chunkQueue.find(
       (c) => c.chunkIndex === nextChunkIndexRef.current
     );
 
     if (!nextChunk) {
-      // Waiting for the next chunk message from the server
       setStatus("Waiting for next chunk message...");
+      console.log(`[Player] Waiting for chunk #${nextChunkIndexRef.current}, but it's not in the queue.`);
       return;
     }
 
-    // 3. Remove the chunk from the queue (we're processing it now)
-    chunkQueueRef.current = chunkQueueRef.current.filter(
-      (c) => c.chunkIndex !== nextChunk.chunkIndex
-    );
+    // Remove the chunk from the queue
+    setChunkQueue(prevQueue => prevQueue.filter(c => c.id !== nextChunk.id));
     setStatus(`Downloading Chunk #${nextChunk.chunkIndex + 1}...`);
+    console.log(`[Player] Processing chunk #${nextChunk.chunkIndex}`);
 
-    // 4. Download and Append
-    // Add strategy and live option for better performance in live streaming
     client.add(nextChunk.magnetLink, { strategy: 'sequential', live: true }, (torrent) => {
-      const file = torrent.files[0];
-
-      // Use the 'done' event, not just 'wire' or 'add'
-      torrent.on("done", () => {
+      console.log(`[Player] Torrent added for chunk #${nextChunk.chunkIndex}`);
+      torrent.on('wire', () => setPeerCount(torrent.numPeers));
+      torrent.on('done', () => {
         file.getBuffer((err, buffer) => {
-          torrent.destroy(); // Clean up torrent immediately after download
-
+          torrent.destroy();
           if (err || !buffer) {
             console.error("Error downloading chunk buffer:", err);
-            setStatus(`Error downloading chunk #${nextChunk.chunkIndex + 1}`);
             return;
           }
-
-          // 5. Append the Buffer
-          sourceBuffer.appendBuffer(buffer);
-
-          // Success! Move to the next index. The persistent 'updateend' listener will call processChunkQueue()
-          nextChunkIndexRef.current += 1;
-          setStatus(`Playing Chunk #${nextChunkIndexRef.current}`);
-          clearProcessedChunk(nextChunk.id); // Notify parent (chat)
+          try {
+            sourceBuffer.appendBuffer(buffer);
+            nextChunkIndexRef.current += 1;
+            setStatus(`Playing Chunk #${nextChunkIndexRef.current}`);
+            clearProcessedChunk(nextChunk.id);
+          } catch (e) {
+            console.error("Error appending buffer:", e);
+            setStatus(`Error playing chunk: ${e.message}`);
+          }
         });
       });
-      // Add error/peer listeners here for debugging
-      torrent.on("error", (err) =>
-        console.error(`❌ Torrent failed for ${nextChunk.chunkIndex}:`, err)
-      );
-      torrent.on("wire", () => setPeerCount((c) => c + 1));
+      const file = torrent.files[0];
+      if (!file) {
+        console.error("No file found in torrent for chunk", nextChunk.chunkIndex);
+        return;
+      }
     });
-  }, [sessionId, clearProcessedChunk, getClient]);
+  }, [chunkQueue, getClient, clearProcessedChunk]);
 
-  // 2. Initial Setup (MediaSource/Video)
-  // This ref holds the latest version of the processChunkQueue callback,
-  // which prevents our main setup Effect from re-running.
+  // This ref holds the latest version of the processChunkQueue callback
   const processChunkQueueRef = useRef(processChunkQueue);
   useEffect(() => {
     processChunkQueueRef.current = processChunkQueue;
   }, [processChunkQueue]);
 
-  // This effect runs only once (or when sessionId changes) to set up the MediaSource and player.
+  // Main setup effect, runs only when sessionId changes
   useEffect(() => {
     console.log("Setting up media source for session:", sessionId);
-    if (typeof window === "undefined" || !videoRef.current) return;
-
     const MediaSourceClass = window.ManagedMediaSource || window.MediaSource;
     if (!MediaSourceClass) {
       setStatus("MediaSource API not supported.");
@@ -115,93 +95,71 @@ const NeighborhoodLiveStreamPlayer = ({
     videoRef.current.src = videoUrl;
 
     const onSourceOpen = () => {
-      console.log("MediaSource is open, creating SourceBuffer...");
-      // A double-check that the source is still open before proceeding.
       if (mediaSource.readyState === 'open') {
         try {
-          const potentialMimeTypes = [
-            'video/webm;codecs=vp8,opus',
-            'video/webm; codecs="vp8, opus"',
-            'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
-            "video/webm",
-          ];
-          const supportedMimeType = potentialMimeTypes.find((t) =>
-            MediaSourceClass.isTypeSupported(t)
-          );
-
-          if (!supportedMimeType) {
-            setStatus("No supported stream format found!");
+          const mimeType = 'video/webm;codecs=vp8,opus';
+          if (!MediaSourceClass.isTypeSupported(mimeType)) {
+            setStatus("Video format not supported.");
             return;
           }
-
-          const sourceBuffer = mediaSource.addSourceBuffer(supportedMimeType);
-          
-          // Stash the handler so we can remove it correctly in cleanup.
+          const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
           const updateEndHandler = () => processChunkQueueRef.current();
           sourceBuffer.addEventListener("updateend", updateEndHandler);
-          sourceBuffer.cleanup = () => sourceBuffer.removeEventListener("updateend", updateEndHandler);
-
-          sourceBufferRef.current = sourceBuffer;
           
-          // Now that the buffer is ready, process any chunks that have already arrived.
+          sourceBufferRef.current = sourceBuffer;
+          sourceBufferRef.current.cleanup = () => sourceBuffer.removeEventListener("updateend", updateEndHandler);
+
           processChunkQueueRef.current();
         } catch (e) {
           console.error("Error adding source buffer:", e);
-          setStatus("Error setting up video buffer.");
         }
       }
     };
 
     mediaSource.addEventListener("sourceopen", onSourceOpen);
 
-    // Cleanup function
     return () => {
       console.log("Cleaning up media source for session:", sessionId);
       mediaSource.removeEventListener("sourceopen", onSourceOpen);
       if (sourceBufferRef.current?.cleanup) {
         sourceBufferRef.current.cleanup();
       }
-      const client = window.globalWebTorrentClient;
+      const client = getClient();
       if (client) {
         client.torrents.forEach((t) => {
-          if (t.name.includes(sessionId)) {
-            t.destroy();
-          }
+          if (t.name.includes(sessionId)) t.destroy();
         });
       }
     };
-  }, [sessionId]); // <-- Re-run ONLY if the session ID changes.
+  }, [sessionId, getClient]);
 
-  console.log("NeighborhoodLiveStreamPlayer props:", {
-    sessionId,
-    initialChunks: initialChunks.length,
-  });
-  // This effect handles adding new chunks to the queue whenever they arrive.
+  // Effect to handle incoming chunks from the parent
   useEffect(() => {
-    console.log(`[Player] Received ${initialChunks.length} initialChunks.`);
-    if (initialChunks.length > 0) {
-      let chunksAdded = 0;
-      initialChunks.forEach((chunk) => {
-        if (chunk.fileType === "video_chunk") {
-          const isAlreadyInQueue = chunkQueueRef.current.find(c => c.chunkIndex === chunk.chunkIndex);
-          if (!isAlreadyInQueue) {
-            console.log(`[Player] Adding chunk #${chunk.chunkIndex} to internal queue.`);
-            chunkQueueRef.current.push(chunk);
-            chunksAdded++;
-          }
+    console.log(`[Player] Received ${initialChunks.length} initialChunks from parent.`);
+    console.log('[Player] Full initialChunks array:', JSON.stringify(initialChunks.map(c => ({id: c.id, chunkIndex: c.chunkIndex, fileType: c.fileType}))));
+    
+    setChunkQueue(prevQueue => {
+      const newChunks = [];
+      initialChunks.forEach(chunk => {
+        if (chunk.fileType === 'video_chunk' && !prevQueue.some(q => q.id === chunk.id)) {
+          newChunks.push(chunk);
         }
       });
-
-      if (chunksAdded > 0) {
-        chunkQueueRef.current.sort((a, b) => a.chunkIndex - b.chunkIndex);
-      }
       
-      console.log(`[Player] Current internal queue contains indices: [${chunkQueueRef.current.map(c => c.chunkIndex).join(', ')}]`);
-      console.log(`[Player] Triggering queue processing. Looking for chunk #${nextChunkIndexRef.current}`);
-      // Trigger processing, which will run if the buffer is ready.
-      processChunkQueueRef.current();
-    }
+      if (newChunks.length > 0) {
+        const combined = [...prevQueue, ...newChunks];
+        combined.sort((a, b) => a.chunkIndex - b.chunkIndex);
+        return combined;
+      }
+      return prevQueue;
+    });
   }, [initialChunks]);
+
+  // Effect to trigger processing when the internal queue is updated
+  useEffect(() => {
+    console.log(`[Player] Queue updated. Current indices: [${chunkQueue.map(c => c.chunkIndex).join(', ')}]. Triggering processing.`);
+    processChunkQueueRef.current();
+  }, [chunkQueue]);
 
   return (
     <div style={{ padding: 10, backgroundColor: "black", borderRadius: 8 }}>
@@ -210,7 +168,7 @@ const NeighborhoodLiveStreamPlayer = ({
         controls
         autoPlay
         playsInline
-        muted // Start muted to satisfy browser autoplay policy
+        muted
         style={{ width: "100%", height: "auto", display: "block" }}
       />
       <div style={{ color: "white", fontSize: 12, marginTop: 5 }}>

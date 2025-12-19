@@ -5,25 +5,32 @@ import {
   InMemoryCache,
   ApolloProvider,
   HttpLink,
+  split,
 } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-// 💡 New Import for Persistence
-import { persistCache } from 'apollo3-cache-persist'; 
+import { persistCache } from 'apollo3-cache-persist';
 import { View, ActivityIndicator, StyleSheet } from "react-native";
+import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
+import { createClient } from "graphql-ws";
+import { getMainDefinition } from "@apollo/client/utilities";
+
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000", // Match your dark theme
+    backgroundColor: "#000",
   },
 });
+
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+// Remove "http://" or "https://" from the URL for the WebSocket link
+const WS_URL = BACKEND_URL.replace(/^https?:\/\//, '');
 
 export function useApolloClient() {
   const [client, setClient] = useState(null);
-  const [cacheReady, setCacheReady] = useState(false); // 💡 New State
+  const [cacheReady, setCacheReady] = useState(false);
 
   useEffect(() => {
     const initializeClient = async () => {
@@ -31,38 +38,35 @@ export function useApolloClient() {
         const token = await AsyncStorage.getItem("token");
         console.log("🔄 Apollo Client: Initializing with token:", token ? "YES" : "NO");
 
-        // 1. Define the Cache Strategy (Stable Keys)
         const cache = new InMemoryCache({
           typePolicies: {
-            // ✅ CRITICAL: Use the immutable 'cid' for media types
-            Video: { 
-              keyFields: ["cid"], 
-            },
-            // Add 'Image' or other media types here if they have a CID
-            Image: {
-             keyFields: ["cid"],
-            },
+            Video: { keyFields: ["cid"] },
+            Image: { keyFields: ["cid"] },
           },
         });
         
-        // 2. Implement Offline Persistence
         await persistCache({
             cache,
-            storage: AsyncStorage, // Use React Native's AsyncStorage
-            debug: false, // Set to true for debugging persistence
+            storage: AsyncStorage,
+            debug: false,
         });
-        setCacheReady(true); // Cache is loaded from disk (or created)
+        setCacheReady(true);
 
         const httpLink = new HttpLink({
           uri: `${BACKEND_URL}/graphql`,
           credentials: "include",
         });
 
-        const authLink = setContext(async (_, { headers }) => {
-          // Get fresh token on every request
-          const freshToken = await AsyncStorage.getItem("token");
+        // WebSocket link for subscriptions
+        const wsLink = new GraphQLWsLink(createClient({
+          url: `wss://${WS_URL}/graphql`, // Or 'ws://' if not using SSL
+          connectionParams: {
+            Authorization: `Bearer ${token}`,
+          },
+        }));
 
-          // ... your token logging logic ...
+        const authLink = setContext(async (_, { headers }) => {
+          const freshToken = await AsyncStorage.getItem("token");
           if (freshToken) {
             return {
               headers: {
@@ -75,10 +79,22 @@ export function useApolloClient() {
           }
         });
 
+        // Split traffic between HTTP and WebSockets
+        const splitLink = split(
+          ({ query }) => {
+            const definition = getMainDefinition(query);
+            return (
+              definition.kind === 'OperationDefinition' &&
+              definition.operation === 'subscription'
+            );
+          },
+          wsLink,
+          authLink.concat(httpLink),
+        );
+
         const newClient = new ApolloClient({
-          link: authLink.concat(httpLink),
-          // Pass the configured cache instance
-          cache: cache, 
+          link: splitLink,
+          cache: cache,
         });
 
         setClient(newClient);
@@ -90,13 +106,12 @@ export function useApolloClient() {
     initializeClient();
   }, []);
 
-  // Return client only when both the client and the cache are ready
   return cacheReady ? client : null; 
 }
+
 export function ApolloProviderWrapper({ children }) {
   const client = useApolloClient();
 
-  // 🔑 FIX A: Return a loading component (not null)
   if (!client) {
     return (
       <View style={styles.loadingContainer}>
@@ -107,4 +122,3 @@ export function ApolloProviderWrapper({ children }) {
 
   return <ApolloProvider client={client}>{children}</ApolloProvider>;
 }
-
