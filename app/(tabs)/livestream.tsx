@@ -11,8 +11,9 @@ import {
 import { gql, useQuery } from "@apollo/client";
 import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer";
 import LivestreamRecorder from "../../components/LivestreamRecorder";
-import { Picker } from "@react-native-picker/picker";
+import * as ImagePicker from "expo-image-picker";
 
+const Picker = ImagePicker;
 const GET_MY_NEIGHBORHOODS = gql`
   query GetMyNeighborhoods {
     myNeighborhoods {
