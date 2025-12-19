@@ -1,6 +1,6 @@
 // NeighborhoodLiveStreamPlayer.tsx
 import React, { useRef, useEffect } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text, Dimensions } from 'react-native';
 import WebView from 'react-native-webview';
 
 const PLAYER_HTML = `
@@ -100,6 +100,7 @@ type Props = {
 
 export default function NeighborhoodLiveStreamPlayer({ initialChunks, clearProcessedChunk }: Props) {
   const webViewRef = useRef<any>(null);
+  const [key, setKey] = useState(0);
 
   useEffect(() => {
     if (initialChunks.length > 0 && webViewRef.current) {
@@ -119,22 +120,36 @@ export default function NeighborhoodLiveStreamPlayer({ initialChunks, clearProce
   return (
     <View style={styles.container}>
       <WebView
+        key={key}
         ref={webViewRef}
         source={{ html: PLAYER_HTML }}
         style={styles.video}
         allowsInlineMediaPlayback
         mediaPlaybackRequiresUserAction={false}
-        // For iOS
-        setBuiltInZoomControls={false}
-        scalesPageToFit={false}
+        useWebKit={true}
+        onContentProcessDidTerminate={()=>{webViewRef.corrent?.reload();}}
+        onLoad={() => console.log('WebView loaded')}
+        onError={(e)=>console.log('WebView error:',e)}
+        onMessage={(event) => console.log('Message from JS:', event.nativeEvent.data)}
       />
+      <TouchableOpacity onPress={() => setKey(k=> k +1)}>
+        <Text style={{color: '#fff', padding:10}}>Force Refresh WebView (test fix) </Text>
+        
+        </TouchableOpacity>
       <Text style={styles.note}>If black on iOS: ensure chunks are fragmented MP4 + H264 baseline.</Text>
     </View>
   );
 }
 
+const ( height, width } = Dimensions.get('window');
+
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   video: { flex: 1 },
-  note: { color: '#fff', padding: 10, fontSize: 12 },
+  backgroundColor: '#000',
+  borderWidth: 1,
+  borderColor: 'transparent',
+},
+                                 video: {flex:1},
 });
