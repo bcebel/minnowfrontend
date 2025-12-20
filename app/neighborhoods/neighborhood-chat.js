@@ -209,6 +209,12 @@ function ChatMediaRenderer({
   liveChunks = [],
   clearProcessedChunk = () => {},
 }) {
+  // 1️⃣ Unconditionally filter out individual video chunk messages.
+  // These are data for the player, not something to be displayed in the chat.
+  if (message.fileType === "video_chunk") {
+    return null;
+  }
+
   console.log("Rendering message type:", message.fileType, "sessionId:", message.sessionId);
   const {
     imageUrl,

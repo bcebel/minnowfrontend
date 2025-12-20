@@ -42,6 +42,7 @@ const GET_LIVESTREAM_CHUNKS = gql`
       sessionId
       chunkIndex
       magnetLink
+      fileType
     }
   }
 `;
@@ -62,6 +63,7 @@ const LIVESTREAM_CHUNK_SUBSCRIPTION = gql`
       sessionId
       chunkIndex
       magnetLink
+      fileType
     }
   }
 `;
