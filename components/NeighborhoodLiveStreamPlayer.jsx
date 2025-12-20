@@ -35,160 +35,177 @@ export default function NeighborhoodLiveStreamPlayer({
     });
   }, []);
   // 1. SETUP MEDIASOURCE AND VIDEO ELEMENT
-  useEffect(() => {
-    if (typeof window === "undefined") return; // Don't run on server
+useEffect(() => {
+  if (typeof window === "undefined") return;
 
-    addLog(`Setting up player`);
+  addLog(`Setting up player`);
 
-    // Cleanup any existing
+  // Cleanup any existing
+  if (videoRef.current) {
+    videoRef.current.pause();
+    videoRef.current.remove();
+  }
+  // 1. Function to GET THE CONSTRUCTOR
+  function getMediaSourceConstructor() {
+    // Prioritize ManagedMediaSource for iOS Safari 17.1+
+    if (self.ManagedMediaSource) {
+      addLog("Using ManagedMediaSource API");
+      return self.ManagedMediaSource;
+    }
+    // Fallback to standard MediaSource for Chrome, Firefox, etc.
+    if (self.MediaSource) {
+      addLog("Using standard MediaSource API");
+      return self.MediaSource;
+    }
+    // If neither exists, throw an error
+    throw new Error("No MediaSource API is available in this browser.");
+  }
+
+  // 2. GET THE CONSTRUCTOR and CREATE A NEW INSTANCE
+  const MediaSourceConstructor = getMediaSourceConstructor();
+  const mediaSource = new MediaSourceConstructor(); // <-- The 'new' keyword is essential
+
+  mediaSourceRef.current = mediaSource;
+
+  // Create video element
+  const video = document.createElement("video");
+  video.controls = true;
+  video.autoplay = true;
+  video.muted = true; // REQUIRED for autoplay
+  video.style.width = "100%";
+  video.style.height = "auto";
+  video.playsInline = true;
+  video.preload = "auto";
+
+  // Set video source
+  const url = URL.createObjectURL(mediaSource);
+  video.src = url;
+
+  // Add event listeners for debugging
+  video.addEventListener("playing", () => {
+    addLog(`VIDEO IS PLAYING!`);
+    setIsLoading(false);
+  });
+
+  video.addEventListener("loadeddata", () => {
+    addLog(`Video loaded data`);
+  });
+
+  video.addEventListener("canplay", () => {
+    addLog(`Video can play`);
+    video.play().catch((e) => {
+      addLog(`Play error: ${e.message}`);
+    });
+  });
+
+  video.addEventListener("error", (e) => {
+    addLog(`Video error: ${e.target.error?.code || "Unknown"}`);
+    setError(
+      `Video error ${e.target.error?.code}: ${
+        e.target.error?.message || "Unknown"
+      }`
+    );
+  });
+
+  video.addEventListener("waiting", () => {
+    addLog(`Video waiting for data`);
+  });
+
+  // Add to DOM
+  const container = document.getElementById(`video-container-${sessionId}`);
+  if (container) {
+    container.innerHTML = "";
+    container.appendChild(video);
+    videoRef.current = video;
+  }
+
+  // MediaSource event handlers
+  const handleSourceOpen = () => {
+    addLog(`MediaSource opened`);
+    try {
+      // Try different MIME types - your logs show .webm files
+      const mimeTypes = [
+        'video/webm; codecs="vp8,opus"',
+        'video/webm; codecs="vp9,opus"',
+        'video/webm; codecs="vp8,vorbis"',
+        'video/mp4; codecs="avc1.42E01E,mp4a.40.2"',
+      ];
+
+      let sourceBuffer = null;
+      for (const mimeType of mimeTypes) {
+        try {
+          sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+          addLog(`Created SourceBuffer with ${mimeType}`);
+          break;
+        } catch (e) {
+          addLog(
+            `Failed to create SourceBuffer with ${mimeType}: ${e.message}`
+          );
+        }
+      }
+
+      if (!sourceBuffer) {
+        setError("Browser does not support required video format");
+        return;
+      }
+
+      sourceBufferRef.current = sourceBuffer;
+      sourceBuffer.mode = "sequence"; // IMPORTANT for live streaming
+
+      sourceBuffer.addEventListener("updateend", () => {
+        addLog(`SourceBuffer update ended`);
+      });
+
+      sourceBuffer.addEventListener("error", (e) => {
+        addLog(`SourceBuffer error: ${e.message}`);
+      });
+
+      // Start processing chunks
+      if (sortedChunks.length > 0) {
+        addLog(`Processing ${sortedChunks.length} chunks`);
+        processNextChunk();
+      }
+    } catch (e) {
+      addLog(`Failed to setup SourceBuffer: ${e.message}`);
+      setError(`Failed to setup video: ${e.message}`);
+    }
+  };
+
+  mediaSource.addEventListener("sourceopen", handleSourceOpen);
+
+  mediaSource.addEventListener("sourceended", () => {
+    addLog(`MediaSource ended`);
+  });
+
+  mediaSource.addEventListener("sourceclose", () => {
+    addLog(`MediaSource closed`);
+  });
+
+  // Cleanup function
+  return () => {
+    addLog(`Cleaning up player`);
+
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.remove();
+      videoRef.current = null;
     }
 
-    // Create MediaSource
-    const mediaSource = new MediaSource();
-    mediaSourceRef.current = mediaSource;
-
-    // Create video element
-    const video = document.createElement("video");
-    video.controls = true;
-    video.autoplay = true;
-    video.muted = true; // REQUIRED for autoplay
-    video.style.width = "100%";
-    video.style.height = "auto";
-    video.playsInline = true;
-    video.preload = "auto";
-
-    // Set video source
-    const url = URL.createObjectURL(mediaSource);
-    video.src = url;
-
-    // Add event listeners for debugging
-    video.addEventListener("playing", () => {
-      addLog(`VIDEO IS PLAYING!`);
-      setIsLoading(false);
-    });
-
-    video.addEventListener("loadeddata", () => {
-      addLog(`Video loaded data`);
-    });
-
-    video.addEventListener("canplay", () => {
-      addLog(`Video can play`);
-      video.play().catch((e) => {
-        addLog(`Play error: ${e.message}`);
-      });
-    });
-
-    video.addEventListener("error", (e) => {
-      addLog(`Video error: ${e.target.error?.code || "Unknown"}`);
-      setError(
-        `Video error ${e.target.error?.code}: ${
-          e.target.error?.message || "Unknown"
-        }`
+    if (mediaSourceRef.current) {
+      mediaSourceRef.current.removeEventListener(
+        "sourceopen",
+        handleSourceOpen
       );
-    });
-
-    video.addEventListener("waiting", () => {
-      addLog(`Video waiting for data`);
-    });
-
-    // Add to DOM
-    const container = document.getElementById(`video-container-${sessionId}`);
-    if (container) {
-      container.innerHTML = "";
-      container.appendChild(video);
-      videoRef.current = video;
+      mediaSourceRef.current = null;
     }
 
-    // MediaSource event handlers
-    const handleSourceOpen = () => {
-      addLog(`MediaSource opened`);
-      try {
-        // Try different MIME types - your logs show .webm files
-        const mimeTypes = [
-          'video/webm; codecs="vp8,opus"',
-          'video/webm; codecs="vp9,opus"',
-          'video/webm; codecs="vp8,vorbis"',
-          'video/mp4; codecs="avc1.42E01E,mp4a.40.2"',
-        ];
+    if (url) {
+      URL.revokeObjectURL(url);
+    }
 
-        let sourceBuffer = null;
-        for (const mimeType of mimeTypes) {
-          try {
-            sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-            addLog(`Created SourceBuffer with ${mimeType}`);
-            break;
-          } catch (e) {
-            addLog(
-              `Failed to create SourceBuffer with ${mimeType}: ${e.message}`
-            );
-          }
-        }
-
-        if (!sourceBuffer) {
-          setError("Browser does not support required video format");
-          return;
-        }
-
-        sourceBufferRef.current = sourceBuffer;
-        sourceBuffer.mode = "sequence"; // IMPORTANT for live streaming
-
-        sourceBuffer.addEventListener("updateend", () => {
-          addLog(`SourceBuffer update ended`);
-        });
-
-        sourceBuffer.addEventListener("error", (e) => {
-          addLog(`SourceBuffer error: ${e.message}`);
-        });
-
-        // Start processing chunks
-        if (sortedChunks.length > 0) {
-          addLog(`Processing ${sortedChunks.length} chunks`);
-          processNextChunk();
-        }
-      } catch (e) {
-        addLog(`Failed to setup SourceBuffer: ${e.message}`);
-        setError(`Failed to setup video: ${e.message}`);
-      }
-    };
-
-    mediaSource.addEventListener("sourceopen", handleSourceOpen);
-
-    mediaSource.addEventListener("sourceended", () => {
-      addLog(`MediaSource ended`);
-    });
-
-    mediaSource.addEventListener("sourceclose", () => {
-      addLog(`MediaSource closed`);
-    });
-
-    // Cleanup function
-    return () => {
-      addLog(`Cleaning up player`);
-
-      if (videoRef.current) {
-        videoRef.current.pause();
-        videoRef.current.remove();
-        videoRef.current = null;
-      }
-
-      if (mediaSourceRef.current) {
-        mediaSourceRef.current.removeEventListener(
-          "sourceopen",
-          handleSourceOpen
-        );
-        mediaSourceRef.current = null;
-      }
-
-      if (url) {
-        URL.revokeObjectURL(url);
-      }
-
-      sourceBufferRef.current = null;
-    };
-  }, [sessionId]); // Only re-run if sessionId changes
+    sourceBufferRef.current = null;
+  };
+}, [sessionId]); // Only re-run if sessionId changes
 
   useEffect(() => {
     if (sortedChunks.length > 0 && sourceBufferRef.current) {
@@ -403,8 +420,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
     borderRadius: 5,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "transparent",
+     borderWidth: 1,
+      borderColor: 'transparent',
   },
   statsContainer: {
     marginTop: 10,
