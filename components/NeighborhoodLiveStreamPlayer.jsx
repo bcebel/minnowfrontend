@@ -1,6 +1,6 @@
 // NeighborhoodLiveStreamPlayer.jsx - USING GLOBAL WEBTORRENT
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, Platform } from "react-native";
 
 export default function NeighborhoodLiveStreamPlayer({
   sessionId,
@@ -403,6 +403,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
     borderRadius: 5,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   statsContainer: {
     marginTop: 10,
