@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
-  StyleSheet,
+  StyleSheet, 
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
@@ -78,9 +78,12 @@ function Livestream({ stream }) {
   });
 
   // 2. Listen for new chunks via GraphQL subscription
-  const { data: subscriptionData } = useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
-    variables: { sessionId: stream.sessionId },
-  });
+  const { data: subscriptionData } = useSubscription(
+    LIVESTREAM_CHUNK_SUBSCRIPTION,
+    {
+      variables: { sessionId: stream.sessionId },
+    }
+  );
 
   // 3. Load initial chunks once
   useEffect(() => {
@@ -89,12 +92,39 @@ function Livestream({ stream }) {
     }
   }, [initialData]);
 
+  // 4. Add new chunks - ensure ordering
+  useEffect(() => {
+    if (subscriptionData?.livestreamChunkAdded) {
+      const newChunk = subscriptionData.livestreamChunkAdded;
+
+      setLiveChunks((prevChunks) => {
+        // Check if already exists
+        const exists = prevChunks.some(
+          (chunk) =>
+            chunk.id === newChunk.id || chunk.chunkIndex === newChunk.chunkIndex
+        );
+
+        if (exists) return prevChunks;
+
+        // Insert in correct order
+        const updated = [...prevChunks, newChunk];
+        updated.sort((a, b) => a.chunkIndex - b.chunkIndex);
+        return updated;
+      });
+    }
+  }, [subscriptionData]);
+  useEffect(() => {
+    console.log(
+      `[Livestream ${stream.sessionId}] Current chunks:`,
+      liveChunks.map((c) => ({ id: c.id, index: c.chunkIndex }))
+    );
+  }, [liveChunks, stream.sessionId]);
   // 4. Add new chunks as they arrive from the subscription
   useEffect(() => {
     if (subscriptionData?.livestreamChunkAdded) {
       const newChunk = subscriptionData.livestreamChunkAdded;
       setLiveChunks((prevChunks) => {
-        if (!prevChunks.some(chunk => chunk.id === newChunk.id)) {
+        if (!prevChunks.some((chunk) => chunk.id === newChunk.id)) {
           return [...prevChunks, newChunk];
         }
         return prevChunks;
