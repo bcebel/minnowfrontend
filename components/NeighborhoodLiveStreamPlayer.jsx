@@ -1,12 +1,71 @@
-// NeighborhoodLiveStreamPlayer.jsx - USING GLOBAL WEBTORRENT
+// NeighborhoodLiveStreamPlayer.jsx - CONSOLIDATED & FIXED VERSION
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, Platform } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 
+// Custom Hook: Manages a single torrent instance for the session
+function useTorrentSwarm(magnetUri, sessionId) {
+  const [torrent, setTorrent] = useState(null);
+  const [peers, setPeers] = useState(0);
+  const torrentRef = useRef(null);
+
+  useEffect(() => {
+    if (!magnetUri || !window.globalWebTorrentClient) return;
+
+    console.log(`[SwarmManager ${sessionId}] Managing torrent`);
+
+    const client = window.globalWebTorrentClient;
+
+    // Add the torrent. WebTorrent returns existing instance for duplicate magnet links.
+    const newTorrent = client.add(magnetUri, (torrent) => {
+      console.log(
+        `[SwarmManager ${sessionId}] Ready. Peers: ${torrent.numPeers}`
+      );
+      setPeers(torrent.numPeers);
+    });
+
+    torrentRef.current = newTorrent;
+    setTorrent(newTorrent);
+
+    // Monitor peer connections
+    newTorrent.on("wire", (peer) => {
+      console.log(`[SwarmManager ${sessionId}] Peer connected: ${peer.addr}`);
+      setPeers(newTorrent.numPeers);
+    });
+
+    newTorrent.on("error", (err) => {
+      // Silently ignore "duplicate torrent" errors, they are expected
+      if (!err.message.includes("duplicate torrent")) {
+        console.error(
+          `[SwarmManager ${sessionId}] Torrent Error:`,
+          err.message
+        );
+      }
+    });
+
+    // Cleanup: Release reference only. Let global client manage torrent lifecycle.
+    return () => {
+      console.log(`[SwarmManager ${sessionId}] Releasing reference.`);
+      torrentRef.current = null;
+      setTorrent(null);
+    };
+  }, [magnetUri, sessionId]);
+
+  return { torrent, peers };
+}
+
+// Main Player Component
 export default function NeighborhoodLiveStreamPlayer({
   sessionId,
   initialChunks = [],
   clearProcessedChunk,
 }) {
+  // Refs and State
   const videoRef = useRef(null);
   const mediaSourceRef = useRef(null);
   const sourceBufferRef = useRef(null);
@@ -15,374 +74,265 @@ export default function NeighborhoodLiveStreamPlayer({
   const [processedChunks, setProcessedChunks] = useState(new Set());
   const [chunkLog, setChunkLog] = useState([]);
 
-  // Add to debug log
+  // Helper: Add to debug log
   const addLog = (message) => {
     const timestamp = new Date().toISOString().split("T")[1].slice(0, -1);
-    setChunkLog((prev) => [...prev.slice(-20), `${timestamp}: ${message}`]);
+    setChunkLog((prev) => [...prev.slice(-10), `${timestamp}: ${message}`]); // Keep last 10 logs
     console.log(`[Player ${sessionId}] ${message}`);
   };
 
-  // Sort chunks by index
+  // Data Prep
   const sortedChunks = [...initialChunks].sort(
     (a, b) => a.chunkIndex - b.chunkIndex
   );
+  const magnetUri = sortedChunks[0]?.magnetLink; // Magnet link from first chunk
 
+  // Swarm Management via Custom Hook
+  const { torrent, peers } = useTorrentSwarm(magnetUri, sessionId);
+
+  // 1. CORE SETUP: MediaSource & Video Element
   useEffect(() => {
-    console.log("WebTorrent available?", {
-      windowWebTorrent: !!window.WebTorrent,
-      globalClient: !!window.globalWebTorrentClient,
-      windowType: typeof window,
-    });
-  }, []);
-  // 1. SETUP MEDIASOURCE AND VIDEO ELEMENT
+    if (typeof window === "undefined") return; // Don't run on server
 
-useEffect(() => {
-  if (typeof window === "undefined") return;
+    addLog(`Setting up player`);
 
-  addLog(`Setting up player`);
-
-  // Cleanup any existing
-  if (videoRef.current) {
-    videoRef.current.pause();
-    videoRef.current.remove();
-  }
-  // 1. Function to GET THE CONSTRUCTOR
-  function getMediaSourceConstructor() {
-    // Prioritize ManagedMediaSource for iOS Safari 17.1+
-    if (self.ManagedMediaSource) {
-      addLog("Using ManagedMediaSource API");
-      return self.ManagedMediaSource;
-    }
-    // Fallback to standard MediaSource for Chrome, Firefox, etc.
-    if (self.MediaSource) {
-      addLog("Using standard MediaSource API");
-      return self.MediaSource;
-    }
-    // If neither exists, throw an error
-    throw new Error("No MediaSource API is available in this browser.");
-  }
-
-  // 2. GET THE CONSTRUCTOR and CREATE A NEW INSTANCE
-  const MediaSourceConstructor = getMediaSourceConstructor();
-  const mediaSource = new MediaSourceConstructor(); // <-- The 'new' keyword is essential
-
-  mediaSourceRef.current = mediaSource;
-
-  // Create video element
-  const video = document.createElement("video");
-  video.controls = true;
-  video.autoplay = true;
-  video.muted = true; // REQUIRED for autoplay
-  video.style.width = "100%";
-  video.style.height = "auto";
-  video.playsInline = true;
-  video.preload = "auto";
-
-  // Set video source
-  const url = URL.createObjectURL(mediaSource);
-  video.src = url;
-
-  // Add event listeners for debugging
-  video.addEventListener("playing", () => {
-    addLog(`VIDEO IS PLAYING!`);
-    setIsLoading(false);
-  });
-
-  video.addEventListener("loadeddata", () => {
-    addLog(`Video loaded data`);
-  });
-
-  video.addEventListener("canplay", () => {
-    addLog(`Video can play`);
-    video.play().catch((e) => {
-      addLog(`Play error: ${e.message}`);
-    });
-  });
-
-  video.addEventListener("error", (e) => {
-    addLog(`Video error: ${e.target.error?.code || "Unknown"}`);
-    setError(
-      `Video error ${e.target.error?.code}: ${
-        e.target.error?.message || "Unknown"
-      }`
-    );
-  });
-
-  video.addEventListener("waiting", () => {
-    addLog(`Video waiting for data`);
-  });
-
-  // Add to DOM
-  const container = document.getElementById(`video-container-${sessionId}`);
-  if (container) {
-    container.innerHTML = "";
-    container.appendChild(video);
-    videoRef.current = video;
-  }
-
-  // MediaSource event handlers
-  const handleSourceOpen = () => {
-    addLog(`MediaSource opened`);
-    try {
-      // Try different MIME types - your logs show .webm files
-      const mimeTypes = [
-        'video/webm; codecs="vp8,opus"',
-        'video/webm; codecs="vp9,opus"',
-        'video/webm; codecs="vp8,vorbis"',
-        'video/mp4; codecs="avc1.42E01E,mp4a.40.2"',
-      ];
-
-      let sourceBuffer = null;
-      for (const mimeType of mimeTypes) {
-        try {
-          sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-          addLog(`Created SourceBuffer with ${mimeType}`);
-          break;
-        } catch (e) {
-          addLog(
-            `Failed to create SourceBuffer with ${mimeType}: ${e.message}`
-          );
-        }
-      }
-
-      if (!sourceBuffer) {
-        setError("Browser does not support required video format");
-        return;
-      }
-
-      sourceBufferRef.current = sourceBuffer;
-      sourceBuffer.mode = "sequence"; // IMPORTANT for live streaming
-
-      sourceBuffer.addEventListener("updateend", () => {
-        addLog(`SourceBuffer update ended`);
-      });
-
-      sourceBuffer.addEventListener("error", (e) => {
-        addLog(`SourceBuffer error: ${e.message}`);
-      });
-
-      // Start processing chunks
-      if (sortedChunks.length > 0) {
-        addLog(`Processing ${sortedChunks.length} chunks`);
-        processNextChunk();
-      }
-    } catch (e) {
-      addLog(`Failed to setup SourceBuffer: ${e.message}`);
-      setError(`Failed to setup video: ${e.message}`);
-    }
-  };
-
-  mediaSource.addEventListener("sourceopen", handleSourceOpen);
-
-  mediaSource.addEventListener("sourceended", () => {
-    addLog(`MediaSource ended`);
-  });
-
-  mediaSource.addEventListener("sourceclose", () => {
-    addLog(`MediaSource closed`);
-  });
-
-  // Cleanup function
-  return () => {
-    addLog(`Cleaning up player`);
-
+    // Cleanup any existing video element
     if (videoRef.current) {
       videoRef.current.pause();
+      videoRef.current.src = "";
+      videoRef.current.load();
       videoRef.current.remove();
       videoRef.current = null;
     }
 
-    if (mediaSourceRef.current) {
-      mediaSourceRef.current.removeEventListener(
-        "sourceopen",
-        handleSourceOpen
-      );
-      mediaSourceRef.current = null;
+    // Get MediaSource Constructor (Managed for iOS, Standard for others)
+    function getMediaSourceConstructor() {
+      if (self.ManagedMediaSource) {
+        addLog("Using ManagedMediaSource API (iOS)");
+        return self.ManagedMediaSource;
+      }
+      if (self.MediaSource) {
+        addLog("Using standard MediaSource API");
+        return self.MediaSource;
+      }
+      throw new Error("No MediaSource API is available.");
     }
 
-    if (url) {
-      URL.revokeObjectURL(url);
-    }
+    // Create MediaSource Instance
+    const MediaSourceConstructor = getMediaSourceConstructor();
+    const mediaSource = new MediaSourceConstructor();
+    mediaSourceRef.current = mediaSource;
 
-    sourceBufferRef.current = null;
-  };
-}, [sessionId]); // Only re-run if sessionId changes
+    // Create Video Element
+    const video = document.createElement("video");
+    video.controls = true;
+    video.autoplay = true;
+    video.muted = true; // REQUIRED for autoplay
+    video.style.width = "100%";
+    video.style.height = "auto";
+    video.playsInline = true;
+    video.preload = "auto";
 
-  useEffect(() => {
-    if (!sortedChunks.length || !window.globalWebTorrentClient) {
-      return;
-    }
+    // Set video source to the MediaSource
+    const url = URL.createObjectURL(mediaSource);
+    video.src = url;
 
-    const magnetUri = sortedChunks[0].magnetLink;
-    if (!magnetUri) return;
-
-    console.log(`[Swarm ${sessionId}] Joining...`);
-
-    // Store the torrent reference in a ref so cleanup can access it
-    const torrentRef = { current: null };
-
-    window.globalWebTorrentClient.add(magnetUri, (torrent) => {
-      torrentRef.current = torrent;
-      console.log(`[Swarm ${sessionId}] Joined! Peers: ${torrent.numPeers}`);
+    // --- Video Event Listeners ---
+    video.addEventListener("playing", () => {
+      addLog(`VIDEO IS PLAYING!`);
+      setIsLoading(false);
     });
+    video.addEventListener("canplay", () => {
+      addLog(`Video can play`);
+      video.play().catch((e) => addLog(`Autoplay failed: ${e.message}`));
+    });
+    video.addEventListener("error", (e) => {
+      addLog(`Video error: ${e.target.error?.code || "Unknown"}`);
+      setError(`Video Error ${e.target.error?.code}`);
+    });
+    video.addEventListener("waiting", () => addLog(`Video waiting for data`));
 
-    // Return cleanup function
-    return () => {
-      console.log(`[Swarm ${sessionId}] Attempting cleanup...`);
+    // Add Video to DOM
+    const container = document.getElementById(`video-container-${sessionId}`);
+    if (container) {
+      container.innerHTML = "";
+      container.appendChild(video);
+      videoRef.current = video;
+    }
 
-      // Wait a tick to ensure the torrent was actually added
-      setTimeout(() => {
-        if (window.globalWebTorrentClient && torrentRef.current) {
+    // --- MediaSource Event: sourceopen ---
+    const handleSourceOpen = () => {
+      addLog(`MediaSource opened`);
+      try {
+        // Try different MIME types for compatibility
+        const mimeTypes = [
+          'video/webm; codecs="vp8,opus"',
+          'video/webm; codecs="vp9,opus"',
+          'video/webm; codecs="vp8,vorbis"',
+          'video/mp4; codecs="avc1.42E01E,mp4a.40.2"',
+        ];
+
+        let sourceBuffer = null;
+        for (const mimeType of mimeTypes) {
           try {
-            // Check if torrent still exists in client
-            const exists = window.globalWebTorrentClient.torrents.some(
-              (t) => t.infoHash === torrentRef.current.infoHash
-            );
-
-            if (exists) {
-              console.log(`[Swarm ${sessionId}] Removing torrent...`);
-              window.globalWebTorrentClient.remove(torrentRef.current);
-            }
-          } catch (err) {
-            console.warn(`[Swarm ${sessionId}] Cleanup warning:`, err.message);
+            sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+            addLog(`Created SourceBuffer with ${mimeType}`);
+            break;
+          } catch (e) {
+            addLog(`Failed with ${mimeType}: ${e.message}`);
           }
         }
-      }, 0);
+
+        if (!sourceBuffer) {
+          setError("Browser does not support required video format.");
+          return;
+        }
+
+        sourceBufferRef.current = sourceBuffer;
+        sourceBuffer.mode = "sequence"; // IMPORTANT for live streaming
+
+        sourceBuffer.addEventListener("updateend", () => {
+          addLog(`SourceBuffer update ended`);
+          // Process next chunk after the current one finishes appending
+          processNextChunk();
+        });
+
+        sourceBuffer.addEventListener("error", (e) => {
+          addLog(`SourceBuffer error: ${e.message}`);
+        });
+
+        // Start processing if chunks are already available
+        if (sortedChunks.length > 0) {
+          addLog(`Starting with ${sortedChunks.length} chunks`);
+          processNextChunk();
+        }
+      } catch (e) {
+        addLog(`Failed to setup SourceBuffer: ${e.message}`);
+        setError(`Failed to setup video: ${e.message}`);
+      }
     };
-  }, [sortedChunks, sessionId]);
-  
-  useEffect(() => {
-    if (sortedChunks.length > 0 && sourceBufferRef.current) {
-      console.log(
-        `Triggering processNextChunk because we have ${sortedChunks.length} chunks and SourceBuffer is ready`
-      );
-      processNextChunk();
-    }
-  }, [sortedChunks.length, sourceBufferRef.current]);
-  // 2. PROCESS CHUNKS ONE BY ONE USING GLOBAL WEBTORRENT
+
+    mediaSource.addEventListener("sourceopen", handleSourceOpen);
+
+    // --- COMPREHENSIVE CLEANUP FUNCTION ---
+    return () => {
+      addLog(`Performing comprehensive cleanup`);
+      setIsLoading(true);
+
+      // 1. Clean up SourceBuffer listeners
+      if (sourceBufferRef.current) {
+        sourceBufferRef.current.removeEventListener(
+          "updateend",
+          handleSourceOpen
+        );
+        sourceBufferRef.current = null;
+      }
+
+      // 2. Clean up MediaSource
+      if (mediaSourceRef.current) {
+        mediaSourceRef.current.removeEventListener(
+          "sourceopen",
+          handleSourceOpen
+        );
+        mediaSourceRef.current = null;
+      }
+
+      // 3. Clean up Video Element
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.src = "";
+        videoRef.current.load(); // Important for iOS
+        videoRef.current.remove();
+        videoRef.current = null;
+      }
+
+      // 4. Revoke Object URL
+      if (url) URL.revokeObjectURL(url);
+
+      // 5. Clear processed chunks for this session
+      setProcessedChunks(new Set());
+    };
+  }, [sessionId]); // Only re-run if sessionId changes
+
+  // 2. PROCESS CHUNKS (Uses torrent from hook)
   const processNextChunk = () => {
+    // Guard: Ensure SourceBuffer is ready and not busy
     if (!sourceBufferRef.current || sourceBufferRef.current.updating) {
-      addLog(`SourceBuffer busy, will retry`);
-      setTimeout(processNextChunk, 100);
       return;
     }
 
-    // Find the next unprocessed chunk
+    // Guard: Ensure the torrent from the hook is ready
+    if (!torrent) {
+      addLog(`Waiting for torrent to be ready from swarm...`);
+      return;
+    }
+
+    // Find the next chunk that hasn't been processed
     const nextChunk = sortedChunks.find(
       (chunk) =>
         !processedChunks.has(chunk.id) &&
-        chunk.chunkIndex === processedChunks.size
+        chunk.chunkIndex === processedChunks.size // Process in order (0,1,2...)
     );
 
     if (!nextChunk) {
-      addLog(`No chunks to process or waiting for next in sequence`);
+      addLog(`No chunks ready to process. Waiting...`);
+      // Still loading if we haven't processed any yet
       setIsLoading(processedChunks.size === 0);
       return;
     }
 
-    addLog(`Downloading chunk ${nextChunk.chunkIndex}`);
+    addLog(`Processing chunk ${nextChunk.chunkIndex}`);
 
-    // Check if WebTorrent is available globally
-    if (!window.WebTorrent && !window.globalWebTorrentClient) {
-      addLog(`ERROR: WebTorrent not available globally`);
-      setError("WebTorrent not loaded. Please refresh the page.");
+    // Get the file from the torrent (managed by the hook)
+    const file = torrent.files[0];
+    if (!file) {
+      addLog(`ERROR: No file in torrent.`);
       return;
     }
 
-    // Use global WebTorrent client if available, otherwise create a new one
-    const client = window.globalWebTorrentClient || new window.WebTorrent();
-
-    client.add(nextChunk.magnetLink, (torrent) => {
-      addLog(
-        `Torrent added for chunk ${nextChunk.chunkIndex}, files: ${torrent.files.length}`
-      );
-
-      const file = torrent.files[0];
-      if (!file) {
-        addLog(`ERROR: No file in torrent for chunk ${nextChunk.chunkIndex}`);
+    // Get the chunk's buffer from the torrent
+    file.getBuffer((err, buffer) => {
+      if (err) {
+        addLog(`ERROR getting buffer: ${err.message}`);
         return;
       }
 
-      file.getBuffer((err, buffer) => {
-        if (err) {
-          addLog(
-            `ERROR getting buffer for chunk ${nextChunk.chunkIndex}: ${err.message}`
-          );
-          return;
-        }
-
-        addLog(
-          `Got buffer for chunk ${nextChunk.chunkIndex}, size: ${buffer.byteLength} bytes`
-        );
-
-        // Append to SourceBuffer
-        try {
-          if (sourceBufferRef.current && !sourceBufferRef.current.updating) {
-            sourceBufferRef.current.appendBuffer(buffer);
-            addLog(`Appended chunk ${nextChunk.chunkIndex} to SourceBuffer`);
-
-            // Mark as processed
-            setProcessedChunks((prev) => new Set(prev).add(nextChunk.id));
-
-            // Notify parent
-            if (clearProcessedChunk) {
-              clearProcessedChunk(nextChunk.id);
-            }
-
-            // Try to play if this is the first chunk
-            if (processedChunks.size === 0 && videoRef.current) {
-              addLog(`First chunk appended, trying to play`);
-              videoRef.current.play().catch((e) => {
-                addLog(`Autoplay failed: ${e.message}`);
-              });
-            }
-          } else {
-            addLog(`SourceBuffer not ready, retrying in 100ms`);
-            setTimeout(() => {
-              try {
-                if (
-                  sourceBufferRef.current &&
-                  !sourceBufferRef.current.updating
-                ) {
-                  sourceBufferRef.current.appendBuffer(buffer);
-                }
-              } catch (e) {
-                addLog(`Retry append failed: ${e.message}`);
-              }
-            }, 100);
-          }
-        } catch (e) {
-          addLog(`Failed to append buffer: ${e.message}`);
-        }
-
-        // Don't destroy the client if it's the global one
-        if (client !== window.globalWebTorrentClient) {
-          client.destroy();
-        }
-      });
-    });
-
-    client.on("error", (err) => {
       addLog(
-        `WebTorrent error for chunk ${nextChunk.chunkIndex}: ${err.message}`
+        `Got buffer for chunk ${nextChunk.chunkIndex}, size: ${buffer.byteLength}`
       );
+
+      try {
+        // Append buffer to SourceBuffer
+        sourceBufferRef.current.appendBuffer(buffer);
+        addLog(`Appended chunk ${nextChunk.chunkIndex} to SourceBuffer`);
+
+        // Mark chunk as processed locally
+        setProcessedChunks((prev) => new Set(prev).add(nextChunk.id));
+
+        // Notify parent component (LivestreamScreen) to clear this chunk from its state
+        if (clearProcessedChunk) {
+          clearProcessedChunk(nextChunk.id);
+        }
+      } catch (e) {
+        addLog(`Failed to append buffer: ${e.message}`);
+      }
     });
   };
 
-  // 3. PROCESS CHUNKS WHEN THEY ARRIVE
+  // 3. TRIGGER PROCESSING WHEN NEW CHUNKS ARRIVE
   useEffect(() => {
-    if (
-      sortedChunks.length > 0 &&
-      sourceBufferRef.current &&
-      typeof window !== "undefined"
-    ) {
-      addLog(`New chunks arrived, processing next`);
+    if (sortedChunks.length > 0 && sourceBufferRef.current) {
+      addLog(`New chunks arrived, triggering process.`);
+      // processNextChunk will be called from the SourceBuffer 'updateend' event
+      // This ensures sequential, non-overlapping appends.
       processNextChunk();
     }
-  }, [sortedChunks.length, processedChunks.size]);
+  }, [sortedChunks.length]);
 
+  // 4. RENDER
   return (
     <View style={styles.container}>
+      {/* Loading Indicator */}
       {isLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#00ffff" />
@@ -391,37 +341,56 @@ useEffect(() => {
               ? "Loading first chunk..."
               : "Buffering..."}
           </Text>
+          {peers === 0 && (
+            <Text style={styles.peerWarning}>
+              (Connected to 0 peers. Waiting for broadcaster...)
+            </Text>
+          )}
         </View>
       )}
 
+      {/* Error Display */}
       {error && (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
 
-      {/* Video container */}
-      <View id={`video-container-${sessionId}`} style={styles.videoContainer} />
+      {/* Video Container (with iOS hack) */}
+      <View
+        id={`video-container-${sessionId}`}
+        style={[
+          styles.videoContainer,
+          // iOS-specific rendering hack
+          Platform.OS === "web" && /iPhone|iPad|iPod/.test(navigator.userAgent)
+            ? styles.iOSVideoContainerHack
+            : null,
+        ]}
+      />
 
+      {/* Stats Panel */}
       <View style={styles.statsContainer}>
         <Text style={styles.sessionId}>Session: {sessionId}</Text>
         <Text style={styles.chunkInfo}>
-          Chunks: {processedChunks.size}/{sortedChunks.length} processed
+          Chunks: {processedChunks.size}/{sortedChunks.length}
+        </Text>
+        <Text style={peers > 0 ? styles.peerInfoGood : styles.peerInfoBad}>
+          Peers in Swarm: {peers}
         </Text>
         {sortedChunks.length > 0 && (
           <Text style={styles.chunkInfo}>
             Next: #
             {sortedChunks.find((c) => !processedChunks.has(c.id))?.chunkIndex ||
-              "none"}
+              "--"}
           </Text>
         )}
       </View>
 
-      {/* Debug log */}
+      {/* Debug Log (Collapsible in future) */}
       {chunkLog.length > 0 && (
         <View style={styles.debugContainer}>
-          <Text style={styles.debugTitle}>Debug Log:</Text>
-          {chunkLog.slice(-5).map((log, i) => (
+          <Text style={styles.debugTitle}>Player Log:</Text>
+          {chunkLog.map((log, i) => (
             <Text key={i} style={styles.debugText} numberOfLines={1}>
               {log}
             </Text>
@@ -432,74 +401,106 @@ useEffect(() => {
   );
 }
 
+// ========== STYLES ==========
 const styles = StyleSheet.create({
   container: {
     width: "100%",
     backgroundColor: "#111",
     borderRadius: 8,
     padding: 10,
-    marginBottom: 10,
+    marginBottom: 15, // Increased spacing
   },
   loadingContainer: {
     alignItems: "center",
     padding: 20,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    borderRadius: 5,
+    marginBottom: 10,
   },
   loadingText: {
     color: "#fff",
     marginTop: 10,
+    fontSize: 14,
+  },
+  peerWarning: {
+    color: "#ff9900", // Amber warning color
+    fontSize: 12,
+    marginTop: 5,
+    fontStyle: "italic",
   },
   errorContainer: {
-    backgroundColor: "#ff4444",
-    padding: 10,
+    backgroundColor: "#cc0000",
+    padding: 12,
     borderRadius: 5,
     marginBottom: 10,
   },
   errorText: {
     color: "white",
     textAlign: "center",
+    fontWeight: "bold",
   },
   videoContainer: {
     width: "100%",
     minHeight: 300,
     backgroundColor: "#000",
     borderRadius: 5,
-    overflow: "hidden",
-     borderWidth: 1,
-      borderColor: 'transparent',
+    overflow: "hidden", // Keves the video corners rounded
+  },
+  // The iOS rendering hack
+  iOSVideoContainerHack: {
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   statsContainer: {
-    marginTop: 10,
-    padding: 5,
+    marginTop: 12,
+    padding: 8,
     backgroundColor: "#222",
     borderRadius: 5,
   },
   sessionId: {
-    color: "#888",
-    fontSize: 12,
-    fontFamily: "monospace",
-  },
-  chunkInfo: {
-    color: "#0f0",
-    fontSize: 12,
-    marginTop: 2,
-    fontFamily: "monospace",
-  },
-  debugContainer: {
-    marginTop: 10,
-    padding: 5,
-    backgroundColor: "#000",
-    borderRadius: 5,
-    maxHeight: 100,
-  },
-  debugTitle: {
-    color: "#ff0",
-    fontSize: 12,
+    color: "#aaa",
+    fontSize: 11,
     fontFamily: "monospace",
     marginBottom: 2,
   },
+  chunkInfo: {
+    color: "#0f0", // Green
+    fontSize: 11,
+    fontFamily: "monospace",
+    marginTop: 2,
+  },
+  peerInfoGood: {
+    color: "#0f0", // Green
+    fontSize: 12,
+    fontFamily: "monospace",
+    fontWeight: "bold",
+    marginTop: 4,
+  },
+  peerInfoBad: {
+    color: "#f44", // Red
+    fontSize: 12,
+    fontFamily: "monospace",
+    fontWeight: "bold",
+    marginTop: 4,
+  },
+  debugContainer: {
+    marginTop: 10,
+    padding: 6,
+    backgroundColor: "#000",
+    borderRadius: 4,
+    maxHeight: 120,
+  },
+  debugTitle: {
+    color: "#ff0", // Yellow
+    fontSize: 11,
+    fontFamily: "monospace",
+    marginBottom: 3,
+    fontWeight: "bold",
+  },
   debugText: {
-    color: "#0ff",
+    color: "#8af", // Light blue
     fontSize: 10,
     fontFamily: "monospace",
+    lineHeight: 14,
   },
 });
