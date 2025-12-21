@@ -35,6 +35,7 @@ export default function NeighborhoodLiveStreamPlayer({
     });
   }, []);
   // 1. SETUP MEDIASOURCE AND VIDEO ELEMENT
+
 useEffect(() => {
   if (typeof window === "undefined") return;
 
@@ -207,6 +208,49 @@ useEffect(() => {
   };
 }, [sessionId]); // Only re-run if sessionId changes
 
+  useEffect(() => {
+    if (!sortedChunks.length || !window.globalWebTorrentClient) {
+      return;
+    }
+
+    const magnetUri = sortedChunks[0].magnetLink;
+    if (!magnetUri) return;
+
+    console.log(`[Swarm ${sessionId}] Joining...`);
+
+    // Store the torrent reference in a ref so cleanup can access it
+    const torrentRef = { current: null };
+
+    window.globalWebTorrentClient.add(magnetUri, (torrent) => {
+      torrentRef.current = torrent;
+      console.log(`[Swarm ${sessionId}] Joined! Peers: ${torrent.numPeers}`);
+    });
+
+    // Return cleanup function
+    return () => {
+      console.log(`[Swarm ${sessionId}] Attempting cleanup...`);
+
+      // Wait a tick to ensure the torrent was actually added
+      setTimeout(() => {
+        if (window.globalWebTorrentClient && torrentRef.current) {
+          try {
+            // Check if torrent still exists in client
+            const exists = window.globalWebTorrentClient.torrents.some(
+              (t) => t.infoHash === torrentRef.current.infoHash
+            );
+
+            if (exists) {
+              console.log(`[Swarm ${sessionId}] Removing torrent...`);
+              window.globalWebTorrentClient.remove(torrentRef.current);
+            }
+          } catch (err) {
+            console.warn(`[Swarm ${sessionId}] Cleanup warning:`, err.message);
+          }
+        }
+      }, 0);
+    };
+  }, [sortedChunks, sessionId]);
+  
   useEffect(() => {
     if (sortedChunks.length > 0 && sourceBufferRef.current) {
       console.log(
