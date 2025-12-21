@@ -142,40 +142,6 @@ export default function Root({ children }: PropsWithChildren) {
         <script
           dangerouslySetInnerHTML={{
             __html: `
-      // Global WebTorrent client for cross-component seeding
-      if (!window.globalWebTorrentClient) {
-        console.log('🌪️ Initializing global WebTorrent client for P2P seeding');
-        window.globalWebTorrentClient = new WebTorrent({
-          tracker: {
-            announce: [
-              'wss://tracker.webtorrent.io',
-              'wss://tracker.openwebtorrent.com',
-              'wss://tracker.btorrent.xyz',
-              'wss://tracker.fastcast.nz',
-              'wss://tracker.webtorrent.dev',
-            ]
-          }
-        });
-        
-        // Optimize for seeding
-        window.globalWebTorrentClient.on('torrent', (torrent) => {
-          console.log('🌱 Seeding torrent:', torrent.name);
-          console.log('📊 Info Hash:', torrent.infoHash);
-        });
-        
-        // Track swarm stats
-        window.globalWebTorrentClient.on('download', (bytes) => {
-          // Global swarm statistics
-          const stats = {
-            downloadSpeed: window.globalWebTorrentClient.downloadSpeed,
-            uploadSpeed: window.globalWebTorrentClient.uploadSpeed,
-            progress: window.globalWebTorrentClient.progress,
-            ratio: window.globalWebTorrentClient.ratio
-          };
-          window.globalTorrentStats = stats;
-        });
-      }
-      
       // Pre-load common trackers for better P2P discovery
       window.enhancedTrackers = [
 'wss://tracker.webtorrent.io',
@@ -185,7 +151,26 @@ export default function Root({ children }: PropsWithChildren) {
   'wss://dennis.pm:8000/announce',
   'wss://ws.bittorrent.com'
       ];
-    `,
+      
+      // Global WebTorrent client for cross-component seeding
+      if (!window.globalWebTorrentClient) {
+        console.log('🌪️ Initializing global WebTorrent client for P2P seeding');
+        // Combine initial trackers with enhanced trackers, ensuring uniqueness
+        const allTrackers = Array.from(new Set([
+          'wss://tracker.webtorrent.io',
+          'wss://tracker.openwebtorrent.com',
+          'wss://tracker.btorrent.xyz',
+          'wss://tracker.fastcast.nz',
+          'wss://tracker.webtorrent.dev',
+          ...(window.enhancedTrackers || [])
+        ]));
+
+        window.globalWebTorrentClient = new WebTorrent({
+          tracker: {
+            announce: allTrackers
+          }
+        });
+        `,
           }}
         />
 

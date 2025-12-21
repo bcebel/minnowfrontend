@@ -54,8 +54,8 @@ export default function WebTorrentPlayer({ video }) {
     <video id="videoPlayer" controls style="display:none;"></video>
 
     <script>
-        // Use global client or create dedicated one for this video
-        const client = window.globalWebTorrentClient || new WebTorrent();
+        // Always use the global client initialized in the parent frame
+        const client = window.globalWebTorrentClient;
         const enhancedTrackers = window.enhancedTrackers || ['wss://tracker.openwebtorrent.com'];
         
         console.log('🌪️ Starting P2P stream for:', '${video.fileName}');

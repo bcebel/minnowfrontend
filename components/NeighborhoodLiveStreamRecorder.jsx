@@ -135,11 +135,12 @@ export default function NeighborhoodLiveStreamRecorder({
         await new Promise((resolve) => (script.onload = resolve));
       }
 
-      if (!window.globalWebTorrentClient) {
-        window.globalWebTorrentClient = new WebTorrent({
-          tracker: { pex: true, lsd: true },
-        });
-      }
+      // Assume globalWebTorrentClient is already initialized by app/+html.tsx
+      // if (!window.globalWebTorrentClient) {
+      //   window.globalWebTorrentClient = new WebTorrent({
+      //     tracker: { pex: true, lsd: true },
+      //   });
+      // }
 
       const streamTitle = `${username}'s Live Stream`;
       const { data: streamData } = await createStreamMutation({

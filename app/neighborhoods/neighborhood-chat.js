@@ -302,13 +302,16 @@ console.log("Rendering message type:", message.fileType, "sessionId:", message.s
     setIsLoadingTorrent(true);
 
     try {
-      // 🔁 Use global client — create if missing (and attach!)
+      // Assume globalWebTorrentClient is already initialized by app/+html.tsx
+      // and has all necessary trackers.
       let client = window.globalWebTorrentClient;
       if (!client) {
-        console.warn("🔧 Creating global WebTorrent client on-demand");
-        client = new window.WebTorrent();
-        window.globalWebTorrentClient = client; // critical!
+        console.error("💥 Global WebTorrent client not found. This should be initialized in app/+html.tsx");
+        Alert.alert("Error", "P2P functionality not ready. Please refresh.");
+        setIsLoadingTorrent(false);
+        return;
       }
+
 
       // 🧪 Log existing torrents to debug duplicates
       console.log("📊 Global client has", client.torrents.length, "torrents");
@@ -1073,7 +1076,7 @@ const SEND_NEIGHBORHOOD_MESSAGE = gql`
       fileUrl: $fileUrl
       magnetLink: $magnetLink
       mimeType: $mimeType
-      sessionId: $sessionId
+
       chunkIndex: $chunkIndex
       totalChunks: $totalChunks
       thumbnailUrl: $thumbnailUrl
@@ -1664,7 +1667,6 @@ export default function NeighborhoodChatScreen() {
           fileType: "live_stream_chunked",
 
           // 🔑 CRITICAL FIX: Ensure the sessionId is included in the variables
-          sessionId: sessionId,
           // totalChunks: 0, // optional
         },
       });
