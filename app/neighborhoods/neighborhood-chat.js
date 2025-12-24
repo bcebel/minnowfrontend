@@ -19,7 +19,6 @@ import {
   Platform,
 } from "react-native";
 import { Text } from "react-native";
-import { Blob } from "expo-blob";
 import { useLocalSearchParams, useRouter, Link } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io } from "socket.io-client";
@@ -30,115 +29,7 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentMedia from "../../components/WebTorrentMedia";
 import AdMessage from "../../components/AdMessage";
 import { NeighborhoodVideoReassembler } from "../../components/NeighborhoodVideoReassembler";
-import LiveStreamMessage from "../../components/LiveStreamMessage";
-import LiveStreamPlayer from "../../components/LiveStreamPlayer";
-import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer";
-import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
 
-const playStream = (magnetLink) => {
-  if (Platform.OS !== "web") {
-    Alert.alert("Web Only", "Stream playback requires web browser");
-    return;
-  }
-
-  // 1. Use the GLOBAL client that's already running
-  const client = window.globalWebTorrentClient;
-  if (!client) {
-    alert("Global WebTorrent client not found. Please refresh.");
-    return;
-  }
-
-  // 2. Check if the torrent is already in the client (being seeded)
-  const existingTorrent = client.get(magnetLink);
-  if (existingTorrent) {
-    console.log("📦 Torrent already in client, ready to play!");
-    renderTorrentVideo(existingTorrent);
-    return;
-  }
-
-  // 3. If not, add it to the SAME global client
-  console.log("➕ Adding magnet to global client:", magnetLink);
-  client.add(magnetLink, (torrent) => {
-    console.log("✅ Torrent added to global client:", torrent.name);
-    // Add error logging
-    torrent.on("error", (err) => console.error("Torrent error:", err));
-    torrent.on("warning", (warn) => console.warn("Torrent warning:", warn));
-
-    renderTorrentVideo(torrent);
-  });
-};
-
-const renderTorrentVideo = (torrent) => {
-  const file = torrent.files.find(
-    (file) => file.name.endsWith(".webm") || file.name.endsWith(".mp4")
-  );
-
-  if (!file) {
-    alert("❌ No playable video file found in torrent");
-    return;
-  }
-
-  // Load WebTorrent if needed
-  if (!window.WebTorrent) {
-    const script = document.createElement("script");
-    script.src =
-      "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-    document.head.appendChild(script);
-    script.onload = () => playWithWebTorrent(magnetLink);
-  } else {
-    playWithWebTorrent(magnetLink);
-  }
-};
-
-const playWithWebTorrent = (magnetLink) => {
-  const client = new window.WebTorrent();
-
-  client.add(magnetLink, (torrent) => {
-    // Find video file
-    const file = torrent.files.find(
-      (file) => file.name.endsWith(".webm") || file.name.endsWith(".mp4")
-    );
-
-    if (file) {
-      // Create video player UI (similar to your stream UI)
-      const container = document.createElement("div");
-      container.style.cssText = `
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: black; z-index: 9999; display: flex;
-        flex-direction: column; align-items: center; justify-content: center;
-      `;
-
-      const video = document.createElement("video");
-      video.controls = true;
-      video.autoplay = true;
-      video.style.cssText = `
-        width: 100%; max-width: 800px; height: auto;
-        border: 3px solid #0066cc; border-radius: 12px;
-      `;
-
-      const closeBtn = document.createElement("button");
-      closeBtn.textContent = "Close";
-      closeBtn.style.cssText = `
-        background: #ff4444; color: white; border: none;
-        padding: 10px 20px; border-radius: 6px; cursor: pointer;
-        font-weight: bold; margin-top: 20px;
-      `;
-      closeBtn.onclick = () => {
-        document.body.removeChild(container);
-        torrent.destroy();
-      };
-
-      container.appendChild(video);
-      container.appendChild(closeBtn);
-      document.body.appendChild(container);
-
-      // Render video
-      file.renderTo(video);
-    } else {
-      alert("No video file found in stream");
-    }
-  });
-};
 const safeFileName = (asset) =>
   asset.name || asset.fileName || asset.uri.split("/").pop() || "media";
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
@@ -159,6 +50,7 @@ const getFileType = (fileName) => {
 
   return "unknown";
 };
+
 // Simple Video Player Component
 const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
   const player = useVideoPlayer(url, (player) => {
@@ -203,19 +95,14 @@ const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
   );
 };
 
-function ChatMediaRenderer({
-  message,
-  onStreamActive,
-  liveChunks = [],
-  clearProcessedChunk = () => {},
-}) {
+function ChatMediaRenderer({ message }) {
   // 1️⃣ Unconditionally filter out individual video chunk messages.
   // These are data for the player, not something to be displayed in the chat.
   if (message.fileType === "video_chunk") {
     return null;
   }
 
-  console.log("Rendering message type:", message.fileType, "sessionId:", message.sessionId);
+  console.log("Rendering message type:", message.fileType);
   const {
     imageUrl,
     videoUrl,
@@ -233,19 +120,6 @@ function ChatMediaRenderer({
   });
   if (!message) return null;
 
-  // 🔥 Filter out invalid/malformed live_stream messages
-  if (
-    message.fileType === "live_stream" &&
-    (!message.magnetLink || message.magnetLink.includes("undefined"))
-  ) {
-    return (
-      <View style={styles.liveStreamCard}>
-        <Text style={styles.liveTitle}>📡 Stream initializing...</Text>
-        <ActivityIndicator size="small" color="#ff4444" />
-      </View>
-    );
-  }
-console.log("Rendering message type:", message.fileType, "sessionId:", message.sessionId);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
 
   // 🆕 NEW: State for WebTorrent stream playback
@@ -254,6 +128,7 @@ console.log("Rendering message type:", message.fileType, "sessionId:", message.s
   const [isDownloadingChunks, setIsDownloadingChunks] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [chunkedVideoUrl, setChunkedVideoUrl] = useState(null);
+
   // 🆕 Handle chunked video playback
   const handleChunkedVideo = async (sessionId, totalChunks) => {
     if (Platform.OS !== "web") {
@@ -375,81 +250,6 @@ console.log("Rendering message type:", message.fileType, "sessionId:", message.s
   const createVideoPlayer = (file, torrent) => {
     console.log(`📹 Creating player for: ${file.name} (${file.length} bytes)`);
 
-    // Check if we're on iOS/mobile and show appropriate message
-    /*
-    if (
-      Platform.OS !== "web" ||
-      /iPhone|iPad|iPod/i.test(navigator.userAgent)
-    ) {
-      // Create a simple container for mobile
-      const container = document.createElement("div");
-      container.style.cssText = `
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.95); z-index: 9998;
-      display: flex; flex-direction: column; 
-      align-items: center; justify-content: center;
-      padding: 20px; color: white;
-    `;
-
-      container.innerHTML = `
-      <div style="text-align: center; padding: 20px;">
-        <h2 style="color: #ff4444;">⚠️ Video Playback Limited on iOS</h2>
-        <p style="margin: 20px 0;">Due to iOS restrictions, WebTorrent streaming is not supported.</p>
-        <p style="margin: 10px 0;">Please use the download option below:</p>
-      </div>
-    `;
-
-      // Create download link
-      const downloadLink = document.createElement("a");
-      downloadLink.href = "#";
-      downloadLink.textContent = `📥 Download ${file.name}`;
-      downloadLink.style.cssText = `
-      display: inline-block; background: #0066cc;
-      color: white; padding: 12px 24px; border-radius: 6px;
-      text-decoration: none; margin: 20px 0; font-weight: bold;
-      cursor: pointer;
-    `;
-
-      downloadLink.onclick = async () => {
-        try {
-          const blob = await new Promise((resolve, reject) => {
-            file.getBlob((err, blob) => {
-              if (err) reject(err);
-              else resolve(blob);
-            });
-          });
-
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = file.name;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-        } catch (err) {
-          alert("Download failed: " + err.message);
-        }
-      };
-
-      // Close button
-      const closeBtn = document.createElement("button");
-      closeBtn.textContent = "Close";
-      closeBtn.style.cssText = `
-      background: #ff4444; color: white; border: none;
-      padding: 10px 20px; border-radius: 6px;
-      font-weight: bold; cursor: pointer; margin-top: 20px;
-    `;
-      closeBtn.onclick = () => {
-        document.body.removeChild(container);
-      };
-
-      container.appendChild(downloadLink);
-      container.appendChild(closeBtn);
-      document.body.appendChild(container);
-      return;
-    }
-*/
     // Only continue with MediaSource for desktop browsers
     // Create UI container
     const container = document.createElement("div");
@@ -499,102 +299,101 @@ console.log("Rendering message type:", message.fileType, "sessionId:", message.s
 
       // 🎯 METHOD 2: MediaSource API (Desktop only)
       try {
-    
         function getMediaSource() {
-          return self.ManagedMediaSource || self.MediaSource
+          return self.ManagedMediaSource || self.MediaSource;
         }
-        
+
         const mediaSource = getMediaSource();
         video.src = URL.createObjectURL(mediaSource);
         video.disableRemotePlayback = true;
 
-mediaSource.addEventListener("sourceopen", () => {
-  updateStatus("Creating stream source...");
+        mediaSource.addEventListener("sourceopen", () => {
+          updateStatus("Creating stream source...");
 
-  try {
-    // 1. Create SourceBuffer with the correct MIME type
-    const mimeType = 'video/webm; codecs="vp8,opus"'; // Match your WebTorrent files
-    const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-
-    // 2. Create a readable stream from the WebTorrent file
-    const stream = file.createReadStream();
-    let isBuffering = false;
-    const bufferQueue = [];
-
-    updateStatus("Starting stream...");
-
-    // 3. When data arrives from WebTorrent, add it to the queue
-    stream.on("data", (chunk) => {
-      bufferQueue.push(chunk);
-      processBuffer();
-    });
-
-    // 4. Handle stream end
-    stream.on("end", () => {
-      console.log("✅ Stream download complete");
-      if (!isBuffering && bufferQueue.length === 0) {
-        mediaSource.endOfStream();
-        updateStatus("✅ Stream complete");
-      }
-    });
-
-    // 5. Process the buffer queue
-    function processBuffer() {
-      if (isBuffering || bufferQueue.length === 0) return;
-
-      if (sourceBuffer.updating) {
-        // SourceBuffer is busy, try again later
-        setTimeout(processBuffer, 50);
-        return;
-      }
-
-      isBuffering = true;
-      const chunk = bufferQueue.shift();
-
-      try {
-        sourceBuffer.appendBuffer(chunk);
-      } catch (err) {
-        console.error("❌ Buffer append error:", err);
-        // Handle MIME type fallback if needed
-        if (err.name === "NotSupportedError") {
-          updateStatus("Trying MP4 fallback...");
           try {
-            mediaSource.removeSourceBuffer(sourceBuffer);
-            const altMime = 'video/mp4; codecs="avc1.42E01E,mp4a.40.2"';
-            const newBuffer = mediaSource.addSourceBuffer(altMime);
-            newBuffer.appendBuffer(chunk);
-          } catch (altErr) {
-            console.error("Alt codec failed:", altErr);
+            // 1. Create SourceBuffer with the correct MIME type
+            const mimeType = 'video/webm; codecs="vp8,opus"'; // Match your WebTorrent files
+            const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+
+            // 2. Create a readable stream from the WebTorrent file
+            const stream = file.createReadStream();
+            let isBuffering = false;
+            const bufferQueue = [];
+
+            updateStatus("Starting stream...");
+
+            // 3. When data arrives from WebTorrent, add it to the queue
+            stream.on("data", (chunk) => {
+              bufferQueue.push(chunk);
+              processBuffer();
+            });
+
+            // 4. Handle stream end
+            stream.on("end", () => {
+              console.log("✅ Stream download complete");
+              if (!isBuffering && bufferQueue.length === 0) {
+                mediaSource.endOfStream();
+                updateStatus("✅ Stream complete");
+              }
+            });
+
+            // 5. Process the buffer queue
+            function processBuffer() {
+              if (isBuffering || bufferQueue.length === 0) return;
+
+              if (sourceBuffer.updating) {
+                // SourceBuffer is busy, try again later
+                setTimeout(processBuffer, 50);
+                return;
+              }
+
+              isBuffering = true;
+              const chunk = bufferQueue.shift();
+
+              try {
+                sourceBuffer.appendBuffer(chunk);
+              } catch (err) {
+                console.error("❌ Buffer append error:", err);
+                // Handle MIME type fallback if needed
+                if (err.name === "NotSupportedError") {
+                  updateStatus("Trying MP4 fallback...");
+                  try {
+                    mediaSource.removeSourceBuffer(sourceBuffer);
+                    const altMime = 'video/mp4; codecs="avc1.42E01E,mp4a.40.2"';
+                    const newBuffer = mediaSource.addSourceBuffer(altMime);
+                    newBuffer.appendBuffer(chunk);
+                  } catch (altErr) {
+                    console.error("Alt codec failed:", altErr);
+                    fallbackToDownload();
+                  }
+                }
+              }
+            }
+
+            // 6. When a buffer append is complete, process next chunk
+            sourceBuffer.addEventListener("updateend", () => {
+              isBuffering = false;
+              processBuffer();
+
+              // Auto-play when we have enough data
+              if (video.paused && mediaSource.readyState === "open") {
+                video
+                  .play()
+                  .catch((e) => console.warn("Auto-play blocked:", e));
+              }
+            });
+
+            sourceBuffer.addEventListener("error", (e) => {
+              console.error("SourceBuffer error:", e);
+              updateStatus("Buffer error, trying fallback...");
+              fallbackToDownload();
+            });
+          } catch (error) {
+            console.error("❌ Source setup failed:", error);
+            updateStatus(`Error: ${error.message}`);
             fallbackToDownload();
           }
-        }
-      }
-    }
-
-    // 6. When a buffer append is complete, process next chunk
-    sourceBuffer.addEventListener("updateend", () => {
-      isBuffering = false;
-      processBuffer();
-
-      // Auto-play when we have enough data
-      if (video.paused && mediaSource.readyState === "open") {
-        video.play().catch((e) => console.warn("Auto-play blocked:", e));
-      }
-    });
-
-    sourceBuffer.addEventListener("error", (e) => {
-      console.error("SourceBuffer error:", e);
-      updateStatus("Buffer error, trying fallback...");
-      fallbackToDownload();
-    });
-  } catch (error) {
-    console.error("❌ Source setup failed:", error);
-    updateStatus(`Error: ${error.message}`);
-    fallbackToDownload();
-  }
-});
-
-
+        });
       } catch (streamErr) {
         console.error("Stream creation failed:", streamErr);
         fallbackToDownload();
@@ -653,47 +452,12 @@ mediaSource.addEventListener("sourceopen", () => {
     closeBtn.onclick = () => {
       document.body.removeChild(container);
       document.body.removeChild(closeBtn);
-      // Only destroy if it's a live stream torrent
-      if (torrent.name && torrent.name.includes("live-")) {
-        torrent.destroy();
-      }
     };
 
     document.body.appendChild(container);
     document.body.appendChild(closeBtn);
   };
 
-  // 🆕 MANUAL STREAMING FALLBACK
-  const manualStreamPlayback = (file, video) => {
-    try {
-      // Create a simple read stream
-      const stream = file.createReadStream();
-      const chunks = [];
-
-      stream.on("data", (chunk) => {
-        chunks.push(chunk);
-        // Update video source periodically
-        if (chunks.length % 10 === 0) {
-          const blob = new Blob(chunks, { type: "video/webm" });
-          video.src = URL.createObjectURL(blob);
-          video.load();
-        }
-      });
-
-      stream.on("end", () => {
-        console.log("✅ Stream complete");
-      });
-    } catch (err) {
-      console.error("Manual stream failed:", err);
-      video.innerHTML = `
-      <div style="color: white; text-align: center; padding: 50px;">
-        <h3>⚠️ Stream Error</h3>
-        <p>${err.message}</p>
-        <p>Try downloading the file instead.</p>
-      </div>
-    `;
-    }
-  };
   // 🆕 Helper to fetch chunks (you'll need to implement this)
   const fetchChunksBySession = async (sessionId) => {
     // This depends on your backend - you might need to:
@@ -704,40 +468,12 @@ mediaSource.addEventListener("sourceopen", () => {
     // or use a context/global state
     return []; // Placeholder
   };
-  if (message.fileType === "live_stream_chunked") {
-    // Check 2: Does it have a Session ID?
-    if (!message.sessionId) {
-      return <Text style={{ color: "red" }}>Error: Stream missing ID!</Text>;
-    }
 
-    // Call the parent handler to start monitoring this session
-    useEffect(() => {
-      onStreamActive(message.sessionId);
-    }, [message.sessionId, onStreamActive]);
-
-    return (
-      <View
-        style={{ marginVertical: 10, borderWidth: 1, borderColor: "#00ffff" }}
-      >
-        <Text style={{ fontWeight: "bold" }}>{message.content}</Text>
-
-        {/* 🔑 Render the player for the master message */}
-        <NeighborhoodLiveStreamPlayer
-          sessionId={message.sessionId}
-          initialChunks={liveChunks.filter(
-            (c) => c.sessionId === message.sessionId
-          )}
-          clearProcessedChunk={clearProcessedChunk}
-          streamTitle={message.fileName}
-        />
-        <Text>📡 Peers: {liveChunks.length} chunks available.</Text>
-      </View>
-    );
-  }
   // 2️⃣ Handle video_chunk (INDIVIDUAL CHUNK MESSAGE)
   if (message.fileType === "video_chunk") {
     return null; // Don't render anything for individual chunks
   }
+
   // 🆕 Render chunked video
   if (message.fileType === "video_chunked") {
     // Master message with thumbnail
@@ -791,59 +527,11 @@ mediaSource.addEventListener("sourceopen", () => {
     );
   }
 
-  // 🆕 Render individual chunk (small indicator)
-  if (message.fileType === "video_chunk") {
-    return (
-      <View style={styles.chunkIndicator}>
-        <Text style={styles.chunkText}>
-          🧩 Part {message.chunkIndex + 1}/{message.totalChunks}
-        </Text>
-      </View>
-    );
-  }
   const hasAnyMedia = imageUrl || videoUrl || fileUrl || magnetLink;
   if (!hasAnyMedia) {
     return null;
   }
 
-  // Inside ChatMediaRenderer
-  if (message.fileType === "live_stream") {
-    const safeMagnet =
-      message.magnetLink && !message.magnetLink.includes("undefined")
-        ? message.magnetLink
-        : null;
-
-    if (!safeMagnet) {
-      return (
-        <View style={styles.liveStreamCard}>
-          <Text style={styles.liveTitle}>📡 Broadcasting...</Text>
-          <ActivityIndicator color="#ff4444" />
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.liveStreamCard}>
-        <Text style={styles.liveTitle}>🔴 LIVE STREAM</Text>
-        <Text style={styles.streamFileName}>{message.fileName}</Text>
-          <TouchableOpacity
-        style={styles.playButton}
-onPress={() => {
-  // 1. Tell the parent component a stream with this sessionId is active
-  if (message.sessionId) {
-    onStreamActive(message.sessionId);
-  }
-  // 2. You could also trigger the NeighborhoodLiveStreamPlayer directly here
-  // For example, by setting a state that forces its render
-  console.log("Activating live stream session:", message.sessionId);
-}}>
-          <Text style={styles.playButtonText}>
-            {isLoadingTorrent ? "⏳ Loading..." : "▶️ Watch Stream"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
   const getPinataUrl = (url) => {
     if (!url) return null;
     if (url.includes("/ipfs/")) {
@@ -996,6 +684,7 @@ onPress={() => {
     </View>
   );
 }
+
 // GraphQL Queries
 const GET_NEIGHBORHOOD_MESSAGES = gql`
   query GetNeighborhoodMessages($neighborhoodId: ID!) {
@@ -1211,6 +900,7 @@ const getProfilePhotoUrl = (profilePhoto) => {
   // If it's just a string that doesn't match above, assume it's a CID
   return `https://${PINATA_GATEWAY}/ipfs/${profilePhoto}`;
 };
+
 const handleFilePress = async (message) => {
   try {
     if (!message.fileUrl) {
@@ -1298,9 +988,6 @@ export default function NeighborhoodChatScreen() {
   const scrollViewRef = useRef(null);
   const messageInputRef = useRef(null);
   const socketRef = useRef(null);
-  // 🆕 New state to track the current active session
-  const [activeStreamSessionId, setActiveStreamSessionId] = useState(null);
-  const [liveChunks, setLiveChunks] = useState([]);
   const [deleteMessageMutation] = useMutation(DELETE_NEIGHBORHOOD_MESSAGE);
   const [socket, setSocket] = useState(null);
   const [username, setUsername] = useState("");
@@ -1324,27 +1011,6 @@ export default function NeighborhoodChatScreen() {
   `;
 
   const [trackClick] = useMutation(TRACK_CLICK);
-  const handleStreamActive = useCallback((sessionId) => {
-    // Only set if a stream is starting or being rendered
-    setActiveStreamSessionId(sessionId);
-    console.log(`Live Stream started with Session ID: ${sessionId}`);
-  }, []);
-
-  const clearProcessedChunk = useCallback(
-    (chunkId) => {
-      // Remove the chunk from the global queue once the Player has started processing it
-      setLiveChunks((prevChunks) => {
-        const updatedChunks = prevChunks.filter(
-          (chunk) => chunk.id !== chunkId
-        );
-        // Ensure the array only holds chunks for the currently active stream
-        return updatedChunks.filter(
-          (c) => c.sessionId === activeStreamSessionId
-        );
-      });
-    },
-    [activeStreamSessionId]
-  );
 
   const handleDeleteMessage = async (messageId) => {
     console.log("Attempting to delete message ID:", messageId); // Log is confirmed working
@@ -1451,44 +1117,9 @@ export default function NeighborhoodChatScreen() {
     return isOwner || isAdmin;
   }, [neighborhoodData, username]);
 
-  useEffect(() => {
-    // 1. Initialize Socket.io connection (if not already done)
-    if (!socketRef.current) {
-      socketRef.current = io(BACKEND_URL);
-    }
-
-    const socket = socketRef.current;
-
-    // 2. Listen for new messages pushed from the server
-    socket.on("neighborhoodMessage", (newMessage) => {
-      // Assume newMessage comes directly from your GraphQL subscription payload
-
-      // 3. Check if it's a new video chunk for the active stream
-      if (
-        newMessage.fileType === "video_chunk" &&
-        newMessage.sessionId === activeStreamSessionId
-      ) {
-        // 4. Add the chunk to the live queue
-        setLiveChunks((prevChunks) => [...prevChunks, newMessage]);
-        console.log(
-          `📡 New live chunk added to queue: ${newMessage.chunkIndex}`
-        );
-      }
-    });
-
-    return () => {
-      socket.off("neighborhoodMessage");
-    };
-  }, [activeStreamSessionId]);
-
   const renderMessage = (message) => (
     <View key={message.id}>
-      <ChatMediaRenderer
-        message={message}
-        onStreamActive={handleStreamActive}
-        liveChunks={liveChunks}
-        clearProcessedChunk={clearProcessedChunk}
-      />
+      <ChatMediaRenderer message={message} />
     </View>
   );
 
@@ -1496,6 +1127,7 @@ export default function NeighborhoodChatScreen() {
     // first ad on load
     fetchRandomAd();
   }, []);
+
   // Authentication Check
   useEffect(() => {
     const checkAuth = async () => {
@@ -1564,13 +1196,15 @@ export default function NeighborhoodChatScreen() {
   const initializeSocket = (token) => {
     console.log("🔌 Initializing neighborhood socket...");
 
-    const newSocket = io(BACKEND_URL, {
-      auth: { token },
-      transports: ["websocket", "polling"],
-    });
+const newSocket = io(BACKEND_URL, {
+  auth: { token },
+  path: "/socket.io-chat/",
+  transports: ["polling"], // force polling
+});
 
     newSocket.on("connect", () => {
       console.log("✅ Neighborhood socket connected");
+      refetch(); 
       setSocket(newSocket);
       newSocket.emit("join-neighborhood", neighborhoodId);
     });
@@ -1622,6 +1256,7 @@ export default function NeighborhoodChatScreen() {
       setUploadType(null);
     }
   };
+
   // open camera
   const openCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -1648,6 +1283,7 @@ export default function NeighborhoodChatScreen() {
       );
     }
   };
+
   // Send Message
   const sendMessage = async () => {
     if (!newMessage.trim() || !socket) return;
@@ -1658,14 +1294,8 @@ export default function NeighborhoodChatScreen() {
     try {
       await sendMessageMutation({
         variables: {
-          content: "🔴 LIVE NOW! Tap to watch",
+          content: messageContent,
           neighborhoodId: neighborhoodId,
-          fileName: `${username}'s Live Stream`,
-          fileType: "live_stream_chunked",
-
-          // 🔑 CRITICAL FIX: Ensure the sessionId is included in the variables
-          sessionId: sessionId,
-          // totalChunks: 0, // optional
         },
       });
       console.log("✅ Neighborhood message sent");
@@ -1679,6 +1309,7 @@ export default function NeighborhoodChatScreen() {
       setNewMessage(messageContent);
     }
   };
+
   // In pickImage function
   const pickFile = async () => {
     // 🔑 Use DocumentPicker for general files (and files the user manually selects)
@@ -1961,6 +1592,7 @@ export default function NeighborhoodChatScreen() {
       );
     });
   };
+
   // Helper function
   const getMimeType = (filename) => {
     const ext = filename.split(".").pop().toLowerCase();
@@ -2149,228 +1781,6 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  const captureStreamThumbnail = (stream) => {
-    return new Promise((resolve) => {
-      const video = document.createElement("video");
-      video.muted = true;
-      video.srcObject = stream;
-      video.play();
-
-      const onFrame = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = 320;
-        canvas.height = 240;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, 320, 240);
-        resolve(canvas.toDataURL("image/jpeg", 0.7));
-        video.removeEventListener("play", onFrame);
-      };
-
-      video.addEventListener("play", onFrame);
-      // Fallback timeout
-      setTimeout(() => {
-        video.removeEventListener("play", onFrame);
-        resolve(null);
-      }, 2000);
-    });
-  };
-
-  const [streamData, setStreamData] = useState(null);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [activeSessionId, setActiveSessionId] = useState(null);
-  const mediaRecorderRef = useRef(null); // Ref for MediaRecorder instance
-  const streamRef = useRef(null); // Ref for the media stream (camera/mic)
-  // Ensure the button calls this function:
-  // <TouchableOpacity onPress={broadcastLiveClipChunked} disabled={isStreaming}>
-
-  const broadcastLiveClipChunked = async () => {
-    if (Platform.OS !== "web") {
-      Alert.alert("Web Only", "Live streaming requires a browser");
-      return;
-    }
-
-    // Prevent double-streaming
-    if (isStreaming) {
-      Alert.alert("Already Live", "You are already broadcasting a stream.");
-      return;
-    }
-
-    // 1. Setup Session Identifiers
-    const sessionId = `live_${Date.now()}_${Math.random()
-      .toString(36)
-      .substr(2, 9)}`;
-  const totalChunks = -1; // We don't know the total yet for a live stream
-
-    try {
-      setUploading(true); // Assuming you use this state
-
-      // 2. Get Camera and Microphone Stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 360 },
-        audio: true,
-      });
-
-      // Save stream and set state
-      streamRef.current = stream;
-      setActiveSessionId(sessionId);
-      setIsStreaming(true);
-      Alert.alert("🎤 Live", "Stream starting and messages being sent...");
-
-      // 3. Send the Master Message
-      await sendMessageMutation({
-        variables: {
-          content: "🔴 LIVE BROADCAST (P2P) - Tap to Play",
-          neighborhoodId: neighborhoodId,
-          fileName: username
-            ? `${username}'s Live Broadcast`
-            : "Live Broadcast",
-          fileType: "live_stream_chunked", // 🔑 CRITICAL: Use the chunked type
-          sessionId: sessionId, // 🔑 CRITICAL: Pass the Session ID
-          totalChunks: totalChunks, // Placeholder
-          thumbnailUrl: null,
-        },
-      });
-
-      // 4. Setup MediaRecorder for Chunking
-      const mediaRecorder = new MediaRecorder(stream, {
-        // Use mimeType supported by Media Source Extensions (MSE)
-        // 'video/webm;codecs=vp8,opus' is a safe cross-browser choice
-        mimeType: "video/webm;codecs=vp8,opus",
-      });
-
-      mediaRecorderRef.current = mediaRecorder;
-      let chunkIndex = 0;
-
-      // 5. Handle Data Available Event (Chunking Logic)
-      mediaRecorder.ondataavailable = async (e) => {
-        if (e.data.size > 0) {
-          console.log(
-            `📦 MediaRecorder captured chunk ${chunkIndex}. Size: ${e.data.size}`
-          );
-
-          // Send each chunk to WebTorrent and then chat
-          await uploadSingleChunk(
-            e.data, // This is the Blob chunk (video/webm)
-            chunkIndex++,
-            sessionId,
-            totalChunks, // Placeholder 0
-            "Live Stream"
-          );
-        }
-      };
-
-      // 6. Start recording and collecting chunks every 5 seconds
-      mediaRecorder.start(5000); // 5000ms = 5-second chunks
-
-      setUploading(false); // Done with the initial setup
-    } catch (err) {
-      console.error("❌ Live Broadcast failed:", err);
-      Alert.alert("Failed to Start Stream", err.message);
-
-      // Cleanup on failure
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      setIsStreaming(false);
-      setUploading(false);
-    }
-  };
-
-  // You will also need a function to stop the stream
-  const stopLiveStream = () => {
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== "inactive"
-    ) {
-      mediaRecorderRef.current.stop();
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-    }
-
-    // Send the final "Stream ended" message
-    sendMessageMutation({
-      variables: {
-        content: "⏹️ Stream ended",
-        neighborhoodId: neighborhoodId,
-        // The following are correctly NULL for the end message:
-        sessionId: null,
-        chunkIndex: null,
-        totalChunks: null,
-      },
-    });
-
-    // Cleanup state
-    setIsStreaming(false);
-    setActiveSessionId(null);
-
-    // Stop and destroy torrents related to this session (Optional, but good cleanup)
-    if (
-      Platform.OS === "web" &&
-      window.globalWebTorrentClient &&
-      activeSessionId
-    ) {
-      window.globalWebTorrentClient.torrents.forEach((t) => {
-        if (t.name.includes(activeSessionId)) {
-          t.destroy();
-        }
-      });
-    }
-  };
-
-  const showStreamControls = (torrent, stream, preview) => {
-    const controls = document.createElement("div");
-    controls.style.cssText = `
-    position: fixed; top: 220px; right: 10px; 
-    background: rgba(0,0,0,0.8); color: white;
-    padding: 15px; border-radius: 8px; z-index: 1001;
-    border: 2px solid #ff0000;
-  `;
-
-    controls.innerHTML = `
-    <div style="margin-bottom: 10px; font-weight: bold; color: #ff0000;">
-      🔴 LIVE STREAMING
-    </div>
-    <div style="margin-bottom: 5px; font-size: 12px;">
-      Seeders: <span id="seeders">1</span> | 
-      Peers: <span id="peers">0</span>
-    </div>
-    <div style="display: flex; gap: 10px;">
-      <button id="stopStream" style="
-        background: #ff4444; color: white; border: none;
-        padding: 8px 15px; border-radius: 4px; cursor: pointer;
-      ">Stop Stream</button>
-    </div>
-  `;
-
-    document.body.appendChild(controls);
-
-    // Update stats
-    const updateStats = () => {
-      document.getElementById("seeders").textContent = torrent.numPeers;
-      document.getElementById("peers").textContent = torrent.wires.length;
-    };
-    setInterval(updateStats, 2000);
-
-    // Stop button
-    document.getElementById("stopStream").onclick = () => {
-      torrent.destroy();
-      stream.getTracks().forEach((track) => track.stop());
-      document.body.removeChild(preview);
-      document.body.removeChild(controls);
-
-      // Post end message
-      sendMessageMutation({
-        variables: {
-          content: "⏹️ **LIVE STREAM ENDED**",
-          neighborhoodId: neighborhoodId,
-        },
-      });
-
-      Alert.alert("Stream Ended", "Live stream stopped successfully");
-    };
-  };
-
   const messages = data?.neighborhoodMessages || [];
 
   const neighborhoodName =
@@ -2472,19 +1882,6 @@ export default function NeighborhoodChatScreen() {
         <TouchableOpacity style={styles.uploadButton} onPress={openCamera}>
           <Text style={styles.uploadButtonText}>📷</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.streamButton,
-            isStreaming ? styles.stopStreamButton : styles.startStreamButton,
-          ]}
-          onPress={isStreaming ? stopLiveStream : broadcastLiveClipChunked}
-          disabled={uploading}
-        >
-          <Text style={styles.streamButtonText}>
-            {isStreaming ? "⏹️ Stop Live" : "🎙️ Go Live (P2P)"}
-          </Text>
-        </TouchableOpacity>
       </View>
       <View>
         <TextInput
@@ -2497,95 +1894,6 @@ export default function NeighborhoodChatScreen() {
           onSubmitEditing={sendMessage}
           editable={!!socket}
         />
-        {__DEV__ && (
-          <TouchableOpacity
-            style={{
-              backgroundColor: "#ff4444",
-              padding: 12,
-              margin: 10,
-              borderRadius: 8,
-              alignItems: "center",
-            }}
-            onPress={async () => {
-              if (Platform.OS !== "web") {
-                Alert.alert("Web only");
-                return;
-              }
-              try {
-                // 1. Record 5s
-                const stream = await navigator.mediaDevices.getUserMedia({
-                  video: true,
-                  audio: true,
-                });
-                const chunks = [];
-                const mr = new MediaRecorder(stream, {
-                  mimeType: "video/webm;codecs=vp8,opus",
-                });
-                mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-                mr.onstop = async () => {
-                  const blob = new Blob(chunks, { type: "video/webm" });
-                  const url = URL.createObjectURL(blob);
-                  console.log("✅ Blob ready", blob.size, "bytes →", url);
-
-                  // 2. Play it locally FIRST (sanity check)
-                  const video = document.createElement("video");
-                  video.controls = true;
-                  video.src = url;
-                  video.style.cssText = `
-            position: fixed; top: 20%; left: 20%; width: 60%; 
-            background: black; z-index: 9999;
-          `;
-                  document.body.appendChild(video);
-                  video
-                    .play()
-                    .catch((e) =>
-                      console.warn("Play failed (user gesture needed)", e)
-                    );
-
-                  // 3. Seed to WebTorrent
-                  const client = window.globalWebTorrentClient;
-                  client.seed(blob, {
-                    name: "test.webm"
-                  }, (torrent) => {
-                    console.log("🌱 Torrent:", {
-                      name: torrent.name,
-                      magnet: torrent.magnetURI,
-                      infoHash: torrent.infoHash,
-                      ready: torrent.ready,
-                      done: torrent.done,
-                      length: torrent.length,
-                      numPeers: torrent.numPeers,
-                      downloaded: torrent.downloaded,
-                      uploaded: torrent.uploaded,
-                      wires: torrent.wires.length,
-                    });
-
-                    // Wait until at least announced
-                    torrent.on("ready", () => {
-                      console.log("📡 Torrent ready and announced");
-                      navigator.clipboard.writeText(torrent.magnetURI);
-                      alert(
-                        "✅ Magnet copied — wait 3s, then test in incognito"
-                      );
-                    });
-                  });
-                  stream.getTracks().forEach((t) => t.stop());
-                };
-                mr.start();
-                setTimeout(() => mr.stop(), 5000);
-                alert("🎥 Recording 5s test clip...");
-              } catch (e) {
-                console.error(e);
-                alert("❌ Test failed: " + e.message);
-              }
-            }}
-          >
-            <NeighborhoodLiveStreamRecorder
-              neighborhoodId={neighborhoodId}
-              username={username}
-            />
-          </TouchableOpacity>
-        )}
         <TouchableOpacity
           style={[
             styles.sendButton,
