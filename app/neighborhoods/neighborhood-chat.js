@@ -17,12 +17,13 @@ import {
   Linking,
   ActivityIndicator,
   Platform,
+  FlatList,
 } from "react-native";
 import { Text } from "react-native";
 import { useLocalSearchParams, useRouter, Link } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io } from "socket.io-client";
-import { gql, useQuery, useMutation } from "@apollo/client";
+import { gql, useQuery, useMutation, useApolloClient } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -37,10 +38,8 @@ const getFileType = (fileName) => {
   if (!fileName) return "unknown";
   const ext = fileName.split(".").pop()?.toLowerCase();
 
-  // 🎯 FIX 1: Ensure all common video types are listed
   if (["mp4", "mov", "webm", "avi", "mkv"].includes(ext)) return "video";
 
-  // 🎯 FIX 2: Ensure HEIC/HEIF and WEBP are explicitly listed as images
   if (
     ["jpg", "jpeg", "png", "gif", "avif", "heic", "heif", "webp"].includes(ext)
   )
@@ -57,19 +56,17 @@ const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
     player.loop = false;
   });
 
-  // 🎯 COMBINED: Auto-play + cleanup in one useEffect
   useEffect(() => {
-    // Auto-play when player is ready
     if (player) {
-      player.play();    }
+      player.play();
+    }
 
-    // Cleanup function for blob URLs
     return () => {
       if (isTorrent && url.startsWith("blob:")) {
         URL.revokeObjectURL(url);
       }
     };
-  }, [player, url, isTorrent]); // ✅ All dependencies together
+  }, [player, url, isTorrent]);
 
   return (
     <TouchableOpacity
@@ -93,8 +90,6 @@ const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
 };
 
 function ChatMediaRenderer({ message }) {
-  // 1️⃣ Unconditionally filter out individual video chunk messages.
-  // These are data for the player, not something to be displayed in the chat.
   if (message.fileType === "video_chunk") {
     return null;
   }
@@ -112,15 +107,12 @@ function ChatMediaRenderer({ message }) {
   if (!message) return null;
 
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
-
-  // 🆕 NEW: State for WebTorrent stream playback
   const [torrentStreamUrl, setTorrentStreamUrl] = useState(null);
   const [isLoadingTorrent, setIsLoadingTorrent] = useState(false);
   const [isDownloadingChunks, setIsDownloadingChunks] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [chunkedVideoUrl, setChunkedVideoUrl] = useState(null);
 
-  // 🆕 Handle chunked video playback
   const handleChunkedVideo = async (sessionId, totalChunks) => {
     if (Platform.OS !== "web") {
       Alert.alert("Web Only", "Chunked videos require web browser");
@@ -130,7 +122,6 @@ function ChatMediaRenderer({ message }) {
     setIsDownloadingChunks(true);
 
     try {
-      // 1. Get all chunk messages for this session
       const chunkMessages = await fetchChunksBySession(sessionId);
 
       if (chunkMessages.length === 0) {
@@ -138,13 +129,11 @@ function ChatMediaRenderer({ message }) {
         return;
       }
 
-      // 2. Initialize reassembler
       const reassembler = new NeighborhoodVideoReassembler();
       reassembler.onChunkDownload = (downloaded, total) => {
         setDownloadProgress(Math.round((downloaded / total) * 100));
       };
 
-      // 3. Start progressive download
       const blob = await reassembler.watchProgressive(
         chunkMessages,
         (downloaded, total) => {
@@ -152,7 +141,6 @@ function ChatMediaRenderer({ message }) {
         }
       );
 
-      // 4. Create URL and play
       const videoUrl = URL.createObjectURL(blob);
       setChunkedVideoUrl(videoUrl);
     } catch (error) {
@@ -168,16 +156,13 @@ function ChatMediaRenderer({ message }) {
     setIsLoadingTorrent(true);
 
     try {
-      // 🔁 Use global client — create if missing (and attach!)
       let client = window.globalWebTorrentClient;
       if (!client) {
         console.warn("🔧 Creating global WebTorrent client on-demand");
         client = new window.WebTorrent();
-        window.globalWebTorrentClient = client; // critical!
+        window.globalWebTorrentClient = client;
       }
 
-
-      // 🔍 Check if already added (avoid duplicate adds)
       const existing = client.get(magnetUri);
       if (existing) {
         const file = existing.files.find(
@@ -190,17 +175,13 @@ function ChatMediaRenderer({ message }) {
         }
       }
 
-      // ➕ Add torrent (USE CALLBACK — NOT PROMISE)
       client.add(magnetUri, { live: true }, (torrent) => {
-
-
         torrent.on("error", (err) => {
           console.error("❌ Torrent error:", err);
           Alert.alert("Stream Error", err.message);
           setIsLoadingTorrent(false);
         });
 
-        // Wait until metadata is ready
         if (!torrent.ready) {
           torrent.once("ready", () => readyHandler(torrent));
         } else {
@@ -224,47 +205,46 @@ function ChatMediaRenderer({ message }) {
         return;
       }
 
+      console.log("🎬 Found file:", file.name);
       createVideoPlayer(file, torrent);
       setIsLoadingTorrent(false);
     }
   };
 
-  // 🎯 UPDATED: Robust video player with multiple fallback methods
   const createVideoPlayer = (file, torrent) => {
+    console.log(`📹 Creating player for: ${file.name}`);
 
-    // Only continue with MediaSource for desktop browsers
-    // Create UI container
     const container = document.createElement("div");
     container.style.cssText = `
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.95); z-index: 9998;
-    display: flex; flex-direction: column; 
-    align-items: center; justify-content: center;
-    padding: 20px;
-  `;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.95); z-index: 9998;
+      display: flex; flex-direction: column; 
+      align-items: center; justify-content: center;
+      padding: 20px;
+    `;
 
     const video = document.createElement("video");
     video.controls = true;
     video.autoplay = true;
     video.style.cssText = `
-    width: 100%; max-width: 800px; max-height: 80vh;
-    background: black; border: 2px solid #00ff00;
-    border-radius: 8px;
-  `;
+      width: 100%; max-width: 800px; max-height: 80vh;
+      background: black; border: 2px solid #00ff00;
+      border-radius: 8px;
+    `;
 
     const statusDiv = document.createElement("div");
     statusDiv.style.cssText = `
-    color: white; margin-top: 20px; text-align: center;
-    font-family: monospace; font-size: 14px;
-  `;
+      color: white; margin-top: 20px; text-align: center;
+      font-family: monospace; font-size: 14px;
+    `;
 
     const updateStatus = (msg) => {
-      statusDiv.textContent = `🔄 ${msg}`;    };
+      statusDiv.textContent = `🔄 ${msg}`;
+    };
 
     container.appendChild(video);
     container.appendChild(statusDiv);
 
-    // 🎯 METHOD 1: Try direct blob URL first (simplest)
     updateStatus("Method 1: Creating blob URL...");
     file.getBlobURL((err, blobUrl) => {
       if (!err && blobUrl) {
@@ -276,7 +256,6 @@ function ChatMediaRenderer({ message }) {
       console.warn("❌ Blob URL failed:", err?.message);
       updateStatus("Method 2: Creating read stream...");
 
-      // 🎯 METHOD 2: MediaSource API (Desktop only)
       try {
         function getMediaSource() {
           return self.ManagedMediaSource || self.MediaSource;
@@ -290,36 +269,31 @@ function ChatMediaRenderer({ message }) {
           updateStatus("Creating stream source...");
 
           try {
-            // 1. Create SourceBuffer with the correct MIME type
-            const mimeType = 'video/webm; codecs="vp8,opus"'; // Match your WebTorrent files
+            const mimeType = 'video/webm; codecs="vp8,opus"';
             const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-
-            // 2. Create a readable stream from the WebTorrent file
             const stream = file.createReadStream();
             let isBuffering = false;
             const bufferQueue = [];
 
             updateStatus("Starting stream...");
 
-            // 3. When data arrives from WebTorrent, add it to the queue
             stream.on("data", (chunk) => {
               bufferQueue.push(chunk);
               processBuffer();
             });
 
-            // 4. Handle stream end
-            stream.on("end", () => {              if (!isBuffering && bufferQueue.length === 0) {
+            stream.on("end", () => {
+              console.log("✅ Stream download complete");
+              if (!isBuffering && bufferQueue.length === 0) {
                 mediaSource.endOfStream();
                 updateStatus("✅ Stream complete");
               }
             });
 
-            // 5. Process the buffer queue
             function processBuffer() {
               if (isBuffering || bufferQueue.length === 0) return;
 
               if (sourceBuffer.updating) {
-                // SourceBuffer is busy, try again later
                 setTimeout(processBuffer, 50);
                 return;
               }
@@ -331,7 +305,6 @@ function ChatMediaRenderer({ message }) {
                 sourceBuffer.appendBuffer(chunk);
               } catch (err) {
                 console.error("❌ Buffer append error:", err);
-                // Handle MIME type fallback if needed
                 if (err.name === "NotSupportedError") {
                   updateStatus("Trying MP4 fallback...");
                   try {
@@ -347,12 +320,10 @@ function ChatMediaRenderer({ message }) {
               }
             }
 
-            // 6. When a buffer append is complete, process next chunk
             sourceBuffer.addEventListener("updateend", () => {
               isBuffering = false;
               processBuffer();
 
-              // Auto-play when we have enough data
               if (video.paused && mediaSource.readyState === "open") {
                 video
                   .play()
@@ -377,7 +348,6 @@ function ChatMediaRenderer({ message }) {
       }
     });
 
-    // 🎯 METHOD 3: Fallback - Direct download link
     function fallbackToDownload() {
       updateStatus("Creating direct download...");
 
@@ -385,14 +355,14 @@ function ChatMediaRenderer({ message }) {
         if (err) {
           console.error("Blob creation failed:", err);
           video.innerHTML = `
-          <div style="color: white; padding: 40px; text-align: center;">
-            <h3>❌ Playback Failed</h3>
-            <p>${err.message || "Unknown error"}</p>
-            <p>Torrent: ${torrent.name}</p>
-            <p>Peers: ${torrent.numPeers}</p>
-            <p>Progress: ${(torrent.progress * 100).toFixed(1)}%</p>
-          </div>
-        `;
+            <div style="color: white; padding: 40px; text-align: center;">
+              <h3>❌ Playback Failed</h3>
+              <p>${err.message || "Unknown error"}</p>
+              <p>Torrent: ${torrent.name}</p>
+              <p>Peers: ${torrent.numPeers}</p>
+              <p>Progress: ${(torrent.progress * 100).toFixed(1)}%</p>
+            </div>
+          `;
           return;
         }
 
@@ -406,10 +376,10 @@ function ChatMediaRenderer({ message }) {
           1024
         ).toFixed(2)} MB)`;
         downloadLink.style.cssText = `
-        display: inline-block; background: #0066cc;
-        color: white; padding: 12px 24px; border-radius: 6px;
-        text-decoration: none; margin-top: 20px; font-weight: bold;
-      `;
+          display: inline-block; background: #0066cc;
+          color: white; padding: 12px 24px; border-radius: 6px;
+          text-decoration: none; margin-top: 20px; font-weight: bold;
+        `;
 
         video.style.display = "none";
         container.appendChild(downloadLink);
@@ -417,15 +387,14 @@ function ChatMediaRenderer({ message }) {
       });
     }
 
-    // Close button
     const closeBtn = document.createElement("button");
     closeBtn.textContent = "✕ CLOSE PLAYER";
     closeBtn.style.cssText = `
-    position: fixed; top: 20px; right: 20px;
-    background: #ff4444; color: white; border: none;
-    padding: 10px 20px; border-radius: 6px;
-    font-weight: bold; cursor: pointer; z-index: 10000;
-  `;
+      position: fixed; top: 20px; right: 20px;
+      background: #ff4444; color: white; border: none;
+      padding: 10px 20px; border-radius: 6px;
+      font-weight: bold; cursor: pointer; z-index: 10000;
+    `;
     closeBtn.onclick = () => {
       document.body.removeChild(container);
       document.body.removeChild(closeBtn);
@@ -435,27 +404,16 @@ function ChatMediaRenderer({ message }) {
     document.body.appendChild(closeBtn);
   };
 
-  // 🆕 Helper to fetch chunks (you'll need to implement this)
   const fetchChunksBySession = async (sessionId) => {
-    // This depends on your backend - you might need to:
-    // 1. Filter messages in frontend from existing data
-    // 2. Query backend for chunk messages
-    // For now, let's assume we filter from existing messages
-    // You'll need access to all messages - might need to pass as prop
-    // or use a context/global state
-    return []; // Placeholder
+    return [];
   };
 
-  // 2️⃣ Handle video_chunk (INDIVIDUAL CHUNK MESSAGE)
   if (message.fileType === "video_chunk") {
-    return null; // Don't render anything for individual chunks
+    return null;
   }
 
-  // 🆕 Render chunked video
   if (message.fileType === "video_chunked") {
-    // Master message with thumbnail
     if (chunkedVideoUrl) {
-      // Show player
       return (
         <SimpleVideoPlayer url={chunkedVideoUrl} fileName={message.fileName} />
       );
@@ -504,11 +462,6 @@ function ChatMediaRenderer({ message }) {
     );
   }
 
-  const hasAnyMedia = imageUrl || videoUrl || fileUrl || magnetLink;
-  if (!hasAnyMedia) {
-    return null;
-  }
-
   const getPinataUrl = (url) => {
     if (!url) return null;
     if (url.includes("/ipfs/")) {
@@ -518,7 +471,6 @@ function ChatMediaRenderer({ message }) {
     return url;
   };
 
-  // --- VIDEO LOGIC ---
   if (videoUrl) {
     const pinataUrl = getPinataUrl(videoUrl);
 
@@ -550,9 +502,7 @@ function ChatMediaRenderer({ message }) {
     );
   }
 
-  // 🆕 NEW: Handle magnet links (for streams)
   if (magnetLink && fileType === "video") {
-    // If we have a torrent stream URL ready, show the player
     if (torrentStreamUrl) {
       return (
         <SimpleVideoPlayer
@@ -562,7 +512,6 @@ function ChatMediaRenderer({ message }) {
       );
     }
 
-    // Otherwise show thumbnail with play button
     return (
       <TouchableOpacity
         onPress={() => handleMagnetPlay(magnetLink)}
@@ -601,7 +550,6 @@ function ChatMediaRenderer({ message }) {
     );
   }
 
-  // 1. If it has magnet link → WebTorrentMedia (handles both images and videos)
   if (magnetLink && (fileType === "image" || fileType === "video")) {
     return (
       <View style={styles.magnetContainer}>
@@ -610,7 +558,6 @@ function ChatMediaRenderer({ message }) {
     );
   }
 
-  // 2. If it's an image → Direct image
   if (imageUrl || fileType === "image") {
     const pinataUrl = getPinataUrl(imageUrl);
     return (
@@ -625,7 +572,6 @@ function ChatMediaRenderer({ message }) {
     );
   }
 
-  // 4. If it's a file → File download
   if (fileUrl) {
     const pinataUrl = getPinataUrl(fileUrl);
     return (
@@ -646,21 +592,9 @@ function ChatMediaRenderer({ message }) {
     );
   }
 
-  // 5. Fallback for edge cases (should rarely happen)
-  return (
-    <View style={styles.fileContainer}>
-      <Text style={styles.fileIcon}>❓</Text>
-      <View style={styles.fileInfo}>
-        <Text style={styles.fileName} numberOfLines={1}>
-          {fileName || "Media"}
-        </Text>
-        <Text style={styles.fileType}>Cannot preview • Tap for info</Text>
-      </View>
-    </View>
-  );
+  return null;
 }
 
-// GraphQL Queries
 const GET_NEIGHBORHOOD_MESSAGES = gql`
   query GetNeighborhoodMessages($neighborhoodId: ID!) {
     neighborhoodMessages(neighborhoodId: $neighborhoodId) {
@@ -754,7 +688,7 @@ const SEND_NEIGHBORHOOD_MESSAGE = gql`
       fileType
       magnetLink
       mimeType
-      thumbnailUrl # 🆕 ADD THIS LINE
+      thumbnailUrl
       room
       createdAt
       sender {
@@ -842,7 +776,6 @@ const GET_ALL_IMAGES = gql`
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-// Utility Functions
 const formatTimestamp = (timestamp) => {
   try {
     const date = new Date(parseInt(timestamp));
@@ -857,22 +790,18 @@ const getProfilePhotoUrl = (profilePhoto) => {
     return "https://via.placeholder.com/40";
   }
 
-  // If it's already a full URL (http:// or https://), use it directly
   if (profilePhoto.startsWith("http")) {
     return profilePhoto;
   }
 
-  // If it's a blob URL, use it directly (backward compatibility)
   if (profilePhoto.startsWith("blob:")) {
     return profilePhoto;
   }
 
-  // If it's an IPFS CID (starts with Qm or bafy), construct the IPFS URL
   if (profilePhoto.startsWith("Qm") || profilePhoto.startsWith("baf")) {
     return `https://${PINATA_GATEWAY}/ipfs/${profilePhoto}`;
   }
 
-  // If it's just a string that doesn't match above, assume it's a CID
   return `https://${PINATA_GATEWAY}/ipfs/${profilePhoto}`;
 };
 
@@ -883,20 +812,14 @@ const handleFilePress = async (message) => {
       return;
     }
 
-    // Create a proper IPFS URL
     const ipfsUrl = message.fileUrl.replace("ipfs.filebase.io", PINATA_GATEWAY);
 
-
-
-    // For web - use direct download
     if (Platform.OS === "web") {
-      // Create a temporary download link
       const link = document.createElement("a");
       link.href = ipfsUrl;
       link.download = message.fileName || "download";
       link.target = "_blank";
 
-      // Trigger download
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -906,7 +829,6 @@ const handleFilePress = async (message) => {
         `${message.fileName || "File"} download started in new tab.`
       );
     } else {
-      // For mobile - show options
       Alert.alert(message.fileName || "File", "What would you like to do?", [
         {
           text: "Open in Browser",
@@ -920,12 +842,10 @@ const handleFilePress = async (message) => {
           text: "Copy Link",
           onPress: async () => {
             try {
-              // For React Native, you might need a clipboard library
               if (navigator.clipboard && navigator.clipboard.writeText) {
                 await navigator.clipboard.writeText(ipfsUrl);
                 Alert.alert("Success", "Link copied to clipboard!");
               } else {
-                // Fallback for older browsers
                 const textArea = document.createElement("textarea");
                 textArea.value = ipfsUrl;
                 document.body.appendChild(textArea);
@@ -955,10 +875,10 @@ export default function NeighborhoodChatScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
   const neighborhoodId = params.neighborhoodId;
+  const client = useApolloClient();
 
   const scrollViewRef = useRef(null);
   const messageInputRef = useRef(null);
-  const socketRef = useRef(null);
   const [deleteMessageMutation] = useMutation(DELETE_NEIGHBORHOOD_MESSAGE);
   const [socket, setSocket] = useState(null);
   const [username, setUsername] = useState("");
@@ -967,11 +887,14 @@ export default function NeighborhoodChatScreen() {
   const [uploading, setUploading] = useState(false);
   const [uploadType, setUploadType] = useState(null);
   const [messageCount, setMessageCount] = useState(0);
+  const [messages, setMessages] = useState([]);
+  const [showAd, setShowAd] = useState(false);
+  const [currentAd, setCurrentAd] = useState(null);
 
   const { data: adData, refetch: fetchRandomAd } = useQuery(
     GET_RANDOM_AFFILIATE_LINK,
     {
-      skip: !isAuthenticated, // Only run once authentication is confirmed
+      skip: !isAuthenticated,
     }
   );
 
@@ -984,17 +907,13 @@ export default function NeighborhoodChatScreen() {
   const [trackClick] = useMutation(TRACK_CLICK);
 
   const handleDeleteMessage = async (messageId) => {
-
-    // 🔑 NEW: Use a standard browser confirm for Web, Alert for native
     const shouldProceed = await new Promise((resolve) => {
       if (Platform.OS === "web") {
-        // Use browser's built-in confirm dialog (synchronous)
         const proceed = window.confirm(
           "Are you sure you want to permanently delete this message?"
         );
         resolve(proceed);
       } else {
-        // Use React Native Alert (for iOS/Android)
         Alert.alert(
           "Delete Message",
           "Are you sure you want to permanently delete this message?",
@@ -1011,16 +930,13 @@ export default function NeighborhoodChatScreen() {
     });
 
     if (!shouldProceed) {
-      return; // Stop execution if the user cancels
+      return;
     }
-
-    // --- Deletion Logic Starts Here ---
 
     try {
       await deleteMessageMutation({
         variables: { messageId },
         update(cache) {
-          // ... cache modification logic ...
           cache.modify({
             fields: {
               neighborhoodMessages(existingMessageRefs = [], { readField }) {
@@ -1032,9 +948,10 @@ export default function NeighborhoodChatScreen() {
           });
         },
       });
+
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
     } catch (error) {
       console.error("❌ Deletion error:", error);
-
       let errorMessage = "Failed to delete message due to an unknown error.";
       if (error.graphQLErrors && error.graphQLErrors.length > 0) {
         errorMessage = error.graphQLErrors[0].message;
@@ -1051,7 +968,6 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  // GraphQL Queries
   const { data: neighborhoodData, loading: neighborhoodLoading } = useQuery(
     GET_NEIGHBORHOOD_INFO,
     {
@@ -1071,6 +987,12 @@ export default function NeighborhoodChatScreen() {
 
   const [sendMessageMutation] = useMutation(SEND_NEIGHBORHOOD_MESSAGE);
 
+  useEffect(() => {
+    if (data?.neighborhoodMessages) {
+      setMessages(data.neighborhoodMessages);
+    }
+  }, [data?.neighborhoodMessages]);
+
   const isNeighborhoodAdmin = useMemo(() => {
     if (!username || !neighborhoodData?.neighborhood) return false;
 
@@ -1085,18 +1007,53 @@ export default function NeighborhoodChatScreen() {
     return isOwner || isAdmin;
   }, [neighborhoodData, username]);
 
-  const renderMessage = (message) => (
-    <View key={message.id}>
-      <ChatMediaRenderer message={message} />
-    </View>
+  const renderMessage = useCallback(
+    (message) => {
+      const senderUsername = message.sender?.username || "Unknown";
+      const profilePhoto = getProfilePhotoUrl(message.sender?.profilePhoto);
+      const timestamp = formatTimestamp(message.createdAt);
+
+      return (
+        <View key={message.id} style={styles.messageContainer}>
+          <Image source={{ uri: profilePhoto }} style={styles.profileImage} />
+          <View style={styles.messageContent}>
+            <View style={styles.messageHeader}>
+              <Text style={styles.username}>{senderUsername}</Text>
+              <Text style={styles.timestamp}>{timestamp}</Text>
+            </View>
+
+            {message.content && !message.content.startsWith("Shared: ") && (
+              <Text style={styles.messageText}>{message.content}</Text>
+            )}
+
+            {(message.imageUrl ||
+              message.videoUrl ||
+              message.fileUrl ||
+              message.magnetLink) && <ChatMediaRenderer message={message} />}
+
+            {message.content && message.content.startsWith("Shared: ") && (
+              <Text style={styles.sharedLabel}>{message.content}</Text>
+            )}
+
+            {isNeighborhoodAdmin && (
+              <TouchableOpacity
+                onPress={() => handleDeleteMessage(message.id)}
+                style={styles.deleteButton}
+              >
+                <Text style={styles.deleteIcon}>🗑️</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      );
+    },
+    [isNeighborhoodAdmin]
   );
 
   useEffect(() => {
-    // first ad on load
     fetchRandomAd();
   }, []);
 
-  // Authentication Check
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -1125,14 +1082,15 @@ export default function NeighborhoodChatScreen() {
 
     return () => {
       socket?.disconnect();
-      // 🛑 Only clean up LIVE streams — don't destroy all torrents!
       if (Platform.OS === "web" && window.globalWebTorrentClient) {
         const client = window.globalWebTorrentClient;
+        console.log("🧹 Cleaning up *live* torrents only...");
         client.torrents.forEach((torrent) => {
           if (
             torrent.name?.includes("live-") ||
             torrent.name?.includes("clip_")
           ) {
+            console.log(`🗑️ Destroying live torrent: ${torrent.name}`);
             torrent.destroy();
           }
         });
@@ -1142,13 +1100,13 @@ export default function NeighborhoodChatScreen() {
 
   const showRandomAd = async () => {
     try {
+      console.log("🔄 Fetching random affiliate ad...");
       const result = await fetchRandomAd();
 
       if (result.data?.randomAffiliateLink) {
         setCurrentAd(result.data.randomAffiliateLink);
         setShowAd(true);
 
-        // Auto-hide after 30 seconds
         setTimeout(() => {
           setShowAd(false);
         }, 30000);
@@ -1159,15 +1117,17 @@ export default function NeighborhoodChatScreen() {
   };
 
   const initializeSocket = (token) => {
+    console.log("🔌 Initializing neighborhood socket...");
 
-const newSocket = io(BACKEND_URL, {
-  auth: { token },
-  path: "/socket.io-chat/",
-  transports: ["polling"], // force polling
-});
+    const newSocket = io(BACKEND_URL, {
+      auth: { token },
+      path: "/socket.io-chat/",
+      transports: ["polling"],
+    });
 
     newSocket.on("connect", () => {
-      refetch(); 
+      console.log("✅ Neighborhood socket connected");
+      refetch();
       setSocket(newSocket);
       newSocket.emit("join-neighborhood", neighborhoodId);
     });
@@ -1176,8 +1136,21 @@ const newSocket = io(BACKEND_URL, {
       console.error("❌ Neighborhood socket connection error:", err);
     });
 
-    newSocket.on("message", (newMsg) => {
-      refetch();
+    newSocket.on("message", async (newMsg) => {
+      console.log("📨 New message via socket:", newMsg.content);
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === newMsg.id)) return prev;
+        return [...prev, newMsg];
+      });
+
+      setTimeout(() => {
+        refetch();
+      }, 1000);
+
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 300);
     });
 
     setSocket(newSocket);
@@ -1194,22 +1167,20 @@ const newSocket = io(BACKEND_URL, {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaType.All, // photo + video
+        mediaTypes: ImagePicker.MediaType.All,
         quality: 0.8,
       });
 
-      if (result.canceled) return; // user hit cancel
+      if (result.canceled) return;
 
       const asset = result.assets[0];
       const type = asset.type === "image" ? "image" : "video";
 
-      // same fallback chain as pickFile
       const fileName =
         asset.fileName ||
         asset.uri.split("/").pop() ||
         `${type}-${Date.now()}.${type === "image" ? "jpg" : "mp4"}`;
 
-      // identical call signature to unifiedUpload in pickFile
       await unifiedUpload({ uri: asset.uri, name: fileName }, type, 0, "");
     } catch (error) {
       console.error("Camera capture error:", error);
@@ -1220,7 +1191,6 @@ const newSocket = io(BACKEND_URL, {
     }
   };
 
-  // open camera
   const openCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
@@ -1247,12 +1217,28 @@ const newSocket = io(BACKEND_URL, {
     }
   };
 
-  // Send Message
   const sendMessage = async () => {
     if (!newMessage.trim() || !socket) return;
 
     const messageContent = newMessage.trim();
+
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage = {
+      id: tempId,
+      content: messageContent,
+      createdAt: Date.now().toString(),
+      sender: {
+        username: username,
+        profilePhoto: await AsyncStorage.getItem("profilePhoto"),
+      },
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
     setNewMessage("");
+
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
 
     try {
       await sendMessageMutation({
@@ -1261,36 +1247,29 @@ const newSocket = io(BACKEND_URL, {
           neighborhoodId: neighborhoodId,
         },
       });
-
-      setTimeout(() => {
-        messageInputRef.current?.focus();
-      }, 100);
+      console.log("✅ Neighborhood message sent");
     } catch (err) {
       console.error("❌ Send message error:", err);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       Alert.alert("Error", "Failed to send message");
       setNewMessage(messageContent);
     }
   };
 
-  // In pickImage function
   const pickFile = async () => {
-    // 🔑 Use DocumentPicker for general files (and files the user manually selects)
     const result = await DocumentPicker.getDocumentAsync({
-      type: "*/*", // Allow all types
+      type: "*/*",
     });
 
     if (!result.canceled) {
       const file = result.assets[0];
-      const type = getFileType(file.name || file.fileName); // Determine type
-
-      // 🎯 FIX 3: Don't default to 'video'. Use the determined type.
+      const type = getFileType(file.name || file.fileName);
 
       if (
-        type === "video" && // ONLY check for large video chunking
+        type === "video" &&
         file.size > 10 * 1024 * 1024 &&
         Platform.OS === "web"
       ) {
-        // Ask user only for large videos
         Alert.alert(
           "Large Video",
           "Upload as chunked P2P video (faster for neighbors)?",
@@ -1304,13 +1283,11 @@ const newSocket = io(BACKEND_URL, {
           ]
         );
       } else {
-        // For all images, documents, and small videos, use regular upload
         unifiedUpload(file, type, file.size, file.mimeType);
       }
     }
   };
 
-  // SIMPLE Upload - JUST STORE WHAT WE GET
   const unifiedUpload = async (asset, type, fileSize, mimeType) => {
     setUploading(true);
     setUploadType(type);
@@ -1319,20 +1296,20 @@ const newSocket = io(BACKEND_URL, {
       const token = await AsyncStorage.getItem("token");
       if (!token) throw new Error("No authentication token found");
 
-      // 🆕 NEW LOGIC: Use chunking for videos > 5MB on web
       if (
         type === "video" &&
         Platform.OS === "web" &&
         fileSize > 5 * 1024 * 1024
       ) {
+        console.log("📦 Using chunked upload for large video");
         await uploadChunkedVideo(asset);
         return;
       }
       let fileUri = asset.uri;
       let fileName = asset.name || asset.fileName || `file-${Date.now()}`;
 
+      console.log("🔄 Upload with thumbnail generation:", { fileName, type });
 
-      // Upload to IPFS WITH THUMBNAIL
       const { ipfsUrl, magnetLink, thumbnailUrl } = await uploadToIPFS(
         fileUri,
         fileName,
@@ -1340,23 +1317,17 @@ const newSocket = io(BACKEND_URL, {
         token,
         neighborhoodId
       );
-      console.log("🎯 Received from uploadToIPFS:", {
-        thumbnailUrl,
-        hasThumbnail: !!thumbnailUrl,
-      });
 
       if (ipfsUrl) {
-        // Include thumbnailUrl in message variables
         const messageVariables = {
           content: `Shared: ${fileName}`,
           neighborhoodId: neighborhoodId,
           fileName,
           fileType: type,
           magnetLink: magnetLink || null,
-          thumbnailUrl: thumbnailUrl || null, // 🆕 Add thumbnail URL
+          thumbnailUrl: thumbnailUrl || null,
         };
 
-        // Store in appropriate field
         if (type === "image") {
           messageVariables.imageUrl = ipfsUrl;
         } else if (type === "video") {
@@ -1365,14 +1336,12 @@ const newSocket = io(BACKEND_URL, {
           messageVariables.fileUrl = ipfsUrl;
         }
 
+        console.log("📤 Sending message with thumbnail:", messageVariables);
         await sendMessageMutation({
           variables: messageVariables,
-          refetchQueries: [
-            { query: GET_ALL_IMAGES }, // Assuming this is used by the gallery
-            { query: GET_MY_VIDEOS }, // Assuming this is used by the gallery
-            // If your gallery uses a combined query, list that too
-          ],
+          refetchQueries: [{ query: GET_ALL_IMAGES }, { query: GET_MY_VIDEOS }],
         });
+        console.log(`✅ ${type} uploaded successfully with thumbnail`);
       }
     } catch (error) {
       console.error(`❌ Upload error:`, error);
@@ -1384,29 +1353,29 @@ const newSocket = io(BACKEND_URL, {
   };
 
   const uploadChunkedVideo = async (asset) => {
+    console.log("🎬 Starting chunked video upload...");
 
     const response = await fetch(asset.uri);
 
     const arrayBuffer = await response.arrayBuffer();
     const originalBlob = new Blob({ arrayBuffer, type: "video/mp4" });
 
-    // Parameters
-    const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunks (adjustable)
+    const CHUNK_SIZE = 2 * 1024 * 1024;
     const totalChunks = Math.ceil(originalBlob.size / CHUNK_SIZE);
     const sessionId = `video_${Date.now()}_${Math.random()
       .toString(36)
       .substr(2, 9)}`;
 
+    console.log(`📦 Splitting into ${totalChunks} chunks...`);
 
-    // Generate thumbnail
     let thumbnailUrl = null;
     try {
       const { base64 } = await generateThumbnail(asset.uri);
       thumbnailUrl = base64;
     } catch (e) {
+      console.log("⚠️ Could not generate thumbnail");
     }
 
-    // 🎯 FIRST: Send the "master" message with thumbnail
     await sendMessageMutation({
       variables: {
         content: `🎬 Neighborhood Video (${totalChunks} parts)`,
@@ -1416,7 +1385,6 @@ const newSocket = io(BACKEND_URL, {
         sessionId: sessionId,
         totalChunks: totalChunks,
         thumbnailUrl: thumbnailUrl,
-        // These stay null for chunked videos
         imageUrl: null,
         videoUrl: null,
         fileUrl: null,
@@ -1424,7 +1392,6 @@ const newSocket = io(BACKEND_URL, {
       },
     });
 
-    // 🎯 SECOND: Upload chunks in sequence (not parallel to avoid overload)
     for (let i = 0; i < totalChunks; i++) {
       const start = i * CHUNK_SIZE;
       const end = Math.min(start + CHUNK_SIZE, originalBlob.size);
@@ -1432,16 +1399,14 @@ const newSocket = io(BACKEND_URL, {
 
       await uploadSingleChunk(chunk, i, sessionId, totalChunks, asset.name);
 
-      // Small delay between chunks
       if (i < totalChunks - 1) {
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
 
+    console.log("✅ All chunks uploaded!");
     return true;
   };
-
-  // In NeighborhoodChatScreen.js
 
   const uploadSingleChunk = (
     chunk,
@@ -1456,14 +1421,12 @@ const newSocket = io(BACKEND_URL, {
         console.error(
           "❌ Global WebTorrent client not found. Cannot seed chunk."
         );
-        // Reject the promise so the chunk process doesn't hang
         return reject(new Error("WebTorrent client not initialized."));
       }
 
       client.seed(
         chunk,
         {
-          // Ensure the torrent name is unique and easy to identify/destroy
           name: `${sessionId}_chunk_${index}`,
         },
         (torrent) => {
@@ -1472,13 +1435,12 @@ const newSocket = io(BACKEND_URL, {
               index + 1
             }/${totalChunks} seeded. Magnet URI generated.`,
             {
-              index: index, // Use the correct variable name 'index'
+              index: index,
               magnet: torrent.magnetURI,
               size: chunk.size,
             }
           );
 
-          // Send chunk message to chat via GraphQL mutation
           sendMessageMutation({
             variables: {
               content: `Part ${index + 1}/${totalChunks} of "${fileName}"`,
@@ -1486,13 +1448,9 @@ const newSocket = io(BACKEND_URL, {
               fileName: `chunk_${index}.mp4`,
               fileType: "video_chunk",
               magnetLink: torrent.magnetURI,
-
-              // 🔑 CRITICAL DATA FOR PLAYER REASSEMBLY:
               chunkIndex: index,
               sessionId: sessionId,
               totalChunks: totalChunks,
-
-              // Ensure these are null for chunks
               imageUrl: null,
               videoUrl: null,
               fileUrl: null,
@@ -1500,7 +1458,6 @@ const newSocket = io(BACKEND_URL, {
             },
           })
             .then(() => {
-              // Resolve the promise, allowing the next chunk to process
               resolve();
             })
             .catch((err) => {
@@ -1513,9 +1470,7 @@ const newSocket = io(BACKEND_URL, {
   };
 
   const uploadChunk = async (chunk, index, sessionId, totalChunks) => {
-    // Create torrent for this chunk
     if (!window.WebTorrent) {
-      // Load WebTorrent...
     }
 
     const client = new window.WebTorrent();
@@ -1528,13 +1483,12 @@ const newSocket = io(BACKEND_URL, {
           announce: ["wss://tracker.openwebtorrent.com"],
         },
         (torrent) => {
-          // Send chunk to chat
           sendMessageMutation({
             variables: {
               content: `Video chunk ${index + 1}/${totalChunks}`,
               neighborhoodId: neighborhoodId,
               fileName: `chunk-${index}.mp4`,
-              fileType: "video_chunk", // New type!
+              fileType: "video_chunk",
               magnetLink: torrent.magnetURI,
               chunkIndex: index,
               sessionId: sessionId,
@@ -1547,7 +1501,6 @@ const newSocket = io(BACKEND_URL, {
     });
   };
 
-  // Helper function
   const getMimeType = (filename) => {
     const ext = filename.split(".").pop().toLowerCase();
     const mimeTypes = {
@@ -1563,7 +1516,6 @@ const newSocket = io(BACKEND_URL, {
     return mimeTypes[ext] || "application/octet-stream";
   };
 
-  // Helper function for MIME types
   const getMimeTypeFromExtension = (filename) => {
     const ext = filename.split(".").pop().toLowerCase();
     const mimeTypes = {
@@ -1582,6 +1534,7 @@ const newSocket = io(BACKEND_URL, {
   };
 
   const generateThumbnail = async (videoUrl) => {
+    console.log("🔄 Starting thumbnail generation for:", videoUrl);
 
     return new Promise((resolve, reject) => {
       const video = document.createElement("video");
@@ -1591,6 +1544,7 @@ const newSocket = io(BACKEND_URL, {
       video.muted = true;
 
       video.onloadeddata = async () => {
+        console.log("✅ Video loaded successfully");
 
         try {
           const originalWidth = video.videoWidth;
@@ -1602,21 +1556,21 @@ const newSocket = io(BACKEND_URL, {
           canvas.height = targetHeight;
           const ctx = canvas.getContext("2d");
 
+          console.log("🖼️ Drawing video to canvas...");
           ctx.drawImage(video, 0, 0, 320, 240);
 
-          // 🎯 FIX: Use the reliable toDataURL() instead of convertToBlob()
-          // We convert directly to a base64 JPEG, which is widely supported.
-          const base64 = canvas.toDataURL("image/jpeg", 0.8); // 0.8 is quality
-
-          // Optionally, you can log the size estimate, though not exact blob size
+          const base64 = canvas.toDataURL("image/jpeg", 0.8);
           const sizeEstimate = base64.length * (3 / 4) - 2;
 
-
+          console.log(
+            `📸 Thumbnail ready: JPEG (via DataURL), ~${sizeEstimate.toFixed(
+              0
+            )} bytes`
+          );
 
           resolve({
-            // We are returning a base64 string directly, no need for blob
             base64,
-            format: "jpeg", // Update format
+            format: "jpeg",
             size: sizeEstimate,
           });
         } catch (error) {
@@ -1630,13 +1584,13 @@ const newSocket = io(BACKEND_URL, {
         reject(new Error(`Video load error: ${e.message}`));
       };
 
-      // Set timeout
       setTimeout(() => {
         if (video.readyState < 2) {
           reject(new Error("Video load timeout (10s)"));
         }
       }, 10000);
 
+      console.log("⏳ Loading video...");
       video.load();
     });
   };
@@ -1686,7 +1640,6 @@ const newSocket = io(BACKEND_URL, {
 
       console.log("✅ IPFS Result:", { ipfsUrl, magnetLink });
 
-      // 🎯 AVIF THUMBNAIL GENERATION// In uploadToIPFS function:
       let thumbnailUrl = null;
 
       if (type === "video") {
@@ -1704,7 +1657,6 @@ const newSocket = io(BACKEND_URL, {
             "❌ Thumbnail generation failed completely:",
             thumbnailError.message
           );
-          // Continue without thumbnail
         }
       }
 
@@ -1715,7 +1667,6 @@ const newSocket = io(BACKEND_URL, {
         hasThumbnail: !!thumbnailUrl,
       });
 
-      // ✅ Always return from here (for all file types)
       return {
         ipfsUrl,
         magnetLink,
@@ -1726,8 +1677,6 @@ const newSocket = io(BACKEND_URL, {
       throw error;
     }
   };
-
-  const messages = data?.neighborhoodMessages || [];
 
   const neighborhoodName =
     neighborhoodData?.neighborhood?.name || "Neighborhood";
@@ -1761,6 +1710,11 @@ const newSocket = io(BACKEND_URL, {
       </View>
     );
   }
+
+  const handleAdPress = (ad) => {
+    trackClick({ variables: { id: ad.id } });
+    Linking.openURL(ad.url);
+  };
 
   return (
     <View style={styles.container}>
@@ -1806,7 +1760,6 @@ const newSocket = io(BACKEND_URL, {
       )}
       <ScrollView style={styles.messagesList} ref={scrollViewRef}>
         {messages.map((item, index) => {
-          // Check for ad placement
           const showAdHere = index % 20 === 0;
 
           return (
@@ -1814,12 +1767,30 @@ const newSocket = io(BACKEND_URL, {
               {renderMessage(item)}
 
               {showAdHere && adData?.randomAffiliateLink && (
-                <View style={styles.messageContainer}></View>
+                <View style={styles.adContainer}>
+                  <AdMessage
+                    ad={adData.randomAffiliateLink}
+                    onPress={() => handleAdPress(adData.randomAffiliateLink)}
+                  />
+                </View>
               )}
             </React.Fragment>
           );
         })}
       </ScrollView>
+
+      {showAd && currentAd && (
+        <View style={styles.floatingAdContainer}>
+          <AdMessage ad={currentAd} onPress={() => handleAdPress(currentAd)} />
+          <TouchableOpacity
+            style={styles.closeAdButton}
+            onPress={() => setShowAd(false)}
+          >
+            <Text style={styles.closeAdText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.inputContainer}>
         <TouchableOpacity style={styles.uploadButton} onPress={pickFile}>
           <Text style={styles.uploadButtonText}>📎</Text>
@@ -1857,33 +1828,28 @@ const newSocket = io(BACKEND_URL, {
 
 const styles = StyleSheet.create({
   messageContent: {
-    flexShrink: 1, // Allows content to wrap
-    // Make sure this container holds the timestamp/delete button row nicely
+    flexShrink: 1,
   },
-
   timestampContainer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-start", // Align timestamp and icon to the left
+    justifyContent: "flex-start",
     marginTop: 4,
   },
-
   timestamp: {
-    // Your existing timestamp style
     fontSize: 10,
     color: "#888",
-    marginRight: 10, // Add space between timestamp and icon
+    marginRight: 10,
   },
-
   deleteButton: {
+    position: "absolute",
+    right: 0,
+    top: 0,
     padding: 5,
-    backgroundColor: "yellow", // ⬅️ TEST COLOR
-    zIndex: 10, // ⬅️ Ensure it's on top
   },
-
   deleteIcon: {
-    fontSize: 14, // Small icon size
-    color: "red", // Clear visual cue for deletion
+    fontSize: 14,
+    color: "red",
   },
   container: {
     flex: 1,
@@ -1948,7 +1914,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messageContainer: {
-    color: "#fff",
     flexDirection: "row",
     padding: 12,
     borderBottomWidth: 1,
@@ -1961,35 +1926,38 @@ const styles = StyleSheet.create({
     marginRight: 12,
     backgroundColor: "#333333",
   },
-  messageContent: {
-    flex: 1,
+  messageHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
   },
   username: {
     fontWeight: "bold",
     color: "#00ffff",
-    marginBottom: 8,
     fontSize: 14,
   },
   messageText: {
     color: "#FFFFFF",
-    marginBottom: 8,
     fontSize: 16,
     lineHeight: 20,
+    marginBottom: 8,
   },
-  timestamp: {
-    fontSize: 11,
+  sharedLabel: {
     color: "#00AA00",
-    opacity: 0.7,
+    fontSize: 14,
+    fontStyle: "italic",
+    marginTop: 4,
+    marginBottom: 8,
   },
-  // LARGER MEDIA STYLES
   messageImage: {
-    width: "100%", // Will be controlled by parent
-    maxWidth: "90%", // Maximum size on large screens
+    width: "100%",
+    maxWidth: "90%",
     height: undefined,
-    aspectRatio: 4 / 3, // Maintain aspect ratio
+    aspectRatio: 4 / 3,
     borderRadius: 12,
     marginBottom: 8,
-    alignSelf: "center", // Center the media
+    alignSelf: "center",
   },
   fileContainer: {
     flexDirection: "row",
@@ -2000,7 +1968,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: "#333333",
-    maxWidth: 600, // Limit file container width
+    maxWidth: 600,
     alignSelf: "center",
   },
   fileIcon: {
@@ -2087,20 +2055,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#00ffff",
   },
-
-  // LARGER VIDEO PLAYER STYLES
   videoContainer: {
     marginBottom: 8,
     borderRadius: 12,
     overflow: "hidden",
-    width: "100%", // Full width of message container
-    maxWidth: 800, // Maximum size on large screens
-    alignSelf: "center", // Center in message
+    width: "100%",
+    maxWidth: 800,
+    alignSelf: "center",
   },
   videoPlayer: {
     width: "100%",
     height: undefined,
-    aspectRatio: 16 / 9, // Standard video aspect ratio
+    aspectRatio: 16 / 9,
     backgroundColor: "#000",
   },
   videoCaption: {
@@ -2128,9 +2094,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
-  adContent: {
-    // Your ad content styles
-  },
+  adContent: {},
   adTitle: {
     color: "#ffffff",
     fontSize: 16,
@@ -2164,7 +2128,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#00ffff",
   },
-
   videoThumbnailContainer: {
     marginBottom: 8,
     borderRadius: 12,
@@ -2187,7 +2150,6 @@ const styles = StyleSheet.create({
   videoFileName: {
     opacity: 0,
   },
-  // Add to your StyleSheet:
   streamPlaceholder: {
     backgroundColor: "#1a1a1a",
     justifyContent: "center",
@@ -2208,7 +2170,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: "rgba(255, 0, 0, 0.8)", // Red for "live"
+    backgroundColor: "rgba(255, 0, 0, 0.8)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
@@ -2272,7 +2234,6 @@ const styles = StyleSheet.create({
     color: "#00ffff",
     fontWeight: "bold",
   },
-
   liveStreamCard: {
     backgroundColor: "#ffeded",
     padding: 12,
@@ -2286,12 +2247,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#ff4444",
     marginBottom: 4,
-  },
-  fileName: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-    color: "#333",
   },
   magnetLink: {
     fontSize: 13,
@@ -2309,24 +2264,45 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
   },
-  // ... inside your styles object ...
   streamButton: {
     padding: 12,
     marginHorizontal: 5,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    flexGrow: 1, // Allows the button to take up remaining space
+    flexGrow: 1,
   },
   startStreamButton: {
-    backgroundColor: "#00AA00", // Green for Go Live
+    backgroundColor: "#00AA00",
   },
   stopStreamButton: {
-    backgroundColor: "#FF3333", // Red for Stop Live
+    backgroundColor: "#FF3333",
   },
   streamButtonText: {
     color: "white",
     fontWeight: "bold",
     fontSize: 14,
+  },
+  floatingAdContainer: {
+    position: "absolute",
+    bottom: 100,
+    left: 20,
+    right: 20,
+    backgroundColor: "#1a1a1a",
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 2,
+    borderColor: "#00ffff",
+    zIndex: 1000,
+  },
+  closeAdButton: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    padding: 5,
+  },
+  closeAdText: {
+    color: "#fff",
+    fontSize: 16,
   },
 });
