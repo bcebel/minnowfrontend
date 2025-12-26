@@ -86,52 +86,38 @@ function Livestream({ stream }) {
   );
 
   // 3. Load initial chunks once
-  useEffect(() => {
-    if (initialData?.streamChunks) {
-      setLiveChunks(initialData.streamChunks);
+ useEffect(() => {
+  // 1. Combine Initial + Subscription data
+  const incomingChunks = [];
+  if (initialData?.streamChunks) incomingChunks.push(...initialData.streamChunks);
+  if (subscriptionData?.livestreamChunkAdded) incomingChunks.push(subscriptionData.livestreamChunkAdded);
+
+  if (incomingChunks.length === 0) return;
+
+  setLiveChunks((prevChunks) => {
+    // 2. Create a Map of unique chunks by Index to prevent duplicates
+    const chunkMap = new Map(prevChunks.map(c => [c.chunkIndex, c]));
+    
+    incomingChunks.forEach(chunk => {
+      chunkMap.set(chunk.chunkIndex, chunk);
+    });
+
+    // 3. Convert back to array and sort
+    const sorted = Array.from(chunkMap.values()).sort((a, b) => a.chunkIndex - b.chunkIndex);
+
+    // 4. HEARTBEAT / GAP DETECTION
+    // Check if we have a "broken chain" (e.g., we have index 1, 2, and 4, but 3 is missing)
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (sorted[i+1].chunkIndex !== sorted[i].chunkIndex + 1) {
+        console.warn(`⚠️ Buffer Gap Detected between ${sorted[i].chunkIndex} and ${sorted[i+1].chunkIndex}`);
+        // Here you could trigger a "Panic Fetch" from your Backend/CDN
+      }
     }
-  }, [initialData]);
 
-  // 4. Add new chunks - ensure ordering
-  useEffect(() => {
-    if (subscriptionData?.livestreamChunkAdded) {
-      const newChunk = subscriptionData.livestreamChunkAdded;
-
-      setLiveChunks((prevChunks) => {
-        // Check if already exists
-        const exists = prevChunks.some(
-          (chunk) =>
-            chunk.id === newChunk.id || chunk.chunkIndex === newChunk.chunkIndex
-        );
-
-        if (exists) return prevChunks;
-
-        // Insert in correct order
-        const updated = [...prevChunks, newChunk];
-        updated.sort((a, b) => a.chunkIndex - b.chunkIndex);
-        return updated;
-      });
-    }
-  }, [subscriptionData]);
-  useEffect(() => {
-    console.log(
-      `[Livestream ${stream.sessionId}] Current chunks:`,
-      liveChunks.map((c) => ({ id: c.id, index: c.chunkIndex }))
-    );
-  }, [liveChunks, stream.sessionId]);
-  // 4. Add new chunks as they arrive from the subscription
-  useEffect(() => {
-    if (subscriptionData?.livestreamChunkAdded) {
-      const newChunk = subscriptionData.livestreamChunkAdded;
-      setLiveChunks((prevChunks) => {
-        if (!prevChunks.some((chunk) => chunk.id === newChunk.id)) {
-          return [...prevChunks, newChunk];
-        }
-        return prevChunks;
-      });
-    }
-  }, [subscriptionData]);
-
+    return sorted;
+  });
+}, [initialData, subscriptionData]);
+  
   const clearProcessedChunk = useCallback((chunkId) => {
     setLiveChunks((prevChunks) =>
       prevChunks.filter((chunk) => chunk.id !== chunkId)
