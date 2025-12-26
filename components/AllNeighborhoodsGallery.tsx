@@ -21,6 +21,7 @@ const GET_NEIGHBORHOOD_GALLERY = gql`
       videos {
         id
         title
+        cid
         description
         fileName
         ipfsUrl
@@ -39,6 +40,7 @@ const GET_NEIGHBORHOOD_GALLERY = gql`
         title
         description
         fileName
+        cid
         ipfsUrl
         magnetLink
         createdAt
