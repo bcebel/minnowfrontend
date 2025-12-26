@@ -80,6 +80,28 @@ export default function NeighborhoodLiveStreamPlayer({
     console.log(`[Player ${sessionId}] ${message}`);
   };
 
+  // Add this to your startLivePlayback loop
+const startHeartbeat = (video, sourceBuffer) => {
+  setInterval(() => {
+    if (!sourceBuffer || sourceBuffer.updating) return;
+
+    const currentPlayTime = video.currentTime;
+    const buffered = sourceBuffer.buffered;
+    
+    if (buffered.length > 0) {
+      const bufferEnd = buffered.end(buffered.length - 1);
+      const secondsLeft = bufferEnd - currentPlayTime;
+
+      console.log(`💓 Heartbeat: ${secondsLeft.toFixed(2)}s of video remaining in buffer`);
+
+      // If we have less than 5 seconds left, "Panic"
+      if (secondsLeft < 5) {
+        this.triggerPriorityDownload(); // Tell WebTorrent to ignore everything else
+      }
+    }
+  }, 2000); // Check every 2 seconds
+};
+
   // ---------- Data Preparation ----------
   const sortedChunks = [...initialChunks].sort(
     (a, b) => a.chunkIndex - b.chunkIndex
