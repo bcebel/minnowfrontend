@@ -29,6 +29,27 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import AdMessage from "../../components/AdMessage";
 import ChatMediaRenderer from "../../components/ChatMediaRenderer";
 
+// Helper function to create optimistic message
+const createOptimisticMessage = (type, fileName, url, thumbnailUrl) => {
+  const tempId = `temp-${Date.now()}`;
+  return {
+    id: tempId,
+    content: `Shared: ${fileName}`,
+    createdAt: Date.now().toString(),
+    fileName,
+    fileType: type,
+    imageUrl: type === "image" ? url : null,
+    videoUrl: type === "video" ? url : null,
+    fileUrl: type === "file" ? url : null,
+    thumbnailUrl,
+    sender: {
+      username: username,
+      profilePhoto: AsyncStorage.getItem("profilePhoto") || null,
+    },
+    __typename: "Message",
+  };
+};
+
 const safeFileName = (asset) =>
   asset.name || asset.fileName || asset.uri.split("/").pop() || "media";
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
@@ -565,45 +586,52 @@ const renderMessage = useCallback(
     }
   };
 
-  const initializeSocket = (token) => {
-    console.log("🔌 Initializing neighborhood socket...");
+const initializeSocket = (token) => {
+  console.log("🔌 Initializing neighborhood socket...");
 
-    const newSocket = io(BACKEND_URL, {
-      auth: { token },
-      path: "/socket.io-chat/",
-      transports: ["polling"],
-    });
+  const newSocket = io(BACKEND_URL, {
+    auth: { token },
+    path: "/socket.io-chat/",
+    transports: ["polling"],
+  });
 
-    newSocket.on("connect", () => {
-      console.log("✅ Neighborhood socket connected");
-      refetch();
-      setSocket(newSocket);
-      newSocket.emit("join-neighborhood", neighborhoodId);
-    });
-
-    newSocket.on("connect_error", (err) => {
-      console.error("❌ Neighborhood socket connection error:", err);
-    });
-
-    newSocket.on("message", async (newMsg) => {
-      console.log("📨 New message via socket:", newMsg.content);
-
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === newMsg.id)) return prev;
-        return [...prev, newMsg];
-      });
-
-      setTimeout(() => {
-        refetch();
-      }, 1000);
-
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 300);
-    });
-
+  newSocket.on("connect", () => {
+    console.log("✅ Neighborhood socket connected");
+    refetch(); // Initial fetch
     setSocket(newSocket);
-  };
+    newSocket.emit("join-neighborhood", neighborhoodId);
+  });
+
+  newSocket.on("connect_error", (err) => {
+    console.error("❌ Neighborhood socket connection error:", err);
+  });
+
+  newSocket.on("message", async (newMsg) => {
+    console.log("📨 New message via socket:", newMsg.content);
+
+    setMessages((prev) => {
+      if (prev.some((m) => m.id === newMsg.id)) return prev;
+      return [...prev, newMsg];
+    });
+
+    // Refetch after a short delay to ensure media is included
+    setTimeout(() => {
+      refetch();
+    }, 500);
+
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 300);
+  });
+
+  // Add this new event listener for refresh
+  newSocket.on("refresh-messages", async () => {
+    console.log("🔄 Refreshing messages via socket");
+    await refetch();
+  });
+
+  setSocket(newSocket);
+};
 
   const takeCameraMedia = async () => {
     setUploading(true);
@@ -737,68 +765,83 @@ const renderMessage = useCallback(
     }
   };
 
-  const unifiedUpload = async (asset, type, fileSize, mimeType) => {
-    setUploading(true);
-    setUploadType(type);
+const unifiedUpload = async (asset, type, fileSize, mimeType) => {
+  setUploading(true);
+  setUploadType(type);
 
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) throw new Error("No authentication token found");
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) throw new Error("No authentication token found");
 
-      if (
-        type === "video" &&
-        Platform.OS === "web" &&
-        fileSize > 5 * 1024 * 1024
-      ) {
-        console.log("📦 Using chunked upload for large video");
-        await uploadChunkedVideo(asset);
-        return;
-      }
-      let fileUri = asset.uri;
-      let fileName = asset.name || asset.fileName || `file-${Date.now()}`;
-
-      console.log("🔄 Upload with thumbnail generation:", { fileName, type });
-
-      const { ipfsUrl, magnetLink, thumbnailUrl } = await uploadToIPFS(
-        fileUri,
-        fileName,
-        type,
-        token,
-        neighborhoodId
-      );
-
-      if (ipfsUrl) {
-        const messageVariables = {
-          content: `Shared: ${fileName}`,
-          neighborhoodId: neighborhoodId,
-          fileName,
-          fileType: type,
-          magnetLink: magnetLink || null,
-          thumbnailUrl: thumbnailUrl || null,
-        };
-
-        if (type === "image") {
-          messageVariables.imageUrl = ipfsUrl;
-        } else if (type === "video") {
-          messageVariables.videoUrl = ipfsUrl;
-        } else {
-          messageVariables.fileUrl = ipfsUrl;
-        }
-
-        console.log("📤 Sending message with thumbnail:", messageVariables);
-        await sendMessageMutation({
-          variables: messageVariables,
-        });
-        console.log(`✅ ${type} uploaded successfully with thumbnail`);
-      }
-    } catch (error) {
-      console.error(`❌ Upload error:`, error);
-      Alert.alert("Upload Failed", error.message);
-    } finally {
-      setUploading(false);
-      setUploadType(null);
+    if (
+      type === "video" &&
+      Platform.OS === "web" &&
+      fileSize > 5 * 1024 * 1024
+    ) {
+      console.log("📦 Using chunked upload for large video");
+      await uploadChunkedVideo(asset);
+      return;
     }
-  };
+
+    let fileUri = asset.uri;
+    let fileName = asset.name || asset.fileName || `file-${Date.now()}`;
+
+    console.log("🔄 Upload with thumbnail generation:", { fileName, type });
+
+    const { ipfsUrl, magnetLink, thumbnailUrl } = await uploadToIPFS(
+      fileUri,
+      fileName,
+      type,
+      token,
+      neighborhoodId
+    );
+
+    if (ipfsUrl) {
+      const messageVariables = {
+        content: `Shared: ${fileName}`,
+        neighborhoodId: neighborhoodId,
+        fileName,
+        fileType: type,
+        magnetLink: magnetLink || null,
+        thumbnailUrl: thumbnailUrl || null,
+      };
+
+      if (type === "image") {
+        messageVariables.imageUrl = ipfsUrl;
+      } else if (type === "video") {
+        messageVariables.videoUrl = ipfsUrl;
+      } else {
+        messageVariables.fileUrl = ipfsUrl;
+      }
+
+      console.log("📤 Sending message with thumbnail:", messageVariables);
+
+      // Send the message
+      await sendMessageMutation({
+        variables: messageVariables,
+      });
+
+      console.log(`✅ ${type} uploaded successfully with thumbnail`);
+
+      // CRITICAL: Immediately refetch messages to show the new media
+      await refetch();
+
+      // Also trigger a socket refresh if socket exists
+      if (socket) {
+        socket.emit("refresh-messages", neighborhoodId);
+      }
+
+      // Clear the input or any pending state
+      setNewMessage("");
+    }
+  } catch (error) {
+    console.error(`❌ Upload error:`, error);
+    Alert.alert("Upload Failed", error.message);
+  } finally {
+    setUploading(false);
+    setUploadType(null);
+  }
+};
 
   const uploadChunkedVideo = async (asset) => {
     console.log("🎬 Starting chunked video upload...");
