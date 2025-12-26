@@ -743,9 +743,9 @@ strategy = getStrategy(fileType);
           {isImage ? (
             <Image
               cachePolicy={"memory-disk"}
-              source={{ uri: mediaUrl }}
+              source={{ uri: mediaUrl || ipfsUrl }}
               style={styles.image}
-              resizeMode="contain"
+              contentFit="contain"
               onLoad={() => console.log("✅ Image loaded")}
               onError={() => {
                 setStatus("Image load failed");

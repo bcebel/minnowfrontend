@@ -449,48 +449,55 @@ export default function NeighborhoodChatScreen() {
     return isOwner || isAdmin;
   }, [neighborhoodData, username]);
 
-  const renderMessage = useCallback(
-    (message) => {
-      const senderUsername = message.sender?.username || "Unknown";
-      const profilePhoto = getProfilePhotoUrl(message.sender?.profilePhoto);
-      const timestamp = formatTimestamp(message.createdAt);
+const renderMessage = useCallback(
+  (message) => {
+    const senderUsername = message.sender?.username || "Unknown";
+    const profilePhoto = getProfilePhotoUrl(message.sender?.profilePhoto);
+    const timestamp = formatTimestamp(message.createdAt);
 
-      return (
-        <View key={message.id} style={styles.messageContainer}>
-          <Image source={{ uri: profilePhoto }} style={styles.profileImage} />
-          <View style={styles.messageContent}>
-            <View style={styles.messageHeader}>
-              <Text style={styles.username}>{senderUsername}</Text>
-              <Text style={styles.timestamp}>{timestamp}</Text>
-            </View>
-
-            {message.content && !message.content.startsWith("Shared: ") && (
-              <Text style={styles.messageText}>{message.content}</Text>
-            )}
-
-            {(message.imageUrl ||
-              message.videoUrl ||
-              message.fileUrl ||
-              message.magnetLink) && <ChatMediaRenderer message={message} />}
-
-            {message.content && message.content.startsWith("Shared: ") && (
-              <Text style={styles.sharedLabel}>{message.content}</Text>
-            )}
-
-            {isNeighborhoodAdmin && (
-              <TouchableOpacity
-                onPress={() => handleDeleteMessage(message.id)}
-                style={styles.deleteButton}
-              >
-                <Text style={styles.deleteIcon}>🗑️</Text>
-              </TouchableOpacity>
-            )}
+    return (
+      <View key={message.id} style={styles.messageContainer}>
+        <Image
+          source={{ uri: profilePhoto }}
+          style={styles.profileImage}
+          onError={(e) =>
+            console.log("Profile photo error:", e.nativeEvent.error)
+          }
+        />
+        <View style={styles.messageContent}>
+          <View style={styles.messageHeader}>
+            <Text style={styles.username}>{senderUsername}</Text>
+            <Text style={styles.timestamp}>{timestamp}</Text>
           </View>
+
+          {message.content && !message.content.startsWith("Shared: ") && (
+            <Text style={styles.messageText}>{message.content}</Text>
+          )}
+
+          {/* This will now properly render media */}
+          {(message.imageUrl ||
+            message.videoUrl ||
+            message.fileUrl ||
+            message.magnetLink) && <ChatMediaRenderer message={message} />}
+
+          {message.content && message.content.startsWith("Shared: ") && (
+            <Text style={styles.sharedLabel}>{message.content}</Text>
+          )}
+
+          {isNeighborhoodAdmin && (
+            <TouchableOpacity
+              onPress={() => handleDeleteMessage(message.id)}
+              style={styles.deleteButton}
+            >
+              <Text style={styles.deleteIcon}>🗑️</Text>
+            </TouchableOpacity>
+          )}
         </View>
-      );
-    },
-    [isNeighborhoodAdmin]
-  );
+      </View>
+    );
+  },
+  [isNeighborhoodAdmin]
+);
 
   useEffect(() => {
     fetchRandomAd();
