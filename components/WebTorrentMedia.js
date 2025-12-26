@@ -11,6 +11,7 @@ import { Image } from "expo-image";
 import { File, Directory } from "expo-file-system";
 import { useQuery, gql } from "@apollo/client";
 
+let strategy;
 
 // Import the SSR-safe mediaCache
 let mediaCache;
@@ -302,7 +303,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
       console.error("WebTorrent failed:", error);
     }
 
-    // 4. Fallback to REST API
+  // 4. Fallback to REST API
     await loadFromRestAPI();
   };
 
@@ -313,7 +314,7 @@ const loadViaWebTorrent = async () => {
   let hasResolved = false;
 
   const client = window.globalWebTorrentClient;
-  const strategy = getStrategy(fileType);
+   strategy = getStrategy(fileType);
   setStatus(`Connecting to P2P swarm (${strategy} mode)...`);
 
   // Create a clean promise with multiple timeout strategies
@@ -676,7 +677,7 @@ useEffect(() => {
     );
   }
 
-  const strategy = getStrategy(fileType);
+strategy = getStrategy(fileType);
 
   // Video controls
   const handlePlay = () => {

@@ -31,11 +31,6 @@ export default function AdMessage({ ad }: AdProps) {
       }
 
       console.log("Opening affiliate link:", ad.url);
-
-      // Track click (optional)
-      // await fetch(`/api/track-click/${ad.id}`, { method: 'POST' });
-
-      // Open with privacy considerations
       if (Platform.OS === "web") {
         // On web, open in new tab with no referrer
         const newWindow = window.open(ad.url, "_blank", "noopener,noreferrer");
@@ -50,13 +45,12 @@ export default function AdMessage({ ad }: AdProps) {
     }
   };
 
-  return (
+ return (
     <TouchableOpacity
       style={styles.container}
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      {/* DISPLAY THE IMAGE if imageUrl exists */}
       {ad.imageUrl ? (
         <Image
           source={{ uri: ad.imageUrl }}
@@ -74,10 +68,7 @@ export default function AdMessage({ ad }: AdProps) {
       )}
 
       <View style={styles.content}>
-        {/* Use title if exists, otherwise default */}
         <Text style={styles.title}>{ad.title || "Sponsored Link"}</Text>
-
-        {/* Display description if exists */}
         {ad.description ? (
           <Text style={styles.description} numberOfLines={2}>
             {ad.description}
@@ -90,13 +81,12 @@ export default function AdMessage({ ad }: AdProps) {
 
         <View style={styles.footer}>
           <Text style={styles.cta}>Visit Partner Site →</Text>
-          <Text style={styles.disclaimer}>
-          </Text>
         </View>
       </View>
     </TouchableOpacity>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -105,9 +95,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginVertical: 4,
     overflow: "hidden",
-    maxWidth: 500, // Limit width on large screens
-    alignSelf: "flex-start", // Center in chat
-    width: "90%", // Responsive width
+    maxWidth: 500, 
+    alignSelf: "flex-start", 
+    width: "90%", 
   },
   image: {
     width: 200,
@@ -156,8 +146,5 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 14,
   },
-  disclaimer: {
-    fontSize: 10,
-    color: "#888888",
-  },
+
 });
