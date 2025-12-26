@@ -15,86 +15,42 @@ import WebTorrentMedia from "../components/WebTorrentMedia";
 import { Image } from "expo-image";
 
 // Use the working 'images' query instead of 'myImages'
-const GET_MY_VIDEOS = gql`
-  query GetMyVideos {
-    getMyVideos {
-      id
-      title
-      description
-      fileName
-      fileSize
-      fileType
-      cid
-      ipfsUrl
-      magnetLink
-      user {
+const GET_NEIGHBORHOOD_GALLERY = gql`
+  query GetMyAllNeighborhoodsGallery {
+    getMyAllNeighborhoodsGallery {
+      videos {
         id
-        username
-        profilePhoto
-      }
-      neighborhood {
-        id
-        name
+        title
         description
+        fileName
+        ipfsUrl
+        magnetLink
+        createdAt
+        user {
+          username
+          profilePhoto
+        }
+        neighborhood {
+          name
+        }
       }
-      createdAt
-    }
-  }
-`;
-
-const GET_ALL_IMAGES = gql`
-  query GetAllImages {
-    images {
-      id
-      title
-      description
-      fileName
-      fileSize
-      fileType
-      mimetype
-      cid
-      ipfsUrl
-      magnetLink
-      user {
+      images {
         id
-        username
-        profilePhoto
-      }
-      neighborhood {
-        id
-        name
+        title
         description
+        fileName
+        ipfsUrl
+        magnetLink
+        createdAt
+        user {
+          username
+          profilePhoto
+        }
+        neighborhood {
+          name
+        }
       }
-      createdAt
-    }
-  }
-`;
-
-// Or if you want to get public images
-const GET_PUBLIC_IMAGES = gql`
-  query GetPublicImages {
-    publicImages {
-      id
-      title
-      description
-      fileName
-      fileSize
-      fileType
-      mimetype
-      cid
-      ipfsUrl
-      magnetLink
-      user {
-        id
-        username
-        profilePhoto
-      }
-      neighborhood {
-        id
-        name
-        description
-      }
-      createdAt
+      totalCount
     }
   }
 `;
@@ -224,101 +180,30 @@ const MediaDisplay = ({ item }: { item: any }) => {
 };
 
 export default function AllNeighborhoodsGallery() {
-  // First, try with images query (not myImages)
-  const {
-    data: videosData,
-    loading: videosLoading,
-    error: videosError,
-    refetch: refetchVideos,
-  } = useQuery(GET_MY_VIDEOS);
-
-  const {
-    data: imagesData,
-    loading: imagesLoading,
-    error: imagesError,
-    refetch: refetchImages,
-  } = useQuery(GET_ALL_IMAGES);
-
+  const { data, loading, error, refetch } = useQuery(GET_NEIGHBORHOOD_GALLERY);
   const [refreshing, setRefreshing] = useState(false);
-  const [combinedData, setCombinedData] = useState<any[]>([]);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Combine videos and images
-  useEffect(() => {
-    if (!videosLoading && !imagesLoading) {
-      // Check for errors
-      if (videosError || imagesError) {
-        setErrorMessage(
-          videosError?.message || imagesError?.message || "Error loading media"
-        );
-        return;
-      }
+  // Extract and combine data from the single query result
+  const combinedData = React.useMemo(() => {
+    if (!data?.getMyAllNeighborhoodsGallery) return [];
+    
+    const { videos, images } = data.getMyAllNeighborhoodsGallery;
+    return [...videos, ...images].sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [data]);
 
-      // Combine data
-      const videos = videosData?.getMyVideos || [];
-      const images = imagesData?.images || [];
-
-      console.log("Videos found:", videos.length);
-      console.log("Images found:", images.length);
-
-      // Combine and sort by date (newest first)
-      const combined = [...videos, ...images].sort((a, b) => {
-        return (
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-      });
-
-      setCombinedData(combined);
-    }
-  }, [
-    videosData,
-    imagesData,
-    videosLoading,
-    imagesLoading,
-    videosError,
-    imagesError,
-  ]);
-
-  // Handle refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    try {
-      await Promise.all([refetchVideos(), refetchImages()]);
-    } catch (error) {
-      console.error("Refresh error:", error);
-      setErrorMessage("Refresh failed");
-    } finally {
-      setRefreshing(false);
-    }
+    await refetch();
+    setRefreshing(false);
   };
 
-  // Loading state
-  if (videosLoading || imagesLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FF00FF" />
-        <Text style={styles.loadingText}>Loading gallery...</Text>
-      </View>
-    );
-  }
+  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#FF00FF" /></View>;
+  if (error) return <View style={styles.center}><Text style={styles.errorTitle}>{error.message}</Text></View>;
 
-  // Error state
-  if (errorMessage) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorTitle}>Error Loading Gallery</Text>
-        <Text style={styles.errorDetail}>{errorMessage}</Text>
-        <Text style={styles.errorHint}>
-          {imagesError?.message?.includes("myImages")
-            ? "Try using 'images' query instead of 'myImages'"
-            : "Check your GraphQL queries"}
-        </Text>
-        <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
-          <Text style={styles.retryText}>Try Again</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  // ... rest of your rendering logic using combinedData
+
 
   const mediaItems = combinedData;
   const totalCount = mediaItems.length;
