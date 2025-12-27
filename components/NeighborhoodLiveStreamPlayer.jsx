@@ -92,7 +92,19 @@ class StreamController {
   }
 
   addChunks(chunks) {
-    // 1. Only add chunks we don't already have and haven't played yet
+
+    if (chunks.length > 0) {
+      // Log the first chunk only once to investigate its "DNA"
+      const first = chunks[0];
+      console.log("🕵️ Chunk Investigation:", {
+        mimeType: first.mimeType,
+        fileType: first.fileType,
+        fullObject: first, // This lets you click it in console to see all keys
+      });
+    }
+
+  
+
     chunks.forEach((c) => {
       if (
         c.chunkIndex >= this.nextIndex &&
@@ -100,6 +112,8 @@ class StreamController {
       ) {
         this.chunkBuffer.set(c.chunkIndex, c);
       }
+
+      
     });
 
     console.log(
