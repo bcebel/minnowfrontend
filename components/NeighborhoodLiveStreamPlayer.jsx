@@ -16,8 +16,9 @@ const GET_STREAM_CHUNKS = gql`
 // --- THE NON-REACT CONTROLLER ---
 class StreamController {
   constructor(sessionId, setupMagnet, addLog, triggerFetch) {
+    // 1. Prioritize ManagedMediaSource
     this.MS = window.ManagedMediaSource || window.MediaSource;
-    
+
     this.sessionId = sessionId;
     this.triggerFetch = triggerFetch;
     this.setupMagnet = setupMagnet;
@@ -26,6 +27,7 @@ class StreamController {
     this.nextIndex = 0;
     this.headerLoaded = false;
     this.isProcessing = false;
+    this.streamingAllowed = true; // Minimal flag for iPhone flow
     this.chunkBuffer = new Map();
     this.trackers = [
       "wss://tracker.openwebtorrent.com",
@@ -34,29 +36,54 @@ class StreamController {
     ];
 
     this.ms = new this.MS();
-        this.sb = null;
+    this.sb = null;
     this.video = document.createElement("video");
+
+    // --- MINIMAL IPHONE REQS ---
+    this.video.disableRemotePlayback = true; // Key #1: Unlocks MMS on iOS
+    this.video.playsInline = true;
     this.video.autoplay = true;
     this.video.controls = true;
     this.video.muted = true;
-    this.video.playsInline = true;
     this.video.style.width = "100%";
-    this.video.src = URL.createObjectURL(this.ms);
 
-    this.ms.addEventListener("sourceopen", () => {
-      this.sb = this.ms.addSourceBuffer('video/webm; codecs="vp8,opus"');
-      this.sb.mode = "sequence";
-      this.addLog("MSE Ready");
+    // Key #2: iPhone prefers srcObject for MMS
+    if (window.ManagedMediaSource) {
+      this.video.srcObject = this.ms;
+    } else {
+      this.video.src = URL.createObjectURL(this.ms);
+    }
+
+    // Key #3: Minimal Start/Stop listeners
+    this.ms.addEventListener("startstreaming", () => {
+      this.streamingAllowed = true;
       this.tick();
- this.watchdog = setInterval(() => {
-      if (this.chunkBuffer.size === 0 && !this.isProcessing) {
-        console.log(`🤖 Autonomous Player: Buffer empty. Searching for #${this.nextIndex}...`);
-        this.triggerFetch(); // Forces the GraphQL Query to refresh
-      }
-    }, 3000); // Check every 3 seconds
-
     });
-  } 
+    this.ms.addEventListener("endstreaming", () => {
+      this.streamingAllowed = false;
+    });
+
+    // Detect correct open event
+    const openEvt = window.ManagedMediaSource
+      ? "managedsourceopen"
+      : "sourceopen";
+    this.ms.addEventListener(openEvt, () => {
+      try {
+        this.sb = this.ms.addSourceBuffer('video/webm; codecs="vp8,opus"');
+        this.sb.mode = "sequence";
+        this.addLog("MSE Ready");
+        this.tick();
+
+        this.watchdog = setInterval(() => {
+          if (this.chunkBuffer.size === 0 && !this.isProcessing) {
+            this.triggerFetch();
+          }
+        }, 3000);
+      } catch (e) {
+        this.addLog("Codec Error: Likely iOS vs WebM");
+      }
+    });
+  }
 
   // Remember to clean up!
   destroy() {
@@ -64,9 +91,6 @@ class StreamController {
     // ... rest of destroy ...
   }
 
-  
-
-  
   addChunks(chunks) {
     // 1. Only add chunks we don't already have and haven't played yet
     chunks.forEach((c) => {
@@ -100,10 +124,14 @@ class StreamController {
     this.tick();
   }
 
-
-
   async tick() {
-    if (!this.sb || this.sb.updating || this.isProcessing) return;
+    if (
+      !this.sb ||
+      this.sb.updating ||
+      this.isProcessing ||
+      !this.streamingAllowed
+    )
+      return;
     // Inside tick()
     console.log(
       `Current NextIndex: ${this.nextIndex}, Buffer Size: ${this.chunkBuffer.size}`
