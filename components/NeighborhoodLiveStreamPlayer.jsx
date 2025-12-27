@@ -16,6 +16,7 @@ const GET_STREAM_CHUNKS = gql`
 // --- THE NON-REACT CONTROLLER ---
 class StreamController {
   constructor(sessionId, setupMagnet, addLog, triggerFetch) {
+    this.MS = window.ManagedMediaSource || window.MediaSource;
     
     this.sessionId = sessionId;
     this.triggerFetch = triggerFetch;
@@ -32,7 +33,7 @@ class StreamController {
       "wss://tracker.fastcast.nz",
     ];
 
-    this.ms = new MediaSource();
+    this.ms = new this.MS();
         this.sb = null;
     this.video = document.createElement("video");
     this.video.autoplay = true;
