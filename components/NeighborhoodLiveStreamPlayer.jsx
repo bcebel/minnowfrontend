@@ -171,8 +171,8 @@ this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
       return;
     }
 const isPlaying = !this.video.paused && !this.video.ended;
-if (!isPlaying && this.chunkBuffer.size < 3 && this.nextIndex > 0) {
-  console.log(`⏳ Warming up buffer... (${this.chunkBuffer.size}/3)`);
+if (!isPlaying && this.chunkBuffer.size < 1 && this.nextIndex > 0) {
+  console.log(`⏳ Warming up buffer... (${this.chunkBuffer.size}/1)`);
   return;
 }
     // 2. Find Next Chunk (with jump-ahead logic)
