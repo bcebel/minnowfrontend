@@ -136,8 +136,22 @@ export default function NeighborhoodLiveStreamRecorder({
       }
 
       if (!window.globalWebTorrentClient) {
-        window.globalWebTorrentClient = new WebTorrent({
-          tracker: { pex: true, lsd: true },
+ 
+        window.globalWebTorrentClient = new window.WebTorrent({
+          tracker: {
+            rtcConfig: {
+              iceServers: [
+                { urls: "stun:stun.l.google.com:19302" },
+                { urls: "stun:global.stun.twilio.com:3478" },
+              ],
+            },
+            // Add multiple fallback trackers
+            announce: [
+              "wss://tracker.openwebtorrent.com",
+              "wss://tracker.btorrent.xyz",
+              "wss://tracker.files.fm:7073/announce",
+            ],
+          },
         });
       }
 
@@ -152,7 +166,7 @@ export default function NeighborhoodLiveStreamRecorder({
       if (!streamData?.createStream?.sessionId) {
         throw new Error("Failed to create stream session on the backend.");
       }
-      
+
       const newSessionId = streamData.createStream.sessionId;
       sessionIdRef.current = newSessionId;
 
@@ -162,18 +176,40 @@ export default function NeighborhoodLiveStreamRecorder({
       setChunkCount(0);
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720 },
+        video: { width: 1280, height: 720, frameRate: 30 },
         audio: true,
       });
       streamRef.current = stream;
 
+      // --- CROSS-BROWSER MIME TYPE CHECK ---
+      const types = [
+        "video/webm;codecs=vp8,opus",
+        "video/webm;codecs=h264,opus",
+        "video/mp4;codecs=avc1", // Required for many iOS versions
+      ];
+
+      let supportedType = types.find((type) =>
+        MediaRecorder.isTypeSupported(type)
+      );
+
+      if (!supportedType) {
+        throw new Error(
+          "No supported MediaRecorder format found on this browser."
+        );
+      }
+
+      console.log(`Using MIME type: ${supportedType}`);
+
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "video/webm;codecs=vp8,opus",
-        videoBitsPerSecond: 1000000,
+        mimeType: supportedType,
+        videoBitsPerSecond: 1200000, // 1.2 Mbps for stability
       });
+
       mediaRecorderRef.current = mediaRecorder;
 
-      const CHUNK_DURATION = 5000;
+
+
+      const CHUNK_DURATION = 4000;
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -185,7 +221,6 @@ export default function NeighborhoodLiveStreamRecorder({
 
       mediaRecorder.start(CHUNK_DURATION);
       setIsStreaming(true);
-
     } catch (error) {
       console.error("❌ Stream start error:", error);
       Alert.alert("Stream Error", error.message);

@@ -54,39 +54,47 @@ export default function NeighborhoodLiveStreamPlayer({
   initialChunks = [],
   clearProcessedChunk,
 }) {
-  // ---------- Refs ----------
+  // ---------- 1. Refs ----------
   const videoRef = useRef(null);
   const mediaSourceRef = useRef(null);
   const sourceBufferRef = useRef(null);
 
-  // ---------- State ----------
+  // ---------- 2. State ----------
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [chunkBuffer, setChunkBuffer] = useState(new Map());
   const [nextExpectedIndex, setNextExpectedIndex] = useState(0);
   const [chunkLog, setChunkLog] = useState([]);
 
-  // ---------- Helpers ----------
-  const addLog = useCallback((message) => {
-    const timestamp = new Date().toISOString().split("T")[1].slice(0, -1);
-    setChunkLog((prev) => [...prev.slice(-10), `${timestamp}: ${message}`]);
-    console.log(`[Player ${sessionId}] ${message}`);
-  }, [sessionId]);
+  // ---------- 3. Data Preparation & Hook (MOVED UP) ----------
+  // We move these up so 'torrent' and 'peers' are available to everything below
+  const sortedChunks = [...initialChunks].sort(
+    (a, b) => a.chunkIndex - b.chunkIndex
+  );
+  const magnetUri = sortedChunks[0]?.magnetLink;
+  const { torrent, peers } = useTorrentSwarm(magnetUri, sessionId);
 
-  // 🔥 PANIC LOGIC: Tell WebTorrent to prioritize the next chunk
+  // ---------- 4. Helpers ----------
+  const addLog = useCallback(
+    (message) => {
+      const timestamp = new Date().toISOString().split("T")[1].slice(0, -1);
+      setChunkLog((prev) => [...prev.slice(-10), `${timestamp}: ${message}`]);
+      console.log(`[Player ${sessionId}] ${message}`);
+    },
+    [sessionId]
+  );
+
+  // Now 'torrent' is in scope for this function!
   const triggerPriorityDownload = useCallback(() => {
-    if (!torrent) return;
+    // Check if torrent and metadata (pieces) are actually ready
+    if (!torrent || !torrent.pieces) return;
+
     addLog("🔥 Priority set: Swarm focusing on next chunk pieces.");
-    // Select all pieces of the file with high priority (1)
     torrent.select(0, torrent.pieces.length - 1, 1);
-    // Mark the very first pieces as "critical" for immediate playback
     torrent.criticalPieces = [0, 1, 2, 3, 4, 5];
   }, [torrent, addLog]);
 
   // ---------- Data Preparation ----------
-  const sortedChunks = [...initialChunks].sort((a, b) => a.chunkIndex - b.chunkIndex);
-  const magnetUri = sortedChunks[0]?.magnetLink;
-  const { torrent, peers } = useTorrentSwarm(magnetUri, sessionId);
 
   // ============================================
   // 3. MEDIASOURCE & VIDEO ELEMENT SETUP
@@ -118,8 +126,14 @@ export default function NeighborhoodLiveStreamPlayer({
     video.src = url;
 
     // Listeners
-    video.onplaying = () => { addLog(`VIDEO PLAYING!`); setIsLoading(false); };
-    video.onwaiting = () => { addLog(`Video buffering...`); setIsLoading(true); };
+    video.onplaying = () => {
+      addLog(`VIDEO PLAYING!`);
+      setIsLoading(false);
+    };
+    video.onwaiting = () => {
+      addLog(`Video buffering...`);
+      setIsLoading(true);
+    };
     video.onerror = (e) => setError(`Video Error ${e.target.error?.code}`);
 
     const container = document.getElementById(`video-container-${sessionId}`);
@@ -161,7 +175,7 @@ export default function NeighborhoodLiveStreamPlayer({
     const interval = setInterval(() => {
       const video = videoRef.current;
       const sb = sourceBufferRef.current;
-      
+
       if (!video || !sb || sb.updating) return;
 
       const buffered = sb.buffered;
@@ -213,18 +227,28 @@ export default function NeighborhoodLiveStreamPlayer({
     });
   }, [chunkBuffer, nextExpectedIndex, torrent, addLog]);
 
+  // --- FIX IN NeighborhoodLiveStreamPlayer.jsx ---
   useEffect(() => {
     if (sortedChunks.length > 0) {
-      const newChunks = sortedChunks.filter(c => !chunkBuffer.has(c.chunkIndex) && c.chunkIndex >= nextExpectedIndex);
+      const newChunks = sortedChunks.filter(
+        (c) =>
+          !chunkBuffer.has(c.chunkIndex) && c.chunkIndex >= nextExpectedIndex
+      );
+
       if (newChunks.length > 0) {
-        setChunkBuffer(prev => {
+        // 1. First, update local state
+        setChunkBuffer((prev) => {
           const next = new Map(prev);
-          newChunks.forEach(c => {
-            next.set(c.chunkIndex, c);
-            if (clearProcessedChunk) clearProcessedChunk(c.id);
-          });
+          newChunks.forEach((c) => next.set(c.chunkIndex, c));
           return next;
         });
+
+        // 2. Then, notify parent in the NEXT tick to avoid the render clash
+        setTimeout(() => {
+          newChunks.forEach((c) => {
+            if (clearProcessedChunk) clearProcessedChunk(c.id);
+          });
+        }, 0);
       }
     }
   }, [sortedChunks, clearProcessedChunk, chunkBuffer, nextExpectedIndex]);
@@ -242,7 +266,9 @@ export default function NeighborhoodLiveStreamPlayer({
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#00ffff" />
           <Text style={styles.loadingText}>
-            {nextExpectedIndex === 0 ? "Connecting to Neighbors..." : "Buffering Swarm..."}
+            {nextExpectedIndex === 0
+              ? "Connecting to Neighbors..."
+              : "Buffering Swarm..."}
           </Text>
         </View>
       )}
@@ -250,10 +276,14 @@ export default function NeighborhoodLiveStreamPlayer({
       <View id={`video-container-${sessionId}`} style={styles.videoContainer} />
 
       <View style={styles.statsContainer}>
-        <Text style={styles.chunkInfo}>Peers: {peers} | Next Needed: #{nextExpectedIndex}</Text>
+        <Text style={styles.chunkInfo}>
+          Peers: {peers} | Next Needed: #{nextExpectedIndex}
+        </Text>
         <View style={styles.debugContainer}>
           {chunkLog.map((log, i) => (
-            <Text key={i} style={styles.debugText}>{log}</Text>
+            <Text key={i} style={styles.debugText}>
+              {log}
+            </Text>
           ))}
         </View>
       </View>
