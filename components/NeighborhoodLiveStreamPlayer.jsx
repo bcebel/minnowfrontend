@@ -246,7 +246,15 @@ export default function NeighborhoodLiveStreamPlayer({
     <View style={styles.container}>
       <div
         ref={containerRef}
-        style={{ width: "100%", backgroundColor: "#000" }}
+        style={{
+          width: "100%",
+          aspectRatio: "16/9", // Forces a height even if empty
+          backgroundColor: "#000",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+        }}
       />
       <View style={styles.logBox}>
         {logs.map((l, i) => (
