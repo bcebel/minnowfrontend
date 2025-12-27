@@ -208,7 +208,7 @@ if (chunk) {
         ? this.video.buffered.end(0) - this.video.currentTime
         : 0;
 
-    if (bufferDuration > 3 && this.video.paused) {
+    if (bufferDuration > 2 && this.video.paused) {
       this.addLog("Buffer healthy - Starting Playback");
       this.video.play().catch(() => this.addLog("Tap to play"));
     }
