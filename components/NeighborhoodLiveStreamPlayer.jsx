@@ -49,13 +49,8 @@ class StreamController {
     this.video.setAttribute("playsinline", "true");
     this.video.setAttribute("controls", "true");
     this.video.preload = "auto";
-
-    // Key #2: iPhone prefers srcObject for MMS
-    if (window.ManagedMediaSource) {
-      this.video.srcObject = this.ms;
-    } else {
       this.video.src = URL.createObjectURL(this.ms);
-    }
+    
 
     // Key #3: Minimal Start/Stop listeners
     this.ms.addEventListener("startstreaming", () => {
@@ -72,7 +67,7 @@ class StreamController {
       : "sourceopen";
     this.ms.addEventListener(openEvt, () => {
       try {
-this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');        this.sb.mode = "sequence";
+this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.4d401f, mp4a.40.2"');        this.sb.mode = "sequence";
         this.addLog("MSE Ready");
         this.tick();
 

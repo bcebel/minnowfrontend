@@ -57,6 +57,7 @@ export default function NeighborhoodLiveStreamRecorder({
 }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [chunkCount, setChunkCount] = useState(0);
+  const supportedTypeRef = useRef("");
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
   const sessionIdRef = useRef("");
@@ -77,10 +78,11 @@ export default function NeighborhoodLiveStreamRecorder({
 
     const seedAndSend = (chunkData, index) => {
       return new Promise((resolve, reject) => {
+        const extension = supportedTypeRef.current.includes("mp4") ? "mp4" : "webm";
         client.seed(
           chunkData,
           {
-            name: `live-${sessionIdRef.current}-chunk-${index}.webm`,
+            name: `live-${sessionIdRef.current}-chunk-${index}.${extension}`,
           },
           (torrent) => {
             console.log(`✅ Chunk ${index} seeded:`, torrent.magnetURI);
@@ -104,7 +106,10 @@ export default function NeighborhoodLiveStreamRecorder({
                 resolve();
               })
               .catch((err) => {
-                console.error(`❌ Failed to send message for chunk ${index}:`, err);
+                console.error(
+                  `❌ Failed to send message for chunk ${index}:`,
+                  err
+                );
                 reject(err);
               });
           }
@@ -124,7 +129,7 @@ export default function NeighborhoodLiveStreamRecorder({
 
     isProcessingQueueRef.current = false;
   };
-
+const APPLE_MIME_TYPE = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
   const startStream = async () => {
     try {
       if (!window.WebTorrent) {
@@ -182,12 +187,11 @@ export default function NeighborhoodLiveStreamRecorder({
       streamRef.current = stream;
 
       // --- CROSS-BROWSER MIME TYPE CHECK ---
-      const types = [
-        "video/webm;codecs=vp8,opus",
-        "video/webm;codecs=h264,opus",
-        "video/mp4;codecs=avc1", // Required for many iOS versions
-      ];
-
+const types = [
+  APPLE_MIME_TYPE,
+  "video/mp4; codecs=avc1",
+  "video/webm; codecs=vp8,opus",
+];
       let supportedType = types.find((type) =>
         MediaRecorder.isTypeSupported(type)
       );
@@ -198,14 +202,15 @@ export default function NeighborhoodLiveStreamRecorder({
         );
       }
 
+      supportedTypeRef.current = supportedType; // <--- Save it to the Ref here
       console.log(`Using MIME type: ${supportedType}`);
 
-  const mimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
 
-  const mediaRecorder = new MediaRecorder(stream, {
-    mimeType: mimeType,
-    videoBitsPerSecond: 1200000,
-  });
+
+const mediaRecorder = new MediaRecorder(stream, {
+  mimeType: supportedType,
+  videoBitsPerSecond: 1200000,
+});
 
       mediaRecorderRef.current = mediaRecorder;
 
