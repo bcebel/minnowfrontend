@@ -46,6 +46,9 @@ class StreamController {
     this.video.controls = true;
     this.video.muted = true;
     this.video.style.width = "100%";
+    this.video.setAttribute("playsinline", "true");
+    this.video.setAttribute("controls", "true");
+    this.video.preload = "auto";
 
     // Key #2: iPhone prefers srcObject for MMS
     if (window.ManagedMediaSource) {

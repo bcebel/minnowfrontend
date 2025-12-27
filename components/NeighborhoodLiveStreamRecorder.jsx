@@ -211,7 +211,7 @@ export default function NeighborhoodLiveStreamRecorder({
 
 
 
-      const CHUNK_DURATION = 4000;
+      const CHUNK_DURATION =1000;
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
