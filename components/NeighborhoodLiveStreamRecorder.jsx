@@ -200,10 +200,12 @@ export default function NeighborhoodLiveStreamRecorder({
 
       console.log(`Using MIME type: ${supportedType}`);
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: supportedType,
-        videoBitsPerSecond: 1200000, // 1.2 Mbps for stability
-      });
+  const mimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+
+  const mediaRecorder = new MediaRecorder(stream, {
+    mimeType: mimeType,
+    videoBitsPerSecond: 1200000,
+  });
 
       mediaRecorderRef.current = mediaRecorder;
 

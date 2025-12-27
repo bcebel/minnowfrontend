@@ -69,8 +69,7 @@ class StreamController {
       : "sourceopen";
     this.ms.addEventListener(openEvt, () => {
       try {
-        this.sb = this.ms.addSourceBuffer('video/webm; codecs="vp8,opus"');
-        this.sb.mode = "sequence";
+this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');        this.sb.mode = "sequence";
         this.addLog("MSE Ready");
         this.tick();
 
