@@ -148,6 +148,8 @@ this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
       !this.streamingAllowed
     )
       return;
+    
+    
     // Inside tick()
     console.log(
       `Current NextIndex: ${this.nextIndex}, Buffer Size: ${this.chunkBuffer.size}`
@@ -168,7 +170,11 @@ this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
       }
       return;
     }
-
+const isPlaying = !this.video.paused && !this.video.ended;
+if (!isPlaying && this.chunkBuffer.size < 3 && this.nextIndex > 0) {
+  console.log(`⏳ Warming up buffer... (${this.chunkBuffer.size}/3)`);
+  return;
+}
     // 2. Find Next Chunk (with jump-ahead logic)
     let chunk = this.chunkBuffer.get(this.nextIndex);
 
@@ -183,23 +189,44 @@ this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
       }
     }
 
-    if (chunk) {
-      this.isProcessing = true;
-      this.addLog(`Fetching #${this.nextIndex}...`);
-      try {
-        const buf = await this.download(chunk.magnetLink);
-        this.sb.appendBuffer(buf);
-        this.addLog(`Appended #${this.nextIndex}`);
-        this.chunkBuffer.delete(this.nextIndex);
-        this.nextIndex++;
-      } catch (e) {
-        if (e.message.includes("duplicate")) this.nextIndex++;
-        else this.addLog("Download Error");
-      } finally {
-        this.isProcessing = false;
-        this.tick();
-      }
+    
+if (chunk) {
+  this.isProcessing = true;
+  this.addLog(`Fetching #${this.nextIndex}...`);
+  try {
+    const buf = await this.download(chunk.magnetLink);
+
+    // 1. Append the data to the source buffer immediately
+    this.sb.appendBuffer(buf);
+    this.addLog(`Appended #${this.nextIndex}`);
+
+    // 2. CHECK THE CUSHION:
+    // We only trigger .play() if we have a few seconds banked
+    // OR if we are already playing.
+    const bufferDuration =
+      this.video.buffered.length > 0
+        ? this.video.buffered.end(0) - this.video.currentTime
+        : 0;
+
+    if (bufferDuration > 3 && this.video.paused) {
+      this.addLog("Buffer healthy - Starting Playback");
+      this.video.play().catch(() => this.addLog("Tap to play"));
     }
+
+    this.chunkBuffer.delete(this.nextIndex);
+    this.nextIndex++;
+  } catch (e) {
+    if (e.message?.includes("duplicate")) {
+      this.nextIndex++;
+    } else {
+      this.addLog("Append Error: " + e.message);
+    }
+  } finally {
+    this.isProcessing = false;
+    // 3. Keep the engine turning
+    setTimeout(() => this.tick(), 100);
+  }
+}
   }
 
   download(magnet) {
