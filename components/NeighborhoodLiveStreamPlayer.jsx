@@ -1,303 +1,266 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { View, StyleSheet, ActivityIndicator, Text } from "react-native";
+import { gql, useQuery } from "@apollo/client";
 
-// ============================================
-// 1. CUSTOM HOOK: SINGLE TORRENT MANAGER
-// ============================================
-function useTorrentSwarm(magnetUri, sessionId) {
-  const [torrent, setTorrent] = useState(null);
-  const [peers, setPeers] = useState(0);
-
-  useEffect(() => {
-    if (!magnetUri || !window.globalWebTorrentClient) return;
-
-    const client = window.globalWebTorrentClient;
+const GET_STREAM_CHUNKS = gql`
+  query GetStreamChunks($sessionId: String!) {
+    streamChunks(sessionId: $sessionId) {
+      id
+      chunkIndex
+      magnetLink
+      fileType
+      sessionId
+    }
+  }
+`;
+// --- THE NON-REACT CONTROLLER ---
+class StreamController {
+  constructor(sessionId, setupMagnet, addLog, triggerFetch) {
     
-    const newTorrent = client.add(magnetUri, (t) => {
-      console.log(`[SwarmManager ${sessionId}] Torrent Ready. Peers: ${t.numPeers}`);
-      setPeers(t.numPeers);
+    this.sessionId = sessionId;
+    this.triggerFetch = triggerFetch;
+    this.setupMagnet = setupMagnet;
+    this.addLog = addLog;
+    this.client = window.globalWebTorrentClient;
+    this.nextIndex = 0;
+    this.headerLoaded = false;
+    this.isProcessing = false;
+    this.chunkBuffer = new Map();
+    this.trackers = [
+      "wss://tracker.openwebtorrent.com",
+      "wss://tracker.btorrent.xyz",
+      "wss://tracker.fastcast.nz",
+    ];
+
+    this.ms = new MediaSource();
+        this.sb = null;
+    this.video = document.createElement("video");
+    this.video.autoplay = true;
+    this.video.controls = true;
+    this.video.muted = true;
+    this.video.playsInline = true;
+    this.video.style.width = "100%";
+    this.video.src = URL.createObjectURL(this.ms);
+
+    this.ms.addEventListener("sourceopen", () => {
+      this.sb = this.ms.addSourceBuffer('video/webm; codecs="vp8,opus"');
+      this.sb.mode = "sequence";
+      this.addLog("MSE Ready");
+      this.tick();
+ this.watchdog = setInterval(() => {
+      if (this.chunkBuffer.size === 0 && !this.isProcessing) {
+        console.log(`🤖 Autonomous Player: Buffer empty. Searching for #${this.nextIndex}...`);
+        this.triggerFetch(); // Forces the GraphQL Query to refresh
+      }
+    }, 3000); // Check every 3 seconds
+
     });
+  } 
 
-    setTorrent(newTorrent);
+  // Remember to clean up!
+  destroy() {
+    clearInterval(this.watchdog);
+    // ... rest of destroy ...
+  }
 
-    const onWire = () => setPeers(newTorrent.numPeers);
-    newTorrent.on("wire", onWire);
+  
 
-    newTorrent.on("error", (err) => {
-      if (!err.message.includes("duplicate torrent")) {
-        console.error(`[SwarmManager ${sessionId}] Torrent Error:`, err.message);
+  
+  addChunks(chunks) {
+    // 1. Only add chunks we don't already have and haven't played yet
+    chunks.forEach((c) => {
+      if (
+        c.chunkIndex >= this.nextIndex &&
+        !this.chunkBuffer.has(c.chunkIndex)
+      ) {
+        this.chunkBuffer.set(c.chunkIndex, c);
       }
     });
 
-    return () => {
-      newTorrent.removeListener("wire", onWire);
-      // We don't destroy the client here because it's global, 
-      // but we clear local state.
-      setTorrent(null);
-    };
-  }, [magnetUri, sessionId]);
+    console.log(
+      `📥 Buffer Status: Have [${Array.from(
+        this.chunkBuffer.keys()
+      )}], Need: #${this.nextIndex}`
+    );
 
-  return { torrent, peers };
-}
-
-// ============================================
-// 2. MAIN PLAYER COMPONENT
-// ============================================
-export default function NeighborhoodLiveStreamPlayer({
-  sessionId,
-  initialChunks = [],
-  clearProcessedChunk,
-}) {
-  // ---------- 1. Refs ----------
-  const videoRef = useRef(null);
-  const mediaSourceRef = useRef(null);
-  const sourceBufferRef = useRef(null);
-
-  // ---------- 2. State ----------
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [chunkBuffer, setChunkBuffer] = useState(new Map());
-  const [nextExpectedIndex, setNextExpectedIndex] = useState(0);
-  const [chunkLog, setChunkLog] = useState([]);
-
-  // ---------- 3. Data Preparation & Hook (MOVED UP) ----------
-  // We move these up so 'torrent' and 'peers' are available to everything below
-  const sortedChunks = [...initialChunks].sort(
-    (a, b) => a.chunkIndex - b.chunkIndex
-  );
-  const magnetUri = sortedChunks[0]?.magnetLink;
-  const { torrent, peers } = useTorrentSwarm(magnetUri, sessionId);
-
-  // ---------- 4. Helpers ----------
-  const addLog = useCallback(
-    (message) => {
-      const timestamp = new Date().toISOString().split("T")[1].slice(0, -1);
-      setChunkLog((prev) => [...prev.slice(-10), `${timestamp}: ${message}`]);
-      console.log(`[Player ${sessionId}] ${message}`);
-    },
-    [sessionId]
-  );
-
-  // Now 'torrent' is in scope for this function!
-  const triggerPriorityDownload = useCallback(() => {
-    // Check if torrent and metadata (pieces) are actually ready
-    if (!torrent || !torrent.pieces) return;
-
-    addLog("🔥 Priority set: Swarm focusing on next chunk pieces.");
-    torrent.select(0, torrent.pieces.length - 1, 1);
-    torrent.criticalPieces = [0, 1, 2, 3, 4, 5];
-  }, [torrent, addLog]);
-
-  // ---------- Data Preparation ----------
-
-  // ============================================
-  // 3. MEDIASOURCE & VIDEO ELEMENT SETUP
-  // ============================================
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    addLog(`Setting up player`);
-
-    function getMediaSourceConstructor() {
-      if (self.ManagedMediaSource) return self.ManagedMediaSource;
-      if (self.MediaSource) return self.MediaSource;
-      throw new Error("No MediaSource API available.");
+    // 2. If we don't have the current index but have higher ones, JUMP.
+    if (!this.chunkBuffer.has(this.nextIndex) && this.chunkBuffer.size > 0) {
+      const available = Array.from(this.chunkBuffer.keys()).sort(
+        (a, b) => a - b
+      );
+      const nextAvailable = available.find((i) => i > this.nextIndex);
+      if (nextAvailable) {
+        console.log(
+          `⏩ Skipping missing chunk ${this.nextIndex} -> moving to ${nextAvailable}`
+        );
+        this.nextIndex = nextAvailable;
+      }
     }
+    this.tick();
+  }
 
-    const MediaSourceConstructor = getMediaSourceConstructor();
-    const mediaSource = new MediaSourceConstructor();
-    mediaSourceRef.current = mediaSource;
 
-    const video = document.createElement("video");
-    video.controls = true;
-    video.autoplay = true;
-    video.muted = true;
-    video.style.width = "100%";
-    video.style.height = "auto";
-    video.playsInline = true;
 
-    const url = URL.createObjectURL(mediaSource);
-    video.src = url;
-
-    // Listeners
-    video.onplaying = () => {
-      addLog(`VIDEO PLAYING!`);
-      setIsLoading(false);
-    };
-    video.onwaiting = () => {
-      addLog(`Video buffering...`);
-      setIsLoading(true);
-    };
-    video.onerror = (e) => setError(`Video Error ${e.target.error?.code}`);
-
-    const container = document.getElementById(`video-container-${sessionId}`);
-    if (container) {
-      container.innerHTML = "";
-      container.appendChild(video);
-      videoRef.current = video;
-    }
-
-    const handleSourceOpen = () => {
-      addLog(`MediaSource opened`);
+  async tick() {
+    if (!this.sb || this.sb.updating || this.isProcessing) return;
+    // Inside tick()
+    console.log(
+      `Current NextIndex: ${this.nextIndex}, Buffer Size: ${this.chunkBuffer.size}`
+    );
+    // 1. Setup Header
+    if (this.setupMagnet && !this.headerLoaded) {
+      this.isProcessing = true;
       try {
-        const mimeType = 'video/webm; codecs="vp8,opus"'; // Matches Recorder
-        const sb = mediaSource.addSourceBuffer(mimeType);
-        sourceBufferRef.current = sb;
-        sb.mode = "sequence";
-
-        sb.addEventListener("updateend", () => appendFromBuffer());
+        const buf = await this.download(this.setupMagnet);
+        this.sb.appendBuffer(buf);
+        this.headerLoaded = true;
+        this.addLog("Headers Appended");
       } catch (e) {
-        setError(`MSE Error: ${e.message}`);
+        this.addLog("Header Error");
+      } finally {
+        this.isProcessing = false;
+        this.tick();
       }
-    };
-
-    mediaSource.addEventListener("sourceopen", handleSourceOpen);
-
-    return () => {
-      addLog(`Cleaning up session`);
-      if (url) URL.revokeObjectURL(url);
-      if (videoRef.current) videoRef.current.remove();
-    };
-  }, [sessionId, addLog]);
-
-  // ============================================
-  // 4. HEARTBEAT MONITOR (The "Panic" Trigger)
-  // ============================================
-  useEffect(() => {
-    if (!videoRef.current || !sourceBufferRef.current) return;
-
-    const interval = setInterval(() => {
-      const video = videoRef.current;
-      const sb = sourceBufferRef.current;
-
-      if (!video || !sb || sb.updating) return;
-
-      const buffered = sb.buffered;
-      if (buffered.length > 0) {
-        const bufferEnd = buffered.end(buffered.length - 1);
-        const secondsLeft = bufferEnd - video.currentTime;
-
-        // Visual heartbeat in logs
-        if (secondsLeft < 5 && !isLoading) {
-          addLog(`🚨 LOW BUFFER: ${secondsLeft.toFixed(1)}s left. Panicking!`);
-          triggerPriorityDownload();
-        }
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [isLoading, torrent, triggerPriorityDownload, addLog]);
-
-  // ============================================
-  // 5. SMART BUFFER & APPEND LOGIC
-  // ============================================
-  const appendFromBuffer = useCallback(() => {
-    const sb = sourceBufferRef.current;
-    if (!sb || sb.updating || !torrent) return;
-
-    const chunkToAppend = chunkBuffer.get(nextExpectedIndex);
-    if (!chunkToAppend) {
-      setIsLoading(true);
       return;
     }
 
-    const file = torrent.files[0];
-    if (!file) return;
+    // 2. Find Next Chunk (with jump-ahead logic)
+    let chunk = this.chunkBuffer.get(this.nextIndex);
 
-    addLog(`▶️ Appending chunk #${nextExpectedIndex}`);
-    file.getBuffer((err, buffer) => {
-      if (err || !sb) return;
-      try {
-        sb.appendBuffer(buffer);
-        setChunkBuffer((prev) => {
-          const newMap = new Map(prev);
-          newMap.delete(nextExpectedIndex);
-          return newMap;
-        });
-        setNextExpectedIndex((prev) => prev + 1);
-      } catch (e) {
-        addLog(`Append error: ${e.message}`);
-      }
-    });
-  }, [chunkBuffer, nextExpectedIndex, torrent, addLog]);
-
-  // --- FIX IN NeighborhoodLiveStreamPlayer.jsx ---
-  useEffect(() => {
-    if (sortedChunks.length > 0) {
-      const newChunks = sortedChunks.filter(
-        (c) =>
-          !chunkBuffer.has(c.chunkIndex) && c.chunkIndex >= nextExpectedIndex
-      );
-
-      if (newChunks.length > 0) {
-        // 1. First, update local state
-        setChunkBuffer((prev) => {
-          const next = new Map(prev);
-          newChunks.forEach((c) => next.set(c.chunkIndex, c));
-          return next;
-        });
-
-        // 2. Then, notify parent in the NEXT tick to avoid the render clash
-        setTimeout(() => {
-          newChunks.forEach((c) => {
-            if (clearProcessedChunk) clearProcessedChunk(c.id);
-          });
-        }, 0);
+    if (!chunk && this.chunkBuffer.size > 0) {
+      const indices = Array.from(this.chunkBuffer.keys()).sort((a, b) => a - b);
+      const nextAvailable = indices.find((i) => i > this.nextIndex);
+      if (nextAvailable) {
+        this.addLog(`⏩ Skipping to #${nextAvailable}`);
+        this.nextIndex = nextAvailable;
+        this.tick();
+        return;
       }
     }
-  }, [sortedChunks, clearProcessedChunk, chunkBuffer, nextExpectedIndex]);
 
+    if (chunk) {
+      this.isProcessing = true;
+      this.addLog(`Fetching #${this.nextIndex}...`);
+      try {
+        const buf = await this.download(chunk.magnetLink);
+        this.sb.appendBuffer(buf);
+        this.addLog(`Appended #${this.nextIndex}`);
+        this.chunkBuffer.delete(this.nextIndex);
+        this.nextIndex++;
+      } catch (e) {
+        if (e.message.includes("duplicate")) this.nextIndex++;
+        else this.addLog("Download Error");
+      } finally {
+        this.isProcessing = false;
+        this.tick();
+      }
+    }
+  }
+
+  download(magnet) {
+    return new Promise((resolve, reject) => {
+      const existing = this.client.get(magnet);
+      if (existing && existing.done) {
+        existing.files[0].getBuffer((err, buf) =>
+          err ? reject(err) : resolve(buf)
+        );
+        return;
+      }
+      this.client.add(magnet, { announce: this.trackers }, (torrent) => {
+        torrent.on("done", () => {
+          torrent.files[0].getBuffer((err, buf) => {
+            this.client.remove(torrent.infoHash);
+            err ? reject(err) : resolve(buf);
+          });
+        });
+        torrent.on("error", (err) => {
+          this.client.remove(torrent.infoHash);
+          reject(err);
+        });
+      });
+    });
+  }
+
+  destroy() {
+    if (this.video.src) URL.revokeObjectURL(this.video.src);
+    this.video.remove();
+  }
+}
+
+// --- THE REACT WRAPPER ---
+export default function NeighborhoodLiveStreamPlayer({
+  sessionId,
+  setupMagnet,
+  initialChunks = [], // Chunks coming from the parent (Livestream.tsx)
+}) {
+  const containerRef = useRef(null);
+  const controllerRef = useRef(null);
+  const [logs, setLogs] = useState([]);
+
+  // 1. THE AUTONOMOUS PULL: This query can be refetched manually
+  const { data, refetch } = useQuery(GET_STREAM_CHUNKS, {
+    variables: { sessionId },
+    notifyOnNetworkStatusChange: true,
+  });
+
+  const addLog = (msg) => {
+    setLogs((prev) => [...prev.slice(-5), msg]);
+    console.log(`[Stream] ${msg}`);
+  };
+
+  // 2. INITIALIZE CONTROLLER
   useEffect(() => {
-    appendFromBuffer();
-  }, [chunkBuffer, appendFromBuffer]);
+    const controller = new StreamController(
+      sessionId,
+      setupMagnet,
+      addLog,
+      () => {
+        addLog("🤖 Watchdog: Pulling fresh data...");
+        refetch();
+      }
+    );
+    controllerRef.current = controller;
 
-  // ============================================
-  // 6. RENDER
-  // ============================================
+    if (containerRef.current) {
+      containerRef.current.appendChild(controller.video);
+    }
+
+    return () => controller.destroy();
+  }, [sessionId]);
+
+  // 3. MERGE DATA SOURCES: Listen to both Parent Props AND Local Query Refetch
+  useEffect(() => {
+    const allChunks = [...initialChunks];
+
+    // If our autonomous query found chunks, add them to the list
+    if (data?.streamChunks) {
+      allChunks.push(...data.streamChunks);
+    }
+
+    if (allChunks.length > 0 && controllerRef.current) {
+      controllerRef.current.addChunks(allChunks);
+    }
+  }, [initialChunks, data]);
+
   return (
     <View style={styles.container}>
-      {isLoading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#00ffff" />
-          <Text style={styles.loadingText}>
-            {nextExpectedIndex === 0
-              ? "Connecting to Neighbors..."
-              : "Buffering Swarm..."}
+      <div
+        ref={containerRef}
+        style={{ width: "100%", backgroundColor: "#000" }}
+      />
+      <View style={styles.logBox}>
+        {logs.map((l, i) => (
+          <Text key={i} style={styles.logText}>
+            {l}
           </Text>
-        </View>
-      )}
-
-      <View id={`video-container-${sessionId}`} style={styles.videoContainer} />
-
-      <View style={styles.statsContainer}>
-        <Text style={styles.chunkInfo}>
-          Peers: {peers} | Next Needed: #{nextExpectedIndex}
-        </Text>
-        <View style={styles.debugContainer}>
-          {chunkLog.map((log, i) => (
-            <Text key={i} style={styles.debugText}>
-              {log}
-            </Text>
-          ))}
-        </View>
+        ))}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { width: "100%", backgroundColor: "#111", borderRadius: 8, padding: 10 },
-  loadingContainer: { position: "absolute", zIndex: 10, top: "30%", width: "100%", alignItems: "center" },
-  loadingText: { color: "#00ffff", marginTop: 10, fontWeight: "bold" },
-  videoContainer: { width: "100%", minHeight: 300, backgroundColor: "#000", borderRadius: 5 },
-  statsContainer: { marginTop: 10, padding: 8, backgroundColor: "#222", borderRadius: 5 },
-  chunkInfo: { color: "#0f0", fontSize: 12, fontFamily: "monospace", marginBottom: 5 },
-  debugContainer: { backgroundColor: "#000", padding: 5, borderRadius: 3, maxHeight: 100 },
-  debugText: { color: "#8af", fontSize: 10, fontFamily: "monospace" },
+  container: { width: "100%", backgroundColor: "#111" },
+  logBox: { padding: 10, backgroundColor: "#222" },
+  logText: { color: "#0f0", fontSize: 10, fontFamily: "monospace" },
 });

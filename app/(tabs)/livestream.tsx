@@ -68,11 +68,26 @@ const LIVESTREAM_CHUNK_SUBSCRIPTION = gql`
   }
 `;
 
-function Livestream({ stream }) {
-  const [liveChunks, setLiveChunks] = useState([]);
+function Livestream({
+  stream,
+}: {
+  stream: { id: string; sessionId?: string; magnetLink?: string; title?: string };
+}) {
+  type StreamChunk = {
+    id: string;
+    sessionId?: string;
+    chunkIndex: number;
+    magnetLink?: string;
+    fileType?: string;
+  };
+
+  const [liveChunks, setLiveChunks] = useState<StreamChunk[]>([]);
 
   // 1. Fetch initial chunks that might already exist
-  const { data: initialData } = useQuery(GET_LIVESTREAM_CHUNKS, {
+  const { data: initialData } = useQuery<
+    { streamChunks: StreamChunk[] },
+    { sessionId: string }
+  >(GET_LIVESTREAM_CHUNKS, {
     variables: { sessionId: stream.sessionId },
     skip: !stream.sessionId,
   });
@@ -81,54 +96,61 @@ function Livestream({ stream }) {
   const { data: subscriptionData } = useSubscription(
     LIVESTREAM_CHUNK_SUBSCRIPTION,
     {
-      variables: { sessionId: stream.sessionId },
+      variables: { sessionId: stream.sessionId }, // Ensure this matches exactly!
     }
   );
 
   // 3. Load initial chunks once
- useEffect(() => {
-  // 1. Combine Initial + Subscription data
-  const incomingChunks = [];
-  if (initialData?.streamChunks) incomingChunks.push(...initialData.streamChunks);
-  if (subscriptionData?.livestreamChunkAdded) incomingChunks.push(subscriptionData.livestreamChunkAdded);
-
-  if (incomingChunks.length === 0) return;
-
-  setLiveChunks((prevChunks) => {
-    // 2. Create a Map of unique chunks by Index to prevent duplicates
-    const chunkMap = new Map(prevChunks.map(c => [c.chunkIndex, c]));
-    
-    incomingChunks.forEach(chunk => {
-      chunkMap.set(chunk.chunkIndex, chunk);
-    });
-
-    // 3. Convert back to array and sort
-    const sorted = Array.from(chunkMap.values()).sort((a, b) => a.chunkIndex - b.chunkIndex);
-
-    // 4. HEARTBEAT / GAP DETECTION
-    // Check if we have a "broken chain" (e.g., we have index 1, 2, and 4, but 3 is missing)
-    for (let i = 0; i < sorted.length - 1; i++) {
-      if (sorted[i+1].chunkIndex !== sorted[i].chunkIndex + 1) {
-        console.warn(`⚠️ Buffer Gap Detected between ${sorted[i].chunkIndex} and ${sorted[i+1].chunkIndex}`);
-        // Here you could trigger a "Panic Fetch" from your Backend/CDN
-      }
+  // 1. Initial Load Effect (Runs once when initialData arrives)
+  useEffect(() => {
+    if (initialData?.streamChunks) {
+      setLiveChunks((prev) => {
+        const chunkMap = new Map(prev.map((c) => [c.chunkIndex, c]));
+        initialData.streamChunks.forEach((c) => chunkMap.set(c.chunkIndex, c));
+        return Array.from(chunkMap.values()).sort(
+          (a, b) => a.chunkIndex - b.chunkIndex
+        );
+      });
+      console.log("📦 Loaded initial chunks:", initialData.streamChunks.length);
     }
+  }, [initialData]);
 
-    return sorted;
-  });
-}, [initialData, subscriptionData]);
-  
-  const clearProcessedChunk = useCallback((chunkId) => {
+  // 2. Subscription Effect (Runs every time a NEW chunk is added)
+  // livestream.tsx
+  useEffect(() => {
+    if (subscriptionData?.livestreamChunkAdded) {
+      const newChunk = subscriptionData.livestreamChunkAdded;
+      console.log(`🔥 SUB RECEIVED: Chunk #${newChunk.chunkIndex}`);
+
+      setLiveChunks((prev) => {
+        // Avoid duplicates
+        if (prev.find((c) => c.id === newChunk.id)) return prev;
+
+        const updated = [...prev, newChunk].sort(
+          (a, b) => a.chunkIndex - b.chunkIndex
+        );
+        return updated;
+      });
+    }
+  }, [subscriptionData]);
+
+  const clearProcessedChunk = useCallback((chunkId: string) => {
     setLiveChunks((prevChunks) =>
       prevChunks.filter((chunk) => chunk.id !== chunkId)
     );
   }, []);
+
+  console.log(
+    "Current Tray of Chunks:",
+    liveChunks.map((c) => c.chunkIndex)
+  );
 
   return (
     <View style={styles.streamContainer}>
       <Text style={styles.streamTitle}>{stream.title || "Livestream"}</Text>
       <NeighborhoodLiveStreamPlayer
         sessionId={stream.sessionId}
+        setupMagnet={stream.magnetLink}
         initialChunks={liveChunks}
         clearProcessedChunk={clearProcessedChunk}
       />
@@ -205,6 +227,7 @@ export default function LivestreamScreen() {
       </View>
     );
   }
+  
 
   return (
     <ScrollView style={styles.scrollView}>
