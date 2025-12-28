@@ -64,7 +64,7 @@ export default function NeighborhoodLiveStreamRecorder({
   const chunkIndexRef = useRef(0);
   const chunkQueueRef = useRef([]);
   const isProcessingQueueRef = useRef(false);
-
+  
   // CRITICAL: Track if the first segment (The Header) has been sent
   const headerSentRef = useRef(false);
 
@@ -83,60 +83,57 @@ export default function NeighborhoodLiveStreamRecorder({
 
     const seedAndSend = (chunkData, index) => {
       return new Promise((resolve, reject) => {
-        const extension = supportedTypeRef.current.includes("mp4")
-          ? "mp4"
-          : "webm";
+        const extension = supportedTypeRef.current.includes("mp4") ? "mp4" : "webm";
         const isHeader = index === -1;
-
+        
         // Label the header differently so the Player can find it easily
-        const fileName = isHeader
+        const fileName = isHeader 
           ? `header-${sessionIdRef.current}.mp4`
           : `live-${sessionIdRef.current}-chunk-${index}.${extension}`;
 
-        client.seed(chunkData, { name: fileName }, (torrent) => {
-          console.log(
-            `✅ ${isHeader ? "Header" : "Chunk " + index} seeded:`,
-            torrent.magnetURI
-          );
-
-          sendMessage({
-            variables: {
-              content: isHeader ? "STREAM_HEADER" : "",
-              room: "neighborhood",
-              neighborhoodId: neighborhoodId,
-              fileName: isHeader
-                ? "Stream Header"
-                : `${username}'s Live Stream - Part ${index + 1}`,
-              fileType: isHeader ? "video_header" : "video_chunk",
-              magnetLink: torrent.magnetURI,
-              mimeType: supportedTypeRef.current, // Critical for iPhone decoding
-              sessionId: sessionIdRef.current,
-              chunkIndex: index,
-              totalChunks: -1,
-              thumbnailUrl: null,
-            },
-          })
-            .then(() => {
-              if (!isHeader) {
-                setChunkCount((prev) => prev + 1);
-              } else {
-                headerSentRef.current = true;
-              }
-              resolve();
+        client.seed(
+          chunkData,
+          { name: fileName },
+          (torrent) => {
+            console.log(`✅ ${isHeader ? 'Header' : 'Chunk ' + index} seeded:`, torrent.magnetURI);
+            
+            sendMessage({
+              variables: {
+                content: isHeader ? "STREAM_HEADER" : "",
+                room: "neighborhood",
+                neighborhoodId: neighborhoodId,
+                fileName: isHeader ? "Stream Header" : `${username}'s Live Stream - Part ${index + 1}`,
+                fileType: isHeader ? "video_header" : "video_chunk",
+                magnetLink: torrent.magnetURI,
+                mimeType: supportedTypeRef.current, // Critical for iPhone decoding
+                sessionId: sessionIdRef.current,
+                chunkIndex: index,
+                totalChunks: -1,
+                thumbnailUrl: null,
+              },
             })
-            .catch((err) => {
-              console.error(`❌ Failed to send message:`, err);
-              reject(err);
-            });
+              .then(() => {
+                if (!isHeader) {
+                  setChunkCount((prev) => prev + 1);
+                } else {
+                  headerSentRef.current = true;
+                }
+                resolve();
+              })
+              .catch((err) => {
+                console.error(`❌ Failed to send message:`, err);
+                reject(err);
+              });
 
-          // Cleanup: iPhone will overheat if we seed 1000 chunks.
-          // We only need to seed long enough for neighbors to grab the latest data.
-          setTimeout(() => {
-            if (client.get(torrent.infoHash)) {
-              client.remove(torrent.infoHash);
-            }
-          }, 120000); // 2 minutes seeding duration
-        });
+            // Cleanup: iPhone will overheat if we seed 1000 chunks. 
+            // We only need to seed long enough for neighbors to grab the latest data.
+            setTimeout(() => {
+              if (client.get(torrent.infoHash)) {
+                client.remove(torrent.infoHash);
+              }
+            }, 120000); // 2 minutes seeding duration
+          }
+        );
       });
     };
 
@@ -168,8 +165,7 @@ export default function NeighborhoodLiveStreamRecorder({
       // 1. Initialize WebTorrent
       if (!window.WebTorrent) {
         const script = document.createElement("script");
-        script.src =
-          "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+        script.src = "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
         document.head.appendChild(script);
         await new Promise((resolve) => (script.onload = resolve));
       }
@@ -224,9 +220,7 @@ export default function NeighborhoodLiveStreamRecorder({
         "video/mp4; codecs=avc1",
         "video/webm; codecs=vp8,opus",
       ];
-      let supportedType = types.find((type) =>
-        MediaRecorder.isTypeSupported(type)
-      );
+      let supportedType = types.find((type) => MediaRecorder.isTypeSupported(type));
 
       if (!supportedType) {
         throw new Error("No supported MediaRecorder format found.");
@@ -238,7 +232,7 @@ export default function NeighborhoodLiveStreamRecorder({
       // 5. Recorder Initialization
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: supportedType,
-        videoBitsPerSecond: 800000,
+        videoBitsPerSecond: 800000, 
       });
 
       mediaRecorderRef.current = mediaRecorder;
@@ -255,6 +249,7 @@ export default function NeighborhoodLiveStreamRecorder({
 
       mediaRecorder.start(CHUNK_DURATION);
       setIsStreaming(true);
+
     } catch (error) {
       console.error("❌ Stream start error:", error);
       Alert.alert("Stream Error", error.message);
@@ -296,14 +291,16 @@ export default function NeighborhoodLiveStreamRecorder({
         onPress={isStreaming ? stopStream : startStream}
         style={[
           styles.button,
-          { backgroundColor: isStreaming ? "#ff4444" : "#0066cc" },
+          { backgroundColor: isStreaming ? "#ff4444" : "#0066cc" }
         ]}
       >
         <Text style={styles.buttonText}>
           {isStreaming ? "⏹️ STOP LIVE STREAM" : "🔴 START LIVE STREAM"}
         </Text>
         {isStreaming && (
-          <Text style={styles.statusText}>{chunkCount} chunks broadcasted</Text>
+          <Text style={styles.statusText}>
+            {chunkCount} chunks broadcasted
+          </Text>
         )}
       </TouchableOpacity>
     </View>
@@ -329,5 +326,5 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 12,
     marginTop: 5,
-  },
+  }
 });

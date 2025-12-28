@@ -114,21 +114,21 @@ class StreamController {
     clearInterval(this.watchdog);
     // ... rest of destroy ...
   }
-
+  
   addChunks(chunks) {
     chunks.forEach((c) => {
-      // 1. If we find the header (Index -1), set it as the setupMagnet
-      if (c.chunkIndex === -1 || c.fileType === "video_header") {
+      // 🕵️ Check if this is the header based on TYPE, not just index
+      if (c.fileType === "video_header" && !this.headerLoaded) {
+        this.addLog("🗂️ Header Magnet Found!");
         this.setupMagnet = c.magnetLink;
-        // Use the mimeType from the header chunk to set the codec
         this.detectedMimeType = c.mimeType;
       }
 
-      if (
-        c.chunkIndex >= this.nextIndex &&
-        !this.chunkBuffer.has(c.chunkIndex)
-      ) {
-        this.chunkBuffer.set(c.chunkIndex, c);
+      // Standard chunk logic
+      if (c.fileType === "video_chunk" && c.chunkIndex >= this.nextIndex) {
+        if (!this.chunkBuffer.has(c.chunkIndex)) {
+          this.chunkBuffer.set(c.chunkIndex, c);
+        }
       }
     });
     this.tick();
@@ -194,8 +194,6 @@ class StreamController {
       }
     }
   }
-
-
 
   download(magnet) {
     return new Promise((resolve, reject) => {
