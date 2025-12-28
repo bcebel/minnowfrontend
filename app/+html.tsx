@@ -148,11 +148,9 @@ export default function Root({ children }: PropsWithChildren) {
         window.globalWebTorrentClient = new WebTorrent({
           tracker: {
             announce: [
-              'wss://tracker.webtorrent.io',
-              'wss://tracker.openwebtorrent.com',
-              'wss://tracker.btorrent.xyz',
-              'wss://tracker.fastcast.nz',
-              'wss://tracker.webtorrent.dev',
+       "wss://tracker.openwebtorrent.com",
+      "wss://tracker.btorrent.xyz",
+      "wss://tracker.fastcast.nz",
             ]
           }
         });
@@ -178,12 +176,9 @@ export default function Root({ children }: PropsWithChildren) {
       
       // Pre-load common trackers for better P2P discovery
       window.enhancedTrackers = [
-'wss://tracker.webtorrent.io',
-  'wss://tracker.openwebtorrent.com',
-  'wss://tracker.files.fm:7073/announce',
-  'wss://qbt.torrentcloud.tech:443/announce',
-  'wss://dennis.pm:8000/announce',
-  'wss://ws.bittorrent.com'
+    "wss://tracker.openwebtorrent.com",
+      "wss://tracker.btorrent.xyz",
+      "wss://tracker.fastcast.nz",
       ];
     `,
           }}

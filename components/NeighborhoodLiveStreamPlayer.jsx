@@ -114,7 +114,7 @@ class StreamController {
     clearInterval(this.watchdog);
     // ... rest of destroy ...
   }
-  
+
   addChunks(chunks) {
     chunks.forEach((c) => {
       // 🕵️ Check if this is the header based on TYPE, not just index
@@ -224,16 +224,17 @@ class StreamController {
 }
 
 // --- THE REACT WRAPPER ---
+// --- THE UPDATED REACT WRAPPER ---
 export default function NeighborhoodLiveStreamPlayer({
   sessionId,
   setupMagnet,
-  initialChunks = [], // Chunks coming from the parent (Livestream.tsx)
+  initialChunks = [],
 }) {
   const containerRef = useRef(null);
   const controllerRef = useRef(null);
+  const [isJoined, setIsJoined] = useState(false);
   const [logs, setLogs] = useState([]);
-const [isPlaying, setIsPlaying] = useState(false);
-  // 1. THE AUTONOMOUS PULL: This query can be refetched manually
+
   const { data, refetch } = useQuery(GET_STREAM_CHUNKS, {
     variables: { sessionId },
     notifyOnNetworkStatusChange: true,
@@ -244,82 +245,70 @@ const [isPlaying, setIsPlaying] = useState(false);
     console.log(`[Stream] ${msg}`);
   };
 
-  // 2. INITIALIZE CONTROLLER
-  useEffect(() => {
+  // 1. MANUAL INITIALIZATION (The iPhone Way)
+  const handleJoinStream = () => {
+    addLog("🚀 Manual Join Triggered...");
+    
+    // Create the controller ONLY on user tap
     const controller = new StreamController(
       sessionId,
       setupMagnet,
       addLog,
-      () => {
-        addLog("🤖 Watchdog: Pulling fresh data...");
-        refetch();
-      }
+      () => refetch()
     );
-    controllerRef.current = controller;
 
-    window.controller = controller;
+    controllerRef.current = controller;
+    window.controller = controller; // Force leak to window for debugging
 
     if (containerRef.current) {
       containerRef.current.appendChild(controller.video);
     }
 
-    return () => {
-      delete window.controller; // Clean up on unmount
-      controller.destroy();
-    };
-  }, [sessionId]);
+    setIsJoined(true);
+  };
 
-
-
-  // 3. MERGE DATA SOURCES: Listen to both Parent Props AND Local Query Refetch
+  // 2. DATA HAND-OFF
   useEffect(() => {
-    const allChunks = [...initialChunks];
-
-    // If our autonomous query found chunks, add them to the list
-    if (data?.streamChunks) {
-      allChunks.push(...data.streamChunks);
+    if (isJoined && controllerRef.current) {
+      const allChunks = [...initialChunks, ...(data?.streamChunks || [])];
+      if (allChunks.length > 0) {
+        controllerRef.current.addChunks(allChunks);
+      }
     }
+  }, [isJoined, initialChunks, data]);
 
-    if (allChunks.length > 0 && controllerRef.current) {
-      controllerRef.current.addChunks(allChunks);
-    }
-  }, [initialChunks, data]);
-
-return (
-  <View style={styles.container}>
-    {/* 1. Fixed Aspect Ratio Container */}
-    <div
-      ref={containerRef}
-      style={{
-        width: "100%",
-        position: "relative",
-        backgroundColor: "#000",
-        aspectRatio: "16/9", // Keeps it standard landscape
-        overflow: "hidden",
-        display: "block" // Ensures it's not a flex-child that might shrink
-      }}
-    />
-
-    {/* 2. The Interaction Overlay */}
-    {!isPlaying && (
-      <TouchableOpacity 
-        onPress={() => {
-          controllerRef.current?.unlock();
-          setIsPlaying(true);
+  return (
+    <View style={styles.container}>
+      <div
+        ref={containerRef}
+        style={{
+          width: "100%",
+          position: "relative",
+          backgroundColor: "#000",
+          aspectRatio: "16/9",
+          overflow: "hidden",
+          display: isJoined ? "block" : "none" // Hide until joined
         }}
-        style={styles.bigJoinButton}
-      >
-        <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>
-          🔴 JOIN LIVE STREAM
-        </Text>
-      </TouchableOpacity>
-    )}
+      />
 
-    {/* 3. Keep logs minimal (or comment them out for the stress test) */}
-    {/* <View style={styles.logBox}>...</View> */}
-  </View>
-);
+      {!isJoined && (
+        <TouchableOpacity 
+          onPress={handleJoinStream}
+          style={styles.bigJoinButton}
+        >
+          <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>
+            🔴 JOIN LIVE STREAM
+          </Text>
+        </TouchableOpacity>
+      )}
 
+      <View style={styles.logBox}>
+        {logs.map((log, i) => (
+          <Text key={i} style={styles.logText}>{log}</Text>
+        ))}
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
