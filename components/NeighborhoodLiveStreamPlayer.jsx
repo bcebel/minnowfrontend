@@ -15,211 +15,200 @@ const GET_STREAM_CHUNKS = gql`
   }
 `;
 // --- THE NON-REACT CONTROLLER ---
+// --- THE NON-REACT CONTROLLER ---
 class StreamController {
   constructor(sessionId, setupMagnet, addLog, triggerFetch) {
+    this.addLog = addLog;
+    this.sessionId = sessionId;
+    this.triggerFetch = triggerFetch;
+    this.setupMagnet = setupMagnet; // Might be null initially
+
+    // 1. Setup WebTorrent
     if (!window.globalWebTorrentClient) {
-      this.addLog("🧰 Creating missing Torrent Client...");
+      this.addLog("🧰 Creating Torrent Client...");
       window.globalWebTorrentClient = new window.WebTorrent();
     }
     this.client = window.globalWebTorrentClient;
-    // 1. Prioritize ManagedMediaSource
-    this.MS = window.ManagedMediaSource || window.MediaSource;
 
-    this.sessionId = sessionId;
-    this.triggerFetch = triggerFetch;
-    this.setupMagnet = setupMagnet;
-    this.addLog = addLog;
-    this.client = window.globalWebTorrentClient;
-    this.nextIndex = 0;
+    // 2. Select Media Engine
+    this.MS = window.ManagedMediaSource || window.MediaSource;
+    this.ms = new this.MS();
+    this.sb = null;
+    this.detectedMimeType = null;
     this.headerLoaded = false;
     this.isProcessing = false;
-    this.streamingAllowed = true; // Minimal flag for iPhone flow
+    this.streamingAllowed = true;
+    this.nextIndex = 0;
     this.chunkBuffer = new Map();
+
     this.trackers = [
       "wss://tracker.openwebtorrent.com",
       "wss://tracker.btorrent.xyz",
       "wss://tracker.fastcast.nz",
     ];
 
-    this.ms = new this.MS();
-    this.sb = null;
+    // 3. Create Video Element
     this.video = document.createElement("video");
-
-    // --- MINIMAL IPHONE REQS ---
-    this.video.disableRemotePlayback = true; // Key #1: Unlocks MMS on iOS
+    this.video.disableRemotePlayback = true;
     this.video.playsInline = true;
+    this.video.muted = true; // High chance of autoplay success if muted
     this.video.autoplay = true;
     this.video.controls = true;
-    this.video.muted = true;
     this.video.style.width = "100%";
     this.video.style.height = "100%";
-    this.video.style.objectFit = "contain";
-    this.video.setAttribute("playsinline", "true");
-    this.video.setAttribute("controls", "true");
-    this.video.preload = "auto";
+    this.video.style.backgroundColor = "black";
+    this.video.setAttribute("webkit-playsinline", "true");
+
+    // 4. Attach MediaSource
     this.video.src = URL.createObjectURL(this.ms);
-    this.video.style.zIndex = "1";
-    this.video.style.position = "absolute";
-    this.video.style.top = "0";
-    this.video.style.left = "0";
-    this.video.setAttribute("webkit-playsinline", "true"); // Older iOS fix
-    this.video.style.visibility = "visible";
-    this.video.style.opacity = "1";
 
-    // Key #3: Minimal Start/Stop listeners
-    this.ms.addEventListener("startstreaming", () => {
-      this.streamingAllowed = true;
-      this.tick();
-    });
-    this.ms.addEventListener("endstreaming", () => {
-      this.streamingAllowed = false;
-    });
-
-    // Detect correct open event
     const openEvt = window.ManagedMediaSource
       ? "managedsourceopen"
       : "sourceopen";
     this.ms.addEventListener(openEvt, () => {
-      try {
-        this.sb = this.ms.addSourceBuffer(
-          'video/mp4; codecs="avc1.4d401f, mp4a.40.2"'
-        );
-        this.sb.mode = "sequence";
-        this.addLog("MSE Ready");
-        this.tick();
-
-        this.watchdog = setInterval(() => {
-          if (this.chunkBuffer.size === 0 && !this.isProcessing) {
-            this.triggerFetch();
-          }
-        }, 3000);
-      } catch (e) {
-        this.addLog("Codec Error: Likely iOS vs WebM");
-      }
+      this.addLog("✅ MediaSource Open");
+      this.tick();
     });
-  }
 
-  unlock(onSuccess) {
-    this.addLog("Attempting manual unlock...");
-    this.video
-      .play()
-      .then(() => {
-        this.addLog("Playback unblocked!");
-        if (onSuccess) onSuccess(); // This will hide the button in React
-      })
-      .catch((err) => this.addLog("Unlock failed: " + err.message));
-  }
-  // Remember to clean up!
-  destroy() {
-    clearInterval(this.watchdog);
-    // ... rest of destroy ...
+    // 5. Watchdog for background fetching
+    this.watchdog = setInterval(() => {
+      if (!this.isProcessing) {
+        this.triggerFetch();
+        this.tick(); // Keep checking if we can process
+      }
+    }, 3000);
   }
 
   addChunks(chunks) {
+    this.addLog(`🧐 Scanning ${chunks.length} chunks for Header...`);
+
     chunks.forEach((c) => {
-      // 🕵️ Check if this is the header based on TYPE, not just index
-      if (c.fileType === "video_header" && !this.headerLoaded) {
-        this.addLog("🗂️ Header Magnet Found!");
-        this.setupMagnet = c.magnetLink;
-        this.detectedMimeType = c.mimeType;
+      // Explicitly check for -1
+      if (c.chunkIndex === -1) {
+        this.addLog("🎯 FOUND HEADER (-1)!");
+        if (!this.headerLoaded) {
+          this.setupMagnet = c.magnetLink;
+          this.detectedMimeType = c.mimeType;
+        }
       }
 
-      // Standard chunk logic
-      if (c.fileType === "video_chunk" && c.chunkIndex >= this.nextIndex) {
+      // Store regular chunks
+      if (c.chunkIndex >= 0) {
         if (!this.chunkBuffer.has(c.chunkIndex)) {
           this.chunkBuffer.set(c.chunkIndex, c);
         }
       }
     });
+
+    if (!this.setupMagnet) {
+      this.addLog("❌ Header (-1) still missing from tray.");
+    }
+
     this.tick();
   }
 
   async tick() {
-    if (this.sb?.updating || this.isProcessing || !this.streamingAllowed)
-      return;
+    if (this.isProcessing || this.ms.readyState !== "open") return;
 
-    // 1. INITIALIZE SOURCE BUFFER (Wait for Header/MimeType)
-    if (!this.sb && this.ms.readyState === "open" && this.detectedMimeType) {
+    // STEP 1: Initialize SourceBuffer once we have a codec
+    if (!this.sb && this.detectedMimeType) {
       try {
-        this.addLog(`Initializing Buffer: ${this.detectedMimeType}`);
         this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
         this.sb.mode = "sequence";
+        this.addLog("🛠️ SourceBuffer Created");
       } catch (e) {
-        this.addLog("Incompatible Codec: " + this.detectedMimeType);
+        this.addLog("❌ MSE Error: " + e.message);
         return;
       }
     }
 
-    if (!this.sb) return;
+    if (!this.sb || this.sb.updating) return;
 
-    // 2. LOAD THE HEADER FIRST
+    // STEP 2: Download and Append Header
     if (this.setupMagnet && !this.headerLoaded) {
       this.isProcessing = true;
       try {
+        this.addLog("📥 Downloading Header...");
         const buf = await this.download(this.setupMagnet);
         this.sb.appendBuffer(buf);
         this.headerLoaded = true;
-        this.addLog("✅ Header Segment Appended");
+        this.addLog("✅ Header Loaded");
       } catch (e) {
-        this.addLog("❌ Header Download Failed");
+        this.addLog("❌ Header Failed");
       } finally {
         this.isProcessing = false;
-        this.tick();
+        setTimeout(() => this.tick(), 100);
       }
       return;
     }
 
-    // 3. LOAD VIDEO CHUNKS
-    let chunk = this.chunkBuffer.get(this.nextIndex);
-    if (chunk) {
-      this.isProcessing = true;
-      try {
-        const buf = await this.download(chunk.magnetLink);
-        this.sb.appendBuffer(buf);
+    // STEP 3: Download and Append Chunks
+    if (this.headerLoaded) {
+      const chunk = this.chunkBuffer.get(this.nextIndex);
+      if (chunk) {
+        this.isProcessing = true;
+        try {
+          this.addLog(`📥 Fetching Chunk ${this.nextIndex}...`);
+          const buf = await this.download(chunk.magnetLink);
+          this.sb.appendBuffer(buf);
+          this.chunkBuffer.delete(this.nextIndex);
+          this.nextIndex++;
 
-        // Auto-play logic once we have some data
-        if (this.video.paused && this.nextIndex > 2) {
-          this.video
-            .play()
-            .catch(() => this.addLog("User interaction required"));
+          // Try to play if we have a small buffer
+          if (this.video.paused && this.nextIndex > 1) {
+            this.video.play().catch(() => {});
+          }
+        } catch (e) {
+          this.addLog(`❌ Chunk ${this.nextIndex} Error`);
+        } finally {
+          this.isProcessing = false;
+          setTimeout(() => this.tick(), 100);
         }
-
-        this.chunkBuffer.delete(this.nextIndex);
-        this.nextIndex++;
-      } catch (e) {
-        this.addLog("Fetch Error: " + this.nextIndex);
-      } finally {
-        this.isProcessing = false;
-        setTimeout(() => this.tick(), 100);
       }
     }
   }
 
   download(magnet) {
     return new Promise((resolve, reject) => {
-      this.addLog("🧲 Attempting P2P Fetch...");
+      // Check if already downloading
+      const existing = this.client.get(magnet);
+      if (existing) {
+        if (existing.done)
+          return existing.files[0].getBuffer((err, buf) =>
+            err ? reject(err) : resolve(buf)
+          );
+        existing.on("done", () =>
+          existing.files[0].getBuffer((err, buf) =>
+            err ? reject(err) : resolve(buf)
+          )
+        );
+        return;
+      }
 
       this.client.add(magnet, { announce: this.trackers }, (torrent) => {
-        this.addLog("📡 Peer Search Started...");
-
-        torrent.on("wire", (wire) => {
-          this.addLog("🤝 Connected to a Peer!");
-        });
-
         torrent.on("done", () => {
-          this.addLog("✅ Chunk Downloaded!");
           torrent.files[0].getBuffer((err, buf) => {
-            //         this.client.remove(torrent.infoHash);
-            err ? reject(err) : resolve(buf);
+            if (err) reject(err);
+            else {
+              resolve(buf);
+              // Keep seeding for others for a bit, then remove
+              setTimeout(() => this.client.remove(torrent.infoHash), 30000);
+            }
           });
         });
+        torrent.on("error", (err) => reject(err));
       });
     });
   }
 
   destroy() {
-    if (this.video.src) URL.revokeObjectURL(this.video.src);
-    this.video.remove();
+    clearInterval(this.watchdog);
+    if (this.video) {
+      this.video.pause();
+      this.video.src = "";
+      this.video.load();
+      this.video.remove();
+    }
   }
 }
 
@@ -246,36 +235,40 @@ export default function NeighborhoodLiveStreamPlayer({
   };
 
   // 1. MANUAL INITIALIZATION (The iPhone Way)
-  const handleJoinStream = () => {
-    addLog("🚀 Manual Join Triggered...");
-    
-    // Create the controller ONLY on user tap
-    const controller = new StreamController(
-      sessionId,
-      setupMagnet,
-      addLog,
-      () => refetch()
-    );
+const handleJoinStream = () => {
+  addLog("🚀 Manual Join Triggered...");
 
-    controllerRef.current = controller;
-    window.controller = controller; // Force leak to window for debugging
+  // Create controller with null for setupMagnet (it will find it in chunks)
+  const controller = new StreamController(sessionId, null, addLog, () =>
+    refetch()
+  );
 
-    if (containerRef.current) {
-      containerRef.current.appendChild(controller.video);
-    }
+  controllerRef.current = controller;
+  window.controller = controller;
 
-    setIsJoined(true);
-  };
+  if (containerRef.current) {
+    containerRef.current.appendChild(controller.video);
+  }
+
+  setIsJoined(true);
+
+  // Immediately feed whatever chunks we already have in the 'data' tray
+  if (data?.streamChunks) {
+    controller.addChunks(data.streamChunks);
+  }
+};
 
   // 2. DATA HAND-OFF
   useEffect(() => {
-    if (isJoined && controllerRef.current) {
-      const allChunks = [...initialChunks, ...(data?.streamChunks || [])];
-      if (allChunks.length > 0) {
-        controllerRef.current.addChunks(allChunks);
-      }
+    // Only feed the engine if the user has joined and we actually have message data
+    if (isJoined && controllerRef.current && data?.streamChunks) {
+      addLog(`📡 Syncing Tray: ${data.streamChunks.length} segments available`);
+
+      // We send ONLY the message chunks here.
+      // The header was already handled in handleJoinStream via 'setupMagnet'
+      controllerRef.current.addChunks(data.streamChunks);
     }
-  }, [isJoined, initialChunks, data]);
+  }, [isJoined, data?.streamChunks]); // Watch specifically for the chunks array changing
 
   return (
     <View style={styles.container}>
@@ -287,16 +280,16 @@ export default function NeighborhoodLiveStreamPlayer({
           backgroundColor: "#000",
           aspectRatio: "16/9",
           overflow: "hidden",
-          display: isJoined ? "block" : "none" // Hide until joined
+          display: isJoined ? "block" : "none", // Hide until joined
         }}
       />
 
       {!isJoined && (
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handleJoinStream}
           style={styles.bigJoinButton}
         >
-          <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>
+          <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>
             🔴 JOIN LIVE STREAM
           </Text>
         </TouchableOpacity>
@@ -304,7 +297,9 @@ export default function NeighborhoodLiveStreamPlayer({
 
       <View style={styles.logBox}>
         {logs.map((log, i) => (
-          <Text key={i} style={styles.logText}>{log}</Text>
+          <Text key={i} style={styles.logText}>
+            {log}
+          </Text>
         ))}
       </View>
     </View>
@@ -312,7 +307,19 @@ export default function NeighborhoodLiveStreamPlayer({
 }
 
 const styles = StyleSheet.create({
-  container: { width: "100%", backgroundColor: "#111" },
+  container: {
+    width: "100%",
+    aspectRatio: 16 / 9, // Ensure the container has a defined shape
+    backgroundColor: "#111",
+    overflow: "hidden",
+  },
+  bigJoinButton: {
+    backgroundColor: "#ff4444",
+    padding: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    margin: 20,
+  },
   logBox: { padding: 10, backgroundColor: "#222" },
   logText: { color: "#0f0", fontSize: 10, fontFamily: "monospace" },
 });
