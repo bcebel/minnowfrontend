@@ -16,6 +16,11 @@ const GET_STREAM_CHUNKS = gql`
 // --- THE NON-REACT CONTROLLER ---
 class StreamController {
   constructor(sessionId, setupMagnet, addLog, triggerFetch) {
+    if (!window.globalWebTorrentClient) {
+      this.addLog("🧰 Creating missing Torrent Client...");
+      window.globalWebTorrentClient = new window.WebTorrent();
+    }
+    this.client = window.globalWebTorrentClient;
     // 1. Prioritize ManagedMediaSource
     this.MS = window.ManagedMediaSource || window.MediaSource;
 
@@ -56,6 +61,9 @@ class StreamController {
     this.video.style.position = "absolute";
     this.video.style.top = "0";
     this.video.style.left = "0";
+    this.video.setAttribute("webkit-playsinline", "true"); // Older iOS fix
+    this.video.style.visibility = "visible";
+    this.video.style.opacity = "1";
 
     // Key #3: Minimal Start/Stop listeners
     this.ms.addEventListener("startstreaming", () => {
@@ -234,23 +242,21 @@ class StreamController {
 
   download(magnet) {
     return new Promise((resolve, reject) => {
-      const existing = this.client.get(magnet);
-      if (existing && existing.done) {
-        existing.files[0].getBuffer((err, buf) =>
-          err ? reject(err) : resolve(buf)
-        );
-        return;
-      }
+      this.addLog("🧲 Attempting P2P Fetch...");
+
       this.client.add(magnet, { announce: this.trackers }, (torrent) => {
+        this.addLog("📡 Peer Search Started...");
+
+        torrent.on("wire", (wire) => {
+          this.addLog("🤝 Connected to a Peer!");
+        });
+
         torrent.on("done", () => {
+          this.addLog("✅ Chunk Downloaded!");
           torrent.files[0].getBuffer((err, buf) => {
             this.client.remove(torrent.infoHash);
             err ? reject(err) : resolve(buf);
           });
-        });
-        torrent.on("error", (err) => {
-          this.client.remove(torrent.infoHash);
-          reject(err);
         });
       });
     });
@@ -296,12 +302,19 @@ const [isPlaying, setIsPlaying] = useState(false);
     );
     controllerRef.current = controller;
 
+    window.controller = controller;
+
     if (containerRef.current) {
       containerRef.current.appendChild(controller.video);
     }
 
-    return () => controller.destroy();
+    return () => {
+      delete window.controller; // Clean up on unmount
+      controller.destroy();
+    };
   }, [sessionId]);
+
+  
 
   // 3. MERGE DATA SOURCES: Listen to both Parent Props AND Local Query Refetch
   useEffect(() => {

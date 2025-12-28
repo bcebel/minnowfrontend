@@ -153,8 +153,7 @@ const APPLE_MIME_TYPE = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
             // Add multiple fallback trackers
             announce: [
               "wss://tracker.openwebtorrent.com",
-              "wss://tracker.btorrent.xyz",
-              "wss://tracker.files.fm:7073/announce",
+
             ],
           },
         });
@@ -179,7 +178,7 @@ const APPLE_MIME_TYPE = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
       chunkQueueRef.current = [];
       isProcessingQueueRef.current = false;
       setChunkCount(0);
-      
+
 const stream = await navigator.mediaDevices.getUserMedia({
   video: {
     width: { ideal: 640 },
@@ -213,14 +212,14 @@ const types = [
 
 const mediaRecorder = new MediaRecorder(stream, {
   mimeType: supportedType,
-  videoBitsPerSecond: 1200000,
+  videoBitsPerSecond: 800000,
 });
 
       mediaRecorderRef.current = mediaRecorder;
 
 
 
-      const CHUNK_DURATION =3000;
+      const CHUNK_DURATION =1000;
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
