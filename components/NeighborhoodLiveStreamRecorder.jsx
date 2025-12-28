@@ -179,11 +179,15 @@ const APPLE_MIME_TYPE = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
       chunkQueueRef.current = [];
       isProcessingQueueRef.current = false;
       setChunkCount(0);
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720, frameRate: 30 },
-        audio: true,
-      });
+      
+const stream = await navigator.mediaDevices.getUserMedia({
+  video: {
+    width: { ideal: 640 },
+    height: { ideal: 360 }, // Force a smaller, landscape-friendly size
+    frameRate: 30,
+  },
+  audio: true,
+});
       streamRef.current = stream;
 
       // --- CROSS-BROWSER MIME TYPE CHECK ---

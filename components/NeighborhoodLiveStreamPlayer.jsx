@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, StyleSheet, ActivityIndicator, Text } from "react-native";
+import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity } from "react-native";
 import { gql, useQuery } from "@apollo/client";
 
 const GET_STREAM_CHUNKS = gql`
@@ -46,11 +46,12 @@ class StreamController {
     this.video.controls = true;
     this.video.muted = true;
     this.video.style.width = "100%";
+    this.video.style.height = "100%";
+    this.video.style.objectFit = "contain";
     this.video.setAttribute("playsinline", "true");
     this.video.setAttribute("controls", "true");
     this.video.preload = "auto";
-      this.video.src = URL.createObjectURL(this.ms);
-    
+    this.video.src = URL.createObjectURL(this.ms);
 
     // Key #3: Minimal Start/Stop listeners
     this.ms.addEventListener("startstreaming", () => {
@@ -67,7 +68,10 @@ class StreamController {
       : "sourceopen";
     this.ms.addEventListener(openEvt, () => {
       try {
-this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.4d401f, mp4a.40.2"');        this.sb.mode = "sequence";
+        this.sb = this.ms.addSourceBuffer(
+          'video/mp4; codecs="avc1.4d401f, mp4a.40.2"'
+        );
+        this.sb.mode = "sequence";
         this.addLog("MSE Ready");
         this.tick();
 
@@ -82,6 +86,13 @@ this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.4d401f, mp4a.40.2"');
     });
   }
 
+  unlock() {
+    this.addLog("Attempting manual unlock...");
+    this.video
+      .play()
+      .then(() => this.addLog("Playback unblocked!"))
+      .catch((err) => this.addLog("Unlock failed: " + err.message));
+  }
   // Remember to clean up!
   destroy() {
     clearInterval(this.watchdog);
@@ -89,7 +100,6 @@ this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.4d401f, mp4a.40.2"');
   }
 
   addChunks(chunks) {
-
     if (chunks.length > 0) {
       // Log the first chunk only once to investigate its "DNA"
       const first = chunks[0];
@@ -100,8 +110,6 @@ this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.4d401f, mp4a.40.2"');
       });
     }
 
-  
-
     chunks.forEach((c) => {
       if (
         c.chunkIndex >= this.nextIndex &&
@@ -109,8 +117,6 @@ this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.4d401f, mp4a.40.2"');
       ) {
         this.chunkBuffer.set(c.chunkIndex, c);
       }
-
-      
     });
 
     console.log(
@@ -143,8 +149,7 @@ this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.4d401f, mp4a.40.2"');
       !this.streamingAllowed
     )
       return;
-    
-    
+
     // Inside tick()
     console.log(
       `Current NextIndex: ${this.nextIndex}, Buffer Size: ${this.chunkBuffer.size}`
@@ -165,11 +170,11 @@ this.sb = this.ms.addSourceBuffer('video/mp4; codecs="avc1.4d401f, mp4a.40.2"');
       }
       return;
     }
-const isPlaying = !this.video.paused && !this.video.ended;
-if (!isPlaying && this.chunkBuffer.size < 1 && this.nextIndex > 0) {
-  console.log(`⏳ Warming up buffer... (${this.chunkBuffer.size}/1)`);
-  return;
-}
+    const isPlaying = !this.video.paused && !this.video.ended;
+    if (!isPlaying && this.chunkBuffer.size < 1 && this.nextIndex > 0) {
+      console.log(`⏳ Warming up buffer... (${this.chunkBuffer.size}/1)`);
+      return;
+    }
     // 2. Find Next Chunk (with jump-ahead logic)
     let chunk = this.chunkBuffer.get(this.nextIndex);
 
@@ -184,44 +189,43 @@ if (!isPlaying && this.chunkBuffer.size < 1 && this.nextIndex > 0) {
       }
     }
 
-    
-if (chunk) {
-  this.isProcessing = true;
-  this.addLog(`Fetching #${this.nextIndex}...`);
-  try {
-    const buf = await this.download(chunk.magnetLink);
+    if (chunk) {
+      this.isProcessing = true;
+      this.addLog(`Fetching #${this.nextIndex}...`);
+      try {
+        const buf = await this.download(chunk.magnetLink);
 
-    // 1. Append the data to the source buffer immediately
-    this.sb.appendBuffer(buf);
-    this.addLog(`Appended #${this.nextIndex}`);
+        // 1. Append the data to the source buffer immediately
+        this.sb.appendBuffer(buf);
+        this.addLog(`Appended #${this.nextIndex}`);
 
-    // 2. CHECK THE CUSHION:
-    // We only trigger .play() if we have a few seconds banked
-    // OR if we are already playing.
-    const bufferDuration =
-      this.video.buffered.length > 0
-        ? this.video.buffered.end(0) - this.video.currentTime
-        : 0;
+        // 2. CHECK THE CUSHION:
+        // We only trigger .play() if we have a few seconds banked
+        // OR if we are already playing.
+        const bufferDuration =
+          this.video.buffered.length > 0
+            ? this.video.buffered.end(0) - this.video.currentTime
+            : 0;
 
-    if (bufferDuration > 2 && this.video.paused) {
-      this.addLog("Buffer healthy - Starting Playback");
-      this.video.play().catch(() => this.addLog("Tap to play"));
+        if (bufferDuration > 2 && this.video.paused) {
+          this.addLog("Buffer healthy - Starting Playback");
+          this.video.play().catch(() => this.addLog("Tap to play"));
+        }
+
+        this.chunkBuffer.delete(this.nextIndex);
+        this.nextIndex++;
+      } catch (e) {
+        if (e.message?.includes("duplicate")) {
+          this.nextIndex++;
+        } else {
+          this.addLog("Append Error: " + e.message);
+        }
+      } finally {
+        this.isProcessing = false;
+        // 3. Keep the engine turning
+        setTimeout(() => this.tick(), 100);
+      }
     }
-
-    this.chunkBuffer.delete(this.nextIndex);
-    this.nextIndex++;
-  } catch (e) {
-    if (e.message?.includes("duplicate")) {
-      this.nextIndex++;
-    } else {
-      this.addLog("Append Error: " + e.message);
-    }
-  } finally {
-    this.isProcessing = false;
-    // 3. Keep the engine turning
-    setTimeout(() => this.tick(), 100);
-  }
-}
   }
 
   download(magnet) {
@@ -321,8 +325,18 @@ export default function NeighborhoodLiveStreamPlayer({
           alignItems: "center",
           justifyContent: "center",
           overflow: "hidden",
+          position: "relative", // Added for button positioning
         }}
       />
+      <TouchableOpacity
+        onPress={() => controllerRef.current?.unlock()}
+        style={styles.playOverlay}
+      >
+        <Text style={{ color: "white", fontWeight: "bold" }}>
+          ▶ JOIN LIVE STREAM
+        </Text>
+      </TouchableOpacity>
+
       <View style={styles.logBox}>
         {logs.map((l, i) => (
           <Text key={i} style={styles.logText}>
