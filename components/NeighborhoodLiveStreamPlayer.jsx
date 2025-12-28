@@ -52,6 +52,10 @@ class StreamController {
     this.video.setAttribute("controls", "true");
     this.video.preload = "auto";
     this.video.src = URL.createObjectURL(this.ms);
+    this.video.style.zIndex = "1";
+    this.video.style.position = "absolute";
+    this.video.style.top = "0";
+    this.video.style.left = "0";
 
     // Key #3: Minimal Start/Stop listeners
     this.ms.addEventListener("startstreaming", () => {
@@ -267,7 +271,7 @@ export default function NeighborhoodLiveStreamPlayer({
   const containerRef = useRef(null);
   const controllerRef = useRef(null);
   const [logs, setLogs] = useState([]);
-
+const [isPlaying, setIsPlaying] = useState(false);
   // 1. THE AUTONOMOUS PULL: This query can be refetched manually
   const { data, refetch } = useQuery(GET_STREAM_CHUNKS, {
     variables: { sessionId },
@@ -313,39 +317,41 @@ export default function NeighborhoodLiveStreamPlayer({
     }
   }, [initialChunks, data]);
 
-  return (
-    <View style={styles.container}>
-      <div
-        ref={containerRef}
-        style={{
-          width: "100%",
-          aspectRatio: "16/9", // Forces a height even if empty
-          backgroundColor: "#000",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-          position: "relative", // Added for button positioning
+return (
+  <View style={styles.container}>
+    {/* 1. Fixed Aspect Ratio Container */}
+    <div
+      ref={containerRef}
+      style={{
+        width: "100%",
+        position: "relative",
+        backgroundColor: "#000",
+        aspectRatio: "16/9", // Keeps it standard landscape
+        overflow: "hidden",
+        display: "block" // Ensures it's not a flex-child that might shrink
+      }}
+    />
+
+    {/* 2. The Interaction Overlay */}
+    {!isPlaying && (
+      <TouchableOpacity 
+        onPress={() => {
+          controllerRef.current?.unlock();
+          setIsPlaying(true);
         }}
-      />
-      <TouchableOpacity
-        onPress={() => controllerRef.current?.unlock()}
-        style={styles.playOverlay}
+        style={styles.bigJoinButton}
       >
-        <Text style={{ color: "white", fontWeight: "bold" }}>
-          ▶ JOIN LIVE STREAM
+        <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>
+          🔴 JOIN LIVE STREAM
         </Text>
       </TouchableOpacity>
+    )}
 
-      <View style={styles.logBox}>
-        {logs.map((l, i) => (
-          <Text key={i} style={styles.logText}>
-            {l}
-          </Text>
-        ))}
-      </View>
-    </View>
-  );
+    {/* 3. Keep logs minimal (or comment them out for the stress test) */}
+    {/* <View style={styles.logBox}>...</View> */}
+  </View>
+);
+
 }
 
 const styles = StyleSheet.create({
