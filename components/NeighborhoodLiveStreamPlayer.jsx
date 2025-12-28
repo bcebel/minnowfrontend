@@ -9,6 +9,7 @@ const GET_STREAM_CHUNKS = gql`
       chunkIndex
       magnetLink
       fileType
+      mimeType
       sessionId
     }
   }
@@ -98,11 +99,14 @@ class StreamController {
     });
   }
 
-  unlock() {
+  unlock(onSuccess) {
     this.addLog("Attempting manual unlock...");
     this.video
       .play()
-      .then(() => this.addLog("Playback unblocked!"))
+      .then(() => {
+        this.addLog("Playback unblocked!");
+        if (onSuccess) onSuccess(); // This will hide the button in React
+      })
       .catch((err) => this.addLog("Unlock failed: " + err.message));
   }
   // Remember to clean up!
@@ -112,17 +116,14 @@ class StreamController {
   }
 
   addChunks(chunks) {
-    if (chunks.length > 0) {
-      // Log the first chunk only once to investigate its "DNA"
-      const first = chunks[0];
-      console.log("🕵️ Chunk Investigation:", {
-        mimeType: first.mimeType,
-        fileType: first.fileType,
-        fullObject: first, // This lets you click it in console to see all keys
-      });
-    }
-
     chunks.forEach((c) => {
+      // 1. If we find the header (Index -1), set it as the setupMagnet
+      if (c.chunkIndex === -1 || c.fileType === "video_header") {
+        this.setupMagnet = c.magnetLink;
+        // Use the mimeType from the header chunk to set the codec
+        this.detectedMimeType = c.mimeType;
+      }
+
       if (
         c.chunkIndex >= this.nextIndex &&
         !this.chunkBuffer.has(c.chunkIndex)
@@ -130,115 +131,71 @@ class StreamController {
         this.chunkBuffer.set(c.chunkIndex, c);
       }
     });
-
-    console.log(
-      `📥 Buffer Status: Have [${Array.from(
-        this.chunkBuffer.keys()
-      )}], Need: #${this.nextIndex}`
-    );
-
-    // 2. If we don't have the current index but have higher ones, JUMP.
-    if (!this.chunkBuffer.has(this.nextIndex) && this.chunkBuffer.size > 0) {
-      const available = Array.from(this.chunkBuffer.keys()).sort(
-        (a, b) => a - b
-      );
-      const nextAvailable = available.find((i) => i > this.nextIndex);
-      if (nextAvailable) {
-        console.log(
-          `⏩ Skipping missing chunk ${this.nextIndex} -> moving to ${nextAvailable}`
-        );
-        this.nextIndex = nextAvailable;
-      }
-    }
     this.tick();
   }
 
   async tick() {
-    if (
-      !this.sb ||
-      this.sb.updating ||
-      this.isProcessing ||
-      !this.streamingAllowed
-    )
+    if (this.sb?.updating || this.isProcessing || !this.streamingAllowed)
       return;
 
-    // Inside tick()
-    console.log(
-      `Current NextIndex: ${this.nextIndex}, Buffer Size: ${this.chunkBuffer.size}`
-    );
-    // 1. Setup Header
+    // 1. INITIALIZE SOURCE BUFFER (Wait for Header/MimeType)
+    if (!this.sb && this.ms.readyState === "open" && this.detectedMimeType) {
+      try {
+        this.addLog(`Initializing Buffer: ${this.detectedMimeType}`);
+        this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
+        this.sb.mode = "sequence";
+      } catch (e) {
+        this.addLog("Incompatible Codec: " + this.detectedMimeType);
+        return;
+      }
+    }
+
+    if (!this.sb) return;
+
+    // 2. LOAD THE HEADER FIRST
     if (this.setupMagnet && !this.headerLoaded) {
       this.isProcessing = true;
       try {
         const buf = await this.download(this.setupMagnet);
         this.sb.appendBuffer(buf);
         this.headerLoaded = true;
-        this.addLog("Headers Appended");
+        this.addLog("✅ Header Segment Appended");
       } catch (e) {
-        this.addLog("Header Error");
+        this.addLog("❌ Header Download Failed");
       } finally {
         this.isProcessing = false;
         this.tick();
       }
       return;
     }
-    const isPlaying = !this.video.paused && !this.video.ended;
-    if (!isPlaying && this.chunkBuffer.size < 1 && this.nextIndex > 0) {
-      console.log(`⏳ Warming up buffer... (${this.chunkBuffer.size}/1)`);
-      return;
-    }
-    // 2. Find Next Chunk (with jump-ahead logic)
+
+    // 3. LOAD VIDEO CHUNKS
     let chunk = this.chunkBuffer.get(this.nextIndex);
-
-    if (!chunk && this.chunkBuffer.size > 0) {
-      const indices = Array.from(this.chunkBuffer.keys()).sort((a, b) => a - b);
-      const nextAvailable = indices.find((i) => i > this.nextIndex);
-      if (nextAvailable) {
-        this.addLog(`⏩ Skipping to #${nextAvailable}`);
-        this.nextIndex = nextAvailable;
-        this.tick();
-        return;
-      }
-    }
-
     if (chunk) {
       this.isProcessing = true;
-      this.addLog(`Fetching #${this.nextIndex}...`);
       try {
         const buf = await this.download(chunk.magnetLink);
-
-        // 1. Append the data to the source buffer immediately
         this.sb.appendBuffer(buf);
-        this.addLog(`Appended #${this.nextIndex}`);
 
-        // 2. CHECK THE CUSHION:
-        // We only trigger .play() if we have a few seconds banked
-        // OR if we are already playing.
-        const bufferDuration =
-          this.video.buffered.length > 0
-            ? this.video.buffered.end(0) - this.video.currentTime
-            : 0;
-
-        if (bufferDuration > 2 && this.video.paused) {
-          this.addLog("Buffer healthy - Starting Playback");
-          this.video.play().catch(() => this.addLog("Tap to play"));
+        // Auto-play logic once we have some data
+        if (this.video.paused && this.nextIndex > 2) {
+          this.video
+            .play()
+            .catch(() => this.addLog("User interaction required"));
         }
 
         this.chunkBuffer.delete(this.nextIndex);
         this.nextIndex++;
       } catch (e) {
-        if (e.message?.includes("duplicate")) {
-          this.nextIndex++;
-        } else {
-          this.addLog("Append Error: " + e.message);
-        }
+        this.addLog("Fetch Error: " + this.nextIndex);
       } finally {
         this.isProcessing = false;
-        // 3. Keep the engine turning
         setTimeout(() => this.tick(), 100);
       }
     }
   }
+
+
 
   download(magnet) {
     return new Promise((resolve, reject) => {
@@ -254,7 +211,7 @@ class StreamController {
         torrent.on("done", () => {
           this.addLog("✅ Chunk Downloaded!");
           torrent.files[0].getBuffer((err, buf) => {
-            this.client.remove(torrent.infoHash);
+            //         this.client.remove(torrent.infoHash);
             err ? reject(err) : resolve(buf);
           });
         });
@@ -314,7 +271,7 @@ const [isPlaying, setIsPlaying] = useState(false);
     };
   }, [sessionId]);
 
-  
+
 
   // 3. MERGE DATA SOURCES: Listen to both Parent Props AND Local Query Refetch
   useEffect(() => {

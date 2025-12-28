@@ -1,6 +1,6 @@
 // components/NeighborhoodLiveStreamRecorder.jsx
-import { useState, useRef } from "react";
-import { View, TouchableOpacity, Text, Alert } from "react-native";
+import React, { useState, useRef } from "react";
+import { View, TouchableOpacity, Text, Alert, StyleSheet } from "react-native";
 import { useMutation, gql } from "@apollo/client";
 
 const SEND_MESSAGE = gql`
@@ -65,8 +65,13 @@ export default function NeighborhoodLiveStreamRecorder({
   const chunkQueueRef = useRef([]);
   const isProcessingQueueRef = useRef(false);
 
+  // CRITICAL: Track if the first segment (The Header) has been sent
+  const headerSentRef = useRef(false);
+
   const [sendMessage] = useMutation(SEND_MESSAGE);
   const [createStreamMutation] = useMutation(CREATE_STREAM);
+
+  const APPLE_MIME_TYPE = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
 
   const processSeedQueue = async () => {
     if (isProcessingQueueRef.current || chunkQueueRef.current.length === 0) {
@@ -78,47 +83,75 @@ export default function NeighborhoodLiveStreamRecorder({
 
     const seedAndSend = (chunkData, index) => {
       return new Promise((resolve, reject) => {
-        const extension = supportedTypeRef.current.includes("mp4") ? "mp4" : "webm";
-        client.seed(
-          chunkData,
-          {
-            name: `live-${sessionIdRef.current}-chunk-${index}.${extension}`,
-          },
-          (torrent) => {
-            console.log(`✅ Chunk ${index} seeded:`, torrent.magnetURI);
-            sendMessage({
-              variables: {
-                content: "",
-                room: "neighborhood",
-                neighborhoodId: neighborhoodId,
-                fileName: `${username}'s Live Stream - Part ${index + 1}`,
-                fileType: "video_chunk",
-                magnetLink: torrent.magnetURI,
-                sessionId: sessionIdRef.current,
-                chunkIndex: index,
-                totalChunks: -1,
-                thumbnailUrl: null,
-              },
-            })
-              .then(() => {
-                console.log(`✅ Sent message for chunk ${index}`);
+        const extension = supportedTypeRef.current.includes("mp4")
+          ? "mp4"
+          : "webm";
+        const isHeader = index === -1;
+
+        // Label the header differently so the Player can find it easily
+        const fileName = isHeader
+          ? `header-${sessionIdRef.current}.mp4`
+          : `live-${sessionIdRef.current}-chunk-${index}.${extension}`;
+
+        client.seed(chunkData, { name: fileName }, (torrent) => {
+          console.log(
+            `✅ ${isHeader ? "Header" : "Chunk " + index} seeded:`,
+            torrent.magnetURI
+          );
+
+          sendMessage({
+            variables: {
+              content: isHeader ? "STREAM_HEADER" : "",
+              room: "neighborhood",
+              neighborhoodId: neighborhoodId,
+              fileName: isHeader
+                ? "Stream Header"
+                : `${username}'s Live Stream - Part ${index + 1}`,
+              fileType: isHeader ? "video_header" : "video_chunk",
+              magnetLink: torrent.magnetURI,
+              mimeType: supportedTypeRef.current, // Critical for iPhone decoding
+              sessionId: sessionIdRef.current,
+              chunkIndex: index,
+              totalChunks: -1,
+              thumbnailUrl: null,
+            },
+          })
+            .then(() => {
+              if (!isHeader) {
                 setChunkCount((prev) => prev + 1);
-                resolve();
-              })
-              .catch((err) => {
-                console.error(
-                  `❌ Failed to send message for chunk ${index}:`,
-                  err
-                );
-                reject(err);
-              });
-          }
-        );
+              } else {
+                headerSentRef.current = true;
+              }
+              resolve();
+            })
+            .catch((err) => {
+              console.error(`❌ Failed to send message:`, err);
+              reject(err);
+            });
+
+          // Cleanup: iPhone will overheat if we seed 1000 chunks.
+          // We only need to seed long enough for neighbors to grab the latest data.
+          setTimeout(() => {
+            if (client.get(torrent.infoHash)) {
+              client.remove(torrent.infoHash);
+            }
+          }, 120000); // 2 minutes seeding duration
+        });
       });
     };
 
     while (chunkQueueRef.current.length > 0) {
       const chunkToProcess = chunkQueueRef.current.shift();
+
+      // IPHONE FIX: The very first data from MediaRecorder must be treated as the Header
+      if (!headerSentRef.current) {
+        try {
+          await seedAndSend(chunkToProcess, -1);
+        } catch (e) {
+          console.error("Header seed failed:", e);
+        }
+      }
+
       const currentIndex = chunkIndexRef.current++;
       try {
         await seedAndSend(chunkToProcess, currentIndex);
@@ -129,9 +162,10 @@ export default function NeighborhoodLiveStreamRecorder({
 
     isProcessingQueueRef.current = false;
   };
-const APPLE_MIME_TYPE = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
+
   const startStream = async () => {
     try {
+      // 1. Initialize WebTorrent
       if (!window.WebTorrent) {
         const script = document.createElement("script");
         script.src =
@@ -141,7 +175,6 @@ const APPLE_MIME_TYPE = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
       }
 
       if (!window.globalWebTorrentClient) {
- 
         window.globalWebTorrentClient = new window.WebTorrent({
           tracker: {
             rtcConfig: {
@@ -150,15 +183,11 @@ const APPLE_MIME_TYPE = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
                 { urls: "stun:global.stun.twilio.com:3478" },
               ],
             },
-            // Add multiple fallback trackers
-            announce: [
-              "wss://tracker.openwebtorrent.com",
-
-            ],
           },
         });
       }
 
+      // 2. Create Backend Session
       const streamTitle = `${username}'s Live Stream`;
       const { data: streamData } = await createStreamMutation({
         variables: {
@@ -168,62 +197,57 @@ const APPLE_MIME_TYPE = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
       });
 
       if (!streamData?.createStream?.sessionId) {
-        throw new Error("Failed to create stream session on the backend.");
+        throw new Error("Failed to create stream session.");
       }
 
-      const newSessionId = streamData.createStream.sessionId;
-      sessionIdRef.current = newSessionId;
-
+      sessionIdRef.current = streamData.createStream.sessionId;
       chunkIndexRef.current = 0;
       chunkQueueRef.current = [];
       isProcessingQueueRef.current = false;
+      headerSentRef.current = false;
       setChunkCount(0);
 
-const stream = await navigator.mediaDevices.getUserMedia({
-  video: {
-    width: { ideal: 640 },
-    height: { ideal: 360 }, // Force a smaller, landscape-friendly size
-    frameRate: 30,
-  },
-  audio: true,
-});
+      // 3. Camera Setup (Landcape-friendly for iPhone)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 360 },
+          frameRate: 30,
+        },
+        audio: true,
+      });
       streamRef.current = stream;
 
-      // --- CROSS-BROWSER MIME TYPE CHECK ---
-const types = [
-  APPLE_MIME_TYPE,
-  "video/mp4; codecs=avc1",
-  "video/webm; codecs=vp8,opus",
-];
+      // 4. Codec Selection
+      const types = [
+        APPLE_MIME_TYPE,
+        "video/mp4; codecs=avc1",
+        "video/webm; codecs=vp8,opus",
+      ];
       let supportedType = types.find((type) =>
         MediaRecorder.isTypeSupported(type)
       );
 
       if (!supportedType) {
-        throw new Error(
-          "No supported MediaRecorder format found on this browser."
-        );
+        throw new Error("No supported MediaRecorder format found.");
       }
 
-      supportedTypeRef.current = supportedType; // <--- Save it to the Ref here
+      supportedTypeRef.current = supportedType;
       console.log(`Using MIME type: ${supportedType}`);
 
-
-
-const mediaRecorder = new MediaRecorder(stream, {
-  mimeType: supportedType,
-  videoBitsPerSecond: 800000,
-});
+      // 5. Recorder Initialization
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: supportedType,
+        videoBitsPerSecond: 800000,
+      });
 
       mediaRecorderRef.current = mediaRecorder;
 
-
-
-      const CHUNK_DURATION =1000;
+      // 1-second chunks are essential for avoiding RTCDataChannel buffer limits
+      const CHUNK_DURATION = 1000;
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
-          console.log(`➡️ Chunk received, adding to queue.`);
           chunkQueueRef.current.push(e.data);
           processSeedQueue();
         }
@@ -251,7 +275,6 @@ const mediaRecorder = new MediaRecorder(stream, {
     };
     await waitForQueue();
 
-    console.log("✅ Queue finished. Sending stream ended message.");
     sendMessage({
       variables: {
         content: "⏹️ Stream ended",
@@ -261,9 +284,6 @@ const mediaRecorder = new MediaRecorder(stream, {
       },
     });
 
-    const ui = document.getElementById("streamUI");
-    if (ui) document.body.removeChild(ui);
-
     setIsStreaming(false);
     if (onStreamEnd) {
       onStreamEnd();
@@ -271,25 +291,43 @@ const mediaRecorder = new MediaRecorder(stream, {
   };
 
   return (
-    <View>
+    <View style={styles.recorderContainer}>
       <TouchableOpacity
         onPress={isStreaming ? stopStream : startStream}
-        style={{
-          backgroundColor: isStreaming ? "#ff4444" : "#0066cc",
-          padding: 15,
-          borderRadius: 10,
-          alignItems: "center",
-        }}
+        style={[
+          styles.button,
+          { backgroundColor: isStreaming ? "#ff4444" : "#0066cc" },
+        ]}
       >
-        <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>
+        <Text style={styles.buttonText}>
           {isStreaming ? "⏹️ STOP LIVE STREAM" : "🔴 START LIVE STREAM"}
         </Text>
         {isStreaming && (
-          <Text style={{ color: "white", fontSize: 12, marginTop: 5 }}>
-            {chunkCount} chunks broadcasted
-          </Text>
+          <Text style={styles.statusText}>{chunkCount} chunks broadcasted</Text>
         )}
       </TouchableOpacity>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  recorderContainer: {
+    padding: 10,
+    width: "100%",
+  },
+  button: {
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  statusText: {
+    color: "white",
+    fontSize: 12,
+    marginTop: 5,
+  },
+});
