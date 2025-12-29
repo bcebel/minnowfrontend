@@ -192,7 +192,7 @@ class StreamController {
             else {
               resolve(buf);
               // Keep seeding for others for a bit, then remove
-              setTimeout(() => this.client.remove(torrent.infoHash), 30000);
+              setTimeout(() => this.client.remove(torrent.infoHash), 300000);
             }
           });
         });
