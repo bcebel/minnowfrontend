@@ -148,9 +148,14 @@ export default function Root({ children }: PropsWithChildren) {
         window.globalWebTorrentClient = new WebTorrent({
           tracker: {
             announce: [
-       "wss://tracker.openwebtorrent.com",
-      "wss://tracker.btorrent.xyz",
-      "wss://tracker.fastcast.nz",
+  'wss://tracker.openwebtorrent.com',
+  'wss://tracker.webtorrent.dev',
+  'udp://tracker.opentrackr.org:1337',
+  'udp://9.rarbg.to:2710',
+  'udp://open.stealth.si:80',
+  'udp://exodus.desync.com:6969',
+  'udp://tracker.torrent.eu.org:451'
+
             ]
           }
         });
@@ -176,9 +181,14 @@ export default function Root({ children }: PropsWithChildren) {
       
       // Pre-load common trackers for better P2P discovery
       window.enhancedTrackers = [
-    "wss://tracker.openwebtorrent.com",
-      "wss://tracker.btorrent.xyz",
-      "wss://tracker.fastcast.nz",
+  'wss://tracker.openwebtorrent.com',
+  'wss://tracker.webtorrent.dev',
+  'udp://tracker.opentrackr.org:1337',
+  'udp://9.rarbg.to:2710',
+  'udp://open.stealth.si:80',
+  'udp://exodus.desync.com:6969',
+  'udp://tracker.torrent.eu.org:451'
+
       ];
     `,
           }}

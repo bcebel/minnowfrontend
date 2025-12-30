@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  Text,
+  TouchableOpacity,
+} from "react-native";
 import { gql, useQuery } from "@apollo/client";
 
 const GET_STREAM_CHUNKS = gql`
@@ -15,7 +21,7 @@ const GET_STREAM_CHUNKS = gql`
   }
 `;
 // --- THE NON-REACT CONTROLLER ---
-// --- THE NON-REACT CONTROLLER ---
+
 class StreamController {
   constructor(sessionId, setupMagnet, addLog, triggerFetch) {
     this.addLog = addLog;
@@ -34,17 +40,24 @@ class StreamController {
     this.MS = window.ManagedMediaSource || window.MediaSource;
     this.ms = new this.MS();
     this.sb = null;
+
     this.detectedMimeType = null;
     this.headerLoaded = false;
     this.isProcessing = false;
     this.streamingAllowed = true;
     this.nextIndex = 0;
     this.chunkBuffer = new Map();
+    this.maxBufferSize = 20;
+    this.bufferStartTimes = new Map();
 
     this.trackers = [
       "wss://tracker.openwebtorrent.com",
-      "wss://tracker.btorrent.xyz",
-      "wss://tracker.fastcast.nz",
+      "wss://tracker.webtorrent.dev",
+      "udp://tracker.opentrackr.org:1337",
+      "udp://9.rarbg.to:2710",
+      "udp://open.stealth.si:80",
+      "udp://exodus.desync.com:6969",
+      "udp://tracker.torrent.eu.org:451",
     ];
 
     // 3. Create Video Element
@@ -78,17 +91,39 @@ class StreamController {
       }
     }, 3000);
   }
+  maybeCleanupBuffers() {
+    if (!this.sb || this.sb.updating || !this.sb.buffered.length) return;
+
+    try {
+      // Keep buffer under both time AND chunk limits
+      const end = this.sb.buffered.end(this.sb.buffered.length - 1);
+
+      // Clean up if we have more than 15 seconds OR too many chunks
+      if (end > 15 || this.chunkBuffer.size > this.maxBufferSize * 0.8) {
+        const removeEnd = Math.max(0, end - 10); // Keep last 10 seconds
+        this.sb.remove(0, removeEnd);
+        this.addLog(
+          `🧹 Trimmed video buffer to last 10s (had ${end.toFixed(1)}s)`
+        );
+      }
+    } catch (e) {
+      // Some browsers restrict remove() calls
+      console.warn("Buffer cleanup failed:", e);
+    }
+  }
 
   addChunks(chunks) {
-    this.addLog(`🧐 Scanning ${chunks.length} chunks for Header...`);
+    let foundHeader = false;
 
     chunks.forEach((c) => {
-      // Explicitly check for -1
+      // Explicit check for -1
       if (c.chunkIndex === -1) {
         this.addLog("🎯 FOUND HEADER (-1)!");
         if (!this.headerLoaded) {
+          // CRITICAL: Store the header's magnet link for tick() to use
           this.setupMagnet = c.magnetLink;
           this.detectedMimeType = c.mimeType;
+          foundHeader = true;
         }
       }
 
@@ -104,18 +139,64 @@ class StreamController {
       this.addLog("❌ Header (-1) still missing from tray.");
     }
 
+    // === NEW: ENFORCE MAX BUFFER SIZE ===
+    if (this.chunkBuffer.size > this.maxBufferSize) {
+      // Get all stored chunk indices and sort them
+      const sortedIndices = Array.from(this.chunkBuffer.keys()).sort(
+        (a, b) => a - b
+      );
+
+      // Calculate how many to remove
+      const chunksToRemove = sortedIndices.length - this.maxBufferSize;
+
+      // Remove the oldest chunks (lowest indices)
+      for (let i = 0; i < chunksToRemove; i++) {
+        this.chunkBuffer.delete(sortedIndices[i]);
+      }
+
+      this.addLog(
+        `🧹 Trimmed buffer: removed ${chunksToRemove} old chunks. Current size: ${this.chunkBuffer.size}`
+      );
+    }
+    // ====================================
+
     this.tick();
   }
 
   async tick() {
-    if (this.isProcessing || this.ms.readyState !== "open") return;
+   
+      if (this.isProcessing || this.ms.readyState !== "open") {
+        this.addLog(
+          `⏸️ Tick blocked: isProcessing=${this.isProcessing}, readyState=${this.ms.readyState}`
+        );
+        return;
+      }
 
+    
+    if (this.nextIndex % 10 === 0) {
+      // Log every 10 chunks
+      this.addLog(
+        `📊 Buffer stats: ${this.chunkBuffer.size}/${this.maxBufferSize} chunks, nextIndex: ${this.nextIndex}`
+      );
+    }
     // STEP 1: Initialize SourceBuffer
     if (!this.sb && this.detectedMimeType) {
       try {
         this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
         this.sb.mode = "sequence";
         this.addLog("🛠️ SourceBuffer Created");
+
+        // === ADD EVENT LISTENERS HERE ===
+        this.sb.addEventListener("updateend", () => {
+          this.addLog(`📦 SB updateend. Ready for next chunk.`);
+          this.isProcessing = false;
+          this.tick(); // Process next chunk
+        });
+        this.sb.addEventListener("error", (e) => {
+          this.addLog(`❌ SourceBuffer error: ${e.message}`);
+          this.isProcessing = false;
+        });
+        // ================================
       } catch (e) {
         this.addLog("❌ MSE Error: " + e.message);
         return;
@@ -124,55 +205,77 @@ class StreamController {
 
     if (!this.sb || this.sb.updating) return;
 
-    // --- CRITICAL MEMORY VENT (Stops the 13s crash) ---
-    if (this.video.currentTime > 8 && !this.sb.updating) {
-      try {
-        this.sb.remove(0, this.video.currentTime - 4);
-        return; // Let the removal finish before doing anything else
-      } catch (e) {}
-    }
+
 
     // STEP 2: Download and Append Header
-    if (this.setupMagnet && !this.headerLoaded) {
-      this.isProcessing = true;
-      try {
-        const buf = await this.download(this.setupMagnet);
-        this.sb.appendBuffer(buf);
-        this.headerLoaded = true;
-        this.addLog("✅ Header Loaded");
-      } catch (e) {
-        this.addLog("❌ Header Failed");
-      } finally {
-        this.isProcessing = false;
-        setTimeout(() => this.tick(), 100);
-      }
-      return;
-    }
+ if (this.setupMagnet && !this.headerLoaded) {
+   this.isProcessing = true;
+   try {
+     this.addLog("📥 Downloading Header..."); // Add this log
+     const buf = await this.download(this.setupMagnet);
+     this.sb.appendBuffer(buf);
+     this.headerLoaded = true;
+     this.addLog("✅ Header Loaded");
+   } catch (e) {
+     this.addLog("❌ Header Failed: " + e.message);
+     this.isProcessing = false;
+     setTimeout(() => this.tick(), 1000);
+     return;
+   }
+   return; // Let updateend event continue the flow
+ }
 
     // STEP 3: Download and Append Chunks
     if (this.headerLoaded) {
       const chunk = this.chunkBuffer.get(this.nextIndex);
       if (chunk) {
+        // Inside the 'if (chunk)' block in tick():
         this.isProcessing = true;
         try {
+          this.addLog(
+            `🔄 TICK: Attempting to download chunk ${this.nextIndex}...`
+          );
           const buf = await this.download(chunk.magnetLink);
 
-          if (!this.sb.updating) {
-            this.sb.appendBuffer(buf);
-            this.chunkBuffer.delete(this.nextIndex);
-            this.nextIndex++;
-
-            // Start playing after we have 5 seconds buffered
-            if (this.video.paused && this.nextIndex > 5) {
-              this.video.play().catch(() => {});
-            }
+          // === STRICT SIZE VALIDATION ===
+          // A valid 1-second video chunk should be > 10KB. Adjust as needed.
+          const MIN_CHUNK_SIZE = 10 * 1024; // 10 KB
+          if (!buf || buf.length < MIN_CHUNK_SIZE) {
+            this.addLog(
+              `⚠️ Chunk ${this.nextIndex} too small (${buf?.length} bytes). Likely corrupt. Removing from queue.`
+            );
+            this.chunkBuffer.delete(this.nextIndex); // Remove bad chunk
+            this.nextIndex++; // CRITICAL: Advance index anyway
+            this.isProcessing = false;
+            setTimeout(() => this.tick(), 100);
+            return;
           }
+          this.addLog(
+            `✅ Downloaded chunk ${this.nextIndex}, size: ${buf.length} bytes`
+          );
+
+          this.maybeCleanupBuffers();
+
+          // Append to SourceBuffer
+          this.sb.appendBuffer(buf);
+
+          // Update state (now bufferStartTimes is initialized)
+          if (this.bufferStartTimes) {
+            this.bufferStartTimes.set(this.nextIndex, Date.now());
+          }
+          this.chunkBuffer.delete(this.nextIndex);
+          this.nextIndex++; // Now we will look for chunk 1
+
+          // The 'updateend' event will fire, calling tick() again
+          // Do NOT set this.isProcessing = false here
         } catch (e) {
-          this.addLog(`❌ Chunk ${this.nextIndex} Error`);
-        } finally {
+          this.addLog(`❌ Chunk ${this.nextIndex} Error: ${e.message}`);
           this.isProcessing = false;
-          setTimeout(() => this.tick(), 100);
+          setTimeout(() => this.tick(), 1000);
         }
+      } else {
+        // ADD THIS LOG - Shows when a chunk is *missing* from the buffer
+        this.addLog(`⏳ TICK: Chunk ${this.nextIndex} not in buffer yet.`);
       }
     }
   }
@@ -195,6 +298,7 @@ class StreamController {
       }
 
       this.client.add(magnet, { announce: this.trackers }, (torrent) => {
+        console.log(`[DEBUG] Torrent added for ${magnet.substring(0, 30)}...`);
         torrent.on("done", () => {
           torrent.files[0].getBuffer((err, buf) => {
             if (err) reject(err);
@@ -244,28 +348,28 @@ export default function NeighborhoodLiveStreamPlayer({
   };
 
   // 1. MANUAL INITIALIZATION (The iPhone Way)
-const handleJoinStream = () => {
-  addLog("🚀 Manual Join Triggered...");
+  const handleJoinStream = () => {
+    addLog("🚀 Manual Join Triggered...");
 
-  // Create controller with null for setupMagnet (it will find it in chunks)
-  const controller = new StreamController(sessionId, null, addLog, () =>
-    refetch()
-  );
+    // Create controller with null for setupMagnet (it will find it in chunks)
+    const controller = new StreamController(sessionId, null, addLog, () =>
+      refetch()
+    );
 
-  controllerRef.current = controller;
-  window.controller = controller;
+    controllerRef.current = controller;
+    window.controller = controller;
 
-  if (containerRef.current) {
-    containerRef.current.appendChild(controller.video);
-  }
+    if (containerRef.current) {
+      containerRef.current.appendChild(controller.video);
+    }
 
-  setIsJoined(true);
+    setIsJoined(true);
 
-  // Immediately feed whatever chunks we already have in the 'data' tray
-  if (data?.streamChunks) {
-    controller.addChunks(data.streamChunks);
-  }
-};
+    // Immediately feed whatever chunks we already have in the 'data' tray
+    if (data?.streamChunks) {
+      controller.addChunks(data.streamChunks);
+    }
+  };
 
   // 2. DATA HAND-OFF
   useEffect(() => {

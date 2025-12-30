@@ -2,6 +2,7 @@
 import React, { useState, useRef } from "react";
 import { View, TouchableOpacity, Text, Alert, StyleSheet } from "react-native";
 import { useMutation, gql } from "@apollo/client";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SEND_MESSAGE = gql`
   mutation SendNeighborhoodMessage(
@@ -49,6 +50,8 @@ const CREATE_STREAM = gql`
     }
   }
 `;
+
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function NeighborhoodLiveStreamRecorder({
   neighborhoodId,
@@ -131,10 +134,11 @@ const seedAndSend = (chunkData, index) => {
 
       try {
         // Use the same auth token if needed; your backend uses 'authenticateToken'
-        const token = localStorage.getItem("yourAuthTokenKey"); // Get your token
+        // 2. USE THE SAME KEY ("token") from your other page
+        const token = await AsyncStorage.getItem("token");
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        const response = await fetch("/api/live-chunk", {
+        const response = await fetch(`${BACKEND_URL}/api/live-chunk`, {
           method: "POST",
           headers,
           body: formData,
@@ -165,8 +169,17 @@ const seedAndSend = (chunkData, index) => {
       }
     };
 
+    const trackers = [
+      "wss://tracker.openwebtorrent.com",
+      "wss://tracker.webtorrent.dev",
+      "udp://tracker.opentrackr.org:1337",
+      "udp://9.rarbg.to:2710",
+      "udp://open.stealth.si:80",
+      "udp://exodus.desync.com:6969",
+      "udp://tracker.torrent.eu.org:451",
+    ];
     // Step 2: Start local seeding immediately (for speed)
-    client.seed(chunkData, { name: fileName }, async (torrent) => {
+    client.seed(chunkData, { name: fileName, announce: trackers  }, async (torrent) => {
       console.log(
         `✅ ${isHeader ? "Header" : "Chunk " + index} seeded locally:`,
         torrent.magnetURI
