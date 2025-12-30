@@ -73,6 +73,7 @@ export default function NeighborhoodLiveStreamRecorder({
 
   const APPLE_MIME_TYPE = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
 
+
   const processSeedQueue = async () => {
     if (isProcessingQueueRef.current || chunkQueueRef.current.length === 0) {
       return;
@@ -80,62 +81,142 @@ export default function NeighborhoodLiveStreamRecorder({
     isProcessingQueueRef.current = true;
 
     const client = window.globalWebTorrentClient;
+const seedAndSend = (chunkData, index) => {
+  return new Promise((resolve, reject) => {
+    const extension = supportedTypeRef.current.includes("mp4") ? "mp4" : "webm";
+    const isHeader = index === -1;
+    const fileName = isHeader
+      ? `header-${sessionIdRef.current}.mp4`
+      : `live-${sessionIdRef.current}-chunk-${index}.${extension}`;
 
-    const seedAndSend = (chunkData, index) => {
-      return new Promise((resolve, reject) => {
-        const extension = supportedTypeRef.current.includes("mp4") ? "mp4" : "webm";
-        const isHeader = index === -1;
-        
-        // Label the header differently so the Player can find it easily
-        const fileName = isHeader 
-          ? `header-${sessionIdRef.current}.mp4`
-          : `live-${sessionIdRef.current}-chunk-${index}.${extension}`;
-
-        client.seed(
-          chunkData,
-          { name: fileName },
-          (torrent) => {
-            console.log(`✅ ${isHeader ? 'Header' : 'Chunk ' + index} seeded:`, torrent.magnetURI);
-            
-            sendMessage({
-              variables: {
-                content: isHeader ? "STREAM_HEADER" : "",
-                room: "neighborhood",
-                neighborhoodId: neighborhoodId,
-                fileName: isHeader ? "Stream Header" : `${username}'s Live Stream - Part ${index + 1}`,
-                fileType: isHeader ? "video_header" : "video_chunk",
-                magnetLink: torrent.magnetURI,
-                mimeType: supportedTypeRef.current, // Critical for iPhone decoding
-                sessionId: sessionIdRef.current,
-                chunkIndex: index,
-                totalChunks: -1,
-                thumbnailUrl: null,
-              },
-            })
-              .then(() => {
-                if (!isHeader) {
-                  setChunkCount((prev) => prev + 1);
-                } else {
-                  headerSentRef.current = true;
-                }
-                resolve();
-              })
-              .catch((err) => {
-                console.error(`❌ Failed to send message:`, err);
-                reject(err);
-              });
-
-            // Cleanup: iPhone will overheat if we seed 1000 chunks. 
-            // We only need to seed long enough for neighbors to grab the latest data.
-            setTimeout(() => {
-              if (client.get(torrent.infoHash)) {
-                client.remove(torrent.infoHash);
-              }
-            }, 120000); // 2 minutes seeding duration
-          }
-        );
-      });
+    // Function to send the GraphQL message (extracted for reuse)
+    const sendGraphQLMessage = (magnetUriToSend) => {
+      sendMessage({
+        variables: {
+          content: isHeader ? "STREAM_HEADER" : "",
+          room: "neighborhood",
+          neighborhoodId: neighborhoodId,
+          fileName: isHeader
+            ? "Stream Header"
+            : `${username}'s Live Stream - Part ${index + 1}`,
+          fileType: isHeader ? "video_header" : "video_chunk",
+          magnetLink: magnetUriToSend,
+          mimeType: supportedTypeRef.current,
+          sessionId: sessionIdRef.current,
+          chunkIndex: index,
+          totalChunks: -1,
+          thumbnailUrl: null,
+        },
+      })
+        .then(() => {
+          if (!isHeader) setChunkCount((prev) => prev + 1);
+          else headerSentRef.current = true;
+          resolve();
+        })
+        .catch((err) => {
+          console.error(`❌ Failed to send message:`, err);
+          reject(err);
+        });
     };
+
+    // Step 1: Upload chunk to backend for seeding
+    const uploadToBackend = async () => {
+      const formData = new FormData();
+      formData.append(
+        "chunk",
+        new Blob([chunkData], { type: supportedTypeRef.current })
+      );
+      formData.append("sessionId", sessionIdRef.current);
+      formData.append("chunkIndex", index.toString());
+
+      try {
+        // Use the same auth token if needed; your backend uses 'authenticateToken'
+        const token = localStorage.getItem("yourAuthTokenKey"); // Get your token
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const response = await fetch("/api/live-chunk", {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.warn(
+            `⚠️ Backend upload for chunk ${index} failed:`,
+            response.status,
+            errorText
+          );
+          return null;
+        }
+
+        const result = await response.json();
+        console.log(
+          `📤 Chunk ${index} uploaded to backend. Magnet:`,
+          result.magnetUri?.substring(0, 50) + "..."
+        );
+        return result.magnetUri; // Backend returns its magnet URI
+      } catch (error) {
+        console.error(
+          `🚨 Backend upload network error for chunk ${index}:`,
+          error
+        );
+        return null;
+      }
+    };
+
+    // Step 2: Start local seeding immediately (for speed)
+    client.seed(chunkData, { name: fileName }, async (torrent) => {
+      console.log(
+        `✅ ${isHeader ? "Header" : "Chunk " + index} seeded locally:`,
+        torrent.magnetURI
+      );
+
+      const localMagnet = torrent.magnetURI;
+      let finalMagnet = localMagnet;
+
+      // Step 3: Try to upload to backend in parallel, but don't wait too long.
+      // For header, we wait longer because it's critical.
+      const backendUploadPromise = uploadToBackend();
+
+      if (isHeader) {
+        // For header, wait up to 2 seconds for backend confirmation
+        try {
+          const backendMagnet = await Promise.race([
+            backendUploadPromise,
+            new Promise((resolve) => setTimeout(() => resolve(null), 2000)),
+          ]);
+          if (backendMagnet) finalMagnet = backendMagnet;
+        } catch (e) {
+          console.error("Header backend upload error:", e);
+        }
+      } else {
+        // For regular chunks, fire-and-forget after 500ms
+        setTimeout(() => {
+          backendUploadPromise
+            .then((backendMagnet) => {
+              if (backendMagnet) {
+                console.log(`🔁 Backend seeding confirmed for chunk ${index}`);
+                // Optional: If backend magnet is different, you could update
+                // the GraphQL message here with a second mutation
+              }
+            })
+            .catch(() => {});
+        }, 500);
+      }
+
+      // Step 4: Send GraphQL message with whichever magnet we have
+      sendGraphQLMessage(finalMagnet);
+
+      // Step 5: Local cleanup (2 minutes as before)
+      setTimeout(() => {
+        if (client.get(torrent.infoHash)) {
+          client.remove(torrent.infoHash);
+        }
+      }, 120000);
+    });
+  });
+};
 
     while (chunkQueueRef.current.length > 0) {
       const chunkToProcess = chunkQueueRef.current.shift();
@@ -232,7 +313,7 @@ export default function NeighborhoodLiveStreamRecorder({
       // 5. Recorder Initialization
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: supportedType,
-        videoBitsPerSecond: 800000, 
+        videoBitsPerSecond: 400000, 
       });
 
       mediaRecorderRef.current = mediaRecorder;

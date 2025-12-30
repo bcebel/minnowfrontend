@@ -110,7 +110,7 @@ class StreamController {
   async tick() {
     if (this.isProcessing || this.ms.readyState !== "open") return;
 
-    // STEP 1: Initialize SourceBuffer once we have a codec
+    // STEP 1: Initialize SourceBuffer
     if (!this.sb && this.detectedMimeType) {
       try {
         this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
@@ -124,11 +124,18 @@ class StreamController {
 
     if (!this.sb || this.sb.updating) return;
 
+    // --- CRITICAL MEMORY VENT (Stops the 13s crash) ---
+    if (this.video.currentTime > 8 && !this.sb.updating) {
+      try {
+        this.sb.remove(0, this.video.currentTime - 4);
+        return; // Let the removal finish before doing anything else
+      } catch (e) {}
+    }
+
     // STEP 2: Download and Append Header
     if (this.setupMagnet && !this.headerLoaded) {
       this.isProcessing = true;
       try {
-        this.addLog("📥 Downloading Header...");
         const buf = await this.download(this.setupMagnet);
         this.sb.appendBuffer(buf);
         this.headerLoaded = true;
@@ -148,15 +155,17 @@ class StreamController {
       if (chunk) {
         this.isProcessing = true;
         try {
-          this.addLog(`📥 Fetching Chunk ${this.nextIndex}...`);
           const buf = await this.download(chunk.magnetLink);
-          this.sb.appendBuffer(buf);
-          this.chunkBuffer.delete(this.nextIndex);
-          this.nextIndex++;
 
-          // Try to play if we have a small buffer
-          if (this.video.paused && this.nextIndex > 1) {
-            this.video.play().catch(() => {});
+          if (!this.sb.updating) {
+            this.sb.appendBuffer(buf);
+            this.chunkBuffer.delete(this.nextIndex);
+            this.nextIndex++;
+
+            // Start playing after we have 5 seconds buffered
+            if (this.video.paused && this.nextIndex > 5) {
+              this.video.play().catch(() => {});
+            }
           }
         } catch (e) {
           this.addLog(`❌ Chunk ${this.nextIndex} Error`);
