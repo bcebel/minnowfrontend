@@ -100,7 +100,7 @@ class StreamController {
 
       // Clean up if we have more than 15 seconds OR too many chunks
       if (end > 15 || this.chunkBuffer.size > this.maxBufferSize * 0.8) {
-        const removeEnd = Math.max(0, end - 10); // Keep last 10 seconds
+        const removeEnd = Math.max(0, end - 7); // Keep last 7 seconds
         this.sb.remove(0, removeEnd);
         this.addLog(
           `🧹 Trimmed video buffer to last 10s (had ${end.toFixed(1)}s)`
