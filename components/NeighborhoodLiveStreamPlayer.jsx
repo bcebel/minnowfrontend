@@ -47,7 +47,9 @@ class StreamController {
     this.streamingAllowed = true;
     this.nextIndex = 0;
     this.chunkBuffer = new Map();
-    this.maxBufferSize = 50;
+    this.maxBufferSize = 20;
+    this.cleanupThreshold = this.isIOS ? 40 : 60;
+    this.lastMemoryWarning = 0;
     this.bufferStartTimes = new Map();
 
     this.trackers = [
@@ -90,6 +92,102 @@ class StreamController {
         this.tick(); // Keep checking if we can process
       }
     }, 3000);
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        this.addLog("📱 App backgrounded - aggressive cleanup");
+        this.emergencyCleanup();
+      }
+    });
+  }
+  emergencyCleanup() {
+    // For iOS: Drastic cleanup when memory pressure is suspected
+    if (!this.sb || this.sb.updating) return;
+
+    try {
+      const currentTime = this.video.currentTime || 0;
+
+      // 1. Clean up WebTorrent torrents aggressively
+      const torrents = this.client.torrents;
+      torrents.forEach((torrent) => {
+        if (torrent.done) {
+          this.client.remove(torrent.infoHash);
+        }
+      });
+
+      // 2. Trim video buffer to bare minimum
+      if (this.sb.buffered.length) {
+        const end = this.sb.buffered.end(this.sb.buffered.length - 1);
+        if (end - currentTime > 5) {
+          const keepFrom = Math.max(0, currentTime - 2); // Keep only 2 seconds behind
+          this.sb.remove(0, keepFrom);
+          this.addLog(`🚨 iOS Emergency cleanup: 0-${keepFrom.toFixed(1)}s`);
+        }
+      }
+
+      // 3. Reduce chunk buffer
+      if (this.chunkBuffer.size > 10) {
+        const indices = Array.from(this.chunkBuffer.keys()).sort(
+          (a, b) => a - b
+        );
+        const toRemove = indices.length - 10;
+        for (let i = 0; i < toRemove; i++) {
+          this.chunkBuffer.delete(indices[i]);
+        }
+        this.addLog(
+          `🚨 iOS: Reduced chunk buffer from ${indices.length} to 10`
+        );
+      }
+    } catch (e) {
+      console.warn("Emergency cleanup failed:", e);
+    }
+  }
+
+  maybeCleanupBuffers() {
+    // iOS-optimized: Less aggressive, more frequent small cleanups
+    if (!this.sb || this.sb.updating || !this.sb.buffered.length) return;
+
+    try {
+      const currentTime = this.video.currentTime || 0;
+      const end = this.sb.buffered.end(this.sb.buffered.length - 1);
+      const bufferAhead = end - currentTime;
+
+      // iOS: Clean up more aggressively but in smaller chunks
+      if (this.isIOS) {
+        // Clean up if we have more than 10 seconds total
+        if (end > 10) {
+          // Remove small chunks at a time (2 seconds)
+          const removeEnd = Math.max(0, currentTime - 3); // Keep 3 seconds behind
+          if (removeEnd > 2 && !this.sb.updating) {
+            this.sb.remove(0, Math.min(removeEnd, 2)); // Max 2 seconds at a time
+            this.addLog(`📱 iOS gentle cleanup: removed 2s`);
+            this.isProcessing = true;
+          }
+        }
+
+        // Force garbage collection hint (iOS Safari specific)
+        if (this.video && this.video.currentTime > 30) {
+          // Every 30 seconds, trigger a mild cleanup
+          const now = Date.now();
+          if (now - this.lastMemoryWarning > 30000) {
+            this.lastMemoryWarning = now;
+            this.emergencyCleanup();
+          }
+        }
+      } else {
+        // Desktop: Original logic
+        if (end > this.cleanupThreshold) {
+          const removeEnd = Math.max(0, currentTime - 5);
+          if (removeEnd > 5 && !this.sb.updating) {
+            this.sb.remove(0, removeEnd);
+            this.addLog(`🧹 Cleanup: 0-${removeEnd.toFixed(1)}s`);
+            this.isProcessing = true;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Buffer cleanup failed:", e);
+    }
   }
 
   addChunks(chunks) {
@@ -144,15 +242,13 @@ class StreamController {
   }
 
   async tick() {
-   
-      if (this.isProcessing || this.ms.readyState !== "open") {
-        this.addLog(
-          `⏸️ Tick blocked: isProcessing=${this.isProcessing}, readyState=${this.ms.readyState}`
-        );
-        return;
-      }
+    if (this.isProcessing || this.ms.readyState !== "open") {
+      this.addLog(
+        `⏸️ Tick blocked: isProcessing=${this.isProcessing}, readyState=${this.ms.readyState}`
+      );
+      return;
+    }
 
-    
     if (this.nextIndex % 10 === 0) {
       // Log every 10 chunks
       this.addLog(
@@ -170,7 +266,7 @@ class StreamController {
         this.sb.addEventListener("updateend", () => {
           this.addLog(`📦 SB updateend. Ready for next chunk.`);
           this.isProcessing = false;
-           setTimeout(() => this.tick(), 50);// Process next chunk
+          setTimeout(() => this.tick(), 50); // Process next chunk
         });
         this.sb.addEventListener("error", (e) => {
           this.addLog(`❌ SourceBuffer error: ${e.message}`);
@@ -185,25 +281,23 @@ class StreamController {
 
     if (!this.sb || this.sb.updating) return;
 
-
-
     // STEP 2: Download and Append Header
- if (this.setupMagnet && !this.headerLoaded) {
-   this.isProcessing = true;
-   try {
-     this.addLog("📥 Downloading Header..."); // Add this log
-     const buf = await this.download(this.setupMagnet);
-     this.sb.appendBuffer(buf);
-     this.headerLoaded = true;
-     this.addLog("✅ Header Loaded");
-   } catch (e) {
-     this.addLog("❌ Header Failed: " + e.message);
-     this.isProcessing = false;
-     setTimeout(() => this.tick(), 1000);
-     return;
-   }
-   return; // Let updateend event continue the flow
- }
+    if (this.setupMagnet && !this.headerLoaded) {
+      this.isProcessing = true;
+      try {
+        this.addLog("📥 Downloading Header..."); // Add this log
+        const buf = await this.download(this.setupMagnet);
+        this.sb.appendBuffer(buf);
+        this.headerLoaded = true;
+        this.addLog("✅ Header Loaded");
+      } catch (e) {
+        this.addLog("❌ Header Failed: " + e.message);
+        this.isProcessing = false;
+        setTimeout(() => this.tick(), 1000);
+        return;
+      }
+      return; // Let updateend event continue the flow
+    }
 
     // STEP 3: Download and Append Chunks
     if (this.headerLoaded) {
@@ -234,7 +328,6 @@ class StreamController {
             `✅ Downloaded chunk ${this.nextIndex}, size: ${buf.length} bytes`
           );
 
-
           // Append to SourceBuffer
           this.sb.appendBuffer(buf);
 
@@ -259,9 +352,8 @@ class StreamController {
     }
   }
 
-  download(magnet) {
+download(magnet) {
     return new Promise((resolve, reject) => {
-      // Check if already downloading
       const existing = this.client.get(magnet);
       if (existing) {
         if (existing.done)
@@ -277,18 +369,25 @@ class StreamController {
       }
 
       this.client.add(magnet, { announce: this.trackers }, (torrent) => {
-        console.log(`[DEBUG] Torrent added for ${magnet.substring(0, 30)}...`);
         torrent.on("done", () => {
           torrent.files[0].getBuffer((err, buf) => {
             if (err) reject(err);
             else {
               resolve(buf);
-              // Keep seeding for others for a bit, then remove
-              setTimeout(() => this.client.remove(torrent.infoHash), 300000);
+              // iOS: Remove torrent IMMEDIATELY after use
+              if (this.isIOS) {
+                setTimeout(() => {
+                  try {
+                    this.client.remove(torrent.infoHash);
+                  } catch (e) {}
+                }, 1000); // 1 second instead of 5 minutes
+              } else {
+                setTimeout(() => this.client.remove(torrent.infoHash), 30000); // 30 seconds for desktop
+              }
             }
           });
         });
-        torrent.on("error", (err) => reject(err));
+        torrent.on("error", reject);
       });
     });
   }
