@@ -47,7 +47,7 @@ class StreamController {
     this.streamingAllowed = true;
     this.nextIndex = 0;
     this.chunkBuffer = new Map();
-    this.maxBufferSize = 20;
+    this.maxBufferSize = 50;
     this.bufferStartTimes = new Map();
 
     this.trackers = [
@@ -90,26 +90,6 @@ class StreamController {
         this.tick(); // Keep checking if we can process
       }
     }, 3000);
-  }
-  maybeCleanupBuffers() {
-    if (!this.sb || this.sb.updating || !this.sb.buffered.length) return;
-
-    try {
-      // Keep buffer under both time AND chunk limits
-      const end = this.sb.buffered.end(this.sb.buffered.length - 1);
-
-      // Clean up if we have more than 15 seconds OR too many chunks
-      if (end > 15 || this.chunkBuffer.size > this.maxBufferSize * 0.8) {
-        const removeEnd = Math.max(0, end - 10); // Keep last 10 seconds
-        this.sb.remove(0, removeEnd);
-        this.addLog(
-          `🧹 Trimmed video buffer to last 10s (had ${end.toFixed(1)}s)`
-        );
-      }
-    } catch (e) {
-      // Some browsers restrict remove() calls
-      console.warn("Buffer cleanup failed:", e);
-    }
   }
 
   addChunks(chunks) {
@@ -190,7 +170,7 @@ class StreamController {
         this.sb.addEventListener("updateend", () => {
           this.addLog(`📦 SB updateend. Ready for next chunk.`);
           this.isProcessing = false;
-          this.tick(); // Process next chunk
+           setTimeout(() => this.tick(), 50);// Process next chunk
         });
         this.sb.addEventListener("error", (e) => {
           this.addLog(`❌ SourceBuffer error: ${e.message}`);
