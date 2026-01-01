@@ -47,7 +47,7 @@ class StreamController {
     this.streamingAllowed = true;
     this.nextIndex = 0;
     this.chunkBuffer = new Map();
-    this.maxBufferSize = 20;
+    this.maxBufferSize =15;
     this.bufferStartTimes = new Map();
 
     this.trackers = [
@@ -98,9 +98,9 @@ class StreamController {
       // Keep buffer under both time AND chunk limits
       const end = this.sb.buffered.end(this.sb.buffered.length - 1);
 
-      // Clean up if we have more than 15 seconds OR too many chunks
-      if (end > 15 || this.chunkBuffer.size > this.maxBufferSize * 0.8) {
-        const removeEnd = Math.max(0, end - 10); // Keep last 10 seconds
+      // Clean up if we have more than 10 seconds OR too many chunks
+      if (end > 10 || this.chunkBuffer.size > this.maxBufferSize * 0.8) {
+        const removeEnd = Math.max(0, end - 7); // Keep last 7 seconds
         this.sb.remove(0, removeEnd);
         this.addLog(
           `🧹 Trimmed video buffer to last 10s (had ${end.toFixed(1)}s)`
