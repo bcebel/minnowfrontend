@@ -47,7 +47,7 @@ class StreamController {
     this.streamingAllowed = true;
     this.nextIndex = 0;
     this.chunkBuffer = new Map();
-    this.maxBufferSize = 50;
+    this.maxBufferSize = 30;
     this.bufferStartTimes = new Map();
 
     this.trackers = [
