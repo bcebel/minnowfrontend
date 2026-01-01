@@ -47,7 +47,7 @@ class StreamController {
     this.streamingAllowed = true;
     this.nextIndex = 0;
     this.chunkBuffer = new Map();
-    this.maxBufferSize = 30;
+    this.maxBufferSize = 50;
     this.bufferStartTimes = new Map();
 
     this.trackers = [
@@ -234,7 +234,6 @@ class StreamController {
             `✅ Downloaded chunk ${this.nextIndex}, size: ${buf.length} bytes`
           );
 
-          this.maybeCleanupBuffers();
 
           // Append to SourceBuffer
           this.sb.appendBuffer(buf);
