@@ -362,8 +362,15 @@ download(magnet) {
         return;
       }
 
+         const timeout = this.isIOS ? 10000 : 30000; // 10s vs 30s
+         const timeoutId = setTimeout(() => {
+           reject(new Error("Download timeout"));
+           this.client.remove(magnet);
+         }, timeout);
+      
       this.client.add(magnet, { announce: this.trackers }, (torrent) => {
         torrent.on("done", () => {
+            clearTimeout(timeoutId);
           torrent.files[0].getBuffer((err, buf) => {
             if (err) reject(err);
             else {
@@ -381,7 +388,10 @@ download(magnet) {
             }
           });
         });
-        torrent.on("error", reject);
+          torrent.on("error", (err) => {
+            clearTimeout(timeoutId);
+            reject(err);
+          });
       });
     });
   }
