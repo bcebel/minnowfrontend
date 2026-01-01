@@ -48,19 +48,13 @@ class StreamController {
     this.nextIndex = 0;
     this.chunkBuffer = new Map();
     this.maxBufferSize = 20;
-    this.cleanupThreshold = this.isIOS ? 40 : 60;
+    this.cleanupThreshold = this.isIOS ? 30 : 50;
     this.lastMemoryWarning = 0;
     this.bufferStartTimes = new Map();
 
-    this.trackers = [
-      "wss://tracker.openwebtorrent.com",
-      "wss://tracker.webtorrent.dev",
-      "udp://tracker.opentrackr.org:1337",
-      "udp://9.rarbg.to:2710",
-      "udp://open.stealth.si:80",
-      "udp://exodus.desync.com:6969",
-      "udp://tracker.torrent.eu.org:451",
-    ];
+    this.trackers = this.isIOS
+      ? ["wss://tracker.openwebtorrent.com"] // Only ONE WebSocket tracker
+      : ["wss://tracker.openwebtorrent.com", "wss://tracker.webtorrent.dev"];
 
     // 3. Create Video Element
     this.video = document.createElement("video");
