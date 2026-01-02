@@ -160,10 +160,10 @@ class StreamController {
         }
 
         // Force garbage collection hint (iOS Safari specific)
-        if (this.video && this.video.currentTime > 30) {
+        if (this.video && this.video.currentTime > 15) {
           // Every 30 seconds, trigger a mild cleanup
           const now = Date.now();
-          if (now - this.lastMemoryWarning > 30000) {
+          if (now - this.lastMemoryWarning > 15000) {
             this.lastMemoryWarning = now;
             this.emergencyCleanup();
           }
