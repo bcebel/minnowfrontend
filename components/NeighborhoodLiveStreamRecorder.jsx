@@ -172,11 +172,7 @@ const seedAndSend = (chunkData, index) => {
     const trackers = [
       "wss://tracker.openwebtorrent.com",
       "wss://tracker.webtorrent.dev",
-      "udp://tracker.opentrackr.org:1337",
-      "udp://9.rarbg.to:2710",
-      "udp://open.stealth.si:80",
-      "udp://exodus.desync.com:6969",
-      "udp://tracker.torrent.eu.org:451",
+
     ];
     // Step 2: Start local seeding immediately (for speed)
     client.seed(chunkData, { name: fileName, announce: trackers  }, async (torrent) => {
@@ -332,7 +328,7 @@ const seedAndSend = (chunkData, index) => {
       mediaRecorderRef.current = mediaRecorder;
 
       // 1-second chunks are essential for avoiding RTCDataChannel buffer limits
-      const CHUNK_DURATION = 1000;
+      const CHUNK_DURATION = 5000;
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
