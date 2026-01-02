@@ -142,55 +142,39 @@ export default function Root({ children }: PropsWithChildren) {
         <script
           dangerouslySetInnerHTML={{
             __html: `
-      // Global WebTorrent client for cross-component seeding
-      if (!window.globalWebTorrentClient) {
-        console.log('🌪️ Initializing global WebTorrent client for P2P seeding');
-        window.globalWebTorrentClient = new WebTorrent({
-          tracker: {
-            announce: [
-  'wss://tracker.openwebtorrent.com',
-  'wss://tracker.webtorrent.dev',
-  'udp://tracker.opentrackr.org:1337',
-  'udp://9.rarbg.to:2710',
-  'udp://open.stealth.si:80',
-  'udp://exodus.desync.com:6969',
-  'udp://tracker.torrent.eu.org:451'
+  // 1. FORCE MEMORY STORAGE (Critical for iOS stability)
+  // This prevents QuotaExceededError and IndexedDB crashes
+  window.WEBTORRENT_ANONYMOUS = true; 
 
-            ]
-          }
-        });
-        
-        // Optimize for seeding
-        window.globalWebTorrentClient.on('torrent', (torrent) => {
-          console.log('🌱 Seeding torrent:', torrent.name);
-          console.log('📊 Info Hash:', torrent.infoHash);
-        });
-        
-        // Track swarm stats
-        window.globalWebTorrentClient.on('download', (bytes) => {
-          // Global swarm statistics
-          const stats = {
-            downloadSpeed: window.globalWebTorrentClient.downloadSpeed,
-            uploadSpeed: window.globalWebTorrentClient.uploadSpeed,
-            progress: window.globalWebTorrentClient.progress,
-            ratio: window.globalWebTorrentClient.ratio
-          };
-          window.globalTorrentStats = stats;
-        });
+  if (!window.globalWebTorrentClient) {
+    console.log('🌪️ Initializing stabilized WebTorrent client');
+    
+    window.globalWebTorrentClient = new WebTorrent({
+      // 2. DISABLE DHT & LSD 
+      // These are battery hogs and don't work in mobile browsers anyway
+      dht: false,
+      lsd: false,
+      tracker: {
+        announce: [
+          'wss://tracker.openwebtorrent.com',
+          'wss://tracker.webtorrent.dev',
+          'wss://tracker.files.fm:7073/announce',
+          'wss://tracker.btorrent.xyz'
+        ],
+        rtcConfig: {
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:global.stun.twilio.com:3478" }
+          ]
+        }
       }
-      
-      // Pre-load common trackers for better P2P discovery
-      window.enhancedTrackers = [
-  'wss://tracker.openwebtorrent.com',
-  'wss://tracker.webtorrent.dev',
-  'udp://tracker.opentrackr.org:1337',
-  'udp://9.rarbg.to:2710',
-  'udp://open.stealth.si:80',
-  'udp://exodus.desync.com:6969',
-  'udp://tracker.torrent.eu.org:451'
+    });
 
-      ];
-    `,
+    // 3. LIMIT CONNECTIONS
+    // Prevents the "Too many open files" crash on mobile
+    window.globalWebTorrentClient.maxConns = 15;
+  }
+`,
           }}
         />
 

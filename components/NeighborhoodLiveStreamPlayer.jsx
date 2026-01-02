@@ -30,8 +30,8 @@ class StreamController {
     this.setupMagnet = setupMagnet;
 
     // Simplified buffer config
-    this.CHUNK_DURATION =5; // seconds per chunk (increased from 1)
-    this.TARGET_BUFFER_DURATION = 10; // seconds total buffer
+    this.CHUNK_DURATION = 8; // seconds per chunk (increased from 1)
+    this.TARGET_BUFFER_DURATION = 20; // seconds total buffer
     this.BUFFER_CHUNKS = Math.ceil(
       this.TARGET_BUFFER_DURATION / this.CHUNK_DURATION
     ); // 2 chunks
@@ -42,11 +42,13 @@ class StreamController {
     if (!window.globalWebTorrentClient) {
       this.addLog("🧰 Creating Torrent Client...");
       window.globalWebTorrentClient = new window.WebTorrent({
-        dht: !this.isIOS, // Disable DHT on iOS
-        webSeeds: false,
-        tracker: this.isIOS
-          ? { maxConns: 1, rtcConfig: { iceServers: [] } }
-          : {},
+        dht: false, // Force false for both
+        lsd: false, // Local Service Discovery (useless on mobile)
+        tracker: {
+          rtcConfig: {
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+          },
+        },
       });
     }
     this.client = window.globalWebTorrentClient;
@@ -82,9 +84,19 @@ class StreamController {
     this.video.setAttribute("webkit-playsinline", "true");
 
     // Video timeupdate listener for sync
-    this.video.addEventListener("timeupdate", () => {
-      this.syncBufferToPlayback();
-    });
+this.video.addEventListener("timeupdate", () => {
+  const buffered = this.video.buffered;
+  const curr = this.video.currentTime;
+  
+  for (let i = 0; i < buffered.length; i++) {
+    // If there is a gap within 0.3 seconds of current time
+    if (curr < buffered.start(i) && (buffered.start(i) - curr) < 0.3) {
+      this.addLog("🦘 Nudging past gap...");
+      this.video.currentTime = buffered.start(i) + 0.1;
+    }
+  }
+  this.syncBufferToPlayback();
+});
 
     // Attach MediaSource
     this.video.src = URL.createObjectURL(this.ms);
@@ -197,26 +209,32 @@ class StreamController {
     this.tick();
   }
 
-  trimChunkQueue() {
-    if (this.chunkQueue.size <= this.BUFFER_CHUNKS * 2) return; // Allow some extra
+      trimChunkQueue() {
+  const currentChunk = this.currentPlaybackChunk;
+  const indices = Array.from(this.chunkQueue.keys()).sort((a, b) => a - b);
 
-    const currentChunk = this.currentPlaybackChunk;
-    const indices = Array.from(this.chunkQueue.keys()).sort((a, b) => a - b);
+  // MAX_AHEAD: Don't keep more than 5 chunks (approx 30-40s) ahead of playhead
+  // MAX_BEHIND: Keep 0-1 chunks behind for slight rewinds/stability
+  const MAX_AHEAD = 5; 
+  const MAX_BEHIND = 1;
 
-    // Keep only chunks that are current or future (and a small buffer)
-    const chunksToDelete = indices.filter(
-      (idx) =>
-        idx < currentChunk - 1 || idx > currentChunk + this.BUFFER_CHUNKS + 2
-    );
-
-    chunksToDelete.forEach((idx) => this.chunkQueue.delete(idx));
-
-    if (chunksToDelete.length > 0) {
-      this.addLog(
-        `✂️ Trimmed chunk queue: ${chunksToDelete.length} old chunks removed`
-      );
+  indices.forEach((idx) => {
+    if (idx < currentChunk - MAX_BEHIND || idx > currentChunk + MAX_AHEAD) {
+      const chunk = this.chunkQueue.get(idx);
+      
+      // Explicitly nullify the data before deleting for Garbage Collection
+      if (chunk) {
+        chunk.magnetLink = null; 
+        chunk.data = null; 
+      }
+      this.chunkQueue.delete(idx);
     }
+  });
+
+  if (indices.length > (MAX_AHEAD + MAX_BEHIND + 2)) {
+    this.addLog(`🧹 Memory Purge: Kept window [${currentChunk - MAX_BEHIND} to ${currentChunk + MAX_AHEAD}]`);
   }
+}
 
   async tick() {
     if (this.isProcessing || this.ms.readyState !== "open") {
@@ -278,7 +296,7 @@ class StreamController {
 
       // Find the next chunk we need (closest to playback that we don't have in buffer)
       let targetChunk = null;
- 
+
       const availableIndices = Array.from(this.chunkQueue.keys()).sort(
         (a, b) => a - b
       );
@@ -288,7 +306,7 @@ class StreamController {
           break;
         }
       }
-     const bufferAhead = this.getBufferAhead(currentTime);
+      const bufferAhead = this.getBufferAhead(currentTime);
       // We need chunks that extend our buffer
       for (let offset = 0; offset <= this.BUFFER_CHUNKS; offset++) {
         const checkChunk = currentChunk + offset;
@@ -306,9 +324,9 @@ class StreamController {
             }
           }
         }
-if (this.video.paused && this.video.buffered.length > 0) {
-  this.video.play().catch((e) => console.log("Autoplay blocked:", e));
-}
+        if (this.video.paused && this.video.buffered.length > 0) {
+          this.video.play().catch((e) => console.log("Autoplay blocked:", e));
+        }
         // If we don't have buffer for this chunk and we have it in queue, download it
         if (!hasBuffer && this.chunkQueue.has(checkChunk)) {
           targetChunk = checkChunk;
@@ -360,64 +378,58 @@ if (this.video.paused && this.video.buffered.length > 0) {
 
   download(magnet) {
     return new Promise((resolve, reject) => {
+      // Check if we already have it
       const existing = this.client.get(magnet);
-      if (existing) {
-        if (existing.done) {
-          return existing.files[0].getBuffer((err, buf) =>
-            err ? reject(err) : resolve(buf)
-          );
-        }
-        existing.on("done", () =>
-          existing.files[0].getBuffer((err, buf) =>
-            err ? reject(err) : resolve(buf)
-          )
+      if (existing && existing.done) {
+        existing.files[0].getBuffer((err, buf) =>
+          err ? reject(err) : resolve(buf)
         );
         return;
       }
 
-      const timeout = setTimeout(
-        () => {
-          reject(new Error("Download timeout"));
-          this.client.remove(magnet);
-        },
-        this.isIOS ? 15000 : 30000
-      );
+      const timeout = setTimeout(() => {
+        this.client.remove(magnet);
+        reject(new Error("Timeout"));
+      }, 10000); // 10s is plenty if the backend is seeding
 
       this.client.add(magnet, { announce: this.trackers }, (torrent) => {
-torrent.on("done", () => {
-  torrent.files[0].getBuffer((err, buf) => {
-    if (err) reject(err);
-    else {
-      resolve(buf);
-      // CRITICAL: Remove IMMEDIATELY after use
-      setTimeout(() => {
-        try {
-          this.client.remove(torrent.infoHash);
-        } catch (e) {}
-      }, 100); // 100ms delay
-    }
-  });
-});
-        torrent.on("error", (err) => {
+        torrent.on("wire", () => this.addLog("🤝 Peer Connected"));
+
+        torrent.once("done", () => {
           clearTimeout(timeout);
-          reject(err);
+          torrent.files[0].getBuffer((err, buf) => {
+            if (err) reject(err);
+            else resolve(buf);
+
+            // Kill it immediately to save iPhone RAM
+            setTimeout(() => this.client.remove(torrent.infoHash), 1000);
+          });
         });
       });
     });
   }
 
-  destroy() {
-    clearInterval(this.watchdog);
-
-    if (this.video) {
-      this.video.pause();
-      this.video.src = "";
-      this.video.load();
-      this.video.remove();
+ destroy() {
+  clearInterval(this.watchdog);
+  
+  if (this.video) {
+    this.video.pause();
+    // CRITICAL: Revoke the Object URL to free up the memory
+    if (this.video.src) {
+      URL.revokeObjectURL(this.video.src);
     }
-
-    this.addLog("🛑 Stream controller destroyed");
+    this.video.src = "";
+    this.video.load();
+    this.video.remove();
   }
+
+  // Clear the WebTorrent client's internal memory
+  if (this.client) {
+    this.client.torrents.forEach(t => this.client.remove(t.infoHash));
+  }
+
+  this.addLog("🛑 Total Memory Cleanup Complete");
+}
 }
 
 // --- THE REACT WRAPPER ---

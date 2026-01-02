@@ -218,11 +218,13 @@ const seedAndSend = (chunkData, index) => {
       sendGraphQLMessage(finalMagnet);
 
       // Step 5: Local cleanup (2 minutes as before)
-      setTimeout(() => {
-        if (client.get(torrent.infoHash)) {
-          client.remove(torrent.infoHash);
-        }
-      }, 120000);
+      if (index !== -1) {
+        setTimeout(() => {
+          if (client.get(torrent.infoHash)) {
+            client.remove(torrent.infoHash);
+          }
+        }, 30000);
+      }
     });
   });
 };
@@ -328,7 +330,7 @@ const seedAndSend = (chunkData, index) => {
       mediaRecorderRef.current = mediaRecorder;
 
       // 1-second chunks are essential for avoiding RTCDataChannel buffer limits
-      const CHUNK_DURATION = 5000;
+      const CHUNK_DURATION = 8000;
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
