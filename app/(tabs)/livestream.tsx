@@ -1,15 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  View,
-  Text,
-  StyleSheet, 
-  ScrollView,
-  ActivityIndicator,
-  TouchableOpacity,
-} from "react-native";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from "react-native";
 import { gql, useQuery, useSubscription } from "@apollo/client";
 import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer";
 import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
+import { warehouse } from "../../components/StreamWearhouse.js"; // Ensure this matches your export
+
 
 const GET_MY_NEIGHBORHOODS = gql`
   query GetMyNeighborhoods {
@@ -70,102 +65,87 @@ const LIVESTREAM_CHUNK_SUBSCRIPTION = gql`
   }
 `;
 
-function Livestream({
-  stream,
-}: {
-  stream: { id: string; sessionId?: string; magnetLink?: string; title?: string };
-}) {
-  type StreamChunk = {
-    id: string;
-    sessionId?: string;
-    chunkIndex: number;
-    magnetLink?: string;
-    fileType?: string;
-  };
+// fetchChunkBytes.js
+const fetchChunkBytes = async (chunk, torrentClient) => {
+  const { magnetLink, sessionId, chunkIndex } = chunk;
+  
+  const p2pPromise = new Promise((resolve, reject) => {
+    if (!torrentClient) return reject("No Torrent Client");
+    let torrent = torrentClient.get(magnetLink) || torrentClient.add(magnetLink);
 
-  const [liveChunks, setLiveChunks] = useState<StreamChunk[]>([]);
+    torrent.on('done', () => {
+      torrent.files[0].getArrayBuffer((err, buffer) => {
+        if (err) reject(err); else resolve(buffer);
+      });
+    });
+    setTimeout(() => reject(new Error("P2P Timeout")), 2500);
+  });
 
-  // 1. Fetch initial chunks that might already exist
-  const { data: initialData } = useQuery<
-    { streamChunks: StreamChunk[] },
-    { sessionId: string }
-  >(GET_LIVESTREAM_CHUNKS, {
+  try {
+    return await p2pPromise;
+  } catch (err) {
+    const response = await fetch(`/api/live-chunk/${sessionId}/${chunkIndex}`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
+    if (!response.ok) throw new Error("Server fetch failed");
+    return await response.arrayBuffer();
+  }
+};
+
+function Livestream({ stream }) {
+  // --- 1. STATE & REFS (Now inside the component) ---
+  const [liveChunks, setLiveChunks] = useState([]);
+  const [availableInWarehouse, setAvailableInWarehouse] = useState([]);
+  const torrentClientRef = useRef(null);
+
+  // --- 2. QUERIES & SUBSCRIPTIONS ---
+  const { data: initialData } = useQuery(GET_LIVESTREAM_CHUNKS, {
     variables: { sessionId: stream.sessionId },
     skip: !stream.sessionId,
   });
 
-  // 2. Listen for new chunks via GraphQL subscription
-  // Change 'sessionId' to 'stream.sessionId'
-  const { data: subscriptionData, error: subscriptionError } = useSubscription(
+  const { data: subscriptionData } = useSubscription(
     LIVESTREAM_CHUNK_SUBSCRIPTION,
     {
-      variables: { sessionId: stream.sessionId }, // <--- Fixed this line
-      skip: !stream.sessionId, // Safety check
-      onData: ({ data }) => {
-        console.log("🔔 SUBSCRIPTION NOTIFICATION:", data.data);
-      },
-      onError: (err) => {
-        console.error("❌ SUBSCRIPTION ERROR:", err);
-        console.error("❌ Error details:", err.message);
-        console.error("❌ Network error?", err.networkError);
-        console.error("❌ GraphQL errors:", err.graphQLErrors);
+      variables: { sessionId: stream.sessionId },
+      skip: !stream.sessionId,
+      onData: async ({ data }) => {
+        const newChunk = data.data?.livestreamChunkAdded;
+        if (!newChunk || availableInWarehouse.includes(newChunk.chunkIndex))
+          return;
+
+        try {
+          // Fetch and store in IndexedDB
+          const videoBytes = await fetchChunkBytes(
+            newChunk,
+            torrentClientRef.current
+          );
+          await warehouse.saveChunk(newChunk.chunkIndex, videoBytes);
+
+          // Signal the player that data is ready
+          setAvailableInWarehouse((prev) =>
+            [...prev, newChunk.chunkIndex].sort((a, b) => a - b)
+          );
+          console.log(`📥 Chunk ${newChunk.chunkIndex} stored in Warehouse`);
+        } catch (err) {
+          console.error("🔴 Warehouse Error:", err);
+        }
       },
     }
   );
-  // 3. Load initial chunks once
-  useEffect(() => {
-    if (subscriptionError) {
-      console.log("🔍 Subscription error state:", subscriptionError);
-    }
-  }, [subscriptionError]);
 
-  // 1. Initial Load Effect (Runs once when initialData arrives)
+  // --- 3. SYNC INITIAL CHUNKS TO UI ---
   useEffect(() => {
     if (initialData?.streamChunks) {
-      setLiveChunks((prev) => {
-        const chunkMap = new Map(prev.map((c) => [c.chunkIndex, c]));
-        initialData.streamChunks.forEach((c) => chunkMap.set(c.chunkIndex, c));
-        return Array.from(chunkMap.values()).sort(
-          (a, b) => a.chunkIndex - b.chunkIndex
-        );
-      });
-      console.log("📦 Loaded initial chunks:", initialData.streamChunks.length);
+      setLiveChunks(
+        initialData.streamChunks.sort((a, b) => a.chunkIndex - b.chunkIndex)
+      );
     }
   }, [initialData]);
 
-  // 2. Subscription Effect (Runs every time a NEW chunk is added)
-  // livestream.tsx
-useEffect(() => {
-  if (subscriptionData?.livestreamChunkAdded) {
-    const newChunk = subscriptionData.livestreamChunkAdded;
-    console.log(`🔥 SUB RECEIVED: Chunk #${newChunk.chunkIndex}`);
-
-    setLiveChunks((prev) => {
-      // Don't add if we have it
-      if (prev.find((c) => c.chunkIndex === newChunk.chunkIndex)) return prev;
-
-      const newTray = [...prev, newChunk].sort(
-        (a, b) => a.chunkIndex - b.chunkIndex
-      );
-      console.log(
-        "Current Tray of Chunks:",
-        newTray.map((c) => c.chunkIndex)
-      );
-      return newTray;
-    });
-  }
-}, [subscriptionData]);
-
-  const clearProcessedChunk = useCallback((chunkId: string) => {
-    setLiveChunks((prevChunks) =>
-      prevChunks.filter((chunk) => chunk.id !== chunkId)
-    );
+  const clearProcessedChunk = useCallback((chunkId) => {
+    setLiveChunks((prev) => prev.filter((c) => c.id !== chunkId));
   }, []);
-
-  console.log(
-    "Current Tray of Chunks:",
-    liveChunks.map((c) => c.chunkIndex)
-  );
 
   return (
     <View style={styles.streamContainer}>
@@ -173,8 +153,10 @@ useEffect(() => {
       <NeighborhoodLiveStreamPlayer
         sessionId={stream.sessionId}
         setupMagnet={stream.magnetLink}
-        initialChunks={liveChunks}
+        initialChunks={liveChunks} // UI list
+        availableInWarehouse={availableInWarehouse} // The actual data signal
         clearProcessedChunk={clearProcessedChunk}
+        torrentClientRef={torrentClientRef} // Pass this down so the player can share it
       />
     </View>
   );
