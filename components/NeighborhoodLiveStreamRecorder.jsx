@@ -233,25 +233,28 @@ const seedAndSend = (chunkData, index) => {
   });
 };
 
-    while (chunkQueueRef.current.length > 0) {
-      const chunkToProcess = chunkQueueRef.current.shift();
+ while (chunkQueueRef.current.length > 0) {
+   const chunkToProcess = chunkQueueRef.current.shift();
 
-      // IPHONE FIX: The very first data from MediaRecorder must be treated as the Header
-      if (!headerSentRef.current) {
-        try {
-          await seedAndSend(chunkToProcess, -1);
-        } catch (e) {
-          console.error("Header seed failed:", e);
-        }
-      }
+   // If this is the VERY first chunk of the stream
+   if (!headerSentRef.current) {
+     try {
+       await seedAndSend(chunkToProcess, -1);
+       headerSentRef.current = true; // Mark as sent
+       continue; // 🚀 CRITICAL: Skip the rest so we don't send this as "0" too!
+     } catch (e) {
+       console.error("Header seed failed:", e);
+     }
+   }
 
-      const currentIndex = chunkIndexRef.current++;
-      try {
-        await seedAndSend(chunkToProcess, currentIndex);
-      } catch (error) {
-        console.error(`Failed to process chunk ${currentIndex}:`, error);
-      }
-    }
+   // Regular chunks (Starts from 0, 1, 2...)
+   const currentIndex = chunkIndexRef.current++;
+   try {
+     await seedAndSend(chunkToProcess, currentIndex);
+   } catch (error) {
+     console.error(`Failed to process chunk ${currentIndex}:`, error);
+   }
+ }
 
     isProcessingQueueRef.current = false;
   };

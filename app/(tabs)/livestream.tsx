@@ -66,30 +66,40 @@ const LIVESTREAM_CHUNK_SUBSCRIPTION = gql`
 `;
 
 // fetchChunkBytes.js
-const fetchChunkBytes = async (chunk, torrentClient) => {
-  const { magnetLink, sessionId, chunkIndex } = chunk;
-  
-  const p2pPromise = new Promise((resolve, reject) => {
-    if (!torrentClient) return reject("No Torrent Client");
-    let torrent = torrentClient.get(magnetLink) || torrentClient.add(magnetLink);
+const fetchChunkBytes = async (chunk, torrentClient, maxRetries = 5) => {
+  const { sessionId, chunkIndex, magnetLink } = chunk;
 
-    torrent.on('done', () => {
-      torrent.files[0].getArrayBuffer((err, buffer) => {
-        if (err) reject(err); else resolve(buffer);
-      });
-    });
-    setTimeout(() => reject(new Error("P2P Timeout")), 2500);
-  });
+  // Extract the hash (the 'specific string') from the magnet link
+  const infoHash = magnetLink?.match(/btih:([a-zA-Z0-9]+)/)?.[1];
+  const API_BASE = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com";
 
-  try {
-    return await p2pPromise;
-  } catch (err) {
-    const response = await fetch(`/api/live-chunk/${sessionId}/${chunkIndex}`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    if (!response.ok) throw new Error("Server fetch failed");
-    return await response.arrayBuffer();
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      // Build the URL with the index and the hash backup
+        const url = `${API_BASE}/api/live-chunk/${sessionId}/${chunkIndex}?hash=${infoHash}`;
+
+      const response = await fetch(url);
+
+      if (response.ok) {
+        const buffer = await response.arrayBuffer();
+        return new Uint8Array(buffer);
+      }
+
+      if (response.status === 404) {
+        // Log the struggle so you can see it working in the console
+        console.warn(
+          `⏳ [Retry ${i + 1}] Chunk ${chunkIndex} not on disk yet. Waiting...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+      } else {
+        // If it's a 500 error, Heroku is really mad—don't bother retrying
+        break;
+      }
+    } catch (err) {
+      console.error("Fetch failed:", err);
+    }
   }
+  return null;
 };
 
 function Livestream({ stream }) {
@@ -109,26 +119,39 @@ function Livestream({ stream }) {
     {
       variables: { sessionId: stream.sessionId },
       skip: !stream.sessionId,
+      // livestream.tsx
       onData: async ({ data }) => {
         const newChunk = data.data?.livestreamChunkAdded;
-        if (!newChunk || availableInWarehouse.includes(newChunk.chunkIndex))
+        if (!newChunk) return;
+
+        // 1. STRICT SESSION LOCK: Only process if it matches the current stream
+        if (newChunk.sessionId !== stream.sessionId) {
+          console.warn(
+            `Ignoring chunk from session ${newChunk.sessionId} (Expected ${stream.sessionId})`
+          );
           return;
+        }
 
-        try {
-          // Fetch and store in IndexedDB
-          const videoBytes = await fetchChunkBytes(
-            newChunk,
-            torrentClientRef.current
-          );
-          await warehouse.saveChunk(newChunk.chunkIndex, videoBytes);
+        const index =
+          newChunk.fileType === "video_header" ? -1 : newChunk.chunkIndex;
 
-          // Signal the player that data is ready
+        // 2. DUPLICATE CHECK: Don't re-fetch what we already have
+        if (availableInWarehouse.includes(index)) {
+          return;
+        }
+
+        // 3. FETCH: Using your bulletproof fetchChunkBytes (with the hash backup)
+        const videoBytes = await fetchChunkBytes(
+          { ...newChunk, chunkIndex: index },
+          torrentClientRef.current
+        );
+
+        if (videoBytes) {
+          await warehouse.saveChunk(index, videoBytes);
           setAvailableInWarehouse((prev) =>
-            [...prev, newChunk.chunkIndex].sort((a, b) => a - b)
+            [...new Set([...prev, index])].sort((a, b) => a - b)
           );
-          console.log(`📥 Chunk ${newChunk.chunkIndex} stored in Warehouse`);
-        } catch (err) {
-          console.error("🔴 Warehouse Error:", err);
+          console.log(`📦 Warehouse updated with chunk: ${index}`);
         }
       },
     }
