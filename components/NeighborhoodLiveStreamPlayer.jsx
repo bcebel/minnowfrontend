@@ -79,6 +79,12 @@ class StreamController {
       });
     }
 
+   
+    this.watchdog = setInterval(() => {
+      if (!this.isProcessing && this.ms.readyState === "open") {
+        this.tick();
+      }
+    }, 2000); // Check every 2 seconds to see if we're stuck
     // Video timeupdate listener for sync
     this.video.addEventListener("timeupdate", () => {
       const buffered = this.video.buffered;
@@ -417,16 +423,20 @@ export default function NeighborhoodLiveStreamPlayer({
       console.log("Engine requested more data...");
     });
 
-    controllerRef.current = controller;
-
+    // 2. Attach to DOM BEFORE doing anything else
     if (containerRef.current) {
       containerRef.current.appendChild(controller.video);
     }
 
+    controllerRef.current = controller;
+
     setIsJoined(true);
 
-    // Feed any chunks we already had sitting in the tray when we clicked Join
-    if (initialChunks.length > 0) {
+    // 3. CRITICAL: Check the warehouse IMMEDIATELY for the header
+    // Instead of waiting for the subscription to tell us about -1,
+    // we look for it ourselves right now.
+    if (initialChunks && initialChunks.length > 0) {
+      addLog(`📥 Seeding engine with ${initialChunks.length} existing chunks`);
       controller.addChunks(initialChunks);
     }
   };
