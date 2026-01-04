@@ -78,19 +78,19 @@ class StreamController {
     }
 
     // Video timeupdate listener for sync
-this.video.addEventListener("timeupdate", () => {
-  const buffered = this.video.buffered;
-  const curr = this.video.currentTime;
-  
-  for (let i = 0; i < buffered.length; i++) {
-    // If there is a gap within 0.3 seconds of current time
-    if (curr < buffered.start(i) && (buffered.start(i) - curr) < 0.3) {
-      this.addLog("🦘 Nudging past gap...");
-      this.video.currentTime = buffered.start(i) + 0.1;
-    }
-  }
-  this.syncBufferToPlayback();
-});
+    this.video.addEventListener("timeupdate", () => {
+      const buffered = this.video.buffered;
+      const curr = this.video.currentTime;
+
+      for (let i = 0; i < buffered.length; i++) {
+        // If there is a gap within 0.3 seconds of current time
+        if (curr < buffered.start(i) && buffered.start(i) - curr < 0.3) {
+          this.addLog("🦘 Nudging past gap...");
+          this.video.currentTime = buffered.start(i) + 0.1;
+        }
+      }
+      this.syncBufferToPlayback();
+    });
 
     // Attach MediaSource
     this.video.src = URL.createObjectURL(this.ms);
@@ -102,8 +102,6 @@ this.video.addEventListener("timeupdate", () => {
       this.addLog("✅ MediaSource Open");
       this.tick();
     });
-
-
   }
 
   // NEW: Sync everything to video playback time
@@ -171,8 +169,12 @@ this.video.addEventListener("timeupdate", () => {
       // Header chunk
       if (c.chunkIndex === -1 && !this.headerLoaded) {
         this.setupMagnet = c.magnetLink;
-        this.detectedMimeType = c.mimeType;
-        this.addLog("🎯 FOUND HEADER (-1)!");
+        this.detectedMimeType =
+          c.fileType ||
+          c.mimeType ||
+          'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
+
+        this.addLog(`🎯 Header Found. Mime: ${this.detectedMimeType}`);
       }
 
       // Regular chunks
@@ -198,66 +200,52 @@ this.video.addEventListener("timeupdate", () => {
     this.tick();
   }
 
-      trimChunkQueue() {
-  const currentChunk = this.currentPlaybackChunk;
-  const indices = Array.from(this.chunkQueue.keys()).sort((a, b) => a - b);
+  trimChunkQueue() {
+    const currentChunk = this.currentPlaybackChunk;
+    const indices = Array.from(this.chunkQueue.keys()).sort((a, b) => a - b);
 
-  // MAX_AHEAD: Don't keep more than 5 chunks (approx 30-40s) ahead of playhead
-  // MAX_BEHIND: Keep 0-1 chunks behind for slight rewinds/stability
-  const MAX_AHEAD = 5; 
-  const MAX_BEHIND = 1;
+    // MAX_AHEAD: Don't keep more than 5 chunks (approx 30-40s) ahead of playhead
+    // MAX_BEHIND: Keep 0-1 chunks behind for slight rewinds/stability
+    const MAX_AHEAD = 5;
+    const MAX_BEHIND = 1;
 
-  indices.forEach((idx) => {
-    if (idx < currentChunk - MAX_BEHIND || idx > currentChunk + MAX_AHEAD) {
-      const chunk = this.chunkQueue.get(idx);
-      
-      // Explicitly nullify the data before deleting for Garbage Collection
-      if (chunk) {
-        chunk.magnetLink = null; 
-        chunk.data = null; 
+    indices.forEach((idx) => {
+      if (idx < currentChunk - MAX_BEHIND || idx > currentChunk + MAX_AHEAD) {
+        const chunk = this.chunkQueue.get(idx);
+
+        // Explicitly nullify the data before deleting for Garbage Collection
+        if (chunk) {
+          chunk.magnetLink = null;
+          chunk.data = null;
+        }
+        this.chunkQueue.delete(idx);
       }
-      this.chunkQueue.delete(idx);
-    }
-  });
+    });
 
-  if (indices.length > (MAX_AHEAD + MAX_BEHIND + 2)) {
-    this.addLog(`🧹 Memory Purge: Kept window [${currentChunk - MAX_BEHIND} to ${currentChunk + MAX_AHEAD}]`);
+    if (indices.length > MAX_AHEAD + MAX_BEHIND + 2) {
+      this.addLog(
+        `🧹 Memory Purge: Kept window [${currentChunk - MAX_BEHIND} to ${
+          currentChunk + MAX_AHEAD
+        }]`
+      );
+    }
   }
-}
 
   async tick() {
-   const currentTime = this.video.currentTime || 0;
-    const bufferAhead = this.getBufferAhead(currentTime);
-    if (bufferAhead < 16) {
-      this.triggerFetch();
-    }
+    const currentTime = this.video.currentTime || 0;
 
-    if (this.isProcessing || this.ms.readyState !== "open") {
-      return;
-    }
+    // 1. Safety Checks
+    if (this.isProcessing || this.ms.readyState !== "open") return;
 
-    // STEP 1: Initialize SourceBuffer
+    // 2. Initialize SourceBuffer if needed
     if (!this.sb && this.detectedMimeType) {
       try {
         this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
         this.sb.mode = "sequence";
         this.addLog("🛠️ SourceBuffer Created");
-
         this.sb.addEventListener("updateend", () => {
-          this.addLog(`📦 SB updateend`);
           this.isProcessing = false;
-
-          // Sync immediately after append
-          setTimeout(() => {
-            this.syncBufferToPlayback();
-            this.tick();
-          }, 50);
-        });
-
-        this.sb.addEventListener("error", (e) => {
-          this.addLog(`❌ SourceBuffer error: ${e.message}`);
-          this.isProcessing = false;
-          setTimeout(() => this.tick(), 1000);
+          this.tick();
         });
       } catch (e) {
         this.addLog("❌ MSE Error: " + e.message);
@@ -267,167 +255,109 @@ this.video.addEventListener("timeupdate", () => {
 
     if (!this.sb || this.sb.updating) return;
 
-    // STEP 2: Download Header
-    if (this.setupMagnet && !this.headerLoaded) {
+    // 3. PRIORITY: The Header (-1)
+    if (!this.headerLoaded) {
       this.isProcessing = true;
       try {
-        this.addLog("📥 Downloading Header...");
-        const buf = await this.download(this.setupMagnet);
-        this.sb.appendBuffer(buf);
-        this.headerLoaded = true;
-        this.addLog("✅ Header Loaded");
+        this.addLog("📥 Fetching Header (-1)...");
+        const buf = await this.download(this.setupMagnet, -1);
+        if (buf) {
+          this.sb.appendBuffer(buf);
+          this.headerLoaded = true;
+          this.addLog("✅ Header Loaded");
+          this.video
+            .play()
+            .catch(() =>
+              this.addLog("Waiting for user interaction to play...")
+            );
+        } else {
+          this.isProcessing = false;
+        }
       } catch (e) {
-        this.addLog("❌ Header Failed: " + e.message);
         this.isProcessing = false;
         setTimeout(() => this.tick(), 1000);
       }
       return;
     }
 
-    // STEP 3: Download and append next needed chunk
-    if (this.headerLoaded) {
-      const currentTime = this.video.currentTime || 0;
-      const currentChunk = Math.floor(currentTime / this.CHUNK_DURATION);
+    // 4. NEXT: Regular Chunks
+    const currentChunk = Math.floor(currentTime / this.CHUNK_DURATION);
+    const bufferAhead = this.getBufferAhead(currentTime);
 
-      // Find the next chunk we need (closest to playback that we don't have in buffer)
-      let targetChunk = null;
+    if (bufferAhead < 10) {
+      // Find the next chunk we need that we haven't already buffered
+      const targetChunk =
+        currentChunk + Math.floor(bufferAhead / this.CHUNK_DURATION) + 1;
 
-      const availableIndices = Array.from(this.chunkQueue.keys()).sort(
-        (a, b) => a - b
-      );
-      for (let idx of availableIndices) {
-        if (idx >= currentChunk) {
-          targetChunk = idx;
-          break;
-        }
-      }
-      const bufferAhead = this.getBufferAhead(currentTime);
-      // We need chunks that extend our buffer
-      for (let offset = 0; offset <= this.BUFFER_CHUNKS; offset++) {
-        const checkChunk = currentChunk + offset;
-        const chunkStartTime = checkChunk * this.CHUNK_DURATION;
-
-        // Check if we already have this time in buffer
-        let hasBuffer = false;
-        if (this.sb.buffered.length) {
-          for (let i = 0; i < this.sb.buffered.length; i++) {
-            const start = this.sb.buffered.start(i);
-            const end = this.sb.buffered.end(i);
-            if (chunkStartTime >= start && chunkStartTime < end) {
-              hasBuffer = true;
-              break;
-            }
-          }
-        }
-        if (this.video.paused && this.video.buffered.length > 0) {
-          this.video.play().catch((e) => console.log("Autoplay blocked:", e));
-        }
-        // If we don't have buffer for this chunk and we have it in queue, download it
-        if (!hasBuffer && this.chunkQueue.has(checkChunk)) {
-          targetChunk = checkChunk;
-          break;
-        }
-      }
-
-      if (targetChunk !== null) {
+      if (this.chunkQueue.has(targetChunk)) {
         const chunkData = this.chunkQueue.get(targetChunk);
         this.isProcessing = true;
-
         try {
-          this.addLog(
-            `⬇️ Downloading chunk ${targetChunk} (${
-              targetChunk * this.CHUNK_DURATION
-            }s)...`
-          );
-          const buf = await this.download(chunkData.magnetLink);
-
-          // Validate chunk
-          const MIN_CHUNK_SIZE = 50 * 1024; // 50KB minimum for 5-second chunk
-          if (!buf || buf.length < MIN_CHUNK_SIZE) {
-            this.addLog(`⚠️ Chunk ${targetChunk} too small, skipping`);
-            this.chunkQueue.delete(targetChunk);
+          const buf = await this.download(chunkData.magnetLink, targetChunk);
+          if (buf) {
+            this.addLog(`🎬 Appending Chunk ${targetChunk}`);
+            this.sb.appendBuffer(buf);
+          } else {
             this.isProcessing = false;
-            setTimeout(() => this.tick(), 100);
-            return;
           }
-
-          this.addLog(
-            `✅ Downloaded chunk ${targetChunk}, ${(buf.length / 1024).toFixed(
-              1
-            )}KB`
-          );
-          this.sb.appendBuffer(buf);
-          this.chunkQueue.delete(targetChunk);
-          // IMMEDIATELY ask for the next tray of chunks after a successful append
-          // This ensures that if the recorder just posted a new link, we get it now.
-          this.triggerFetch();
         } catch (e) {
-          this.addLog(`❌ Chunk ${targetChunk} Error: ${e.message}`);
           this.isProcessing = false;
-          setTimeout(() => this.tick(), 1000);
         }
-      } else if (bufferAhead < this.CHUNK_DURATION) {
-        // Low buffer warning
-        this.addLog(`⚠️ Low buffer: ${bufferAhead.toFixed(1)}s ahead`);
-        this.triggerFetch();
       }
     }
   }
 
-  download(magnet) {
-    return new Promise((resolve, reject) => {
-      // Check if we already have it
-      const existing = this.client.get(magnet);
-      if (existing && existing.done) {
-        existing.files[0].getBuffer((err, buf) =>
-          err ? reject(err) : resolve(buf)
-        );
-        return;
-      }
+  async download(magnet, index) {
+    // 1. Check Warehouse First
+    const cached = await warehouse.getChunk(index);
+    if (cached) {
+      // this.addLog(`📦 Found Chunk ${index} in Warehouse`);
+      return cached;
+    }
 
-      const timeout = setTimeout(() => {
-        this.client.remove(magnet);
-        reject(new Error("Timeout"));
-      }, 10000); // 10s is plenty if the backend is seeding
+    // 2. If not in Warehouse, go to WebTorrent
+    return new Promise((resolve, reject) => {
+      if (!magnet) return resolve(null);
 
       this.client.add(magnet, { announce: this.trackers }, (torrent) => {
-        torrent.on("wire", () => this.addLog("🤝 Peer Connected"));
-
         torrent.once("done", () => {
-          clearTimeout(timeout);
-          torrent.files[0].getBuffer((err, buf) => {
-            if (err) reject(err);
-            else resolve(buf);
-
-            // Kill it immediately to save iPhone RAM
-            setTimeout(() => this.client.remove(torrent.infoHash), 1000);
+          torrent.files[0].getBuffer(async (err, buf) => {
+            if (err) {
+              this.client.remove(torrent.infoHash);
+              reject(err);
+            } else {
+              // 3. Save to Warehouse so the rest of the app sees it!
+              await warehouse.saveChunk(index, buf);
+              this.client.remove(torrent.infoHash); // Free RAM
+              resolve(buf);
+            }
           });
         });
       });
     });
   }
 
- destroy() {
-  clearInterval(this.watchdog);
-  
-  if (this.video) {
-    this.video.pause();
-    // CRITICAL: Revoke the Object URL to free up the memory
-    if (this.video.src) {
-      URL.revokeObjectURL(this.video.src);
+  destroy() {
+    clearInterval(this.watchdog);
+
+    if (this.video) {
+      this.video.pause();
+      // CRITICAL: Revoke the Object URL to free up the memory
+      if (this.video.src) {
+        URL.revokeObjectURL(this.video.src);
+      }
+      this.video.src = "";
+      this.video.load();
+      this.video.remove();
     }
-    this.video.src = "";
-    this.video.load();
-    this.video.remove();
-  }
 
-  // Clear the WebTorrent client's internal memory
-  if (this.client) {
-    this.client.torrents.forEach(t => this.client.remove(t.infoHash));
-  }
+    // Clear the WebTorrent client's internal memory
+    if (this.client) {
+      this.client.torrents.forEach((t) => this.client.remove(t.infoHash));
+    }
 
-  this.addLog("🛑 Total Memory Cleanup Complete");
-}
+    this.addLog("🛑 Total Memory Cleanup Complete");
+  }
 }
 
 // --- THE REACT WRAPPER ---
@@ -436,6 +366,9 @@ export default function NeighborhoodLiveStreamPlayer({
   sessionId,
   initialChunks = [], // The "Boss" sends this list to us
 }) {
+  const videoRef = useRef(null);
+  const sourceBufferRef = useRef(null);
+  const [nextIndexToPlay, setNextIndexToPlay] = useState(-1); // Start with header
   const containerRef = useRef(null);
   const controllerRef = useRef(null);
   const [isJoined, setIsJoined] = useState(false);
@@ -445,6 +378,8 @@ export default function NeighborhoodLiveStreamPlayer({
     setLogs((prev) => [...prev.slice(-5), msg]);
     console.log(`[Stream] ${msg}`);
   };
+
+
 
   // --- THE ONLY DATA HAND-OFF YOU NEED ---
   // When 'initialChunks' changes (because the Subscription in the Parent fired),
