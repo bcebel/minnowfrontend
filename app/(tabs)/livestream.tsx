@@ -57,13 +57,15 @@ const GET_ME = gql`
 `;
 
 const LIVESTREAM_CHUNK_SUBSCRIPTION = gql`
-  subscription LivestreamChunkAdded($sessionId: String!) {
+  subscription OnLivestreamChunkAdded($sessionId: String!) {
     livestreamChunkAdded(sessionId: $sessionId) {
       id
       sessionId
       chunkIndex
       magnetLink
+      fileName
       fileType
+      fileSize
     }
   }
 `;
@@ -93,14 +95,30 @@ function Livestream({
   });
 
   // 2. Listen for new chunks via GraphQL subscription
-  const { data: subscriptionData } = useSubscription(
+  // Change 'sessionId' to 'stream.sessionId'
+  const { data: subscriptionData, error: subscriptionError } = useSubscription(
     LIVESTREAM_CHUNK_SUBSCRIPTION,
     {
-      variables: { sessionId: stream.sessionId }, // Ensure this matches exactly!
+      variables: { sessionId: stream.sessionId }, // <--- Fixed this line
+      skip: !stream.sessionId, // Safety check
+      onData: ({ data }) => {
+        console.log("🔔 SUBSCRIPTION NOTIFICATION:", data.data);
+      },
+      onError: (err) => {
+        console.error("❌ SUBSCRIPTION ERROR:", err);
+        console.error("❌ Error details:", err.message);
+        console.error("❌ Network error?", err.networkError);
+        console.error("❌ GraphQL errors:", err.graphQLErrors);
+      },
     }
   );
-
   // 3. Load initial chunks once
+  useEffect(() => {
+    if (subscriptionError) {
+      console.log("🔍 Subscription error state:", subscriptionError);
+    }
+  }, [subscriptionError]);
+
   // 1. Initial Load Effect (Runs once when initialData arrives)
   useEffect(() => {
     if (initialData?.streamChunks) {
@@ -117,22 +135,26 @@ function Livestream({
 
   // 2. Subscription Effect (Runs every time a NEW chunk is added)
   // livestream.tsx
-  useEffect(() => {
-    if (subscriptionData?.livestreamChunkAdded) {
-      const newChunk = subscriptionData.livestreamChunkAdded;
-      console.log(`🔥 SUB RECEIVED: Chunk #${newChunk.chunkIndex}`);
+useEffect(() => {
+  if (subscriptionData?.livestreamChunkAdded) {
+    const newChunk = subscriptionData.livestreamChunkAdded;
+    console.log(`🔥 SUB RECEIVED: Chunk #${newChunk.chunkIndex}`);
 
-      setLiveChunks((prev) => {
-        // Avoid duplicates
-        if (prev.find((c) => c.id === newChunk.id)) return prev;
+    setLiveChunks((prev) => {
+      // Don't add if we have it
+      if (prev.find((c) => c.chunkIndex === newChunk.chunkIndex)) return prev;
 
-        const updated = [...prev, newChunk].sort(
-          (a, b) => a.chunkIndex - b.chunkIndex
-        );
-        return updated;
-      });
-    }
-  }, [subscriptionData]);
+      const newTray = [...prev, newChunk].sort(
+        (a, b) => a.chunkIndex - b.chunkIndex
+      );
+      console.log(
+        "Current Tray of Chunks:",
+        newTray.map((c) => c.chunkIndex)
+      );
+      return newTray;
+    });
+  }
+}, [subscriptionData]);
 
   const clearProcessedChunk = useCallback((chunkId: string) => {
     setLiveChunks((prevChunks) =>

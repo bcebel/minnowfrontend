@@ -131,6 +131,7 @@ const seedAndSend = (chunkData, index) => {
       );
       formData.append("sessionId", sessionIdRef.current);
       formData.append("chunkIndex", index.toString());
+      formData.append("neighborhoodId", neighborhoodId);
 
       try {
         // Use the same auth token if needed; your backend uses 'authenticateToken'
@@ -140,7 +141,10 @@ const seedAndSend = (chunkData, index) => {
 
         const response = await fetch(`${BACKEND_URL}/api/live-chunk`, {
           method: "POST",
-          headers,
+          headers: {
+            Accept: "application/json",
+            ...headers,
+          },
           body: formData,
         });
 
@@ -324,7 +328,7 @@ const seedAndSend = (chunkData, index) => {
       // 5. Recorder Initialization
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: supportedType,
-        videoBitsPerSecond: 400000, 
+        videoBitsPerSecond: 800000,
       });
 
       mediaRecorderRef.current = mediaRecorder;

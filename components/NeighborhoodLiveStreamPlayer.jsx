@@ -6,20 +6,8 @@ import {
   Text,
   TouchableOpacity,
 } from "react-native";
-import { gql, useQuery } from "@apollo/client";
 
-const GET_STREAM_CHUNKS = gql`
-  query GetStreamChunks($sessionId: String!) {
-    streamChunks(sessionId: $sessionId) {
-      id
-      chunkIndex
-      magnetLink
-      fileType
-      mimeType
-      sessionId
-    }
-  }
-`;
+
 // --- THE NON-REACT CONTROLLER ---
 
 class StreamController {
@@ -82,6 +70,12 @@ class StreamController {
     this.video.style.height = "100%";
     this.video.style.backgroundColor = "black";
     this.video.setAttribute("webkit-playsinline", "true");
+    if (this.ms.onbufferedchange !== undefined) {
+      this.ms.addEventListener("bufferedchange", () => {
+        this.addLog("📱 iOS managed buffer update");
+        // If iOS deleted something we need, we might need to re-fetch
+      });
+    }
 
     // Video timeupdate listener for sync
 this.video.addEventListener("timeupdate", () => {
@@ -109,12 +103,7 @@ this.video.addEventListener("timeupdate", () => {
       this.tick();
     });
 
-    // Watchdog - less frequent
-    this.watchdog = setInterval(() => {
-      if (!this.isProcessing) {
-        this.triggerFetch();
-      }
-    }, 5000); // Every 5 seconds
+
   }
 
   // NEW: Sync everything to video playback time
@@ -237,6 +226,12 @@ this.video.addEventListener("timeupdate", () => {
 }
 
   async tick() {
+   const currentTime = this.video.currentTime || 0;
+    const bufferAhead = this.getBufferAhead(currentTime);
+    if (bufferAhead < 16) {
+      this.triggerFetch();
+    }
+
     if (this.isProcessing || this.ms.readyState !== "open") {
       return;
     }
@@ -363,6 +358,9 @@ this.video.addEventListener("timeupdate", () => {
           );
           this.sb.appendBuffer(buf);
           this.chunkQueue.delete(targetChunk);
+          // IMMEDIATELY ask for the next tray of chunks after a successful append
+          // This ensures that if the recorder just posted a new link, we get it now.
+          this.triggerFetch();
         } catch (e) {
           this.addLog(`❌ Chunk ${targetChunk} Error: ${e.message}`);
           this.isProcessing = false;
@@ -436,35 +434,38 @@ this.video.addEventListener("timeupdate", () => {
 // --- THE UPDATED REACT WRAPPER ---
 export default function NeighborhoodLiveStreamPlayer({
   sessionId,
-  setupMagnet,
-  initialChunks = [],
+  initialChunks = [], // The "Boss" sends this list to us
 }) {
   const containerRef = useRef(null);
   const controllerRef = useRef(null);
   const [isJoined, setIsJoined] = useState(false);
   const [logs, setLogs] = useState([]);
 
-  const { data, refetch } = useQuery(GET_STREAM_CHUNKS, {
-    variables: { sessionId },
-    notifyOnNetworkStatusChange: true,
-  });
-
   const addLog = (msg) => {
     setLogs((prev) => [...prev.slice(-5), msg]);
     console.log(`[Stream] ${msg}`);
   };
 
-  // 1. MANUAL INITIALIZATION (The iPhone Way)
+  // --- THE ONLY DATA HAND-OFF YOU NEED ---
+  // When 'initialChunks' changes (because the Subscription in the Parent fired),
+  // this effect automatically runs and feeds the new chunks to the engine.
+  useEffect(() => {
+    if (isJoined && controllerRef.current && initialChunks.length > 0) {
+      addLog(`📡 Received ${initialChunks.length} chunks from Parent`);
+      controllerRef.current.addChunks(initialChunks);
+    }
+  }, [isJoined, initialChunks]); // This "watches" the Boss's instructions
+
   const handleJoinStream = () => {
     addLog("🚀 Manual Join Triggered...");
 
-    // Create controller with null for setupMagnet (it will find it in chunks)
-    const controller = new StreamController(sessionId, null, addLog, () =>
-      refetch()
-    );
+    // Initialize the engine
+    const controller = new StreamController(sessionId, null, addLog, () => {
+      // This was triggerFetch - we don't need it if Subscriptions are working!
+      console.log("Engine requested more data...");
+    });
 
     controllerRef.current = controller;
-    window.controller = controller;
 
     if (containerRef.current) {
       containerRef.current.appendChild(controller.video);
@@ -472,23 +473,11 @@ export default function NeighborhoodLiveStreamPlayer({
 
     setIsJoined(true);
 
-    // Immediately feed whatever chunks we already have in the 'data' tray
-    if (data?.streamChunks) {
-      controller.addChunks(data.streamChunks);
+    // Feed any chunks we already had sitting in the tray when we clicked Join
+    if (initialChunks.length > 0) {
+      controller.addChunks(initialChunks);
     }
   };
-
-  // 2. DATA HAND-OFF
-  useEffect(() => {
-    // Only feed the engine if the user has joined and we actually have message data
-    if (isJoined && controllerRef.current && data?.streamChunks) {
-      addLog(`📡 Syncing Tray: ${data.streamChunks.length} segments available`);
-
-      // We send ONLY the message chunks here.
-      // The header was already handled in handleJoinStream via 'setupMagnet'
-      controllerRef.current.addChunks(data.streamChunks);
-    }
-  }, [isJoined, data?.streamChunks]); // Watch specifically for the chunks array changing
 
   return (
     <View style={styles.container}>
@@ -500,7 +489,7 @@ export default function NeighborhoodLiveStreamPlayer({
           backgroundColor: "#000",
           aspectRatio: "16/9",
           overflow: "hidden",
-          display: isJoined ? "block" : "none", // Hide until joined
+          display: isJoined ? "block" : "none",
         }}
       />
 
