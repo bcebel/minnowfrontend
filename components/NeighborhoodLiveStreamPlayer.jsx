@@ -62,8 +62,10 @@ class StreamController {
     // Video element
     this.video = document.createElement("video");
     this.video.disableRemotePlayback = true;
-    this.video.playsInline = true;
+    this.video.setAttribute("playsinline", "true");
     this.video.muted = true;
+    this.video.preload = "auto";
+    this.video.src = URL.createObjectURL(this.ms);
     this.video.autoplay = true;
     this.video.controls = true;
     this.video.style.width = "100%";
@@ -92,18 +94,32 @@ class StreamController {
       this.syncBufferToPlayback();
     });
 
-    // Attach MediaSource
-    this.video.src = URL.createObjectURL(this.ms);
-
     const openEvt = window.ManagedMediaSource
       ? "managedsourceopen"
       : "sourceopen";
     this.ms.addEventListener(openEvt, () => {
       this.addLog("✅ MediaSource Open");
+      if (this.detectedMimeType) this.createSourceBuffer();
       this.tick();
     });
   }
 
+  createSourceBuffer() {
+    if (this.sb || !this.detectedMimeType || this.ms.readyState !== "open")
+      return;
+    try {
+      this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
+      this.sb.mode = "sequence";
+      this.addLog("🛠️ SourceBuffer Created");
+
+      this.sb.addEventListener("updateend", () => {
+        this.isProcessing = false;
+        this.tick();
+      });
+    } catch (e) {
+      this.addLog("❌ Buffer Error: " + e.message);
+    }
+  }
   // NEW: Sync everything to video playback time
   syncBufferToPlayback() {
     if (!this.video || !this.sb || this.sb.updating) return;
@@ -173,6 +189,7 @@ class StreamController {
           c.fileType ||
           c.mimeType ||
           'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
+        this.createSourceBuffer();
 
         this.addLog(`🎯 Header Found. Mime: ${this.detectedMimeType}`);
       }
