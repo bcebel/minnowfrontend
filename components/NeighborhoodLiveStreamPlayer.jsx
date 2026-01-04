@@ -191,7 +191,7 @@ class StreamController {
           'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
         this.createSourceBuffer();
 
-        this.addLog(`🎯 Header Found. Mime: ${this.detectedMimeType}`);
+        this.addLog(`🎯 Header Found. yo Mime: ${this.detectedMimeType}`);
       }
 
       // Regular chunks
