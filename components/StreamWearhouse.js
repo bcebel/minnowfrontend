@@ -20,24 +20,46 @@ class StreamWarehouse {
     });
   }
 
-  async saveChunk(index, data) {
+  // StreamWarehouse.js
+
+  // Update saveChunk to accept sessionId
+  async saveChunk(sessionId, index, data) {
     const db = await this._getDB();
+    const storageKey = `${sessionId}_${index}`; // Key is now "live_123_-1"
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, "readwrite");
-      tx.objectStore(this.storeName).put(data, index);
+      tx.objectStore(this.storeName).put(data, storageKey);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
   }
 
-  async getChunk(index) {
+  // Update getChunk to accept sessionId
+  async getChunk(sessionId, index) {
     const db = await this._getDB();
+    const storageKey = `${sessionId}_${index}`;
     return new Promise((resolve) => {
       const tx = db.transaction(this.storeName, "readonly");
-      const request = tx.objectStore(this.storeName).get(index);
+      const request = tx.objectStore(this.storeName).get(storageKey);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => resolve(null);
     });
+  }
+
+  // New method to clear old session data so it doesn't rot
+  async clearSession(sessionId) {
+    const db = await this._getDB();
+    const tx = db.transaction(this.storeName, "readwrite");
+    const store = tx.objectStore(this.storeName);
+    const range = IDBKeyRange.bound(`${sessionId}_`, `${sessionId}_\uffff`);
+    const request = store.openKeyCursor(range);
+    request.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        store.delete(cursor.key);
+        cursor.continue();
+      }
+    };
   }
 
   // Prevents the "Infinite Storage" bug on iPhones

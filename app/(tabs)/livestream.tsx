@@ -147,7 +147,7 @@ function Livestream({ stream }) {
         );
 
         if (videoBytes) {
-          await warehouse.saveChunk(index, videoBytes);
+          await warehouse.saveChunk(stream.sessionId, index, videoBytes);
           setAvailableInWarehouse((prev) =>
             [...new Set([...prev, index])].sort((a, b) => a - b)
           );

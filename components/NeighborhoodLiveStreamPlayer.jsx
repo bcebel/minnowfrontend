@@ -54,6 +54,11 @@ class StreamController {
     this.watchdog = setInterval(() => this.tick(), 3000);
   }
 
+  forceTick() {
+    this.addLog("⚡ Force Tick triggered");
+    this.tick();
+  }
+
   createSourceBuffer() {
     if (this.sb || !this.detectedMimeType || this.ms.readyState !== "open")
       return;
@@ -71,13 +76,11 @@ class StreamController {
   }
 
   async sweepWarehouse() {
-    this.addLog("🧹 Sweeping warehouse for pre-existing data...");
-    const header = await warehouse.getChunk(-1);
+    const header = await warehouse.getChunk(this.sessionId, -1);
     if (header) {
       this.addLog("🎯 Found Header in Warehouse");
-      // Set the mimeType so the buffer can be created
       this.detectedMimeType = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
-      this.setupMagnet = "cached";
+      this.setupMagnet = "cached"; // 🚀 CRITICAL: This allows the tick() logic to pass
       if (this.ms.readyState === "open") this.createSourceBuffer();
     }
     this.tick();
@@ -103,59 +106,101 @@ class StreamController {
   }
 
   async tick() {
-    if (this.isProcessing || this.ms.readyState !== "open") return;
-    if (!this.sb && this.detectedMimeType) this.createSourceBuffer();
-    if (!this.sb || this.sb.updating) return;
+    // 1. Check if the "Gates" are open
+    if (this.isProcessing) return; // Silent return is fine here
 
-    // STEP 1: Process Header
-    if (!this.headerLoaded && this.setupMagnet) {
-      this.isProcessing = true;
-      try {
-        // This will now correctly pull from warehouse because magnet is "cached"
-        const buf = await this.download(this.setupMagnet, -1);
-        if (buf) {
-          this.sb.appendBuffer(buf);
-          this.headerLoaded = true;
-          this.nextIndex = 0; // Prepare for Chunk 0
-          this.addLog("✅ Engine Started - Header Appended");
-          this.video.play().catch(() => { });
-        } else {
-          this.isProcessing = false;
-        }
-      } catch (e) {
-        this.addLog("❌ Header Append Failed");
-        this.isProcessing = false;
-      }
+    if (this.ms.readyState !== "open") {
+      this.addLog(`⚠️ Tick Blocked: MediaSource is ${this.ms.readyState}`);
       return;
     }
 
-  // STEP 2: Process Sequential Chunks (Index 0, 1, 2...)
+    if (!this.sb && this.detectedMimeType) {
+      this.addLog("🛠️ Tick: Attempting late SourceBuffer creation...");
+      this.createSourceBuffer();
+    }
+
+    if (!this.sb) {
+      this.addLog("⚠️ Tick Blocked: No SourceBuffer created yet");
+      return;
+    }
+
+    if (this.sb.updating) return;
+
+    // 2. Process Header
+    if (!this.headerLoaded) {
+      const hasHeaderInWarehouse = await warehouse.getChunk(this.sessionId, -1);
+      this.addLog(
+        `🔍 Checking Header: Magnet=${!!this
+          .setupMagnet}, Warehouse=${!!hasHeaderInWarehouse}`
+      );
+
+      if (this.setupMagnet || hasHeaderInWarehouse) {
+        this.isProcessing = true;
+        try {
+          const magnet = this.setupMagnet || "cached";
+          const buf = await this.download(magnet, -1);
+          if (buf) {
+            this.sb.appendBuffer(buf);
+            this.headerLoaded = true;
+            this.nextIndex = 0;
+            this.addLog("✅ Engine Started - Header Appended");
+            this.video.play().catch(() => {});
+          } else {
+            this.isProcessing = false;
+            this.addLog("❌ Header download returned null");
+          }
+        } catch (e) {
+          this.addLog("❌ Header Error: " + e.message);
+          this.isProcessing = false;
+        }
+        return;
+      }
+    }
     // Check BOTH the queue AND the warehouse
+    // STEP 2: Process Sequential Chunks (Index 0, 1, 2...)
+    // Check BOTH the queue AND the warehouse for the EXACT next index
     const hasInQueue = this.chunkQueue.has(this.nextIndex);
-    const hasInWarehouse = await warehouse.getChunk(this.nextIndex);
+    const hasInWarehouse = await warehouse.getChunk(
+      this.sessionId,
+      this.nextIndex
+    );
 
     if (this.headerLoaded && (hasInQueue || hasInWarehouse)) {
       this.isProcessing = true;
-      const magnet = this.chunkQueue.get(this.nextIndex) || "cached";
+
+      // If it's in the warehouse, we don't need the magnet
+      const magnet = hasInWarehouse
+        ? "cached"
+        : this.chunkQueue.get(this.nextIndex);
+
       try {
+        this.addLog(`🔍 Attempting to append Chunk ${this.nextIndex}...`);
         const buf = await this.download(magnet, this.nextIndex);
+
         if (buf) {
-          this.addLog(`🎬 Appending Chunk ${this.nextIndex}`);
           this.sb.appendBuffer(buf);
-          this.nextIndex++;
+          this.addLog(`🎬 Appended Chunk ${this.nextIndex} to SourceBuffer`);
+          this.nextIndex++; // Move to the next one (e.g., from 0 to 1)
+
+          // If we were behind, this will trigger the next chunk immediately
         } else {
           this.isProcessing = false;
+          this.addLog(`⚠️ Download returned empty for Chunk ${this.nextIndex}`);
         }
       } catch (e) {
-        this.addLog(`❌ Chunk ${this.nextIndex} Error`);
+        this.addLog(`❌ Chunk ${this.nextIndex} Append Error: ` + e.message);
         this.isProcessing = false;
       }
+      return;
+    } else if (this.headerLoaded) {
+      // This log helps us see if the engine is "waiting" for a specific number
+      this.addLog(`⏳ Engine idle: Waiting for Chunk ${this.nextIndex}`);
     }
   }
 
   async download(magnet, index) {
     // 1. Instant Check: Is it already in our local Warehouse?
-    const cached = await warehouse.getChunk(index);
+    const cached = await warehouse.getChunk(this.sessionId, index);
     if (cached) return cached;
 
     // 2. Swarm Priority: Try WebTorrent with a "Patient" timeout
@@ -209,7 +254,7 @@ class StreamController {
       if (response.ok) {
         const serverData = await response.arrayBuffer();
         // Save to warehouse so we don't have to ask the server again for this chunk
-        await warehouse.saveChunk(index, serverData);
+        await warehouse.saveChunk(this.sessionId, index, serverData);
         return serverData;
       } else {
         this.addLog(`❌ Server 404 for Chunk ${index}`);
@@ -258,6 +303,7 @@ class StreamController {
 export default function NeighborhoodLiveStreamPlayer({
   sessionId,
   initialChunks = [],
+  availableInWarehouse = [],
 }) {
   const containerRef = useRef(null);
   const controllerRef = useRef(null);
@@ -268,15 +314,31 @@ export default function NeighborhoodLiveStreamPlayer({
     setLogs((prev) => [...prev.slice(-5), msg]);
     console.log(`[Stream] ${msg}`);
   };
-
+useEffect(() => {
+  if (isJoined && controllerRef.current) {
+    // 🚀 THE FIX: Tell the engine to look at the warehouse RIGHT NOW
+    controllerRef.current.forceTick(); 
+  }
+}, [availableInWarehouse]); // This triggers every time a chunk hits the warehouse
   useEffect(() => {
-    if (isJoined && controllerRef.current && initialChunks.length > 0) {
-      controllerRef.current.addChunks(initialChunks);
+    // This tells the engine: "Hey, something new just hit the warehouse, check it now!"
+    if (isJoined && controllerRef.current) {
+      if (initialChunks.length > 0) {
+        controllerRef.current.addChunks(initialChunks);
+      }
+      // Force the engine to run its logic because we know the warehouse changed
+      controllerRef.current.tick();
     }
-  }, [isJoined, initialChunks]);
-
+  }, [isJoined, initialChunks, availableInWarehouse]); // <--- Watch the warehouse state
   const handleJoinStream = async () => {
     addLog("🚀 Manual Join Triggered...");
+
+    // 🛑 THE FIX: Clear the local warehouse before starting the engine
+    // This ensures no 'Old Shirt' chunks are sitting in IndexedDB/RAM
+    if (warehouse.clear) {
+      await warehouse.clear();
+    }
+
     const controller = new StreamController(sessionId, addLog, () => {});
 
     // iPhone requirement: Attach video to DOM BEFORE setting src
