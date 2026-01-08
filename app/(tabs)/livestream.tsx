@@ -158,13 +158,40 @@ function Livestream({ stream }) {
   );
 
   // --- 3. SYNC INITIAL CHUNKS TO UI ---
-  useEffect(() => {
+useEffect(() => {
+  const syncInitialChunks = async () => {
     if (initialData?.streamChunks) {
-      setLiveChunks(
-        initialData.streamChunks.sort((a, b) => a.chunkIndex - b.chunkIndex)
+      const chunks = [...initialData.streamChunks].sort(
+        (a, b) => a.chunkIndex - b.chunkIndex
       );
+
+      // Update UI list
+      setLiveChunks(chunks);
+
+      // 🚀 THE MISSING LINK: Actually fetch the bytes for these chunks
+      for (const chunk of chunks) {
+        const index = chunk.fileType === "video_header" ? -1 : chunk.chunkIndex;
+
+        // Skip if already in warehouse
+        if (availableInWarehouse.includes(index)) continue;
+
+        const videoBytes = await fetchChunkBytes(
+          { ...chunk, chunkIndex: index },
+          torrentClientRef.current
+        );
+
+        if (videoBytes) {
+          await warehouse.saveChunk(index, videoBytes);
+          setAvailableInWarehouse((prev) =>
+            [...new Set([...prev, index])].sort((a, b) => a - b)
+          );
+        }
+      }
     }
-  }, [initialData]);
+  };
+
+  syncInitialChunks();
+}, [initialData]);
 
   const clearProcessedChunk = useCallback((chunkId) => {
     setLiveChunks((prev) => prev.filter((c) => c.id !== chunkId));
