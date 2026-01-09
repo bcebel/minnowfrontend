@@ -40,7 +40,23 @@ class StreamController {
     this.video.style.width = "100%";
     this.video.style.height = "100%";
     this.video.style.backgroundColor = "black";
+    // Inside the constructor
+    this.ms.addEventListener("sourceopen", () => {
+      this.addLog("✅ MediaSource Open");
+      // 🚀 THE FIX: Instead of just waiting for a tick,
+      // immediately try to find the header and start.
+      this.sweepWarehouse();
+    });
 
+    // Add a "Re-Sync" check to your watchdog
+    this.watchdog = setInterval(() => {
+      if (this.headerLoaded && !this.isProcessing) {
+        this.tick();
+      } else if (!this.headerLoaded) {
+        // If we are joined but no video is playing, keep hunting for that header
+        this.sweepWarehouse();
+      }
+    }, 2000);
     if (window.ManagedMediaSource) {
       this.video.setAttribute("disableRemotePlayback", "true");
     }
