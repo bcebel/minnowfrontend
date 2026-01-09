@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1a331a",
   },
   neighborhoodName: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 14,
     fontWeight: "bold",
   },

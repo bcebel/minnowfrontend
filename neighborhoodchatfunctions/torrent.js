@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   videoPlayer: {
     width: "100%",
     height: 250,
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     borderRadius: 4,
     marginBottom: 10,
   },

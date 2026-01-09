@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     alignItems: "center",
   },
   avatar: {
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     color: "#888",
   },
   error: {
-    color: "#FF4444",
+    color: "#151159",
     textAlign: "center",
     marginTop: 50,
     fontSize: 18,

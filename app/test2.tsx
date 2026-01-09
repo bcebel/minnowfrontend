@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
   },
   header: {
     alignItems: "center",
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     textAlign: "center",
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     padding: 12,
     borderRadius: 8,
     fontFamily: "monospace",

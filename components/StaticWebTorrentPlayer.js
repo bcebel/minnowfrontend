@@ -15,7 +15,6 @@ export default function StaticWebTorrentPlayer({ video }) {
           controls
           style={styles.video}
           src={`https://${PINATA_GATEWAY}/ipfs/${video.cid}`}
-      
         />
       </View>
     );
@@ -32,7 +31,7 @@ export default function StaticWebTorrentPlayer({ video }) {
 const styles = StyleSheet.create({
   nativeContainer: {
     padding: 20,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#1C0A2E",
     borderRadius: 12,
     marginVertical: 8,
   },

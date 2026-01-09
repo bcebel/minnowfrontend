@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 const GRADIENTS = [
   ["#FF9A8B", "#FF6B88", "#FF99AC", "#FFB3C1", "#FFCCD5"],
-  ["#85FFBD", "#85FFBD", "#FFFB7D", "#FFFFFF", "#85FFBD"],
+  ["#85FFBD", "#85FFBD", "#FFFB7D", "#F5F2FA", "#85FFBD"],
   ["#8EC5FC", "#E0C3FC", "#FBAB7E", "#F7CE68", "#8EC5FC"],
   ["#FA8BFF", "#2BD2FF", "#2BFF88", "#FFE380", "#FA8BFF"],
   ["#FFE53B", "#FF2525", "#00D2FF", "#3A7BD5", "#FFE53B"],

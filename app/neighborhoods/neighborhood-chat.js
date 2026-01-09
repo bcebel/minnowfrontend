@@ -17,7 +17,8 @@ import {
   Linking,
   Text,
   ActivityIndicator,
-  Platform,} from "react-native";
+  Platform,
+} from "react-native";
 
 import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -107,7 +108,6 @@ const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
     </TouchableOpacity>
   );
 };
-
 
 const GET_NEIGHBORHOOD_MESSAGES = gql`
   query GetNeighborhoodMessages($neighborhoodId: ID!) {
@@ -232,10 +232,6 @@ const DELETE_NEIGHBORHOOD_MESSAGE = gql`
     deleteMessage(messageId: $messageId)
   }
 `;
-
-
-
-
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -470,55 +466,55 @@ export default function NeighborhoodChatScreen() {
     return isOwner || isAdmin;
   }, [neighborhoodData, username]);
 
-const renderMessage = useCallback(
-  (message) => {
-    const senderUsername = message.sender?.username || "Unknown";
-    const profilePhoto = getProfilePhotoUrl(message.sender?.profilePhoto);
-    const timestamp = formatTimestamp(message.createdAt);
+  const renderMessage = useCallback(
+    (message) => {
+      const senderUsername = message.sender?.username || "Unknown";
+      const profilePhoto = getProfilePhotoUrl(message.sender?.profilePhoto);
+      const timestamp = formatTimestamp(message.createdAt);
 
-    return (
-      <View key={message.id} style={styles.messageContainer}>
-        <Image
-          source={{ uri: profilePhoto }}
-          style={styles.profileImage}
-          onError={(e) =>
-            console.log("Profile photo error:", e.nativeEvent.error)
-          }
-        />
-        <View style={styles.messageContent}>
-          <View style={styles.messageHeader}>
-            <Text style={styles.username}>{senderUsername}</Text>
-            <Text style={styles.timestamp}>{timestamp}</Text>
+      return (
+        <View key={message.id} style={styles.messageContainer}>
+          <Image
+            source={{ uri: profilePhoto }}
+            style={styles.profileImage}
+            onError={(e) =>
+              console.log("Profile photo error:", e.nativeEvent.error)
+            }
+          />
+          <View style={styles.messageContent}>
+            <View style={styles.messageHeader}>
+              <Text style={styles.username}>{senderUsername}</Text>
+              <Text style={styles.timestamp}>{timestamp}</Text>
+            </View>
+
+            {message.content && !message.content.startsWith("Shared: ") && (
+              <Text style={styles.messageText}>{message.content}</Text>
+            )}
+
+            {/* This will now properly render media */}
+            {(message.imageUrl ||
+              message.videoUrl ||
+              message.fileUrl ||
+              message.magnetLink) && <ChatMediaRenderer message={message} />}
+
+            {message.content && message.content.startsWith("Shared: ") && (
+              <Text style={styles.sharedLabel}>{message.content}</Text>
+            )}
+
+            {isNeighborhoodAdmin && (
+              <TouchableOpacity
+                onPress={() => handleDeleteMessage(message.id)}
+                style={styles.deleteButton}
+              >
+                <Text style={styles.deleteIcon}>🗑️</Text>
+              </TouchableOpacity>
+            )}
           </View>
-
-          {message.content && !message.content.startsWith("Shared: ") && (
-            <Text style={styles.messageText}>{message.content}</Text>
-          )}
-
-          {/* This will now properly render media */}
-          {(message.imageUrl ||
-            message.videoUrl ||
-            message.fileUrl ||
-            message.magnetLink) && <ChatMediaRenderer message={message} />}
-
-          {message.content && message.content.startsWith("Shared: ") && (
-            <Text style={styles.sharedLabel}>{message.content}</Text>
-          )}
-
-          {isNeighborhoodAdmin && (
-            <TouchableOpacity
-              onPress={() => handleDeleteMessage(message.id)}
-              style={styles.deleteButton}
-            >
-              <Text style={styles.deleteIcon}>🗑️</Text>
-            </TouchableOpacity>
-          )}
         </View>
-      </View>
-    );
-  },
-  [isNeighborhoodAdmin]
-);
+      );
+    },
+    [isNeighborhoodAdmin]
+  );
 
   useEffect(() => {
     fetchRandomAd();
@@ -586,52 +582,52 @@ const renderMessage = useCallback(
     }
   };
 
-const initializeSocket = (token) => {
-  console.log("🔌 Initializing neighborhood socket...");
+  const initializeSocket = (token) => {
+    console.log("🔌 Initializing neighborhood socket...");
 
-  const newSocket = io(BACKEND_URL, {
-    auth: { token },
-    path: "/socket.io-chat/",
-    transports: ["polling"],
-  });
-
-  newSocket.on("connect", () => {
-    console.log("✅ Neighborhood socket connected");
-    refetch(); // Initial fetch
-    setSocket(newSocket);
-    newSocket.emit("join-neighborhood", neighborhoodId);
-  });
-
-  newSocket.on("connect_error", (err) => {
-    console.error("❌ Neighborhood socket connection error:", err);
-  });
-
-  newSocket.on("message", async (newMsg) => {
-    console.log("📨 New message via socket:", newMsg.content);
-
-    setMessages((prev) => {
-      if (prev.some((m) => m.id === newMsg.id)) return prev;
-      return [...prev, newMsg];
+    const newSocket = io(BACKEND_URL, {
+      auth: { token },
+      path: "/socket.io-chat/",
+      transports: ["polling"],
     });
 
-    // Refetch after a short delay to ensure media is included
-    setTimeout(() => {
-      refetch();
-    }, 500);
+    newSocket.on("connect", () => {
+      console.log("✅ Neighborhood socket connected");
+      refetch(); // Initial fetch
+      setSocket(newSocket);
+      newSocket.emit("join-neighborhood", neighborhoodId);
+    });
 
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 300);
-  });
+    newSocket.on("connect_error", (err) => {
+      console.error("❌ Neighborhood socket connection error:", err);
+    });
 
-  // Add this new event listener for refresh
-  newSocket.on("refresh-messages", async () => {
-    console.log("🔄 Refreshing messages via socket");
-    await refetch();
-  });
+    newSocket.on("message", async (newMsg) => {
+      console.log("📨 New message via socket:", newMsg.content);
 
-  setSocket(newSocket);
-};
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === newMsg.id)) return prev;
+        return [...prev, newMsg];
+      });
+
+      // Refetch after a short delay to ensure media is included
+      setTimeout(() => {
+        refetch();
+      }, 500);
+
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 300);
+    });
+
+    // Add this new event listener for refresh
+    newSocket.on("refresh-messages", async () => {
+      console.log("🔄 Refreshing messages via socket");
+      await refetch();
+    });
+
+    setSocket(newSocket);
+  };
 
   const takeCameraMedia = async () => {
     setUploading(true);
@@ -765,83 +761,83 @@ const initializeSocket = (token) => {
     }
   };
 
-const unifiedUpload = async (asset, type, fileSize, mimeType) => {
-  setUploading(true);
-  setUploadType(type);
+  const unifiedUpload = async (asset, type, fileSize, mimeType) => {
+    setUploading(true);
+    setUploadType(type);
 
-  try {
-    const token = await AsyncStorage.getItem("token");
-    if (!token) throw new Error("No authentication token found");
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) throw new Error("No authentication token found");
 
-    if (
-      type === "video" &&
-      Platform.OS === "web" &&
-      fileSize > 5 * 1024 * 1024
-    ) {
-      console.log("📦 Using chunked upload for large video");
-      await uploadChunkedVideo(asset);
-      return;
-    }
+      if (
+        type === "video" &&
+        Platform.OS === "web" &&
+        fileSize > 5 * 1024 * 1024
+      ) {
+        console.log("📦 Using chunked upload for large video");
+        await uploadChunkedVideo(asset);
+        return;
+      }
 
-    let fileUri = asset.uri;
-    let fileName = asset.name || asset.fileName || `file-${Date.now()}`;
+      let fileUri = asset.uri;
+      let fileName = asset.name || asset.fileName || `file-${Date.now()}`;
 
-    console.log("🔄 Upload with thumbnail generation:", { fileName, type });
+      console.log("🔄 Upload with thumbnail generation:", { fileName, type });
 
-    const { ipfsUrl, magnetLink, thumbnailUrl } = await uploadToIPFS(
-      fileUri,
-      fileName,
-      type,
-      token,
-      neighborhoodId
-    );
-
-    if (ipfsUrl) {
-      const messageVariables = {
-        content: `Shared: ${fileName}`,
-        neighborhoodId: neighborhoodId,
+      const { ipfsUrl, magnetLink, thumbnailUrl } = await uploadToIPFS(
+        fileUri,
         fileName,
-        fileType: type,
-        magnetLink: magnetLink || null,
-        thumbnailUrl: thumbnailUrl || null,
-      };
+        type,
+        token,
+        neighborhoodId
+      );
 
-      if (type === "image") {
-        messageVariables.imageUrl = ipfsUrl;
-      } else if (type === "video") {
-        messageVariables.videoUrl = ipfsUrl;
-      } else {
-        messageVariables.fileUrl = ipfsUrl;
+      if (ipfsUrl) {
+        const messageVariables = {
+          content: `Shared: ${fileName}`,
+          neighborhoodId: neighborhoodId,
+          fileName,
+          fileType: type,
+          magnetLink: magnetLink || null,
+          thumbnailUrl: thumbnailUrl || null,
+        };
+
+        if (type === "image") {
+          messageVariables.imageUrl = ipfsUrl;
+        } else if (type === "video") {
+          messageVariables.videoUrl = ipfsUrl;
+        } else {
+          messageVariables.fileUrl = ipfsUrl;
+        }
+
+        console.log("📤 Sending message with thumbnail:", messageVariables);
+
+        // Send the message
+        await sendMessageMutation({
+          variables: messageVariables,
+        });
+
+        console.log(`✅ ${type} uploaded successfully with thumbnail`);
+
+        // CRITICAL: Immediately refetch messages to show the new media
+        await refetch();
+
+        // Also trigger a socket refresh if socket exists
+        if (socket) {
+          socket.emit("refresh-messages", neighborhoodId);
+        }
+
+        // Clear the input or any pending state
+        setNewMessage("");
       }
-
-      console.log("📤 Sending message with thumbnail:", messageVariables);
-
-      // Send the message
-      await sendMessageMutation({
-        variables: messageVariables,
-      });
-
-      console.log(`✅ ${type} uploaded successfully with thumbnail`);
-
-      // CRITICAL: Immediately refetch messages to show the new media
-      await refetch();
-
-      // Also trigger a socket refresh if socket exists
-      if (socket) {
-        socket.emit("refresh-messages", neighborhoodId);
-      }
-
-      // Clear the input or any pending state
-      setNewMessage("");
+    } catch (error) {
+      console.error(`❌ Upload error:`, error);
+      Alert.alert("Upload Failed", error.message);
+    } finally {
+      setUploading(false);
+      setUploadType(null);
     }
-  } catch (error) {
-    console.error(`❌ Upload error:`, error);
-    Alert.alert("Upload Failed", error.message);
-  } finally {
-    setUploading(false);
-    setUploadType(null);
-  }
-};
+  };
 
   const uploadChunkedVideo = async (asset) => {
     console.log("🎬 Starting chunked video upload...");
@@ -1344,13 +1340,13 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
   },
   centerContainer: {
     flex: 1,
     justifyContent: "flex-start",
     alignItems: "flex-start",
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
     padding: 5,
   },
   loadingText: {
@@ -1359,7 +1355,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   errorText: {
-    color: "#FF4444",
+    color: "#151159",
     fontSize: 18,
     textAlign: "center",
     marginBottom: 10,
@@ -1429,7 +1425,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   messageText: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 16,
     lineHeight: 20,
     marginBottom: 8,
@@ -1470,7 +1466,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fileName: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 16,
     fontWeight: "bold",
     marginBottom: 4,
@@ -1489,7 +1485,7 @@ const styles = StyleSheet.create({
   },
   messageInput: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
     borderWidth: 2,
     borderColor: "#00ffff",
     borderRadius: 25,
@@ -1514,7 +1510,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#333333",
   },
   sendButtonText: {
-    color: "#000000",
+    color: "#130720",
     fontWeight: "bold",
     fontSize: 16,
   },
@@ -1536,7 +1532,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   retryText: {
-    color: "#000000",
+    color: "#130720",
     fontWeight: "bold",
   },
   membersButton: {
@@ -1558,7 +1554,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: undefined,
     aspectRatio: 16 / 9,
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
   },
   videoCaption: {
     opacity: 0,
@@ -1567,7 +1563,7 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
   adContainer: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#1C0A2E",
     borderLeftWidth: 4,
     borderLeftColor: "#00ffff",
     margin: 10,
@@ -1587,7 +1583,7 @@ const styles = StyleSheet.create({
   },
   adContent: {},
   adTitle: {
-    color: "#ffffff",
+    color: "#F5F2FA",
     fontSize: 16,
     fontWeight: "bold",
     marginBottom: 4,
@@ -1606,7 +1602,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   adButtonText: {
-    color: "#000000",
+    color: "#130720",
     fontWeight: "bold",
     fontSize: 14,
   },
@@ -1623,7 +1619,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
   },
   videoThumbnail: {
     minWidth: 200,
@@ -1642,7 +1638,7 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
   streamPlaceholder: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#1C0A2E",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1676,7 +1672,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     position: "relative",
   },
   chunkPlayButton: {
@@ -1703,7 +1699,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   chunkIndicator: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#1C0A2E",
     padding: 6,
     borderRadius: 6,
     marginBottom: 4,
@@ -1714,7 +1710,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   inviteLinksButton: {
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 6,
@@ -1731,12 +1727,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginVertical: 8,
     borderLeftWidth: 4,
-    borderLeftColor: "#ff4444",
+    borderLeftColor: "#151159",
   },
   liveTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#ff4444",
+    color: "#151159",
     marginBottom: 4,
   },
   magnetLink: {
@@ -1779,7 +1775,7 @@ const styles = StyleSheet.create({
     bottom: 100,
     left: 20,
     right: 20,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#1C0A2E",
     borderRadius: 12,
     padding: 15,
     borderWidth: 2,

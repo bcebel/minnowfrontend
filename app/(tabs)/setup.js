@@ -99,27 +99,31 @@ export default function ProfileSetupScreen() {
   });
 
   // --- POPULATE STATE FROM QUERY RESULT (FIXED) ---
-useEffect(() => {
-  if (profileData?.me) {
-    const { bio, profilePhoto, affiliateLinks: incomingLinks } = profileData.me;
+  useEffect(() => {
+    if (profileData?.me) {
+      const {
+        bio,
+        profilePhoto,
+        affiliateLinks: incomingLinks,
+      } = profileData.me;
 
-    // 1. Photo and Bio
-    setBio(bio || "");
-    setProfilePhotoCid(profilePhoto || null);
+      // 1. Photo and Bio
+      setBio(bio || "");
+      setProfilePhotoCid(profilePhoto || null);
 
-    // 2. Affiliate Links: Use description field for raw HTML
-    if (incomingLinks && incomingLinks.length > 0) {
-      setAffiliateLinks(
-        incomingLinks.map((link) => ({
-          // Use description field which contains the raw HTML
-          rawHtml: link.description || link.url || "",
-        }))
-      );
-    } else {
-      setAffiliateLinks([{ rawHtml: "" }]);
+      // 2. Affiliate Links: Use description field for raw HTML
+      if (incomingLinks && incomingLinks.length > 0) {
+        setAffiliateLinks(
+          incomingLinks.map((link) => ({
+            // Use description field which contains the raw HTML
+            rawHtml: link.description || link.url || "",
+          }))
+        );
+      } else {
+        setAffiliateLinks([{ rawHtml: "" }]);
+      }
     }
-  }
-}, [profileData]);
+  }, [profileData]);
 
   // --- IMAGE UPLOAD LOGIC (Unchanged, but included for completeness) ---
 
@@ -216,48 +220,48 @@ useEffect(() => {
   };
 
   // --- SAVE LOGIC (FIXED) ---
-const handleSave = async () => {
-  try {
-    setSaving(true);
+  const handleSave = async () => {
+    try {
+      setSaving(true);
 
-    // Format links as the old working code did
-    const validLinks = affiliateLinks
-      .filter((link) => link.rawHtml && link.rawHtml.trim())
-      .map((link) => ({
-        url: link.rawHtml, // Send raw HTML as url
-        title: "", // Empty title - backend will extract
-      }));
+      // Format links as the old working code did
+      const validLinks = affiliateLinks
+        .filter((link) => link.rawHtml && link.rawHtml.trim())
+        .map((link) => ({
+          url: link.rawHtml, // Send raw HTML as url
+          title: "", // Empty title - backend will extract
+        }));
 
-    console.log("Sending to backend:", validLinks);
+      console.log("Sending to backend:", validLinks);
 
-    const { data, errors } = await updateProfile({
-      variables: {
-        bio: bio || "",
-        profilePhoto: profilePhotoCid || "",
-        affiliateLinks: validLinks,
-      },
-    });
+      const { data, errors } = await updateProfile({
+        variables: {
+          bio: bio || "",
+          profilePhoto: profilePhotoCid || "",
+          affiliateLinks: validLinks,
+        },
+      });
 
-    if (errors && errors.length > 0) {
-      throw new Error(errors[0].message);
+      if (errors && errors.length > 0) {
+        throw new Error(errors[0].message);
+      }
+
+      if (data?.updateProfile) {
+        Alert.alert("Success", "Profile saved successfully!");
+        refetchProfile();
+      }
+    } catch (err) {
+      Alert.alert("Error", err.message);
+    } finally {
+      setSaving(false);
     }
-
-    if (data?.updateProfile) {
-      Alert.alert("Success", "Profile saved successfully!");
-      refetchProfile();
-    }
-  } catch (err) {
-    Alert.alert("Error", err.message);
-  } finally {
-    setSaving(false);
-  }
-};
+  };
   // --- RENDER LOGIC (Minor Fixes) ---
 
   if (loadingProfile) {
     return (
       <View style={[styles.container, styles.loadingOverlay]}>
-        <ActivityIndicator size="large" color="#00ffff" />
+        <ActivityIndicator size="large" color="#591155" />
         <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
@@ -339,7 +343,7 @@ const handleSave = async () => {
                       <View
                         style={{
                           backgroundColor: link.rawHtml.includes("href=")
-                            ? "#00AA00"
+                            ? "#F5F2FA"
                             : "#FF9900",
                           paddingHorizontal: 8,
                           paddingVertical: 2,
@@ -387,7 +391,7 @@ const handleSave = async () => {
           disabled={uploading}
         >
           {uploading ? (
-            <ActivityIndicator color="#000" />
+            <ActivityIndicator color="#130720" />
           ) : (
             <Text style={styles.uploadButtonText}>
               {profilePhotoCid
@@ -436,7 +440,7 @@ const handleSave = async () => {
           disabled={saving || uploading}
         >
           {saving ? (
-            <ActivityIndicator color="#000" />
+            <ActivityIndicator color="#130720" />
           ) : (
             <Text style={styles.saveButtonText}>SAVE & REFRESH PROFILE</Text>
           )}
@@ -450,7 +454,7 @@ const handleSave = async () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#1C0A2E",
     padding: 20,
   },
   loadingOverlay: {
@@ -459,7 +463,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loadingText: {
-    color: "#00ffff",
+    color: "#591155",
     marginTop: 20,
     fontSize: 18,
   },
@@ -482,11 +486,11 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    color: "#00ffff",
+    color: "#B8B0C9",
     fontWeight: "900",
     textAlign: "center",
     marginBottom: 30,
-    textShadowColor: "#00ffff66",
+    textShadowColor: "#59115566",
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 5,
   },
@@ -496,8 +500,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 40,
     borderWidth: 2,
-    borderColor: "#00AA00", // Green border for 'Current'
-    shadowColor: "#00AA00",
+    borderColor: "#4A3A5E", // Green border for 'Current'
+    shadowColor: "#4A3A5E",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 5,
@@ -509,8 +513,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 40,
     borderWidth: 2,
-    borderColor: "#00ffff", // Cyan border for 'Update'
-    shadowColor: "#00ffff",
+    borderColor: "#4A3A5E", // Cyan border for 'Update'
+    shadowColor: "#4A3A5E",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 5,
@@ -534,7 +538,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 3,
-    borderColor: "#00ffff",
+    borderColor: "#591155",
     marginTop: 10,
   },
   noPhoto: {
@@ -553,7 +557,7 @@ const styles = StyleSheet.create({
   },
   cidText: {
     fontSize: 10,
-    color: "#00AA00",
+    color: "#F5F2FA",
     marginTop: 8,
     fontFamily: "monospace",
   },
@@ -562,15 +566,15 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    color: "#00AA00",
+    color: "#F5F2FA",
     marginBottom: 10,
     fontWeight: "600",
   },
   currentBio: {
     fontSize: 14,
-    color: "#E0E0E0",
+    color: "#B8B0C9",
     lineHeight: 20,
-    backgroundColor: "#1A1A1A",
+    backgroundColor: "#1C0A2E",
     padding: 15,
     borderRadius: 8,
     minHeight: 80,
@@ -581,7 +585,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#888",
     fontStyle: "italic",
-    backgroundColor: "#1A1A1A",
+    backgroundColor: "#1C0A2E",
     padding: 15,
     borderRadius: 8,
     minHeight: 50,
@@ -591,12 +595,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   linkItem: {
-    backgroundColor: "#1A1A1A",
+    backgroundColor: "#1C0A2E",
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
     borderLeftWidth: 3,
-    borderColor: "#00AA00",
+    borderColor: "#F5F2FA",
   },
   linkTitle: {
     fontSize: 14,
@@ -609,19 +613,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   uploadButton: {
-    backgroundColor: "#00ffff",
+    backgroundColor: "#591155",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
     marginBottom: 25,
   },
   uploadButtonText: {
-    color: "#000",
+    color: "#F5F2FA",
     fontSize: 16,
     fontWeight: "bold",
   },
   bioInput: {
-    backgroundColor: "#1A1A1A",
+    backgroundColor: "#1C0A2E",
     borderRadius: 8,
     padding: 15,
     color: "#FFF",
@@ -632,7 +636,7 @@ const styles = StyleSheet.create({
     borderColor: "#333",
   },
   charCount: {
-    color: "#00AA00",
+    color: "#F5F2FA",
     fontSize: 12,
     textAlign: "right",
     marginBottom: 20,
@@ -640,11 +644,10 @@ const styles = StyleSheet.create({
   linkInputGroup: {
     marginBottom: 15,
     borderLeftWidth: 3,
-    borderColor: "#00ffff50",
     paddingLeft: 10,
   },
   linkInput: {
-    backgroundColor: "#1A1A1A",
+    backgroundColor: "#1C0A2E",
     borderRadius: 8,
     padding: 15,
     color: "#FFF",
@@ -660,15 +663,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 30,
     borderWidth: 1,
-    borderColor: "#00AA00",
+    borderColor: "#F5F2FA",
   },
   addButtonText: {
-    color: "#00AA00",
+    color: "#F5F2FA",
     fontSize: 16,
     fontWeight: "bold",
   },
   saveButton: {
-    backgroundColor: "#00ffff",
+    backgroundColor: "#591155",
     padding: 18,
     borderRadius: 8,
     alignItems: "center",
@@ -678,7 +681,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: "#000",
+    color: "#F5F2FA",
     fontSize: 18,
     fontWeight: "bold",
   },

@@ -267,13 +267,13 @@ export default function NeighborhoodMembersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
   },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
     padding: 20,
   },
   loadingText: {
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   errorText: {
-    color: "#FF4444",
+    color: "#151159",
     fontSize: 16,
     marginBottom: 10,
   },
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   requestCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#1C0A2E",
     marginHorizontal: 15,
     marginBottom: 8,
     padding: 12,
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   memberCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#1C0A2E",
     marginHorizontal: 15,
     marginBottom: 8,
     padding: 12,
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   username: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 16,
     fontWeight: "bold",
     marginBottom: 2,
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   approveButtonText: {
-    color: "#000000",
+    color: "#130720",
     fontWeight: "bold",
     fontSize: 16,
   },
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   removeButtonText: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontWeight: "bold",
     fontSize: 16,
   },
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   retryText: {
-    color: "#000000",
+    color: "#130720",
     fontWeight: "bold",
   },
 });

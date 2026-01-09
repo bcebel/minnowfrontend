@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     position: "relative",
     width: "100%",
     maxWidth: 800,
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   videoPlaceholder: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#1C0A2E",
     justifyContent: "center",
     alignItems: "center",
     minHeight: 200,
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fileName: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 16,
     fontWeight: "bold",
     marginBottom: 4,

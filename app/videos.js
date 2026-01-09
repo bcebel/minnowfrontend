@@ -201,7 +201,7 @@ export default function App() {
             title="Stop Recording"
             onPress={stopRecording}
             disabled={!recording}
-            color="#ff4444"
+            color="#151159"
           />
         </>
       )}

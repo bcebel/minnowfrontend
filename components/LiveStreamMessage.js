@@ -37,12 +37,12 @@ const styles = {
     borderRadius: 10,
     marginVertical: 5,
     borderLeftWidth: 4,
-    borderLeftColor: "#ff4444",
+    borderLeftColor: "#151159",
   },
   liveTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#ff4444",
+    color: "#151159",
     marginBottom: 5,
   },
   content: {

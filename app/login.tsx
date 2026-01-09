@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
     justifyContent: "center",
   },
   title: {
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: "#000000",
+    color: "#130720",
     fontSize: 18,
     fontWeight: "bold",
   },

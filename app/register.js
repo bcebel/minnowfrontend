@@ -175,7 +175,7 @@ const RegistrationScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
   },
   scrollContent: {
     flexGrow: 1,
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: "#000000",
+    color: "#130720",
     fontSize: 18,
     fontWeight: "bold",
   },

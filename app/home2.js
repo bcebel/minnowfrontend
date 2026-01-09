@@ -48,14 +48,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     alignItems: "center",
   },
   loading: {
     marginTop: 50,
   },
   error: {
-    color: "#FF4444",
+    color: "#151159",
     textAlign: "center",
     marginTop: 20,
   },

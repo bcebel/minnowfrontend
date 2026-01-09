@@ -347,42 +347,42 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
   },
   placeholder: {
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#1C0A2E",
     borderRadius: 8,
   },
   media: {
     borderRadius: 12,
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
   },
   videoContainer: {
     position: "relative",
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     alignSelf: "center",
   },
   videoPlayer: {
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
   },
   videoThumbnailContainer: {
     position: "relative",
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     alignSelf: "center",
   },
   videoThumbnail: {
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
   },
   videoPlaceholder: {
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#1C0A2E",
   },
   videoIcon: {
     fontSize: 48,
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
   },
   playIcon: {
     fontSize: 28,
-    color: "#000",
+    color: "#130720",
     marginLeft: 4, // Offset for play triangle
   },
   closeButton: {

@@ -65,8 +65,7 @@ export default function ThemeDisplay() {
             "coral",
             "lavender",
             "bubblefusion",
-            "bubblefusion2"
-
+            "bubblefusion2",
           ] as const
         ).map((scheme) => (
           <TouchableOpacity
@@ -451,7 +450,9 @@ export default function ThemeDisplay() {
               borderRadius: 6,
             }}
           >
-            <Text style={{ color: "#000", fontWeight: "bold" }}>Warning</Text>
+            <Text style={{ color: "#130720", fontWeight: "bold" }}>
+              Warning
+            </Text>
           </View>
           <View
             style={{
@@ -469,7 +470,9 @@ export default function ThemeDisplay() {
               borderRadius: 6,
             }}
           >
-            <Text style={{ color: "#000", fontWeight: "bold" }}>Success</Text>
+            <Text style={{ color: "#130720", fontWeight: "bold" }}>
+              Success
+            </Text>
           </View>
           <View
             style={{

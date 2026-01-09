@@ -45,7 +45,7 @@ export default function AdMessage({ ad }: AdProps) {
     }
   };
 
- return (
+  return (
     <TouchableOpacity
       style={styles.container}
       onPress={handlePress}
@@ -87,27 +87,26 @@ export default function AdMessage({ ad }: AdProps) {
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#1C0A2E",
     borderLeftWidth: 4,
     borderRadius: 8,
     marginVertical: 4,
     overflow: "hidden",
-    maxWidth: 500, 
-    alignSelf: "flex-start", 
-    width: "90%", 
+    maxWidth: 500,
+    alignSelf: "flex-start",
+    width: "90%",
   },
   image: {
     width: 200,
     height: 200,
-    borderRadius:10,
+    borderRadius: 10,
   },
   imagePlaceholder: {
     width: "100%",
     height: 150,
-    backgroundColor: "#000000ff",
+    backgroundColor: "#130720ff",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -119,7 +118,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   title: {
-    color: "#ffffff",
+    color: "#F5F2FA",
     fontSize: 16,
     fontWeight: "bold",
     marginBottom: 4,
@@ -146,5 +145,4 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 14,
   },
-
 });

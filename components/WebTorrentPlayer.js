@@ -208,7 +208,7 @@ export default function WebTorrentPlayer({ video, isFocused }) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     borderRadius: 12,
     overflow: "hidden",
     marginBottom: 12,
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: undefined,
     aspectRatio: 16 / 9, // Standard video aspect ratio
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     minHeight: 300, // Minimum height for visibility
   },
   controls: {
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 12,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    backgroundColor: "#130720",
   },
   controlButton: {
     paddingHorizontal: 16,
@@ -244,10 +244,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#00ffff",
   },
   stopButton: {
-    backgroundColor: "#FF4444",
+    backgroundColor: "#151159",
   },
   controlButtonText: {
-    color: "#000",
+    color: "#130720",
     fontWeight: "bold",
     fontSize: 14,
   },

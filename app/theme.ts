@@ -17,7 +17,7 @@ export const themes = {
     dark: {
       background: "#221A11",
       foreground: "#332618",
-      typography: "#FFFFFF",
+      typography: "#F5F2FA",
       tint: "#C9AD92",
       link: "#0C2461",
       accents: {
@@ -213,9 +213,9 @@ export const themes = {
   },
   neon: {
     light: {
-      background: "#000000", // Black for contrast
-      foreground: "#1A1A1A", // Dark gray
-      typography: "#FFFFFF", // White
+      background: "#130720", // Black for contrast
+      foreground: "#1C0A2E", // Dark gray
+      typography: "#F5F2FA", // White
       tint: "#00ffff", // Your bright green as main tint
       link: "#00ffff",
       accents: {
@@ -243,9 +243,9 @@ export const themes = {
   },
   bubbles: {
     light: {
-      background: "#000000", // Black for contrast
-      foreground: "#1A1A1A", // Dark gray
-      typography: "#FFFFFF", // White
+      background: "#130720", // Black for contrast
+      foreground: "#1C0A2E", // Dark gray
+      typography: "#F5F2FA", // White
       tint: "#00ffff", // Your bright green as main tint
       link: "#00ffff",
       accents: {

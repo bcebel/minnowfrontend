@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
   },
   header: {
     fontSize: 24,
@@ -191,16 +191,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   createButtonText: {
-    color: "#000",
+    color: "#130720",
     fontWeight: "bold",
   },
   neighborhoodItem: {
-    backgroundColor: "#111",
+    backgroundColor: "#130720",
     padding: 15,
     borderRadius: 8,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#333",
+    borderColor: "#130720",
   },
   neighborhoodName: {
     fontSize: 18,
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   memberBadge: {
-    color: "#00ff00",
+    color: "#B8B0C9",
   },
   neighborhoodDescription: {
     fontSize: 14,
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   viewButton: {
-    backgroundColor: "#333",
+    backgroundColor: "#130720",
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 6,
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   leaveButton: {
-    backgroundColor: "#FF4444",
+    backgroundColor: "#151159",
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 6,
@@ -246,14 +246,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   leaveButtonText: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontWeight: "bold",
   },
   loading: {
     marginTop: 50,
   },
   error: {
-    color: "#FF4444",
+    color: "#151159",
     textAlign: "center",
     marginTop: 20,
   },
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 40,
-    backgroundColor: "#111",
+    backgroundColor: "#130720",
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#333",

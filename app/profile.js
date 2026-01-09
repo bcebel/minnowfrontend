@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
   },
   title: {
     fontSize: 24,
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   saveButtonText: {
-    color: "#000",
+    color: "#130720",
     fontWeight: "bold",
     fontSize: 16,
   },

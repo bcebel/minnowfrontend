@@ -9,7 +9,7 @@ import {
 } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { persistCache } from 'apollo3-cache-persist';
+import { persistCache } from "apollo3-cache-persist";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
 import { createClient } from "graphql-ws";
@@ -20,13 +20,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
   },
 });
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 // Remove "http://" or "https://" from the URL for the WebSocket link
-const WS_URL = BACKEND_URL.replace(/^https?:\/\//, '');
+const WS_URL = BACKEND_URL.replace(/^https?:\/\//, "");
 
 export function useApolloClient() {
   const [client, setClient] = useState(null);
@@ -36,7 +36,10 @@ export function useApolloClient() {
     const initializeClient = async () => {
       try {
         const token = await AsyncStorage.getItem("token");
-        console.log("🔄 Apollo Client: Initializing with token:", token ? "YES" : "NO");
+        console.log(
+          "🔄 Apollo Client: Initializing with token:",
+          token ? "YES" : "NO"
+        );
 
         const cache = new InMemoryCache({
           typePolicies: {
@@ -44,11 +47,11 @@ export function useApolloClient() {
             Image: { keyFields: ["cid"] },
           },
         });
-        
+
         await persistCache({
-            cache,
-            storage: AsyncStorage,
-            debug: false,
+          cache,
+          storage: AsyncStorage,
+          debug: false,
         });
         setCacheReady(true);
 
@@ -58,12 +61,14 @@ export function useApolloClient() {
         });
 
         // WebSocket link for subscriptions
-        const wsLink = new GraphQLWsLink(createClient({
-          url: `wss://${WS_URL}/graphql`, // Or 'ws://' if not using SSL
-          connectionParams: {
-            Authorization: `Bearer ${token}`,
-          },
-        }));
+        const wsLink = new GraphQLWsLink(
+          createClient({
+            url: `wss://${WS_URL}/graphql`, // Or 'ws://' if not using SSL
+            connectionParams: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+        );
 
         const authLink = setContext(async (_, { headers }) => {
           const freshToken = await AsyncStorage.getItem("token");
@@ -84,12 +89,12 @@ export function useApolloClient() {
           ({ query }) => {
             const definition = getMainDefinition(query);
             return (
-              definition.kind === 'OperationDefinition' &&
-              definition.operation === 'subscription'
+              definition.kind === "OperationDefinition" &&
+              definition.operation === "subscription"
             );
           },
           wsLink,
-          authLink.concat(httpLink),
+          authLink.concat(httpLink)
         );
 
         const newClient = new ApolloClient({
@@ -106,7 +111,7 @@ export function useApolloClient() {
     initializeClient();
   }, []);
 
-  return cacheReady ? client : null; 
+  return cacheReady ? client : null;
 }
 
 export function ApolloProviderWrapper({ children }) {

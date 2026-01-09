@@ -438,19 +438,20 @@ export default function InviteLinksScreen() {
                 onPress={handleCreateLink}
               >
                 <Text style={styles.submitButtonText}>Create Invite Link</Text>
-                          </TouchableOpacity>
-<TouchableOpacity
-  style={styles.debugButton}
-  onPress={() => {
-    console.log("Current data:", data);
-    console.log("Links:", data?.neighborhoodInviteLinks);
-    console.log("Number of links:", data?.neighborhoodInviteLinks?.length);
-  }}
->
-  <Text style={styles.debugButtonText}>Debug</Text>
-</TouchableOpacity>
-
-
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.debugButton}
+                onPress={() => {
+                  console.log("Current data:", data);
+                  console.log("Links:", data?.neighborhoodInviteLinks);
+                  console.log(
+                    "Number of links:",
+                    data?.neighborhoodInviteLinks?.length
+                  );
+                }}
+              >
+                <Text style={styles.debugButtonText}>Debug</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -462,7 +463,7 @@ export default function InviteLinksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     padding: 20,
   },
   centered: {
@@ -503,7 +504,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   createButtonText: {
-    color: "#000",
+    color: "#130720",
     fontSize: 16,
     fontWeight: "bold",
   },
@@ -548,7 +549,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusBadgeExpired: {
-    backgroundColor: "#FF4444",
+    backgroundColor: "#151159",
     color: "#FFF",
     fontSize: 10,
     paddingHorizontal: 6,
@@ -695,7 +696,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   roleButtonTextSelected: {
-    color: "#000",
+    color: "#130720",
     fontWeight: "bold",
   },
   submitButton: {
@@ -706,7 +707,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   submitButtonText: {
-    color: "#000",
+    color: "#130720",
     fontSize: 16,
     fontWeight: "bold",
   },

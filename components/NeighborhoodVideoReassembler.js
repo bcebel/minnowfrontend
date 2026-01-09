@@ -128,7 +128,7 @@ export class NeighborhoodVideoReassembler {
       document.body.removeChild(container);
     }
   }
-  
+
   // 🆕 NEW: Function to create the standalone player UI
   createPlayerUI() {
     const container = document.createElement("div");
@@ -146,7 +146,7 @@ export class NeighborhoodVideoReassembler {
     video.autoplay = true;
     video.style.cssText = `
         width: 100%; max-width: 800px; max-height: 80vh;
-        background: black; border: 2px solid #00ff00;
+        background: black; border: 2px solid #591155;
         border-radius: 8px; margin-bottom: 10px;
     `;
 
@@ -160,7 +160,7 @@ export class NeighborhoodVideoReassembler {
     const closeBtn = document.createElement("button");
     closeBtn.textContent = "✕ CLOSE PLAYER";
     closeBtn.style.cssText = `
-        background: #ff4444; color: white; border: none;
+        background: #151159; color: white; border: none;
         padding: 10px 20px; border-radius: 6px;
         font-weight: bold; cursor: pointer; margin-top: 20px;
     `;

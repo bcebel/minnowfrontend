@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     maxWidth: 800,
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     borderRadius: 12,
     overflow: "hidden",
     alignSelf: "center",

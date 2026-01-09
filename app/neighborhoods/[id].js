@@ -205,14 +205,14 @@ export default function NeighborhoodDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     padding: 20,
   },
   loading: {
     marginTop: 50,
   },
   error: {
-    color: "#FF4444",
+    color: "#151159",
     textAlign: "center",
     marginTop: 20,
   },
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   chatButtonText: {
-    color: "#000",
+    color: "#130720",
     fontWeight: "bold",
     fontSize: 16,
   },

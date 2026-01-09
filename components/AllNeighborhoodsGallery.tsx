@@ -188,10 +188,11 @@ export default function AllNeighborhoodsGallery() {
   // Extract and combine data from the single query result
   const combinedData = React.useMemo(() => {
     if (!data?.getMyAllNeighborhoodsGallery) return [];
-    
+
     const { videos, images } = data.getMyAllNeighborhoodsGallery;
-    return [...videos, ...images].sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    return [...videos, ...images].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   }, [data]);
 
@@ -201,11 +202,20 @@ export default function AllNeighborhoodsGallery() {
     setRefreshing(false);
   };
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#FF00FF" /></View>;
-  if (error) return <View style={styles.center}><Text style={styles.errorTitle}>{error.message}</Text></View>;
+  if (loading)
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#FF00FF" />
+      </View>
+    );
+  if (error)
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorTitle}>{error.message}</Text>
+      </View>
+    );
 
   // ... rest of your rendering logic using combinedData
-
 
   const mediaItems = combinedData;
   const totalCount = mediaItems.length;
@@ -282,7 +292,7 @@ export default function AllNeighborhoodsGallery() {
           <Text style={styles.headerTitle}>All Bubbles</Text>
           <Text style={styles.headerSubtitle}>
             Your combined media from all bubbles
-          </Text> 
+          </Text>
         </View>
 
         <View style={styles.emptyState}>
@@ -337,14 +347,14 @@ export default function AllNeighborhoodsGallery() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
   },
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
   },
   loadingText: {
     marginTop: 15,
@@ -379,10 +389,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: "#FFFFFF",
+    borderColor: "#F5F2FA",
   },
   retryText: {
-    color: "#000000",
+    color: "#130720",
     fontSize: 16,
     fontWeight: "900",
     letterSpacing: 1,
@@ -390,14 +400,14 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     paddingBottom: 10,
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
     borderBottomWidth: 2,
-    borderBottomColor: "#00FF00",
+    borderBottomColor: "#591155",
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: "900",
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     marginBottom: 5,
     letterSpacing: 1,
   },
@@ -411,7 +421,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20, // Keep if you want space below the card
   },
   card: {
-    backgroundColor: "#111111",
+    backgroundColor: "#1C0A2E",
     borderRadius: 12,
     // Add margin to separate cards visually (if desired)
     marginHorizontal: 10,
@@ -426,7 +436,7 @@ const styles = StyleSheet.create({
     padding: 15,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#333333",
+    borderBottomColor: "#1C0A2E",
   },
   titleContainer: {
     flexDirection: "row",
@@ -438,7 +448,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: "bold",
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     marginRight: 10,
   },
   fileTypeBadge: {
@@ -450,10 +460,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF0000",
   },
   imageBadge: {
-    backgroundColor: "#00FF00",
+    backgroundColor: "#591155",
   },
   badgeText: {
-    color: "#000000",
+    color: "#130720",
     fontSize: 10,
     fontWeight: "bold",
     letterSpacing: 1,
@@ -468,13 +478,13 @@ const styles = StyleSheet.create({
   },
   noMedia: {
     padding: 40,
-    backgroundColor: "#222222",
+    backgroundColor: "#130720",
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   noMediaText: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 14,
   },
   magnetContainer: {
@@ -493,7 +503,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 250,
     borderRadius: 8,
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
@@ -510,33 +520,33 @@ const styles = StyleSheet.create({
   },
   playIcon: {
     fontSize: 40,
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     marginLeft: 5,
   },
   videoLabel: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 16,
     fontWeight: "bold",
   },
   fileContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#222222",
+    backgroundColor: "#130720",
     padding: 20,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: "#0000FF",
+    borderColor: "#1307200FF",
   },
   fileIcon: {
     fontSize: 36,
     marginRight: 15,
-    color: "#FFFFFF",
+    color: "#F5F2FA",
   },
   fileInfo: {
     flex: 1,
   },
   fileName: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 16,
     fontWeight: "bold",
     marginBottom: 4,
@@ -547,9 +557,9 @@ const styles = StyleSheet.create({
   },
   metadata: {
     padding: 15,
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
     borderTopWidth: 1,
-    borderTopColor: "#333333",
+    borderTopColor: "#130720",
   },
   metadataRow: {
     flexDirection: "row",
@@ -563,7 +573,7 @@ const styles = StyleSheet.create({
   },
   metadataValue: {
     fontSize: 14,
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontWeight: "bold",
     flex: 1,
   },
@@ -576,11 +586,11 @@ const styles = StyleSheet.create({
   emptyIcon: {
     fontSize: 60,
     marginBottom: 20,
-    color: "#FFFFFF",
+    color: "#F5F2FA",
   },
   emptyTitle: {
     fontSize: 24,
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontWeight: "bold",
     marginBottom: 10,
   },

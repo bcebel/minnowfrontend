@@ -379,12 +379,12 @@ export default function NeighborhoodLiveStreamPlayer({
     setLogs((prev) => [...prev.slice(-5), msg]);
     console.log(`[Stream] ${msg}`);
   };
-useEffect(() => {
-  if (isJoined && controllerRef.current) {
-    // 🚀 THE FIX: Tell the engine to look at the warehouse RIGHT NOW
-    controllerRef.current.forceTick(); 
-  }
-}, [availableInWarehouse]); // This triggers every time a chunk hits the warehouse
+  useEffect(() => {
+    if (isJoined && controllerRef.current) {
+      // 🚀 THE FIX: Tell the engine to look at the warehouse RIGHT NOW
+      controllerRef.current.forceTick();
+    }
+  }, [availableInWarehouse]); // This triggers every time a chunk hits the warehouse
   useEffect(() => {
     // This tells the engine: "Hey, something new just hit the warehouse, check it now!"
     if (isJoined && controllerRef.current) {
@@ -444,9 +444,9 @@ useEffect(() => {
 
 const styles = StyleSheet.create({
   container: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#111" },
-  videoContainer: { width: "100%", height: "100%", backgroundColor: "#000" },
+  videoContainer: { width: "100%", height: "100%", backgroundColor: "#130720" },
   button: {
-    backgroundColor: "#ff4444",
+    backgroundColor: "#151159",
     padding: 20,
     borderRadius: 10,
     alignSelf: "center",

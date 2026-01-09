@@ -11,18 +11,18 @@ import {
 import { useRouter } from "expo-router";
 import { themes } from "../theme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-  const router = useRouter();
-  const handleLogout = async () => {
-    await AsyncStorage.multiRemove(["token", "username"]);
-    router.replace("/login");
-  };
+const router = useRouter();
+const handleLogout = async () => {
+  await AsyncStorage.multiRemove(["token", "username"]);
+  router.replace("/login");
+};
 
 export default function HomeScreen() {
   const router = useRouter();
   const theme = themes.bubblefusion.dark;
   const accents = themes.bubblefusion.dark.accents;
   const light = themes.bubblefusion.light;
-  const lightaccents =themes.bubblefusion.light.accents;
+  const lightaccents = themes.bubblefusion.light.accents;
 
   return (
     <View style={styles.container}>
@@ -55,7 +55,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleLogout}
-            style={[styles.logoutButton, { backgroundColor: "#000000" }]}
+            style={[styles.logoutButton, { backgroundColor: "#130720" }]}
           >
             <Text style={[styles.logoutButtonText, { color: theme.tint }]}>
               Logout
@@ -72,8 +72,6 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-
-
       </ScrollView>
     </View>
   );
@@ -144,7 +142,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingBottom: 40,
     justifyContent: "center",
-  alignItems: "center",
+    alignItems: "center",
     backgroundColor: "transparent",
   },
   headerImage: {
@@ -207,7 +205,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 12,
     alignItems: "center",
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
   },
   secondaryButtonText: {
     fontSize: 18,
@@ -271,7 +269,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderColor: "#ff00ff",
     alignItems: "center",
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
   },
   logoutButtonText: {
     fontSize: 18,
@@ -279,5 +277,3 @@ const styles = StyleSheet.create({
   },
   // ... rest of your styles
 });
-
-

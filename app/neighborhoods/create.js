@@ -132,7 +132,7 @@ export default function CreateNeighborhoodScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
     padding: 20,
   },
   title: {
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#333",
   },
   createButtonText: {
-    color: "#000",
+    color: "#130720",
     fontWeight: "bold",
     fontSize: 16,
   },

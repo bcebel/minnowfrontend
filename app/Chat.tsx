@@ -1141,13 +1141,13 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
   },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
     padding: 20,
   },
   header: {
@@ -1174,7 +1174,7 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: 18,
-    color: "#FF4444",
+    color: "#151159",
   },
   debugButton: {
     padding: 8,
@@ -1191,7 +1191,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   retryText: {
-    color: "#000000",
+    color: "#130720",
     fontWeight: "bold",
   },
   loadingText: {
@@ -1201,7 +1201,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   errorText: {
-    color: "#FF4444",
+    color: "#151159",
     textAlign: "center",
     marginTop: 20,
     fontSize: 16,
@@ -1249,7 +1249,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   messageText: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     marginBottom: 6,
     fontSize: 16,
     lineHeight: 20,
@@ -1269,7 +1269,7 @@ const styles = StyleSheet.create({
   },
   messageInput: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#130720",
     borderWidth: 2,
     borderColor: "#00ffff",
     borderRadius: 25,
@@ -1294,7 +1294,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#333333",
   },
   sendButtonText: {
-    color: "#000000",
+    color: "#130720",
     fontWeight: "bold",
     fontSize: 16,
   },
@@ -1333,7 +1333,7 @@ const styles = StyleSheet.create({
   },
   videoPlayIcon: {
     fontSize: 32,
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontWeight: "bold",
   },
   videoDurationBadge: {
@@ -1346,12 +1346,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   videoDurationText: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 10,
     fontWeight: "bold",
   },
   videoCaption: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 12,
     marginTop: 4,
     textAlign: "left",
@@ -1378,7 +1378,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   videoCloseIcon: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 12,
     fontWeight: "bold",
   },
@@ -1395,7 +1395,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   videoFileName: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 12,
     flex: 1,
   },
@@ -1423,7 +1423,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   documentTitle: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 14,
     fontWeight: "bold",
     marginBottom: 4,
@@ -1452,7 +1452,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   videoErrorText: {
-    color: "#FF4444",
+    color: "#151159",
     fontSize: 16,
     marginBottom: 10,
   },
@@ -1476,7 +1476,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   heicText: {
-    color: "#FFFFFF",
+    color: "#F5F2FA",
     fontSize: 14,
     fontWeight: "bold",
   },

@@ -41,7 +41,7 @@ export default function SciFiCorridor() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
   },
   leftPanel: {
     position: "absolute",

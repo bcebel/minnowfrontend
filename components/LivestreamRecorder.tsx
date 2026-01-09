@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { Platform } from "react-native";
@@ -154,7 +153,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   stopButton: {
-    backgroundColor: "#ff4444",
+    backgroundColor: "#151159",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",

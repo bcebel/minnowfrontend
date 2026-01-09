@@ -49,7 +49,7 @@ const App = () => {
       onEndReached={loadMoreData} // Trigger when user scrolls to the bottom
       onEndReachedThreshold={0.5} // Distance from bottom to trigger load
       ListFooterComponent={
-        loading ? <ActivityIndicator size="large" color="#0000ff" /> : null
+        loading ? <ActivityIndicator size="large" color="#1307200ff" /> : null
       }
       showsHorizontalScrollIndicator={false} // Hide scroll indicator
     />

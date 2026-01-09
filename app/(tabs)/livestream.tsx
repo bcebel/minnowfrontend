@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
 import { gql, useQuery, useSubscription } from "@apollo/client";
 import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer";
 import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
 import { warehouse } from "../../components/StreamWearhouse.js"; // Ensure this matches your export
-
 
 const GET_MY_NEIGHBORHOODS = gql`
   query GetMyNeighborhoods {
@@ -76,7 +83,7 @@ const fetchChunkBytes = async (chunk, torrentClient, maxRetries = 5) => {
   for (let i = 0; i < maxRetries; i++) {
     try {
       // Build the URL with the index and the hash backup
-        const url = `${API_BASE}/api/live-chunk/${sessionId}/${chunkIndex}?hash=${infoHash}`;
+      const url = `${API_BASE}/api/live-chunk/${sessionId}/${chunkIndex}?hash=${infoHash}`;
 
       const response = await fetch(url);
 
@@ -158,40 +165,41 @@ function Livestream({ stream }) {
   );
 
   // --- 3. SYNC INITIAL CHUNKS TO UI ---
-useEffect(() => {
-  const syncInitialChunks = async () => {
-    if (initialData?.streamChunks) {
-      const chunks = [...initialData.streamChunks].sort(
-        (a, b) => a.chunkIndex - b.chunkIndex
-      );
-
-      // Update UI list
-      setLiveChunks(chunks);
-
-      // 🚀 THE MISSING LINK: Actually fetch the bytes for these chunks
-      for (const chunk of chunks) {
-        const index = chunk.fileType === "video_header" ? -1 : chunk.chunkIndex;
-
-        // Skip if already in warehouse
-        if (availableInWarehouse.includes(index)) continue;
-
-        const videoBytes = await fetchChunkBytes(
-          { ...chunk, chunkIndex: index },
-          torrentClientRef.current
+  useEffect(() => {
+    const syncInitialChunks = async () => {
+      if (initialData?.streamChunks) {
+        const chunks = [...initialData.streamChunks].sort(
+          (a, b) => a.chunkIndex - b.chunkIndex
         );
 
-        if (videoBytes) {
-          await warehouse.saveChunk(index, videoBytes);
-          setAvailableInWarehouse((prev) =>
-            [...new Set([...prev, index])].sort((a, b) => a - b)
+        // Update UI list
+        setLiveChunks(chunks);
+
+        // 🚀 THE MISSING LINK: Actually fetch the bytes for these chunks
+        for (const chunk of chunks) {
+          const index =
+            chunk.fileType === "video_header" ? -1 : chunk.chunkIndex;
+
+          // Skip if already in warehouse
+          if (availableInWarehouse.includes(index)) continue;
+
+          const videoBytes = await fetchChunkBytes(
+            { ...chunk, chunkIndex: index },
+            torrentClientRef.current
           );
+
+          if (videoBytes) {
+            await warehouse.saveChunk(index, videoBytes);
+            setAvailableInWarehouse((prev) =>
+              [...new Set([...prev, index])].sort((a, b) => a - b)
+            );
+          }
         }
       }
-    }
-  };
+    };
 
-  syncInitialChunks();
-}, [initialData]);
+    syncInitialChunks();
+  }, [initialData]);
 
   const clearProcessedChunk = useCallback((chunkId) => {
     setLiveChunks((prev) => prev.filter((c) => c.id !== chunkId));
@@ -260,7 +268,9 @@ export default function LivestreamScreen() {
     return (
       <View style={styles.container}>
         <Text style={styles.text}>Error loading data.</Text>
-        {streamsError && <Text style={styles.text}>{streamsError.message}</Text>}
+        {streamsError && (
+          <Text style={styles.text}>{streamsError.message}</Text>
+        )}
         {hoodsError && <Text style={styles.text}>{hoodsError.message}</Text>}
         {meError && <Text style={styles.text}>{meError.message}</Text>}
       </View>
@@ -281,7 +291,6 @@ export default function LivestreamScreen() {
       </View>
     );
   }
-  
 
   return (
     <ScrollView style={styles.scrollView}>
@@ -294,14 +303,21 @@ export default function LivestreamScreen() {
             {neighborhoods.map((hood) => (
               <TouchableOpacity
                 key={hood.id}
-                style={[styles.pickerItem, selectedHood === hood.id && styles.pickerItemSelected]}
+                style={[
+                  styles.pickerItem,
+                  selectedHood === hood.id && styles.pickerItemSelected,
+                ]}
                 onPress={() => setSelectedHood(hood.id)}
               >
                 <Text style={styles.pickerItemText}>{hood.name}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <TouchableOpacity style={styles.goLiveButton} onPress={handleGoLive} disabled={!selectedHood}>
+          <TouchableOpacity
+            style={styles.goLiveButton}
+            onPress={handleGoLive}
+            disabled={!selectedHood}
+          >
             <Text style={styles.goLiveButtonText}>Go Live</Text>
           </TouchableOpacity>
         </View>
@@ -324,10 +340,10 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 10,
     alignItems: "center",
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
   },
   scrollView: {
-    backgroundColor: "#000",
+    backgroundColor: "#130720",
   },
   title: {
     fontSize: 24,
@@ -343,7 +359,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 600,
     borderWidth: 1,
-    borderColor: "#333",
+    borderColor: "#130720",
     borderRadius: 8,
     padding: 10,
   },
@@ -359,26 +375,26 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   pickerContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
     marginBottom: 10,
   },
   pickerItem: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#333',
+    backgroundColor: "#130720",
     borderRadius: 20,
     margin: 5,
   },
   pickerItemSelected: {
-    backgroundColor: '#00ffff',
+    backgroundColor: "#00ffff",
   },
   pickerItemText: {
-    color: 'white',
+    color: "white",
   },
   goLiveButton: {
-    backgroundColor: "#ff4444",
+    backgroundColor: "#151159",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
