@@ -33,6 +33,7 @@ class StreamController {
     this.video = document.createElement("video");
     this.video.setAttribute("playsinline", "true");
     this.video.setAttribute("webkit-playsinline", "true");
+    this.video.disableRemotePlayback = true;
     this.video.muted = true;
     this.video.autoplay = true;
     this.video.controls = true;
@@ -40,6 +41,9 @@ class StreamController {
     this.video.style.height = "100%";
     this.video.style.backgroundColor = "black";
 
+    if (window.ManagedMediaSource) {
+      this.video.setAttribute("disableRemotePlayback", "true");
+    }
     // 4. Handlers
     const openEvt = window.ManagedMediaSource
       ? "managedsourceopen"
@@ -333,23 +337,26 @@ useEffect(() => {
   const handleJoinStream = async () => {
     addLog("🚀 Manual Join Triggered...");
 
-    // 🛑 THE FIX: Clear the local warehouse before starting the engine
-    // This ensures no 'Old Shirt' chunks are sitting in IndexedDB/RAM
-    if (warehouse.clear) {
-      await warehouse.clear();
-    }
-
+    // 1. IMMEDIATE: Create the engine and bind it to the video
+    // without any 'await' beforehand. This preserves the iPhone click gesture.
     const controller = new StreamController(sessionId, addLog, () => {});
 
-    // iPhone requirement: Attach video to DOM BEFORE setting src
     if (containerRef.current) {
       containerRef.current.appendChild(controller.video);
     }
 
-    // Attach source after DOM placement
+    // 2. IMMEDIATE: Link the source. The iPhone sees this as
+    // part of the same click event.
     controller.video.src = URL.createObjectURL(controller.ms);
     controllerRef.current = controller;
     setIsJoined(true);
+
+    // 3. BACKGROUND: Now that the player is technically "started,"
+    // we can clean up the old data.
+    if (warehouse.clear) {
+      addLog("🧹 Cleaning warehouse in background...");
+      await warehouse.clear();
+    }
 
     await controller.sweepWarehouse();
     if (initialChunks.length > 0) controller.addChunks(initialChunks);
