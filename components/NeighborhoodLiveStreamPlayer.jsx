@@ -80,14 +80,22 @@ class StreamController {
   }
 
   async sweepWarehouse() {
+    this.addLog("🧹 Checking warehouse...");
     const header = await warehouse.getChunk(this.sessionId, -1);
+
     if (header) {
       this.addLog("🎯 Found Header in Warehouse");
-      this.detectedMimeType = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
-      this.setupMagnet = "cached"; // 🚀 CRITICAL: This allows the tick() logic to pass
-      if (this.ms.readyState === "open") this.createSourceBuffer();
+
+      // 🚀 NEW: Try to get the mimeType from the stored data if possible
+      // If your warehouse doesn't store mimeType, we'll use the Apple-Safe default
+      this.detectedMimeType =
+        header.mimeType || 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
+      this.setupMagnet = "cached";
+
+      if (this.ms.readyState === "open") {
+        this.createSourceBuffer();
+      }
     }
-    this.tick();
   }
 
   addChunks(chunks) {
@@ -118,9 +126,30 @@ class StreamController {
       return;
     }
 
+    // Inside tick()
     if (!this.sb && this.detectedMimeType) {
-      this.addLog("🛠️ Tick: Attempting late SourceBuffer creation...");
-      this.createSourceBuffer();
+      try {
+        // 🔍 PROBE: Ask the iPhone if it actually supports this string
+        const support = MediaSource.isTypeSupported(this.detectedMimeType);
+        this.addLog(`🧪 Codec Probe (${this.detectedMimeType}): ${support}`);
+
+        if (!support) {
+          // If the iPhone hates the string, try the most common "Apple-Safe" fallback
+          this.detectedMimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+          this.addLog("🔄 Switching to Apple-Safe Fallback codec");
+        }
+
+        this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
+        this.sb.mode = "sequence";
+        this.addLog("🛠️ SourceBuffer Created successfully");
+
+        this.sb.addEventListener("updateend", () => {
+          this.isProcessing = false;
+          this.tick();
+        });
+      } catch (e) {
+        this.addLog("❌ SourceBuffer Fail: " + e.message);
+      }
     }
 
     if (!this.sb) {
