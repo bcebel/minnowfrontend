@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   header: {
-    padding: 20,
+    padding: 10,
     paddingBottom: 10,
     backgroundColor: "#130720",
     borderBottomWidth: 2,

@@ -11,6 +11,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
+        headerShown: false,
         // Minimal height with big fonts
         tabBarStyle: {
           height: Platform.OS === "ios" ? 80 : 80, // Reduced height
