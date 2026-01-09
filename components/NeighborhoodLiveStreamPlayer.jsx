@@ -64,38 +64,54 @@ class StreamController {
   }
 
   createSourceBuffer() {
-    if (this.sb || !this.detectedMimeType || this.ms.readyState !== "open")
+    if (this.sb || !this.detectedMimeType || this.ms.readyState !== "open") {
+      // Log why we aren't creating it
+      if (!this.detectedMimeType) console.log("Waiting for MimeType...");
+      if (this.ms.readyState !== "open")
+        console.log("MediaSource not open yet:", this.ms.readyState);
       return;
+    }
+
     try {
+      this.addLog(`🛠️ Attempting SourceBuffer: ${this.detectedMimeType}`);
       this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
       this.sb.mode = "sequence";
-      this.addLog("🛠️ SourceBuffer Created");
+
       this.sb.addEventListener("updateend", () => {
         this.isProcessing = false;
         this.tick();
       });
+      this.addLog("✅ SourceBuffer Created!");
     } catch (e) {
-      this.addLog("❌ Buffer Error: " + e.message);
+      this.addLog("❌ SB Error: " + e.message);
+      // FALLBACK: If Safari hates the codec, try the most generic one
+      if (
+        this.detectedMimeType !== 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'
+      ) {
+        this.detectedMimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+        this.createSourceBuffer();
+      }
     }
   }
 
   async sweepWarehouse() {
-    this.addLog("🧹 Checking warehouse...");
     const header = await warehouse.getChunk(this.sessionId, -1);
-
     if (header) {
-      this.addLog("🎯 Found Header in Warehouse");
+      this.addLog("🎯 Header found in Warehouse");
 
-      // 🚀 NEW: Try to get the mimeType from the stored data if possible
-      // If your warehouse doesn't store mimeType, we'll use the Apple-Safe default
-      this.detectedMimeType =
-        header.mimeType || 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
+      // FORCE a MimeType if we don't have one, otherwise createSourceBuffer will never run
+      if (!this.detectedMimeType) {
+        this.detectedMimeType = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
+      }
+
       this.setupMagnet = "cached";
 
+      // On Safari, we must try to create the buffer the MOMENT the header is found
       if (this.ms.readyState === "open") {
         this.createSourceBuffer();
       }
     }
+    this.tick();
   }
 
   addChunks(chunks) {
