@@ -94,7 +94,7 @@ export default function NeighborhoodsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>🏘️ My Neighborhoods</Text>
+      <Text style={styles.header}>🏘️ My Bubbles</Text>
 
       <View style={styles.actions}>
         <TouchableOpacity
@@ -102,7 +102,7 @@ export default function NeighborhoodsScreen() {
           onPress={() => router.push(`/neighborhoods/all`)} // You'll need to create this page
         >
           <Text style={styles.browseButtonText}>
-            🔍 Browse All Neighborhoods
+            🔍 Browse All Bubbles
           </Text>
         </TouchableOpacity>
 
@@ -111,29 +111,29 @@ export default function NeighborhoodsScreen() {
           onPress={() => router.push(`/neighborhoods/create`)}
         >
           <Text style={styles.createButtonText}>
-            ➕ Create New Neighborhood
+            ➕ Create New Bubble
           </Text>
         </TouchableOpacity>
       </View>
 
       <Text style={styles.subtitle}>
-        {neighborhoods.length} neighborhood(s) you're a member of
+        {neighborhoods.length} bubble(s) you're a member of
       </Text>
 
       {neighborhoods.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>
-            You haven't joined any neighborhoods yet.
+            You haven't joined any bubbles yet.
           </Text>
           <Text style={styles.emptyStateSubtext}>
-            Join neighborhoods to see them listed here.
+            Join bubbles to see them listed here.
           </Text>
           <TouchableOpacity
             style={styles.browseButton}
             onPress={() => router.push(`/neighborhoods/all`)}
           >
             <Text style={styles.browseButtonText}>
-              Browse Neighborhoods to Join
+              Browse Bubbles to Join
             </Text>
           </TouchableOpacity>
         </View>

@@ -246,7 +246,7 @@ export default function LivestreamScreen() {
     if (selectedHood) {
       setIsRecording(true);
     } else {
-      alert("Please select a neighborhood to start a livestream.");
+      alert("Please select a bubble to start a livestream.");
     }
   };
 
@@ -298,7 +298,7 @@ export default function LivestreamScreen() {
         <Text style={styles.title}>Livestreams</Text>
 
         <View style={styles.controlsContainer}>
-          <Text style={styles.text}>Select a neighborhood to stream to:</Text>
+          <Text style={styles.text}>Select a bubble to stream to:</Text>
           <View style={styles.pickerContainer}>
             {neighborhoods.map((hood) => (
               <TouchableOpacity

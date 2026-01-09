@@ -321,7 +321,7 @@ export default function AllNeighborhoodsGallery() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>All Neighborhoods Gallery</Text>
+        <Text style={styles.headerTitle}>All Bubbles Gallery</Text>
         <Text style={styles.headerSubtitle}>
           {totalCount} items • {videoCount} videos • {imageCount} images
         </Text>
