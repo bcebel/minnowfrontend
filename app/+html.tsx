@@ -18,7 +18,6 @@ export default function Root({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
         />
         <ScrollViewStyleReset />
-
         {/* Primary Meta Tags */}
         <title>{title}</title>
         <meta name="title" content={title} />
@@ -29,7 +28,6 @@ export default function Root({ children }: PropsWithChildren) {
         />
         <meta name="author" content="BubbleBase" />
         <meta name="robots" content="index, follow" />
-
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content={url} />
@@ -49,7 +47,6 @@ export default function Root({ children }: PropsWithChildren) {
         <meta property="twitter:description" content={description} />
         <meta property="twitter:image" content={image} />
         <meta property="twitter:creator" content="@bubblebase" />
-
         {/* Schema.org structured data */}
         <script
           type="application/ld+json"
@@ -82,7 +79,6 @@ export default function Root({ children }: PropsWithChildren) {
             }),
           }}
         />
-
         {/* Additional Schema for Organization */}
         <script
           type="application/ld+json"
@@ -106,7 +102,6 @@ export default function Root({ children }: PropsWithChildren) {
             }),
           }}
         />
-
         {/* Preconnect for performance */}
         <link rel="preconnect" href="https://cdn.jsdelivr.net" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -115,7 +110,6 @@ export default function Root({ children }: PropsWithChildren) {
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
-
         {/* Favicon */}
         <link rel="icon" href="/favicon.ico" />
         <link
@@ -142,6 +136,18 @@ export default function Root({ children }: PropsWithChildren) {
         <script
           dangerouslySetInnerHTML={{
             __html: `
+            if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').then(
+            function(registration) {
+              console.log('ServiceWorker registration successful');
+            },
+            function(err) {
+              console.log('ServiceWorker registration failed: ', err);
+            }
+          );
+        });
+      }
   // 1. FORCE MEMORY STORAGE (Critical for iOS stability)
   // This prevents QuotaExceededError and IndexedDB crashes
   window.WEBTORRENT_ANONYMOUS = true; 
@@ -177,14 +183,15 @@ export default function Root({ children }: PropsWithChildren) {
 `,
           }}
         />
-
         {/* Additional SEO Meta */}
-        <meta name="theme-color" content="#20B2AA" />
+        <meta name="theme-color" content="#1C0A2E" />
         <meta name="msapplication-TileColor" content="#20B2AA" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
         <meta name="format-detection" content="telephone=no" />
-
         {/* Canonical URL */}
         <link rel="canonical" href={url} />
         <meta

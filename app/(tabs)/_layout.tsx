@@ -4,37 +4,39 @@ import { Platform } from "react-native";
 import { HapticTab } from "@/components/HapticTab";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+    const insets = useSafeAreaInsets();
 
-  return (
+return (
     <Tabs
       screenOptions={{
-        headerShown: false,
-        // Minimal height with big fonts
+        headerShown: false, // Hide headers since tabs show location
         tabBarStyle: {
-          height: Platform.OS === "ios" ? 80 : 80, // Reduced height
-          paddingBottom: 0, // Remove bottom padding
-          paddingTop: 0, // Remove top padding
+          // Apply safe area to bottom
+          height: Platform.OS === "ios" ? 80 + insets.bottom : 80,
+          paddingBottom: Platform.OS === "ios" ? insets.bottom : 0,
+          paddingTop: 0,
+          backgroundColor: '#1C0A2E',
         },
-        // Big font size with minimal margins
         tabBarLabelStyle: {
-          fontSize: 36, // Large font size
+          fontSize: 36,
           fontWeight: "500",
-          marginTop: -30, // Remove top margin
+          marginTop: -30,
           color: "#ff0000",
-          includeFontPadding: false, // Remove font padding
-          lineHeight: 40, // Match font size
+          includeFontPadding: false,
+          lineHeight: 40,
         },
-        // Minimal tab item styling
         tabBarItemStyle: {
-          minHeight: 0, // No minimum height
-          paddingVertical: 0, // No vertical padding
+          minHeight: 0,
+          paddingVertical: 0,
           justifyContent: "center",
           alignItems: "center",
         },
       }}
+    
     >
       <Tabs.Screen
         name="index"

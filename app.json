@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "gigunit",
-    "slug": "gigunit",
+    "name": "BubbleBase",
+    "slug": "bubblebase",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/bubble.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -31,10 +31,45 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
       "favicon": "./assets/images/favicon.png",
       "build": {
         "publicFolder": "public"
+      },
+      "manifest": {
+        "name": "BubbleBase - Digital Neighborhoods",
+        "short_name": "BubbleBase",
+        "description": "A private social network where you control your privacy...",
+        "theme_color": "#1C0A2E",
+        "background_color": "#1C0A2E",
+        "display": "standalone",
+        "scope": "/",
+        "start_url": "/",
+        "icons": [
+          {
+            "src": "./assets/images/favicon-96x96.png",
+            "type": "image/png",
+            "sizes": "96x96",
+            "purpose": "any maskable"
+          },
+          {
+            "src": "./assets/images/web-app-manifest-128x128.png",
+            "type": "image/png",
+            "sizes": "128x128",
+            "purpose": "any maskable"
+          },
+          {
+            "src": "./assets/images/web-app-manifest-192x192.png",
+            "type": "image/png",
+            "sizes": "192x192",
+            "purpose": "any maskable"
+          },
+          {
+            "src": "./assets/images/web-app-manifest-512X512.png",
+            "type": "image/png",
+            "sizes": "512x512",
+            "purpose": "any maskable"
+          }
+        ]
       }
     },
     "plugins": [
@@ -70,7 +105,7 @@
           "backgroundColor": "#F5F2FA"
         }
       ],
-      "expo-video",
+
       "expo-secure-store",
       [
         "expo-image-picker",
@@ -79,9 +114,7 @@
         }
       ],
       "expo-font",
-      "expo-web-browser",
-      "react-native-edge-to-edge"
-    ],
+      "expo-web-browser"    ],
     "experiments": {
       "typedRoutes": true
     },

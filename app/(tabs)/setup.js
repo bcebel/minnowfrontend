@@ -285,12 +285,9 @@ export default function ProfileSetupScreen() {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Your Profile Setup</Text>
-
-      {/* 🚀 CURRENT SETUP DISPLAY 🚀 */}
       <View style={styles.currentSection}>
         <Text style={styles.sectionTitle}>Current Live Setup</Text>
 
-        {/* Profile Photo Display (Uses bio and profilePhotoCid) */}
         <View style={styles.photoDisplaySection}>
           <Text style={styles.label}>Profile Photo:</Text>
           {photoUrl ? (
@@ -307,7 +304,6 @@ export default function ProfileSetupScreen() {
           )}
         </View>
 
-        {/* Bio Display (Uses bio) */}
         <View style={styles.bioSection}>
           <Text style={styles.label}>Bio:</Text>
           {bio ? (
@@ -317,17 +313,13 @@ export default function ProfileSetupScreen() {
           )}
         </View>
 
-        {/* Affiliate Links Display (FIXED filter) */}
         <View style={styles.linksSection}>
           <Text style={styles.label}>Affiliate Links:</Text>
-          {/* We now check if the link has content by reading the 'rawHtml' field, 
-              which contains the data loaded from the database's 'url' field. */}
           {affiliateLinks.filter((l) => l.rawHtml && l.rawHtml.trim()).length >
           0 ? (
             affiliateLinks
               .filter((l) => l.rawHtml && l.rawHtml.trim())
               .map((link, index) => {
-                // Extract preview info
                 let previewText = "HTML Link Snippet";
                 let hasImage = link.rawHtml.includes("<img");
 
@@ -377,15 +369,12 @@ export default function ProfileSetupScreen() {
               })
           ) : (
             <Text style={styles.noData}>No affiliate links set</Text>
-          )}{" "}
+          )}
         </View>
       </View>
 
-      {/* 🛠️ UPDATE FORM (Editable Inputs) 🛠️ */}
       <View style={styles.formSection}>
-        <Text style={styles.sectionTitle}>Update Profile Settings</Text>
-        {/* Photo Upload Button */}
-        <TouchableOpacity
+        <Text style={styles.sectionTitle}>Update Profile Settings</Text>        <TouchableOpacity
           style={styles.uploadButton}
           onPress={pickImage}
           disabled={uploading}
@@ -400,7 +389,6 @@ export default function ProfileSetupScreen() {
             </Text>
           )}
         </TouchableOpacity>
-        {/* Bio Input */}
         <TextInput
           style={styles.bioInput}
           placeholder="Update your bio..."
@@ -414,7 +402,6 @@ export default function ProfileSetupScreen() {
         />
         <Text style={styles.charCount}>{bio.length}/500</Text>
 
-        {/* Affiliate Links Input (SINGLE INPUT RESTORED) */}
         <Text style={styles.label}>Paste Affiliate HTML Code Snippet:</Text>
         {affiliateLinks.map((link, index) => (
           <View key={index} style={styles.linkInputGroup}>
