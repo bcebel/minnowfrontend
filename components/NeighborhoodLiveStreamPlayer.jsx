@@ -320,7 +320,8 @@ class StreamController {
     });
 
     if (p2pData) {
-      await warehouse.saveChunk(index, p2pData);
+      this.addLog(`💎 P2P WIN: Saved $ by getting Chunk ${index} from Swarm!`); // Add this!
+      await warehouse.saveChunk(index, p2pData)
       return p2pData;
     }
 

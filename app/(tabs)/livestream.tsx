@@ -277,6 +277,9 @@ export default function LivestreamScreen() {
 
   const activeStreams = streamsData?.streams || [];
   const neighborhoods = hoodsData?.myNeighborhoods || [];
+  const filteredStreams = selectedHood
+    ? activeStreams.filter((s) => s.neighborhood.id === selectedHood)
+    : activeStreams;
 
   if (isRecording) {
     return (
@@ -321,12 +324,12 @@ export default function LivestreamScreen() {
         </View>
 
         <Text style={styles.title}>Active Livestreams</Text>
-        {activeStreams.length > 0 ? (
-          activeStreams.map((stream) => (
+        {filteredStreams.length > 0 ? (
+          filteredStreams.map((stream) => (
             <Livestream key={stream.id} stream={stream} />
           ))
         ) : (
-          <Text style={styles.text}>No active livestreams.</Text>
+          <Text style={styles.text}>No active livestreams in this bubble.</Text>
         )}
       </View>
     </ScrollView>
