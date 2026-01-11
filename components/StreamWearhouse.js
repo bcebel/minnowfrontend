@@ -62,6 +62,20 @@ class StreamWarehouse {
     };
   }
 
+  // StreamWearhouse.js
+  async clearOldSessions(activeSessionIds) {
+    const db = await this.dbPromise;
+    const allKeys = await db.getAllKeys("chunks");
+
+    // A key looks like "session123_chunk_5"
+    for (const key of allKeys) {
+      const sessionId = key.split("_")[0];
+      if (!activeSessionIds.includes(sessionId)) {
+        await db.delete("chunks", key);
+        console.log(`🧹 Janitor: Deleted stale data for session ${sessionId}`);
+      }
+    }
+  }
   // Prevents the "Infinite Storage" bug on iPhones
   async deleteOldChunks(keepAfterIndex) {
     const db = await this._getDB();

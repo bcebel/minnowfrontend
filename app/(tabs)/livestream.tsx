@@ -110,96 +110,94 @@ const fetchChunkBytes = async (chunk, torrentClient, maxRetries = 5) => {
 };
 
 function Livestream({ stream }) {
-  // --- 1. STATE & REFS (Now inside the component) ---
   const [liveChunks, setLiveChunks] = useState([]);
   const [availableInWarehouse, setAvailableInWarehouse] = useState([]);
   const torrentClientRef = useRef(null);
 
-  // --- 2. QUERIES & SUBSCRIPTIONS ---
+  // Use this for the logs/engine check
+  const sessionId = stream.sessionId;
+
+  // --- 1. INITIAL FETCH (The Past) ---
   const { data: initialData } = useQuery(GET_LIVESTREAM_CHUNKS, {
-    variables: { sessionId: stream.sessionId },
-    skip: !stream.sessionId,
+    variables: { sessionId },
+    skip: !sessionId,
   });
 
+  // --- 2. SUBSCRIPTION (The Future) ---
   const { data: subscriptionData } = useSubscription(
     LIVESTREAM_CHUNK_SUBSCRIPTION,
     {
-      variables: { sessionId: stream.sessionId },
-      skip: !stream.sessionId,
-      // livestream.tsx
+      variables: { sessionId },
+      skip: !sessionId,
       onData: async ({ data }) => {
         const newChunk = data.data?.livestreamChunkAdded;
         if (!newChunk) return;
 
-        // 1. STRICT SESSION LOCK: Only process if it matches the current stream
-        if (newChunk.sessionId !== stream.sessionId) {
-          console.warn(
-            `Ignoring chunk from session ${newChunk.sessionId} (Expected ${stream.sessionId})`
-          );
-          return;
-        }
-
         const index =
           newChunk.fileType === "video_header" ? -1 : newChunk.chunkIndex;
 
-        // 2. DUPLICATE CHECK: Don't re-fetch what we already have
-        if (availableInWarehouse.includes(index)) {
-          return;
-        }
+        // Skip if we already have it
+        if (availableInWarehouse.includes(index)) return;
 
-        // 3. FETCH: Using your bulletproof fetchChunkBytes (with the hash backup)
+        console.log(`🕵️ Scout (New): Pre-fetching chunk ${index}...`);
         const videoBytes = await fetchChunkBytes(
           { ...newChunk, chunkIndex: index },
           torrentClientRef.current
         );
 
         if (videoBytes) {
-          await warehouse.saveChunk(stream.sessionId, index, videoBytes);
+          await warehouse.saveChunk(sessionId, index, videoBytes);
           setAvailableInWarehouse((prev) =>
             [...new Set([...prev, index])].sort((a, b) => a - b)
           );
-          console.log(`📦 Warehouse updated with chunk: ${index}`);
+          // If the UI needs to see it in the list
+          setLiveChunks((prev) => [...prev, newChunk]);
         }
       },
     }
   );
 
-  // --- 3. SYNC INITIAL CHUNKS TO UI ---
+  // --- 3. SYNC INITIAL DATA (The past) ---
   useEffect(() => {
-    const syncInitialChunks = async () => {
-      if (initialData?.streamChunks) {
-        const chunks = [...initialData.streamChunks].sort(
-          (a, b) => a.chunkIndex - b.chunkIndex
-        );
+const syncInitial = async () => {
+  const existingChunks = initialData?.streamChunks || [];
+  if (existingChunks.length === 0) return;
 
-        // Update UI list
-        setLiveChunks(chunks);
+  setLiveChunks(existingChunks);
 
-        // 🚀 THE MISSING LINK: Actually fetch the bytes for these chunks
-        for (const chunk of chunks) {
-          const index =
-            chunk.fileType === "video_header" ? -1 : chunk.chunkIndex;
+  // 🎯 SELECTIVE SCOUT: Only pre-fetch the absolute essentials
+  // This keeps the "Join" instant without wasting data on 5 different streams.
+  const essentialChunks = existingChunks.filter(
+    (c) => c.fileType === "video_header" || c.chunkIndex === 0
+  );
 
-          // Skip if already in warehouse
-          if (availableInWarehouse.includes(index)) continue;
+  for (const chunk of essentialChunks) {
+    const index = chunk.fileType === "video_header" ? -1 : chunk.chunkIndex;
 
-          const videoBytes = await fetchChunkBytes(
-            { ...chunk, chunkIndex: index },
-            torrentClientRef.current
-          );
+    // Check availableInWarehouse state instead of hitting IndexedDB every time
+    if (availableInWarehouse.includes(index)) continue;
 
-          if (videoBytes) {
-            await warehouse.saveChunk(index, videoBytes);
-            setAvailableInWarehouse((prev) =>
-              [...new Set([...prev, index])].sort((a, b) => a - b)
-            );
-          }
-        }
-      }
-    };
+    console.log(`🕵️ Scout (Essential Only): Pre-fetching chunk ${index}...`);
 
-    syncInitialChunks();
-  }, [initialData]);
+    const videoBytes = await fetchChunkBytes(
+      { ...chunk, chunkIndex: index },
+      torrentClientRef.current
+    );
+
+    if (videoBytes) {
+      await warehouse.saveChunk(sessionId, index, videoBytes);
+      setAvailableInWarehouse((prev) =>
+        [...new Set([...prev, index])].sort((a, b) => a - b)
+      );
+    }
+  }
+  // ✋ "Stop here" means we do NOT loop through the rest of 'existingChunks'
+  // until the user is actually watching.
+};
+    syncInitial();
+    if (sessionId) syncInitial();
+  }, [initialData, sessionId]); // Only runs when initialData loads
+
 
   const clearProcessedChunk = useCallback((chunkId) => {
     setLiveChunks((prev) => prev.filter((c) => c.id !== chunkId));

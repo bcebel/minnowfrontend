@@ -21,7 +21,7 @@ class StreamController {
     this.isProcessing = false;
     this.chunkQueue = new Map();
     this.setupMagnet = null;
-    this.detectedMimeType = null;
+    this.detectedMimeType = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"'; // Default Apple-Safe codec
     this.CHUNK_DURATION = 8;
 
     // 2. MediaSource Setup
@@ -40,38 +40,40 @@ class StreamController {
     this.video.style.width = "100%";
     this.video.style.height = "100%";
     this.video.style.backgroundColor = "black";
-    // Inside the constructor
-    this.ms.addEventListener("sourceopen", () => {
-      this.addLog("✅ MediaSource Open");
-      // 🚀 THE FIX: Instead of just waiting for a tick,
-      // immediately try to find the header and start.
-      this.sweepWarehouse();
-    });
 
-    // Add a "Re-Sync" check to your watchdog
-    this.watchdog = setInterval(() => {
-      if (this.headerLoaded && !this.isProcessing) {
-        this.tick();
-      } else if (!this.headerLoaded) {
-        // If we are joined but no video is playing, keep hunting for that header
-        this.sweepWarehouse();
-      }
-    }, 2000);
     if (window.ManagedMediaSource) {
       this.video.setAttribute("disableRemotePlayback", "true");
     }
-    // 4. Handlers
+
+    // 4. Unified SourceOpen Handler
     const openEvt = window.ManagedMediaSource
       ? "managedsourceopen"
       : "sourceopen";
     this.ms.addEventListener(openEvt, () => {
       this.addLog("✅ MediaSource Open");
-      if (this.detectedMimeType) this.createSourceBuffer();
-      this.tick();
+      this.sweepWarehouse(); // Immediately look for the header once open
     });
 
-    // Watchdog to prevent stalls
-    this.watchdog = setInterval(() => this.tick(), 3000);
+    // 5. THE WATCHDOG (The Hungry Manager)
+    // This runs every 2 seconds to bridge gaps or find pre-fetched data
+    this.watchdog = setInterval(async () => {
+      if (!this.headerLoaded) {
+        // Still looking for the start of the stream...
+        await this.sweepWarehouse();
+      } else if (!this.isProcessing) {
+        // Header is in, let's see if the next chunk is ready in the warehouse
+        const nextData = await warehouse.getChunk(
+          this.sessionId,
+          this.nextIndex
+        );
+        if (nextData) {
+          this.addLog(
+            `📦 Watchdog found chunk ${this.nextIndex} in warehouse.`
+          );
+          this.tick(); // Trigger processing
+        }
+      }
+    }, 2000);
   }
 
   forceTick() {
@@ -231,6 +233,12 @@ class StreamController {
     );
 
     if (this.headerLoaded && (hasInQueue || hasInWarehouse)) {
+      // 🚦 STOP! Check if the hardware is still busy with the previous chunk
+      if (this.sb.updating || this.isProcessing) {
+        // If we log this every time, it gets annoying, so we just return silently.
+        // The watchdog or the updateend event will trigger tick() again soon.
+        return;
+      }
       this.isProcessing = true;
 
       // If it's in the warehouse, we don't need the magnet
@@ -238,25 +246,32 @@ class StreamController {
         ? "cached"
         : this.chunkQueue.get(this.nextIndex);
 
-      try {
-        this.addLog(`🔍 Attempting to append Chunk ${this.nextIndex}...`);
-        const buf = await this.download(magnet, this.nextIndex);
+  try {
+    this.addLog(`🔍 Attempting to append Chunk ${this.nextIndex}...`);
+    const buf = await this.download(magnet, this.nextIndex);
 
-        if (buf) {
-          this.sb.appendBuffer(buf);
-          this.addLog(`🎬 Appended Chunk ${this.nextIndex} to SourceBuffer`);
-          this.nextIndex++; // Move to the next one (e.g., from 0 to 1)
+    if (buf) {
+      // 🛑 SECONDARY SAFETY: Check one last time before appending
+      if (!this.sb.updating) {
+        this.sb.appendBuffer(buf);
+        this.addLog(`🎬 Appended Chunk ${this.nextIndex}`);
 
-          // If we were behind, this will trigger the next chunk immediately
-        } else {
-          this.isProcessing = false;
-          this.addLog(`⚠️ Download returned empty for Chunk ${this.nextIndex}`);
-        }
-      } catch (e) {
-        this.addLog(`❌ Chunk ${this.nextIndex} Append Error: ` + e.message);
-        this.isProcessing = false;
+        // 🔓 THE KEY: We only move to nextIndex after 'updateend' fires.
+        // You already have a listener for this in createSourceBuffer()
+        // that sets isProcessing = false and calls tick()
+        this.nextIndex++;
+      } else {
+        this.isProcessing = false; // Release lock so it can try again
       }
-      return;
+    } else {
+      this.isProcessing = false;
+      this.addLog(`⚠️ Download returned empty for Chunk ${this.nextIndex}`);
+    }
+  } catch (e) {
+    this.addLog(`❌ Chunk ${this.nextIndex} Append Error: ` + e.message);
+    this.isProcessing = false;
+  }
+  return;
     } else if (this.headerLoaded) {
       // This log helps us see if the engine is "waiting" for a specific number
       this.addLog(`⏳ Engine idle: Waiting for Chunk ${this.nextIndex}`);
@@ -395,32 +410,28 @@ export default function NeighborhoodLiveStreamPlayer({
       controllerRef.current.tick();
     }
   }, [isJoined, initialChunks, availableInWarehouse]); // <--- Watch the warehouse state
+
   const handleJoinStream = async () => {
-    addLog("🚀 Manual Join Triggered...");
+    addLog("🚀 Join Clicked: Waking up engine...");
 
-    // 1. IMMEDIATE: Create the engine and bind it to the video
-    // without any 'await' beforehand. This preserves the iPhone click gesture.
-    const controller = new StreamController(sessionId, addLog, () => {});
+    // 1. Create the engine (Preserves the iPhone click gesture)
+    const controller = new StreamController(sessionId, addLog);
 
+    // 2. Attach to DOM immediately
     if (containerRef.current) {
       containerRef.current.appendChild(controller.video);
     }
 
-    // 2. IMMEDIATE: Link the source. The iPhone sees this as
-    // part of the same click event.
+    // 3. Link the source (No 'await' gaps here!)
     controller.video.src = URL.createObjectURL(controller.ms);
     controllerRef.current = controller;
     setIsJoined(true);
 
-    // 3. BACKGROUND: Now that the player is technically "started,"
-    // we can clean up the old data.
-    if (warehouse.clear) {
-      addLog("🧹 Cleaning warehouse in background...");
-      await warehouse.clear();
-    }
-
+    // 4. THE MAGIC: Sweep the warehouse.
+    // Because the Scout started earlier, it will find the Header and Chunk 0 immediately.
     await controller.sweepWarehouse();
-    if (initialChunks.length > 0) controller.addChunks(initialChunks);
+
+    addLog("✅ Handshake complete. Playing from warehouse.");
   };
 
   return (
