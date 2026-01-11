@@ -164,7 +164,7 @@ class StreamController {
     if (!this.sb && this.detectedMimeType) {
       try {
         // 🔍 PROBE: Ask the iPhone if it actually supports this string
-        const support = MediaSource.isTypeSupported(this.detectedMimeType);
+       const support = this.MS.isTypeSupported(this.detectedMimeType);
         this.addLog(`🧪 Codec Probe (${this.detectedMimeType}): ${support}`);
 
         if (!support) {
