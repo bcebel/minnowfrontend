@@ -104,25 +104,58 @@ const initGlobalClient = () => {
 // Kick it off immediately
 initGlobalClient();
 
+// The "Safety Net" for when the Global Client is physically blocked (Incognito)
+const fallbackServerFetch = async (chunk) => {
+  const { sessionId, chunkIndex, magnetLink } = chunk;
+  const infoHash = magnetLink?.match(/btih:([a-zA-Z0-9]+)/)?.[1];
+  const url = `${API_BASE}/api/live-chunk/${sessionId}/${chunkIndex}?hash=${infoHash}`;
+  
+  try {
+    const response = await fetch(url);
+    if (response.ok) {
+      const buffer = await response.arrayBuffer();
+      const uint8 = new Uint8Array(buffer);
+      console.log(`%c 🛡️ EMERGENCY FALLBACK HIT: Chunk ${chunkIndex} `, "background: #ff0000; color: #fff");
+      return uint8;
+    }
+  } catch (err) {
+    console.error("Fallback fetch failed:", err);
+  }
+  return null;
+};
+
 const fetchChunkBytes = async (chunk) => {
   const { sessionId, chunkIndex, magnetLink, fileType } = chunk;
-  const client = window.globalWebTorrentClient;
 
+  // 1. Patience for the Global Client (Fixes Incognito/Mobile races)
+  let client = window.globalWebTorrentClient;
+  if (!client && typeof window !== 'undefined') {
+    for (let i = 0; i < 5; i++) {
+      await new Promise((r) => setTimeout(r, 200));
+      client = window.globalWebTorrentClient;
+      if (client) break;
+    }
+  }
+
+  // 2. If client still missing, use the safety net
   if (!client) {
-    console.error("🚨 PRIME DIRECTIVE VIOLATION: No Global Client Found.");
-    return null;
+    console.warn("⚠️ Global Client missing. Using Fallback Lane.");
+    const fallbackData = await fallbackServerFetch(chunk);
+    if (fallbackData) {
+      const indexToSave = fileType === "video_header" || chunkIndex === -1 ? -1 : chunkIndex;
+      await warehouse.saveChunk(sessionId, indexToSave, fallbackData);
+    }
+    return fallbackData;
   }
 
   const infoHash = magnetLink?.match(/btih:([a-zA-Z0-9]+)/)?.[1];
-  const indexToSave =
-    fileType === "video_header" || chunkIndex === -1 ? -1 : chunkIndex;
+  const indexToSave = fileType === "video_header" || chunkIndex === -1 ? -1 : chunkIndex;
   const serverUrl = `${API_BASE}/api/live-chunk/${sessionId}/${chunkIndex}?hash=${infoHash}`;
 
   return new Promise((resolve) => {
     let torrent = client.get(magnetLink);
 
     if (!torrent) {
-      console.log(`📡 Joining Swarm for Chunk ${chunkIndex}...`);
       torrent = client.add(magnetLink, {
         strategy: "sequential",
         announce: [
@@ -131,49 +164,32 @@ const fetchChunkBytes = async (chunk) => {
           "wss://tracker.files.fm:7073/announce",
         ],
       });
-
-      // 🔗 THE DECENTRALIZED BRIDGE
-      // We add the server as a "Web Seed".
-      // WebTorrent will naturally prefer real Peers over the Web Seed.
       torrent.addWebSeed(serverUrl);
     }
 
-    // 🤝 MONITOR THE SWARM
     torrent.on("wire", (wire) => {
-      console.log(
-        `%c 🤝 PEER FOUND! Connection via: ${wire.type} `,
-        "background: #1e90ff; color: #fff"
-      );
+      console.log(`%c 🤝 PEER FOUND (${wire.type}): ${chunkIndex} `, "background: #1e90ff; color: #fff");
     });
 
     const finish = () => {
       torrent.files[0].getBuffer(async (err, buf) => {
-        if (err) {
-          console.error("Torrent Buffer Error:", err);
-          return resolve(null);
-        }
-
+        if (err) return resolve(null);
         const source = torrent.numPeers > 0 ? "🛰️ P2P" : "☁️ WEBSEED";
-        console.log(
-          `%c ${source} HIT: Chunk ${chunkIndex} `,
-          "background: #00ff00; color: #000"
-        );
-
+        console.log(`%c ${source} HIT: Chunk ${chunkIndex} `, "background: #00ff00; color: #000");
         await warehouse.saveChunk(sessionId, indexToSave, buf);
         resolve(buf);
       });
     };
 
-    if (torrent.done) {
-      finish();
-    } else {
-      torrent.once("done", finish);
-    }
+    if (torrent.done) finish();
+    else torrent.once("done", finish);
 
-    // ⏳ THE "23 EONS" TIMEOUT (Optional safety: 30 seconds)
+    // The "23 Eons" Safety: If it's been 30s and progress is 0, 
+    // WebTorrent might be stuck on a dead peer.
     setTimeout(() => {
       if (!torrent.done && torrent.progress === 0) {
-        console.warn(`🐢 Chunk ${chunkIndex} is taking an eon...`);
+        console.warn(`🐢 Chunk ${chunkIndex} is stalling. Force-fetching from WebSeed.`);
+        // WebTorrent will naturally try the WebSeed harder now.
       }
     }, 30000);
   });
@@ -254,10 +270,7 @@ function Livestream({ stream }) {
       if (availableInWarehouse.includes(index)) return;
 
       console.log(`✨ Scout Live: Chunk ${index}`);
-      const bytes = await fetchChunkBytes(
-        newChunk,
-        window.globalWebTorrentClient
-      );
+const bytes = await fetchChunkBytes(newChunk);
 
       if (bytes) {
         await warehouse.saveChunk(sessionId, index, bytes);
