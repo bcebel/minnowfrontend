@@ -212,6 +212,24 @@ class StreamController {
 
   // 2. The tick() method needs a "Gatekeeper"
   async tick() {
+    // Inside tick()
+    if (this.headerLoaded && !this.isProcessing) {
+      const latestInQueue = Math.max(...Array.from(this.chunkQueue.keys()), -1);
+
+      // ⏩ THE JUMP: If we are more than 3 chunks behind the latest known chunk, skip ahead!
+      if (latestInQueue > this.nextIndex + 3) {
+        this.addLog(
+          `⏩ Jumping from ${this.nextIndex} to Live Edge: ${latestInQueue}`
+        );
+        this.nextIndex = latestInQueue;
+
+        // Clear the SourceBuffer to prevent the iPad from choking on old data
+        if (this.sb && !this.sb.updating) {
+          this.sb.abort(); // Stops current appends
+          this.addLog("🧹 Buffer reset for jump");
+        }
+      }
+    }
     // If hardware is busy, don't even look at the warehouse
     if (this.isProcessing || (this.sb && this.sb.updating)) return;
 

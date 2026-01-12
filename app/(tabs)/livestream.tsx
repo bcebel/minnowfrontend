@@ -188,34 +188,46 @@ function Livestream({ stream }) {
 
   // --- 3. SYNC INITIAL DATA (The past) ---
 useEffect(() => {
-  const syncInitial = async () => {
-    const existingChunks = initialData?.streamChunks || [];
-    if (existingChunks.length === 0) return;
+ const syncInitial = async () => {
+   const existingChunks = initialData?.streamChunks || [];
+   if (existingChunks.length === 0) return;
 
-    setLiveChunks(existingChunks);
+   setLiveChunks(existingChunks);
 
-    const essentialChunks = existingChunks.filter(
-      (c) => c.fileType === "video_header" || c.chunkIndex === 0
-    );
+   // 🎯 CATCH-UP LOGIC:
+   // We need the header (-1) and the most recent chunk index
+   const header = existingChunks.find((c) => c.fileType === "video_header");
+   const sortedChunks = [...existingChunks].sort(
+     (a, b) => b.chunkIndex - a.chunkIndex
+   );
+   const latestChunk = sortedChunks[0];
 
-    for (const chunk of essentialChunks) {
-      const index = chunk.fileType === "video_header" ? -1 : chunk.chunkIndex;
-      if (availableInWarehouse.includes(index)) continue;
+   const essentials = [];
+   if (header) essentials.push(header);
+   if (latestChunk && latestChunk.chunkIndex !== -1)
+     essentials.push(latestChunk);
 
-      // Passing the torrentClientRef.current here is the key to seeding
-      const videoBytes = await fetchChunkBytes(
-        { ...chunk, chunkIndex: index },
-        window.globalWebTorrentClient // Use the global client
-      );
+   for (const chunk of essentials) {
+     const index = chunk.fileType === "video_header" ? -1 : chunk.chunkIndex;
 
-      if (videoBytes) {
-        await warehouse.saveChunk(sessionId, index, videoBytes);
-        setAvailableInWarehouse((prev) =>
-          [...new Set([...prev, index])].sort((a, b) => a - b)
-        );
-      }
-    }
-  };
+     // If we are joining late, tell the controller to start at THIS index
+     if (index > 0) {
+       controllerRef.current.nextIndex = index;
+     }
+
+     const videoBytes = await fetchChunkBytes(
+       { ...chunk, chunkIndex: index },
+       window.globalWebTorrentClient
+     );
+
+     if (videoBytes) {
+       await warehouse.saveChunk(sessionId, index, videoBytes);
+       setAvailableInWarehouse((prev) =>
+         [...new Set([...prev, index])].sort((a, b) => a - b)
+       );
+     }
+   }
+ };
 
   if (sessionId && initialData) {
     syncInitial();
