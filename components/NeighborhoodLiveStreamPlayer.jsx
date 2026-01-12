@@ -164,7 +164,7 @@ class StreamController {
     if (!this.sb && this.detectedMimeType) {
       try {
         // 🔍 PROBE: Ask the iPhone if it actually supports this string
-       const support = this.MS.isTypeSupported(this.detectedMimeType);
+        const support = this.MS.isTypeSupported(this.detectedMimeType);
         this.addLog(`🧪 Codec Probe (${this.detectedMimeType}): ${support}`);
 
         if (!support) {
@@ -246,86 +246,85 @@ class StreamController {
         ? "cached"
         : this.chunkQueue.get(this.nextIndex);
 
-  try {
-    this.addLog(`🔍 Attempting to append Chunk ${this.nextIndex}...`);
-    const buf = await this.download(magnet, this.nextIndex);
+      try {
+        this.addLog(`🔍 Attempting to append Chunk ${this.nextIndex}...`);
+        const buf = await this.download(magnet, this.nextIndex);
 
-    if (buf) {
-      // 🛑 SECONDARY SAFETY: Check one last time before appending
-      if (!this.sb.updating) {
-        this.sb.appendBuffer(buf);
-        this.addLog(`🎬 Appended Chunk ${this.nextIndex}`);
+        if (buf) {
+          // 🛑 SECONDARY SAFETY: Check one last time before appending
+          if (!this.sb.updating) {
+            this.sb.appendBuffer(buf);
+            this.addLog(`🎬 Appended Chunk ${this.nextIndex}`);
 
-        // 🔓 THE KEY: We only move to nextIndex after 'updateend' fires.
-        // You already have a listener for this in createSourceBuffer()
-        // that sets isProcessing = false and calls tick()
-        this.nextIndex++;
-      } else {
-        this.isProcessing = false; // Release lock so it can try again
+            // 🔓 THE KEY: We only move to nextIndex after 'updateend' fires.
+            // You already have a listener for this in createSourceBuffer()
+            // that sets isProcessing = false and calls tick()
+            this.nextIndex++;
+          } else {
+            this.isProcessing = false; // Release lock so it can try again
+          }
+        } else {
+          this.isProcessing = false;
+          this.addLog(`⚠️ Download returned empty for Chunk ${this.nextIndex}`);
+        }
+      } catch (e) {
+        this.addLog(`❌ Chunk ${this.nextIndex} Append Error: ` + e.message);
+        this.isProcessing = false;
       }
-    } else {
-      this.isProcessing = false;
-      this.addLog(`⚠️ Download returned empty for Chunk ${this.nextIndex}`);
-    }
-  } catch (e) {
-    this.addLog(`❌ Chunk ${this.nextIndex} Append Error: ` + e.message);
-    this.isProcessing = false;
-  }
-  return;
+      return;
     } else if (this.headerLoaded) {
       // This log helps us see if the engine is "waiting" for a specific number
       this.addLog(`⏳ Engine idle: Waiting for Chunk ${this.nextIndex}`);
     }
   }
 
-  async download(magnet, index) {
-    // 1. Instant Check: Is it already in our local Warehouse?
-    const cached = await warehouse.getChunk(this.sessionId, index);
-    if (cached) return cached;
+  async tryWebTorrentWithTimeout(magnet, timeoutMs) {
+    return new Promise((resolve) => {
+      let completed = false;
 
-    // 2. Swarm Priority: Try WebTorrent with a "Patient" timeout
-    this.addLog(`📡 Swarm search for Chunk ${index}...`);
-
-    const p2pData = await new Promise((resolve) => {
-      let handled = false;
-
-      // Give the swarm 5 seconds to find a peer
-      const swarmTimeout = setTimeout(() => {
-        if (!handled) {
-          this.addLog(`🛰️ Swarm timeout for ${index}. Switching to Server.`);
-          handled = true;
+      // 1. Give up and signal "Fallback to Server" if P2P is too slow
+      const timer = setTimeout(() => {
+        if (!completed) {
+          completed = true;
+          this.addLog("🛰️ P2P Priority window closed. Trying server...");
           resolve(null);
         }
-      }, 5000);
+      }, timeoutMs);
 
-      if (!magnet || magnet === "cached") {
-        clearTimeout(swarmTimeout);
-        return resolve(null);
-      }
-
+      // 2. Try the swarm using the global client
       window.globalWebTorrentClient.add(magnet, (torrent) => {
-        // If we find it in the swarm
+        // If we already found the chunk or timed out, don't do anything
+        if (completed) return;
+
         torrent.on("done", () => {
-          torrent.files[0].getBuffer(async (err, buf) => {
-            if (!handled) {
-              handled = true;
-              clearTimeout(swarmTimeout);
-              this.addLog(`💎 Swarm delivered Chunk ${index}!`);
+          torrent.files[0].getBuffer((err, buf) => {
+            if (!completed) {
+              completed = true;
+              clearTimeout(timer);
+              this.addLog("💎 P2P SUCCESS: Swarm delivered data!");
               resolve(buf);
             }
-            window.globalWebTorrentClient.remove(torrent.infoHash);
           });
         });
       });
     });
+  }
 
-    if (p2pData) {
-      this.addLog(`💎 P2P WIN: Saved $ by getting Chunk ${index} from Swarm!`); // Add this!
-      await warehouse.saveChunk(index, p2pData)
-      return p2pData;
+  async download(magnet, index) {
+    // 1. Warehouse Check (Instant)
+    const cached = await warehouse.getChunk(this.sessionId, index);
+    if (cached) return cached;
+
+    // 2. P2P Priority (The 3-second head start)
+    if (magnet && magnet !== "cached") {
+      const p2pData = await this.tryWebTorrentWithTimeout(magnet, 3000);
+      if (p2pData) {
+        await warehouse.saveChunk(this.sessionId, index, p2pData);
+        return p2pData;
+      }
     }
 
-    // 3. Server Fallback: If swarm failed or was too slow
+    // 3. Server Fallback (The Safety Net)
     try {
       this.addLog(`☁️ Fetching Chunk ${index} from Server...`);
       const response = await fetch(
@@ -334,11 +333,14 @@ class StreamController {
 
       if (response.ok) {
         const serverData = await response.arrayBuffer();
-        // Save to warehouse so we don't have to ask the server again for this chunk
         await warehouse.saveChunk(this.sessionId, index, serverData);
+
+        // OPTIONAL: Seed the server data back to the swarm so YOU become the P2P source
+        window.globalWebTorrentClient.seed(serverData, {
+          name: `chunk_${index}.mp4`,
+        });
+
         return serverData;
-      } else {
-        this.addLog(`❌ Server 404 for Chunk ${index}`);
       }
     } catch (e) {
       this.addLog(`❌ Connection error for Chunk ${index}`);

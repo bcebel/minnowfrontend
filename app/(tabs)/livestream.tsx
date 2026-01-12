@@ -72,35 +72,88 @@ const LIVESTREAM_CHUNK_SUBSCRIPTION = gql`
   }
 `;
 
-// fetchChunkBytes.js
 const fetchChunkBytes = async (chunk, torrentClient, maxRetries = 5) => {
   const { sessionId, chunkIndex, magnetLink } = chunk;
-
-  // Extract the hash (the 'specific string') from the magnet link
   const infoHash = magnetLink?.match(/btih:([a-zA-Z0-9]+)/)?.[1];
   const API_BASE = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com";
 
+  // 1. Try P2P First (The "Silent Seed" attempt)
+  if (magnetLink && torrentClient) {
+    try {
+      const p2pData = await new Promise((resolve) => {
+        const timeout = setTimeout(() => resolve(null), 3000); // 3s head start
+
+        torrentClient.add(magnetLink, (torrent) => {
+          torrent.on("done", () => {
+            torrent.files[0].getBuffer((err, buf) => {
+              clearTimeout(timeout);
+              console.log(`💎 Scout found P2P data for chunk ${chunkIndex}`);
+              resolve(buf);
+              // Note: We do NOT remove the torrent here.
+              // We let it seed in the background!
+            });
+          });
+        });
+      });
+      if (p2pData) return p2pData;
+    } catch (e) {
+      console.warn("P2P Scout error:", e);
+    }
+  }
+
+  // 2. Fallback to Server Fetch
   for (let i = 0; i < maxRetries; i++) {
     try {
-      // Build the URL with the index and the hash backup
       const url = `${API_BASE}/api/live-chunk/${sessionId}/${chunkIndex}?hash=${infoHash}`;
-
       const response = await fetch(url);
 
       if (response.ok) {
         const buffer = await response.arrayBuffer();
-        return new Uint8Array(buffer);
-      }
+        const uint8 = new Uint8Array(buffer);
 
-      if (response.status === 404) {
-        // Log the struggle so you can see it working in the console
-        console.warn(
-          `⏳ [Retry ${i + 1}] Chunk ${chunkIndex} not on disk yet. Waiting...`
-        );
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
-      } else {
-        // If it's a 500 error, Heroku is really mad—don't bother retrying
-        break;
+        // 🚀 THE PRO MOVE: Seed the server data to the swarm!
+        if (magnetLink && torrentClient) {
+          // This turns the scout into a source for other peers
+          torrentClient.seed(
+            uint8,
+            { name: `chunk_${chunkIndex}.mp4` },
+            (torrent) => {
+              console.log(
+                `📡 Scout is now seeding chunk ${chunkIndex} to swarm.`
+              );
+            }
+          );
+        }
+
+        return uint8;
+      }
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          // Build the URL with the index and the hash backup
+          const url = `${API_BASE}/api/live-chunk/${sessionId}/${chunkIndex}?hash=${infoHash}`;
+
+          const response = await fetch(url);
+
+          if (response.ok) {
+            const buffer = await response.arrayBuffer();
+            return new Uint8Array(buffer);
+          }
+
+          if (response.status === 404) {
+            // Log the struggle so you can see it working in the console
+            console.warn(
+              `⏳ [Retry ${
+                i + 1
+              }] Chunk ${chunkIndex} not on disk yet. Waiting...`
+            );
+            await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+          } else {
+            // If it's a 500 error, Heroku is really mad—don't bother retrying
+            break;
+          }
+        } catch (err) {
+          console.error("Fetch failed:", err);
+        }
       }
     } catch (err) {
       console.error("Fetch failed:", err);
@@ -158,46 +211,46 @@ function Livestream({ stream }) {
   );
 
   // --- 3. SYNC INITIAL DATA (The past) ---
-  useEffect(() => {
-const syncInitial = async () => {
-  const existingChunks = initialData?.streamChunks || [];
-  if (existingChunks.length === 0) return;
+useEffect(() => {
+  const syncInitial = async () => {
+    const existingChunks = initialData?.streamChunks || [];
+    if (existingChunks.length === 0) return;
 
-  setLiveChunks(existingChunks);
+    setLiveChunks(existingChunks);
 
-  // 🎯 SELECTIVE SCOUT: Only pre-fetch the absolute essentials
-  // This keeps the "Join" instant without wasting data on 5 different streams.
-  const essentialChunks = existingChunks.filter(
-    (c) => c.fileType === "video_header" || c.chunkIndex === 0
-  );
-
-  for (const chunk of essentialChunks) {
-    const index = chunk.fileType === "video_header" ? -1 : chunk.chunkIndex;
-
-    // Check availableInWarehouse state instead of hitting IndexedDB every time
-    if (availableInWarehouse.includes(index)) continue;
-
-    console.log(`🕵️ Scout (Essential Only): Pre-fetching chunk ${index}...`);
-
-    const videoBytes = await fetchChunkBytes(
-      { ...chunk, chunkIndex: index },
-      torrentClientRef.current
+    const essentialChunks = existingChunks.filter(
+      (c) => c.fileType === "video_header" || c.chunkIndex === 0
     );
 
-    if (videoBytes) {
-      await warehouse.saveChunk(sessionId, index, videoBytes);
-      setAvailableInWarehouse((prev) =>
-        [...new Set([...prev, index])].sort((a, b) => a - b)
-      );
-    }
-  }
-  // ✋ "Stop here" means we do NOT loop through the rest of 'existingChunks'
-  // until the user is actually watching.
-};
-    syncInitial();
-    if (sessionId) syncInitial();
-  }, [initialData, sessionId]); // Only runs when initialData loads
+    for (const chunk of essentialChunks) {
+      const index = chunk.fileType === "video_header" ? -1 : chunk.chunkIndex;
+      if (availableInWarehouse.includes(index)) continue;
 
+      // Passing the torrentClientRef.current here is the key to seeding
+      const videoBytes = await fetchChunkBytes(
+        { ...chunk, chunkIndex: index },
+        window.globalWebTorrentClient // Use the global client
+      );
+
+      if (videoBytes) {
+        await warehouse.saveChunk(sessionId, index, videoBytes);
+        setAvailableInWarehouse((prev) =>
+          [...new Set([...prev, index])].sort((a, b) => a - b)
+        );
+      }
+    }
+  };
+
+  if (sessionId && initialData) {
+    syncInitial();
+  }
+
+  // Cleanup function: stop seeding if this stream view is destroyed
+  return () => {
+    // Optionally remove torrents here if you want to be strict with battery
+    // but keeping them for a few minutes is better for the network.
+  };
+}, [initialData, sessionId]);
 
   const clearProcessedChunk = useCallback((chunkId) => {
     setLiveChunks((prev) => prev.filter((c) => c.id !== chunkId));
