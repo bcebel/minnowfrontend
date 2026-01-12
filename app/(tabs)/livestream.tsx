@@ -13,6 +13,14 @@ import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStrea
 import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
 import { warehouse } from "../../components/StreamWearhouse.js"; // Ensure this matches your export
 
+declare global {
+  interface Window {
+    WebTorrent?: any;
+    globalWebTorrentClient?: any;
+  }
+}
+
+const client = typeof window !== "undefined" ? window.globalWebTorrentClient : undefined;
 const GET_MY_NEIGHBORHOODS = gql`
   query GetMyNeighborhoods {
     myNeighborhoods {
@@ -71,71 +79,104 @@ const LIVESTREAM_CHUNK_SUBSCRIPTION = gql`
     }
   }
 `;
+const API_BASE = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com";
+// Defensive Global Client Init
+const initGlobalClient = () => {
+  if (typeof window === 'undefined') return null;
+  
+  // If library isn't loaded yet via the <script> tag in Root, retry shortly
+  if (typeof window.WebTorrent === 'undefined') {
+    setTimeout(initGlobalClient, 100);
+    return null;
+  }
 
-const fetchChunkBytes = async (chunk, torrentClient, maxRetries = 5) => {
-  const { sessionId, chunkIndex, magnetLink } = chunk;
+  if (!window.globalWebTorrentClient) {
+    console.log("🕸️ Initializing Global WebTorrent Client...");
+    window.globalWebTorrentClient = new window.WebTorrent({
+      dht: false,
+      lsd: false,
+      maxConns: 15,
+    });
+  }
+  return window.globalWebTorrentClient;
+};
+
+// Kick it off immediately
+initGlobalClient();
+
+const fetchChunkBytes = async (chunk) => {
+  const { sessionId, chunkIndex, magnetLink, fileType } = chunk;
+  const client = window.globalWebTorrentClient;
+
+  if (!client) {
+    console.error("🚨 PRIME DIRECTIVE VIOLATION: No Global Client Found.");
+    return null;
+  }
+
   const infoHash = magnetLink?.match(/btih:([a-zA-Z0-9]+)/)?.[1];
-  const API_BASE = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com";
+  const indexToSave =
+    fileType === "video_header" || chunkIndex === -1 ? -1 : chunkIndex;
+  const serverUrl = `${API_BASE}/api/live-chunk/${sessionId}/${chunkIndex}?hash=${infoHash}`;
 
-  // --- 1. THE P2P LANE ---
-  if (magnetLink && torrentClient) {
-    const p2pData = await new Promise((resolve) => {
-      // Increase discovery window to 5s for cellular/iPad stability
-      const timeout = setTimeout(() => resolve(null), 5000);
+  return new Promise((resolve) => {
+    let torrent = client.get(magnetLink);
 
-      // Check if we are already seeding/downloading this
-      const existing = torrentClient.get(magnetLink);
-      if (existing && existing.done) {
-        existing.files[0].getBuffer((err, buf) => {
-          clearTimeout(timeout);
-          resolve(buf);
-        });
-        return;
-      }
-
-      torrentClient.add(magnetLink, (torrent) => {
-        torrent.on("done", () => {
-          torrent.files[0].getBuffer((err, buf) => {
-            clearTimeout(timeout);
-            console.log(`💎 P2P HIT: Chunk ${chunkIndex} from swarm`);
-            resolve(buf);
-          });
-        });
+    if (!torrent) {
+      console.log(`📡 Joining Swarm for Chunk ${chunkIndex}...`);
+      torrent = client.add(magnetLink, {
+        strategy: "sequential",
+        announce: [
+          "wss://tracker.openwebtorrent.com",
+          "wss://tracker.webtorrent.dev",
+          "wss://tracker.files.fm:7073/announce",
+        ],
       });
+
+      // 🔗 THE DECENTRALIZED BRIDGE
+      // We add the server as a "Web Seed".
+      // WebTorrent will naturally prefer real Peers over the Web Seed.
+      torrent.addWebSeed(serverUrl);
+    }
+
+    // 🤝 MONITOR THE SWARM
+    torrent.on("wire", (wire) => {
+      console.log(
+        `%c 🤝 PEER FOUND! Connection via: ${wire.type} `,
+        "background: #1e90ff; color: #fff"
+      );
     });
 
-    if (p2pData) return p2pData;
-  }
-
-  // --- 2. THE SERVER LANE (Only if P2P fails/times out) ---
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const url = `${API_BASE}/api/live-chunk/${sessionId}/${chunkIndex}?hash=${infoHash}`;
-      const response = await fetch(url);
-
-      if (response.ok) {
-        const buffer = await response.arrayBuffer();
-        const uint8 = new Uint8Array(buffer);
-
-        // Turn this device into a Seed for the next person
-        if (magnetLink && torrentClient && !torrentClient.get(magnetLink)) {
-          torrentClient.seed(uint8, { name: `chunk_${chunkIndex}.mp4` });
-          console.log(`📡 Scout SEEDING chunk ${chunkIndex} to swarm.`);
+    const finish = () => {
+      torrent.files[0].getBuffer(async (err, buf) => {
+        if (err) {
+          console.error("Torrent Buffer Error:", err);
+          return resolve(null);
         }
-        return uint8;
-      }
 
-      if (response.status === 404) {
-        console.warn(`⏳ [Retry ${i + 1}] Chunk ${chunkIndex} pending...`);
-        await new Promise((r) => setTimeout(r, 1500));
-      } else {
-        break;
-      }
-    } catch (err) {
-      console.error("Server fetch error:", err);
+        const source = torrent.numPeers > 0 ? "🛰️ P2P" : "☁️ WEBSEED";
+        console.log(
+          `%c ${source} HIT: Chunk ${chunkIndex} `,
+          "background: #00ff00; color: #000"
+        );
+
+        await warehouse.saveChunk(sessionId, indexToSave, buf);
+        resolve(buf);
+      });
+    };
+
+    if (torrent.done) {
+      finish();
+    } else {
+      torrent.once("done", finish);
     }
-  }
-  return null;
+
+    // ⏳ THE "23 EONS" TIMEOUT (Optional safety: 30 seconds)
+    setTimeout(() => {
+      if (!torrent.done && torrent.progress === 0) {
+        console.warn(`🐢 Chunk ${chunkIndex} is taking an eon...`);
+      }
+    }, 30000);
+  });
 };
 
 function Livestream({ stream }) {
@@ -150,32 +191,46 @@ function Livestream({ stream }) {
   });
 
   // --- 2. CATCH-UP LOGIC (One time only!) ---
+  // Inside your useEffect for syncInitial
   useEffect(() => {
     const syncInitial = async () => {
       if (hasSyncedInitial.current || !initialData?.streamChunks) return;
-      hasSyncedInitial.current = true; // Lock it!
+      hasSyncedInitial.current = true;
 
       const chunks = initialData.streamChunks;
-      const header = chunks.find((c) => c.fileType === "video_header");
+
+      // 1. FIND THE HEADER (-1)
+      const header = chunks.find(
+        (c) => c.fileType === "video_header" || c.chunkIndex === -1
+      );
+
+      // 2. FIND THE LIVE EDGE
       const latest = [...chunks]
         .filter((c) => c.chunkIndex !== -1)
         .sort((a, b) => b.chunkIndex - a.chunkIndex)[0];
 
-      // We only care about the Header and the VERY LATEST chunk to get started
-      const criticalItems = [];
-      if (header) criticalItems.push({ ...header, index: -1 });
-      if (latest) criticalItems.push({ ...latest, index: latest.chunkIndex });
-
-      for (const item of criticalItems) {
-        console.log(`📡 Scout Catch-up: Index ${item.index}`);
-        const bytes = await fetchChunkBytes(
-          item,
-          window.globalWebTorrentClient
+      // MUST FETCH HEADER FIRST
+      if (header) {
+        console.log("🎬 Scout: Fetching Critical Header...");
+        const headerBytes = await fetchChunkBytes(
+          header,
         );
-        if (bytes) {
-          await warehouse.saveChunk(sessionId, item.index, bytes);
+        if (headerBytes) {
+          await warehouse.saveChunk(sessionId, -1, headerBytes);
+          setAvailableInWarehouse((prev) => [...new Set([...prev, -1])]);
+        }
+      }
+
+      // THEN FETCH LIVE EDGE
+      if (latest) {
+        console.log(`⏩ Scout: Catching up to Edge (${latest.chunkIndex})`);
+        const edgeBytes = await fetchChunkBytes(
+          latest,
+        );
+        if (edgeBytes) {
+          await warehouse.saveChunk(sessionId, latest.chunkIndex, edgeBytes);
           setAvailableInWarehouse((prev) => [
-            ...new Set([...prev, item.index]),
+            ...new Set([...prev, latest.chunkIndex]),
           ]);
         }
       }
@@ -224,6 +279,13 @@ function Livestream({ stream }) {
 }
 
 export default function LivestreamScreen() {
+  useEffect(() => {
+    // Ensure WebTorrent is available globally
+    if (window.WebTorrent && !window.globalWebTorrentClient) {
+      window.globalWebTorrentClient = new window.WebTorrent();
+      console.log("🕸️ Global WebTorrent Client Initialized for Player");
+    }
+  }, []);
   const { data: meData, loading: meLoading, error: meError } = useQuery(GET_ME);
   const username = meData?.me?.username;
 

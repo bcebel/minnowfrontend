@@ -85,13 +85,11 @@ export default function NeighborhoodLiveStreamRecorder({
     const client = window.globalWebTorrentClient;
     const seedAndSend = (chunkData, index) => {
       return new Promise((resolve, reject) => {
-        const extension = supportedTypeRef.current.includes("mp4")
-          ? "mp4"
-          : "webm";
-        const isHeader = index === -1;
-        const fileName = isHeader
-          ? `header-${sessionIdRef.current}.mp4`
-          : `live-${sessionIdRef.current}-chunk-${index}.${extension}`;
+const extension = supportedTypeRef.current.includes("mp4") ? "mp4" : "webm";
+const isHeader = index === -1;
+const fileName = isHeader
+  ? `chunk_${sessionIdRef.current}_header.${extension}`
+  : `chunk_${sessionIdRef.current}_${index}.${extension}`;
 
         // Function to send the GraphQL message (extracted for reuse)
         const sendGraphQLMessage = (magnetUriToSend) => {
@@ -229,13 +227,20 @@ export default function NeighborhoodLiveStreamRecorder({
             sendGraphQLMessage(finalMagnet);
 
             // Step 5: Local cleanup (2 minutes as before)
-            if (index !== -1) {
-              setTimeout(() => {
-                if (client.get(torrent.infoHash)) {
-                  client.remove(torrent.infoHash);
-                }
-              }, 30000);
-            }
+if (index !== -1) {
+  setTimeout(() => {
+    // Only remove if it's "old news" (more than 5 chunks ago)
+    if (index < chunkIndexRef.current - 5) {
+      if (client.get(torrent.infoHash)) {
+        client.remove(torrent.infoHash);
+      }
+    }
+  }, 60000); // 1 minute is safer for slow peers
+} else {
+  // NEVER remove the header while streaming!
+  // It's tiny (kb) and essential for every new joiner.
+  console.log("💎 Header is now a permanent seed for this session.");
+}
           }
         );
       });
