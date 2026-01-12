@@ -239,26 +239,43 @@ class StreamController {
     // --- STEP 1: Process Header ---
     if (!this.headerLoaded) {
       const header = await warehouse.getChunk(this.sessionId, -1);
+
       if (header && this.sb) {
         this.isProcessing = true;
         this.addLog("🎬 Appending Header...");
-        this.sb.appendBuffer(header);
-        this.headerLoaded = true;
-        this.nextIndex = 0;
-        this.video.play().catch(() => {});
-      }
-      return;
-    }
-    const data = await warehouse.getChunk(this.sessionId, this.nextIndex);
-    if (data && this.sb) {
-      this.isProcessing = true;
-      this.addLog(`🎬 Appending Chunk ${this.nextIndex}`);
-      try {
-        this.sb.appendBuffer(data);
-        this.nextIndex++; // Move the pointer ONLY after we successfully start the append
-      } catch (e) {
-        this.isProcessing = false;
-        this.addLog("❌ Append Fail: " + e.message);
+
+        if (!this.headerLoaded) {
+          const header = await warehouse.getChunk(this.sessionId, -1);
+          if (header && this.sb) {
+            this.isProcessing = true;
+    
+            // If we are jumping (e.g., starting at index 100), 
+            // we tell the SourceBuffer to expect data at that timestamp.
+            if (this.nextIndex > 0) {
+              const startTime = this.nextIndex * this.CHUNK_DURATION;
+              this.sb.timestampOffset = startTime;
+              this.addLog(`⏰ Timeline offset set to ${startTime}s`);
+            }
+
+            this.sb.appendBuffer(header);
+            this.headerLoaded = true;
+            this.nextIndex = 0;
+            this.video.play().catch(() => { });
+          }
+          return;
+        }
+        const data = await warehouse.getChunk(this.sessionId, this.nextIndex);
+        if (data && this.sb) {
+          this.isProcessing = true;
+          this.addLog(`🎬 Appending Chunk ${this.nextIndex}`);
+          try {
+            this.sb.appendBuffer(data);
+            this.nextIndex++; // Move the pointer ONLY after we successfully start the append
+          } catch (e) {
+            this.isProcessing = false;
+            this.addLog("❌ Append Fail: " + e.message);
+          }
+        }
       }
     }
   }
@@ -390,20 +407,33 @@ export default function NeighborhoodLiveStreamPlayer({
   }, [isJoined, initialChunks, availableInWarehouse]); // <--- Watch the warehouse state
 
 const handleJoinStream = async () => {
-  addLog("🚀 Join Clicked...");
+  addLog("🚀 Join Clicked: Calculating Live Edge...");
+
+  // 1. Find the newest chunk available in the initial list
+  const latestIndex = initialChunks.reduce(
+    (max, c) => (c.chunkIndex > max ? c.chunkIndex : max),
+    0
+  );
+
+  // 2. Create the engine
   const controller = new StreamController(sessionId, addLog);
 
+  // 3. 🎯 THE JUMP: Tell the controller to ignore the past
+  if (latestIndex > 5) {
+    addLog(`⏩ Stream is established. Jumping to Chunk ${latestIndex}`);
+    controller.nextIndex = latestIndex;
+  }
+
+  // 4. Standard Attachment
   if (containerRef.current) {
     containerRef.current.appendChild(controller.video);
   }
-
-  // 1. Attach Source
   controller.video.src = URL.createObjectURL(controller.ms);
   controllerRef.current = controller;
   setIsJoined(true);
 
-  // 2. Start the sweep without blocking the UI thread
-  controller.sweepWarehouse();
+  // 5. Sweep warehouse for Header (-1) and the Jump Index
+  await controller.sweepWarehouse();
 };
 
   return (
