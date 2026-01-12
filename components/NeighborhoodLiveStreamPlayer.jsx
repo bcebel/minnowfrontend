@@ -231,7 +231,16 @@ class StreamController {
     }
 
     if (this.sb.updating) return;
-
+    // Inside tick() before appending:
+    if (this.sb && this.sb.buffered.length > 0) {
+      const totalBuffered = this.sb.buffered.end(0) - this.sb.buffered.start(0);
+      if (totalBuffered > 30) {
+        // If we have more than 30 seconds of video
+        this.addLog("🧹 Buffer Full: Clearing old footage...");
+        this.sb.remove(0, this.sb.buffered.end(0) - 15); // Keep only the last 15 seconds
+        return; // Wait for the next tick to append once cleared
+      }
+    }
     // 2. Process Header
     if (!this.headerLoaded) {
       const hasHeaderInWarehouse = await warehouse.getChunk(this.sessionId, -1);
