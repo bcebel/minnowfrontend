@@ -28,7 +28,19 @@ class StreamController {
     this.MS = window.ManagedMediaSource || window.MediaSource;
     this.ms = new this.MS();
     this.sb = null;
-
+    // Inside constructor
+    this.peerCount = 0;
+    this.peerUpdateInterval = setInterval(() => {
+      if (window.globalWebTorrentClient) {
+        // Check all active torrents for this session
+        const torrents = window.globalWebTorrentClient.torrents;
+        const count = torrents.reduce((acc, t) => acc + t.numPeers, 0);
+        if (count !== this.peerCount) {
+          this.peerCount = count;
+          this.addLog(`👥 Swarm Members: ${count}`);
+        }
+      }
+    }, 5000);
     // 3. Video Element (iPhone Optimized)
     this.video = document.createElement("video");
     this.video.setAttribute("playsinline", "true");
@@ -74,6 +86,33 @@ class StreamController {
         }
       }
     }, 2000);
+  }
+
+  stop() {
+    this.addLog("🧹 Janitor: Cleaning up session...");
+    clearInterval(this.watchdog);
+    clearInterval(this.peerUpdateInterval);
+
+    // 1. Stop the Video
+    if (this.video) {
+      this.video.pause();
+      this.video.src = "";
+      this.video.load(); // Forces hardware release
+    }
+
+    // 2. Kill the Swarm for this session
+    if (window.globalWebTorrentClient) {
+      window.globalWebTorrentClient.torrents.forEach((torrent) => {
+        // We check if the torrent name or info belongs to this session
+        if (
+          torrent.name.includes(this.sessionId) ||
+          torrent.name.includes("chunk_")
+        ) {
+          this.addLog(`🛑 Stopping seed: ${torrent.name}`);
+          torrent.destroy();
+        }
+      });
+    }
   }
 
   forceTick() {
