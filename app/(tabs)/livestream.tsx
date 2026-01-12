@@ -139,121 +139,85 @@ const fetchChunkBytes = async (chunk, torrentClient, maxRetries = 5) => {
 };
 
 function Livestream({ stream }) {
-  const [liveChunks, setLiveChunks] = useState([]);
   const [availableInWarehouse, setAvailableInWarehouse] = useState([]);
-  const torrentClientRef = useRef(null);
-
-  // Use this for the logs/engine check
+  const hasSyncedInitial = useRef(false);
   const sessionId = stream.sessionId;
 
-  // --- 1. INITIAL FETCH (The Past) ---
+  // --- 1. INITIAL FETCH ---
   const { data: initialData } = useQuery(GET_LIVESTREAM_CHUNKS, {
     variables: { sessionId },
     skip: !sessionId,
   });
 
-  // --- 2. SUBSCRIPTION (The Future) ---
-  const { data: subscriptionData } = useSubscription(
-    LIVESTREAM_CHUNK_SUBSCRIPTION,
-    {
-      variables: { sessionId },
-      skip: !sessionId,
-      onData: async ({ data }) => {
-        const newChunk = data.data?.livestreamChunkAdded;
-        if (!newChunk) return;
+  // --- 2. CATCH-UP LOGIC (One time only!) ---
+  useEffect(() => {
+    const syncInitial = async () => {
+      if (hasSyncedInitial.current || !initialData?.streamChunks) return;
+      hasSyncedInitial.current = true; // Lock it!
 
-        const index =
-          newChunk.fileType === "video_header" ? -1 : newChunk.chunkIndex;
+      const chunks = initialData.streamChunks;
+      const header = chunks.find((c) => c.fileType === "video_header");
+      const latest = [...chunks]
+        .filter((c) => c.chunkIndex !== -1)
+        .sort((a, b) => b.chunkIndex - a.chunkIndex)[0];
 
-        // Skip if we already have it
-        if (availableInWarehouse.includes(index)) return;
+      // We only care about the Header and the VERY LATEST chunk to get started
+      const criticalItems = [];
+      if (header) criticalItems.push({ ...header, index: -1 });
+      if (latest) criticalItems.push({ ...latest, index: latest.chunkIndex });
 
-        console.log(`🕵️ Scout (New): Pre-fetching chunk ${index}...`);
-        const videoBytes = await fetchChunkBytes(
-          { ...newChunk, chunkIndex: index },
-          torrentClientRef.current
+      for (const item of criticalItems) {
+        console.log(`📡 Scout Catch-up: Index ${item.index}`);
+        const bytes = await fetchChunkBytes(
+          item,
+          window.globalWebTorrentClient
         );
-
-        if (videoBytes) {
-          await warehouse.saveChunk(sessionId, index, videoBytes);
-          setAvailableInWarehouse((prev) =>
-            [...new Set([...prev, index])].sort((a, b) => a - b)
-          );
-          // If the UI needs to see it in the list
-          setLiveChunks((prev) => [...prev, newChunk]);
+        if (bytes) {
+          await warehouse.saveChunk(sessionId, item.index, bytes);
+          setAvailableInWarehouse((prev) => [
+            ...new Set([...prev, item.index]),
+          ]);
         }
-      },
-    }
-  );
+      }
+    };
 
-  // --- 3. SYNC INITIAL DATA (The past) ---
-useEffect(() => {
- const syncInitial = async () => {
-   const existingChunks = initialData?.streamChunks || [];
-   if (existingChunks.length === 0) return;
+    if (sessionId && initialData) syncInitial();
+  }, [initialData, sessionId]);
 
-   setLiveChunks(existingChunks);
+  // --- 3. SUBSCRIPTION (The "Live Edge") ---
+  useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
+    variables: { sessionId },
+    skip: !sessionId,
+    onData: async ({ data }) => {
+      const newChunk = data.data?.livestreamChunkAdded;
+      if (!newChunk) return;
 
-   // 🎯 CATCH-UP LOGIC:
-   // We need the header (-1) and the most recent chunk index
-   const header = existingChunks.find((c) => c.fileType === "video_header");
-   const sortedChunks = [...existingChunks].sort(
-     (a, b) => b.chunkIndex - a.chunkIndex
-   );
-   const latestChunk = sortedChunks[0];
+      const index =
+        newChunk.fileType === "video_header" ? -1 : newChunk.chunkIndex;
 
-   const essentials = [];
-   if (header) essentials.push(header);
-   if (latestChunk && latestChunk.chunkIndex !== -1)
-     essentials.push(latestChunk);
+      // If the Janitor already deleted it or we have it, skip
+      if (availableInWarehouse.includes(index)) return;
 
-   for (const chunk of essentials) {
-     const index = chunk.fileType === "video_header" ? -1 : chunk.chunkIndex;
+      console.log(`✨ Scout Live: Chunk ${index}`);
+      const bytes = await fetchChunkBytes(
+        newChunk,
+        window.globalWebTorrentClient
+      );
 
-     // If we are joining late, tell the controller to start at THIS index
-     if (index > 0) {
-       controllerRef.current.nextIndex = index;
-     }
-
-     const videoBytes = await fetchChunkBytes(
-       { ...chunk, chunkIndex: index },
-       window.globalWebTorrentClient
-     );
-
-     if (videoBytes) {
-       await warehouse.saveChunk(sessionId, index, videoBytes);
-       setAvailableInWarehouse((prev) =>
-         [...new Set([...prev, index])].sort((a, b) => a - b)
-       );
-     }
-   }
- };
-
-  if (sessionId && initialData) {
-    syncInitial();
-  }
-
-  // Cleanup function: stop seeding if this stream view is destroyed
-  return () => {
-    // Optionally remove torrents here if you want to be strict with battery
-    // but keeping them for a few minutes is better for the network.
-  };
-}, [initialData, sessionId]);
-
-  const clearProcessedChunk = useCallback((chunkId) => {
-    setLiveChunks((prev) => prev.filter((c) => c.id !== chunkId));
-  }, []);
+      if (bytes) {
+        await warehouse.saveChunk(sessionId, index, bytes);
+        // Only update the signal so the Player knows to "Tick"
+        setAvailableInWarehouse((prev) => [...new Set([...prev, index])]);
+      }
+    },
+  });
 
   return (
     <View style={styles.streamContainer}>
       <Text style={styles.streamTitle}>{stream.title || "Livestream"}</Text>
       <NeighborhoodLiveStreamPlayer
-        sessionId={stream.sessionId}
-        setupMagnet={stream.magnetLink}
-        initialChunks={liveChunks} // UI list
-        availableInWarehouse={availableInWarehouse} // The actual data signal
-        clearProcessedChunk={clearProcessedChunk}
-        torrentClientRef={torrentClientRef} // Pass this down so the player can share it
+        sessionId={sessionId}
+        availableInWarehouse={availableInWarehouse}
       />
     </View>
   );
