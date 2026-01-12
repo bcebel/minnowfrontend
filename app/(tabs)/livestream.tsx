@@ -12,9 +12,10 @@ import { gql, useQuery, useSubscription } from "@apollo/client";
 import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer";
 import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
 import { warehouse } from "../../components/StreamWearhouse.js"; // Ensure this matches your export
-
+// Clean Global Initialization (Put this once at the very top after imports)
 if (typeof window !== "undefined") {
-  const initClient = () => {
+  const initGlobalClient = () => {
+    // Only proceed if WebTorrent script is loaded AND client isn't already made
     if (window.WebTorrent && !window.globalWebTorrentClient) {
       console.log("🕸️ Global WebTorrent Client Forced Initialization");
       window.globalWebTorrentClient = new window.WebTorrent({
@@ -27,12 +28,14 @@ if (typeof window !== "undefined") {
           },
         },
       });
+      // CRITICAL: Prevent the memory leak warnings from crashing the browser
+      window.globalWebTorrentClient.setMaxListeners(100);
     } else if (!window.WebTorrent) {
-      // If the script tag hasn't loaded yet, check again in 100ms
-      setTimeout(initClient, 100);
+      // Script not ready? Try again in 100ms
+      setTimeout(initGlobalClient, 100);
     }
   };
-  initClient();
+  initGlobalClient();
 }
 
 const GET_MY_NEIGHBORHOODS = gql`
@@ -117,28 +120,6 @@ const fallbackServerFetch = async (chunk) => {
   return null;
 };
 
-// 1. Move this OUTSIDE the component at the top of the file
-if (typeof window !== "undefined") {
-  const initClient = () => {
-    if (window.WebTorrent && !window.globalWebTorrentClient) {
-      console.log("🕸️ Global WebTorrent Client Forced Initialization");
-      window.globalWebTorrentClient = new window.WebTorrent({
-        tracker: {
-          rtcConfig: {
-            iceServers: [
-              { urls: "stun:stun.l.google.com:19302" },
-              { urls: "stun:global.stun.twilio.com:3478" },
-            ],
-          },
-        },
-      });
-    } else if (!window.WebTorrent) {
-      // If the script tag hasn't loaded yet, check again in 100ms
-      setTimeout(initClient, 100);
-    }
-  };
-  initClient();
-}
 
 // 2. Update fetchChunkBytes to be even more patient
 const fetchChunkBytes = async (chunk) => {
@@ -148,6 +129,7 @@ const fetchChunkBytes = async (chunk) => {
   
   // Wait up to 3 seconds for the client to wake up
   if (!client && typeof window !== 'undefined') {
+    console.log(`⏳ Chunk ${chunkIndex} waiting for Global Client...`);
     for (let i = 0; i < 15; i++) {
       await new Promise((r) => setTimeout(r, 200));
       client = window.globalWebTorrentClient;
@@ -210,6 +192,7 @@ const fetchChunkBytes = async (chunk) => {
 
 function Livestream({ stream }) {
   const [availableInWarehouse, setAvailableInWarehouse] = useState([]);
+  const fetchingRef = useRef(new Set()); // Track chunks currently in flight
   const hasSyncedInitial = useRef(false);
   const sessionId = stream.sessionId;
 
@@ -241,9 +224,7 @@ function Livestream({ stream }) {
       // MUST FETCH HEADER FIRST
       if (header) {
         console.log("🎬 Scout: Fetching Critical Header...");
-        const headerBytes = await fetchChunkBytes(
-          header,
-        );
+        const headerBytes = await fetchChunkBytes(header);
         if (headerBytes) {
           await warehouse.saveChunk(sessionId, -1, headerBytes);
           setAvailableInWarehouse((prev) => [...new Set([...prev, -1])]);
@@ -253,9 +234,7 @@ function Livestream({ stream }) {
       // THEN FETCH LIVE EDGE
       if (latest) {
         console.log(`⏩ Scout: Catching up to Edge (${latest.chunkIndex})`);
-        const edgeBytes = await fetchChunkBytes(
-          latest,
-        );
+        const edgeBytes = await fetchChunkBytes(latest);
         if (edgeBytes) {
           await warehouse.saveChunk(sessionId, latest.chunkIndex, edgeBytes);
           setAvailableInWarehouse((prev) => [
@@ -280,16 +259,19 @@ function Livestream({ stream }) {
         newChunk.fileType === "video_header" ? -1 : newChunk.chunkIndex;
 
       // If the Janitor already deleted it or we have it, skip
-      if (availableInWarehouse.includes(index)) return;
+      if (availableInWarehouse.includes(index) || fetchingRef.current.has(index)) return;
 
+      fetchingRef.current.add(index);
       console.log(`✨ Scout Live: Chunk ${index}`);
-const bytes = await fetchChunkBytes(newChunk);
+
+      const bytes = await fetchChunkBytes(newChunk);
 
       if (bytes) {
         await warehouse.saveChunk(sessionId, index, bytes);
         // Only update the signal so the Player knows to "Tick"
         setAvailableInWarehouse((prev) => [...new Set([...prev, index])]);
       }
+      fetchingRef.current.delete(index);
     },
   });
 
@@ -305,13 +287,7 @@ const bytes = await fetchChunkBytes(newChunk);
 }
 
 export default function LivestreamScreen() {
-  useEffect(() => {
-    // Ensure WebTorrent is available globally
-    if (window.WebTorrent && !window.globalWebTorrentClient) {
-      window.globalWebTorrentClient = new window.WebTorrent();
-      console.log("🕸️ Global WebTorrent Client Initialized for Player");
-    }
-  }, []);
+
   const { data: meData, loading: meLoading, error: meError } = useQuery(GET_ME);
   const username = meData?.me?.username;
 
