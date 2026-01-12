@@ -14,7 +14,14 @@ class StreamController {
     this.addLog = addLog;
     this.sessionId = sessionId;
     this.triggerFetch = triggerFetch;
-
+    // Inside the constructor
+    this.janitorInterval = setInterval(() => {
+      // Only clean if we've actually progressed into the stream
+      if (this.nextIndex > 20) {
+        this.addLog("🧹 Janitor: Vacuuming old chunks...");
+        warehouse.deleteOldChunks(this.sessionId, this.nextIndex - 15);
+      }
+    }, 30000); // Run every 30 seconds
     // 1. Core State
     this.nextIndex = 0;
     this.headerLoaded = false;

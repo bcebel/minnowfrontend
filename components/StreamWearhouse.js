@@ -77,18 +77,44 @@ class StreamWarehouse {
     }
   }
   // Prevents the "Infinite Storage" bug on iPhones
-  async deleteOldChunks(keepAfterIndex) {
+  // StreamWarehouse.js
+  async deleteOldChunks(sessionId, keepAfterIndex) {
     const db = await this._getDB();
     const tx = db.transaction(this.storeName, "readwrite");
     const store = tx.objectStore(this.storeName);
-    const request = store.openKeyCursor(
-      IDBKeyRange.upperBound(keepAfterIndex - 1)
+
+    // We target only keys belonging to THIS session
+    const range = IDBKeyRange.bound(
+      `${sessionId}_0`,
+      `${sessionId}_${keepAfterIndex - 1}`
     );
+    const request = store.openKeyCursor(range);
 
     request.onsuccess = (e) => {
       const cursor = e.target.result;
       if (cursor) {
-        store.delete(cursor.key);
+        // Double check it's not the header (index -1)
+        if (!cursor.key.includes("_-1")) {
+          store.delete(cursor.key);
+        }
+        cursor.continue();
+      }
+    };
+  }
+
+  // Helper to wipe everything except the current session on startup
+  async clearAllExcept(currentSessionId) {
+    const db = await this._getDB();
+    const tx = db.transaction(this.storeName, "readwrite");
+    const store = tx.objectStore(this.storeName);
+    const request = store.openKeyCursor();
+
+    request.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        if (!cursor.key.startsWith(currentSessionId)) {
+          store.delete(cursor.key);
+        }
         cursor.continue();
       }
     };
