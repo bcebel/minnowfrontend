@@ -77,31 +77,37 @@ const fetchChunkBytes = async (chunk, torrentClient, maxRetries = 5) => {
   const infoHash = magnetLink?.match(/btih:([a-zA-Z0-9]+)/)?.[1];
   const API_BASE = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com";
 
-  // 1. Try P2P First (The "Silent Seed" attempt)
+  // --- 1. THE P2P LANE ---
   if (magnetLink && torrentClient) {
-    try {
-      const p2pData = await new Promise((resolve) => {
-        const timeout = setTimeout(() => resolve(null), 3000); // 3s head start
+    const p2pData = await new Promise((resolve) => {
+      // Increase discovery window to 5s for cellular/iPad stability
+      const timeout = setTimeout(() => resolve(null), 5000);
 
-        torrentClient.add(magnetLink, (torrent) => {
-          torrent.on("done", () => {
-            torrent.files[0].getBuffer((err, buf) => {
-              clearTimeout(timeout);
-              console.log(`💎 Scout found P2P data for chunk ${chunkIndex}`);
-              resolve(buf);
-              // Note: We do NOT remove the torrent here.
-              // We let it seed in the background!
-            });
+      // Check if we are already seeding/downloading this
+      const existing = torrentClient.get(magnetLink);
+      if (existing && existing.done) {
+        existing.files[0].getBuffer((err, buf) => {
+          clearTimeout(timeout);
+          resolve(buf);
+        });
+        return;
+      }
+
+      torrentClient.add(magnetLink, (torrent) => {
+        torrent.on("done", () => {
+          torrent.files[0].getBuffer((err, buf) => {
+            clearTimeout(timeout);
+            console.log(`💎 P2P HIT: Chunk ${chunkIndex} from swarm`);
+            resolve(buf);
           });
         });
       });
-      if (p2pData) return p2pData;
-    } catch (e) {
-      console.warn("P2P Scout error:", e);
-    }
+    });
+
+    if (p2pData) return p2pData;
   }
 
-  // 2. Fallback to Server Fetch
+  // --- 2. THE SERVER LANE (Only if P2P fails/times out) ---
   for (let i = 0; i < maxRetries; i++) {
     try {
       const url = `${API_BASE}/api/live-chunk/${sessionId}/${chunkIndex}?hash=${infoHash}`;
@@ -111,52 +117,22 @@ const fetchChunkBytes = async (chunk, torrentClient, maxRetries = 5) => {
         const buffer = await response.arrayBuffer();
         const uint8 = new Uint8Array(buffer);
 
-        // 🚀 THE PRO MOVE: Seed the server data to the swarm!
-        if (magnetLink && torrentClient) {
-          // This turns the scout into a source for other peers
-          torrentClient.seed(
-            uint8,
-            { name: `chunk_${chunkIndex}.mp4` },
-            (torrent) => {
-              console.log(
-                `📡 Scout is now seeding chunk ${chunkIndex} to swarm.`
-              );
-            }
-          );
+        // Turn this device into a Seed for the next person
+        if (magnetLink && torrentClient && !torrentClient.get(magnetLink)) {
+          torrentClient.seed(uint8, { name: `chunk_${chunkIndex}.mp4` });
+          console.log(`📡 Scout SEEDING chunk ${chunkIndex} to swarm.`);
         }
-
         return uint8;
       }
-      for (let i = 0; i < maxRetries; i++) {
-        try {
-          // Build the URL with the index and the hash backup
-          const url = `${API_BASE}/api/live-chunk/${sessionId}/${chunkIndex}?hash=${infoHash}`;
 
-          const response = await fetch(url);
-
-          if (response.ok) {
-            const buffer = await response.arrayBuffer();
-            return new Uint8Array(buffer);
-          }
-
-          if (response.status === 404) {
-            // Log the struggle so you can see it working in the console
-            console.warn(
-              `⏳ [Retry ${
-                i + 1
-              }] Chunk ${chunkIndex} not on disk yet. Waiting...`
-            );
-            await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
-          } else {
-            // If it's a 500 error, Heroku is really mad—don't bother retrying
-            break;
-          }
-        } catch (err) {
-          console.error("Fetch failed:", err);
-        }
+      if (response.status === 404) {
+        console.warn(`⏳ [Retry ${i + 1}] Chunk ${chunkIndex} pending...`);
+        await new Promise((r) => setTimeout(r, 1500));
+      } else {
+        break;
       }
     } catch (err) {
-      console.error("Fetch failed:", err);
+      console.error("Server fetch error:", err);
     }
   }
   return null;
