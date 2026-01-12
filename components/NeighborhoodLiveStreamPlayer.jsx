@@ -259,7 +259,9 @@ class StreamController {
 
             this.sb.appendBuffer(header);
             this.headerLoaded = true;
-            this.nextIndex = 0;
+      if (!this.nextIndex) {
+        this.nextIndex = 0;
+      }
             this.video.play().catch(() => { });
           }
           return;
