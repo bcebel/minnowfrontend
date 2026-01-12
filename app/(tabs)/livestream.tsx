@@ -13,14 +13,28 @@ import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStrea
 import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
 import { warehouse } from "../../components/StreamWearhouse.js"; // Ensure this matches your export
 
-declare global {
-  interface Window {
-    WebTorrent?: any;
-    globalWebTorrentClient?: any;
-  }
+if (typeof window !== "undefined") {
+  const initClient = () => {
+    if (window.WebTorrent && !window.globalWebTorrentClient) {
+      console.log("🕸️ Global WebTorrent Client Forced Initialization");
+      window.globalWebTorrentClient = new window.WebTorrent({
+        tracker: {
+          rtcConfig: {
+            iceServers: [
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:global.stun.twilio.com:3478" },
+            ],
+          },
+        },
+      });
+    } else if (!window.WebTorrent) {
+      // If the script tag hasn't loaded yet, check again in 100ms
+      setTimeout(initClient, 100);
+    }
+  };
+  initClient();
 }
 
-const client = typeof window !== "undefined" ? window.globalWebTorrentClient : undefined;
 const GET_MY_NEIGHBORHOODS = gql`
   query GetMyNeighborhoods {
     myNeighborhoods {
@@ -81,28 +95,7 @@ const LIVESTREAM_CHUNK_SUBSCRIPTION = gql`
 `;
 const API_BASE = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com";
 // Defensive Global Client Init
-const initGlobalClient = () => {
-  if (typeof window === 'undefined') return null;
-  
-  // If library isn't loaded yet via the <script> tag in Root, retry shortly
-  if (typeof window.WebTorrent === 'undefined') {
-    setTimeout(initGlobalClient, 100);
-    return null;
-  }
 
-  if (!window.globalWebTorrentClient) {
-    console.log("🕸️ Initializing Global WebTorrent Client...");
-    window.globalWebTorrentClient = new window.WebTorrent({
-      dht: false,
-      lsd: false,
-      maxConns: 15,
-    });
-  }
-  return window.globalWebTorrentClient;
-};
-
-// Kick it off immediately
-initGlobalClient();
 
 // The "Safety Net" for when the Global Client is physically blocked (Incognito)
 const fallbackServerFetch = async (chunk) => {
@@ -124,29 +117,49 @@ const fallbackServerFetch = async (chunk) => {
   return null;
 };
 
+// 1. Move this OUTSIDE the component at the top of the file
+if (typeof window !== "undefined") {
+  const initClient = () => {
+    if (window.WebTorrent && !window.globalWebTorrentClient) {
+      console.log("🕸️ Global WebTorrent Client Forced Initialization");
+      window.globalWebTorrentClient = new window.WebTorrent({
+        tracker: {
+          rtcConfig: {
+            iceServers: [
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:global.stun.twilio.com:3478" },
+            ],
+          },
+        },
+      });
+    } else if (!window.WebTorrent) {
+      // If the script tag hasn't loaded yet, check again in 100ms
+      setTimeout(initClient, 100);
+    }
+  };
+  initClient();
+}
+
+// 2. Update fetchChunkBytes to be even more patient
 const fetchChunkBytes = async (chunk) => {
   const { sessionId, chunkIndex, magnetLink, fileType } = chunk;
 
-  // 1. Patience for the Global Client (Fixes Incognito/Mobile races)
-  let client = window.globalWebTorrentClient;
+  let client = typeof window !== 'undefined' ? window.globalWebTorrentClient : null;
+  
+  // Wait up to 3 seconds for the client to wake up
   if (!client && typeof window !== 'undefined') {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 15; i++) {
       await new Promise((r) => setTimeout(r, 200));
       client = window.globalWebTorrentClient;
       if (client) break;
     }
   }
 
-  // 2. If client still missing, use the safety net
   if (!client) {
-    console.warn("⚠️ Global Client missing. Using Fallback Lane.");
-    const fallbackData = await fallbackServerFetch(chunk);
-    if (fallbackData) {
-      const indexToSave = fileType === "video_header" || chunkIndex === -1 ? -1 : chunkIndex;
-      await warehouse.saveChunk(sessionId, indexToSave, fallbackData);
-    }
-    return fallbackData;
+    console.warn(`⚠️ Client still missing for Chunk ${chunkIndex}. Lane: Fallback.`);
+    return fallbackServerFetch(chunk);
   }
+  
 
   const infoHash = magnetLink?.match(/btih:([a-zA-Z0-9]+)/)?.[1];
   const indexToSave = fileType === "video_header" || chunkIndex === -1 ? -1 : chunkIndex;

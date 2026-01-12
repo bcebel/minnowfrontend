@@ -282,35 +282,36 @@ const processSeedQueue = async () => {
     }
   };
 
-  const stopStream = async () => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
-    streamRef.current?.getTracks().forEach((track) => track.stop());
+const stopStream = async () => {
+  if (mediaRecorderRef.current?.state === "recording") {
+    mediaRecorderRef.current.stop();
+  }
 
-    const waitForQueue = async () => {
-      while (isProcessingQueueRef.current) {
-        console.log("Waiting for chunk queue to finish...");
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      }
-    };
-    await waitForQueue();
+  // Stop the camera immediately
+  streamRef.current?.getTracks().forEach((track) => track.stop());
 
-    sendMessage({
-      variables: {
-        content: "⏹️ Stream ended",
-        room: "neighborhood",
-        neighborhoodId: neighborhoodId,
-        sessionId: sessionIdRef.current,
-      },
-    });
+  console.log("⏹️ Stopping stream, flushing remaining chunks...");
 
-    setIsStreaming(false);
-    if (onStreamEnd) {
-      onStreamEnd();
-    }
-  };
+  // Wait for the queue, but with a maximum timeout so it doesn't hang forever
+  let waitCount = 0;
+  while (isProcessingQueueRef.current && waitCount < 20) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    waitCount++;
+  }
 
+  await sendMessage({
+    variables: {
+      content: "⏹️ Stream ended",
+      room: "neighborhood",
+      neighborhoodId: neighborhoodId,
+      sessionId: sessionIdRef.current,
+    },
+  });
+
+  setIsStreaming(false);
+  if (onStreamEnd) onStreamEnd();
+};
+  
   return (
     <View style={styles.recorderContainer}>
       <TouchableOpacity
