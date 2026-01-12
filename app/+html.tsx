@@ -136,51 +136,26 @@ export default function Root({ children }: PropsWithChildren) {
         <script
           dangerouslySetInnerHTML={{
             __html: `
-            if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js').then(
-            function(registration) {
-              console.log('ServiceWorker registration successful');
-            },
-            function(err) {
-              console.log('ServiceWorker registration failed: ', err);
+    (function() {
+      try {
+        console.log("⚓ Dropping Global WebTorrent Anchor...");
+        window.globalWebTorrentClient = new window.WebTorrent({
+          tracker: {
+            rtcConfig: {
+              iceServers: [
+                { urls: "stun:stun.l.google.com:19302" },
+                { urls: "stun:global.stun.twilio.com:3478" }
+              ]
             }
-          );
+          }
         });
+        window.globalWebTorrentClient.setMaxListeners(0);
+        console.log("✅ Global Client Ready:", window.globalWebTorrentClient);
+      } catch (e) {
+        console.error("❌ Failed to anchor WebTorrent:", e);
       }
-  // 1. FORCE MEMORY STORAGE (Critical for iOS stability)
-  // This prevents QuotaExceededError and IndexedDB crashes
-  window.WEBTORRENT_ANONYMOUS = true; 
-
-  if (!window.globalWebTorrentClient) {
-    console.log('🌪️ Initializing stabilized WebTorrent client');
-    
-    window.globalWebTorrentClient = new WebTorrent({
-      // 2. DISABLE DHT & LSD 
-      // These are battery hogs and don't work in mobile browsers anyway
-      dht: false,
-      lsd: false,
-      tracker: {
-        announce: [
-          'wss://tracker.openwebtorrent.com',
-          'wss://tracker.webtorrent.dev',
-          'wss://tracker.files.fm:7073/announce',
-          'wss://tracker.btorrent.xyz'
-        ],
-        rtcConfig: {
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:global.stun.twilio.com:3478" }
-          ]
-        }
-      }
-    });
-
-    // 3. LIMIT CONNECTIONS
-    // Prevents the "Too many open files" crash on mobile
-    window.globalWebTorrentClient.maxConns = 15;
-  }
-`,
+    })();
+    `,
           }}
         />
         {/* Additional SEO Meta */}

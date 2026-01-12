@@ -60,55 +60,78 @@ export default function NeighborhoodLiveStreamRecorder({
 }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [chunkCount, setChunkCount] = useState(0);
-  const supportedTypeRef = useRef("");
+
+  // Refs for persistent state across renders
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
   const sessionIdRef = useRef("");
   const chunkIndexRef = useRef(0);
   const chunkQueueRef = useRef([]);
   const isProcessingQueueRef = useRef(false);
-
-  // CRITICAL: Track if the first segment (The Header) has been sent
   const headerSentRef = useRef(false);
+  const supportedTypeRef = useRef('video/mp4; codecs="avc1.4d401f, mp4a.40.2"');
 
   const [sendMessage] = useMutation(SEND_MESSAGE);
   const [createStreamMutation] = useMutation(CREATE_STREAM);
+  const activeSwarms = useRef({});
+  
 
-  const APPLE_MIME_TYPE = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
+  const seedChunk = (chunkIndex, buffer) => {
+    // Every time you finish seeding a new chunk (let's say chunkIndex)
+    const keepAfter = chunkIndex - 5; // Keep the last 5 chunks for the P2P swarm
+    if (keepAfter > 0) {
+      warehouse.deleteOldChunks(sessionId, keepAfter);
+    }
+    const client = window.globalWebTorrentClient;
 
-const processSeedQueue = async () => {
-  if (isProcessingQueueRef.current || chunkQueueRef.current.length === 0) {
-    return;
-  }
-  isProcessingQueueRef.current = true;
+    client.seed(buffer, { announce: TRACKERS }, (torrent) => {
+      activeSwarms.current[chunkIndex] = torrent;
 
-  const client = window.globalWebTorrentClient;
-  if (client) client.setMaxListeners(100); // Stop the "Memory Leak" warning
+      // --- THE JANITOR ---
+      // Keep only the last 5 chunks seeding
+      const keys = Object.keys(activeSwarms.current).map(Number);
+      if (keys.length > 5) {
+        const oldestIndex = Math.min(...keys);
+        const oldTorrent = activeSwarms.current[oldestIndex];
 
-  const trackers = [
-    "wss://tracker.openwebtorrent.com",
-    "wss://tracker.webtorrent.dev",
-    "wss://tracker.files.fm:7073/announce",
-  ];
+        if (oldTorrent) {
+          console.log(`🧹 Killing swarm for chunk ${oldestIndex}`);
+          oldTorrent.destroy(); // Stops seeding and closes trackers
+          delete activeSwarms.current[oldestIndex];
+        }
+      }
+    });
+  };
 
-  const seedAndSend = (chunkData, index) => {
-    return new Promise((resolve) => {
-      const isHeader = index === -1;
-      const fileName = isHeader
-        ? `h_${sessionIdRef.current}.mp4`
-        : `c_${index}.mp4`;
+  // --- THE WORKER: SEEDS P2P & UPLOADS TO BACKEND ---
+  const processSeedQueue = async () => {
+    if (isProcessingQueueRef.current || chunkQueueRef.current.length === 0)
+      return;
+    isProcessingQueueRef.current = true;
 
-      // 1. SEED FIRST (P2P is the priority)
-      client.seed(
-        chunkData,
-        { name: fileName, announce: trackers },
-        async (torrent) => {
+    const client = window.globalWebTorrentClient;
+    if (!client) {
+      console.error("❌ No Global WebTorrent Client found!");
+      isProcessingQueueRef.current = false;
+      return;
+    }
+
+    const seedAndSend = (chunkData, index) => {
+      return new Promise((resolve) => {
+        const isHeader = index === -1;
+        const fileName = isHeader
+          ? `h_${sessionIdRef.current}.mp4`
+          : `c_${index}.mp4`;
+
+        client.seed(chunkData, { name: fileName }, async (torrent) => {
           console.log(
-            `📡 Local Seed Active: ${index} | Peers: ${torrent.numPeers}`
+            `📡 Seeding ${isHeader ? "Header" : "Chunk " + index} | Peers: ${
+              torrent.numPeers
+            }`
           );
 
-          // 2. UPLOAD (Wrapped in a try/catch so it never crashes the loop)
-          const uploadToBackend = async () => {
+          // Upload to Heroku as a WebSeed backup
+          const uploadToBackend = async (retry = 0) => {
             try {
               const formData = new FormData();
               formData.append(
@@ -120,198 +143,120 @@ const processSeedQueue = async () => {
               formData.append("neighborhoodId", neighborhoodId);
 
               const token = await AsyncStorage.getItem("token");
-              const response = await fetch(`${BACKEND_URL}/api/live-chunk`, {
+              const res = await fetch(`${BACKEND_URL}/api/live-chunk`, {
                 method: "POST",
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
                 body: formData,
               });
-
-              if (!response.ok) throw new Error(`Server ${response.status}`);
-              const result = await response.json();
-              return result.magnetUri;
+              const data = await res.json();
+              return data.magnetUri;
             } catch (e) {
-              console.warn(
-                `☁️ Server upload failed for chunk ${index}, staying P2P only.`
-              );
+              if (isHeader && retry < 2) return uploadToBackend(retry + 1);
               return null;
             }
           };
 
-          // Try to get the server's Magnet, but fall back to our local one
           const serverMagnet = await uploadToBackend();
           const finalMagnet = serverMagnet || torrent.magnetURI;
 
-          // 3. SEND GRAPHQL
-          try {
-            await sendMessage({
-              variables: {
-                content: isHeader ? "STREAM_HEADER" : "",
-                neighborhoodId: neighborhoodId,
-                fileName: isHeader ? "Header" : `Chunk ${index}`,
-                fileType: isHeader ? "video_header" : "video_chunk",
-                magnetLink: finalMagnet,
-                mimeType: supportedTypeRef.current,
-                sessionId: sessionIdRef.current,
-                chunkIndex: index,
-                totalChunks: -1,
-              },
-            });
-            if (!isHeader) setChunkCount((prev) => prev + 1);
-            else headerSentRef.current = true;
-          } catch (err) {
-            console.error("GraphQL broadcast failed:", err);
-          }
-
-          // 4. CLEANUP (Wait 5 mins)
-          if (!isHeader) {
-            setTimeout(() => {
-              if (client.get(torrent.infoHash)) client.remove(torrent.infoHash);
-            }, 300000);
-          }
-          resolve();
-        }
-      );
-    });
-  };
-
-  while (chunkQueueRef.current.length > 0) {
-    const chunk = chunkQueueRef.current.shift();
-    await seedAndSend(
-      chunk,
-      headerSentRef.current ? chunkIndexRef.current++ : -1
-    );
-  }
-  isProcessingQueueRef.current = false;
-};
-
-  const startStream = async () => {
-    try {
-      // 1. Initialize WebTorrent
-      if (!window.WebTorrent) {
-        const script = document.createElement("script");
-        script.src =
-          "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-        document.head.appendChild(script);
-        await new Promise((resolve) => (script.onload = resolve));
-      }
-
-      if (!window.globalWebTorrentClient) {
-        window.globalWebTorrentClient = new window.WebTorrent({
-          tracker: {
-            rtcConfig: {
-              iceServers: [
-                { urls: "stun:stun.l.google.com:19302" },
-                { urls: "stun:global.stun.twilio.com:3478" },
-              ],
+          // Notify the world via GraphQL
+          await sendMessage({
+            variables: {
+              content: isHeader ? "STREAM_HEADER" : "",
+              neighborhoodId,
+              fileName: isHeader ? "Header" : `Chunk ${index}`,
+              fileType: isHeader ? "video_header" : "video_chunk",
+              magnetLink: finalMagnet,
+              mimeType: supportedTypeRef.current,
+              sessionId: sessionIdRef.current,
+              chunkIndex: index,
             },
-          },
+          });
+
+          if (!isHeader) setChunkCount((prev) => prev + 1);
+          else headerSentRef.current = true;
+
+          // Cleanup seed after 5 mins
+          setTimeout(() => client.remove(torrent.infoHash), 300000);
+          resolve();
         });
-      }
-
-      // 2. Create Backend Session
-      const streamTitle = `${username}'s Live Stream`;
-      const { data: streamData } = await createStreamMutation({
-        variables: {
-          title: streamTitle,
-          neighborhoodId: neighborhoodId,
-        },
       });
+    };
 
-      if (!streamData?.createStream?.sessionId) {
-        throw new Error("Failed to create stream session.");
-      }
-
-      sessionIdRef.current = streamData.createStream.sessionId;
-      chunkIndexRef.current = 0;
-      chunkQueueRef.current = [];
-      isProcessingQueueRef.current = false;
-      headerSentRef.current = false;
-      setChunkCount(0);
-
-      // 3. Camera Setup (Landcape-friendly for iPhone)
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 360 },
-          frameRate: 30,
-        },
-        audio: true,
-      });
-      streamRef.current = stream;
-
-      // 4. Codec Selection
-      const types = [
-        APPLE_MIME_TYPE,
-        "video/mp4; codecs=avc1",
-        "video/webm; codecs=vp8,opus",
-      ];
-      let supportedType = types.find((type) =>
-        MediaRecorder.isTypeSupported(type)
-      );
-
-      if (!supportedType) {
-        throw new Error("No supported MediaRecorder format found.");
-      }
-
-      supportedTypeRef.current = supportedType;
-      console.log(`Using MIME type: ${supportedType}`);
-
-      // 5. Recorder Initialization
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: supportedType,
-        videoBitsPerSecond: 800000,
-      });
-
-      mediaRecorderRef.current = mediaRecorder;
-
-      // 1-second chunks are essential for avoiding RTCDataChannel buffer limits
-      const CHUNK_DURATION = 8000;
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunkQueueRef.current.push(e.data);
-          processSeedQueue();
-        }
-      };
-
-      mediaRecorder.start(CHUNK_DURATION);
-      setIsStreaming(true);
-    } catch (error) {
-      console.error("❌ Stream start error:", error);
-      Alert.alert("Stream Error", error.message);
+    while (chunkQueueRef.current.length > 0) {
+      const chunk = chunkQueueRef.current.shift();
+      const currentIndex = headerSentRef.current ? chunkIndexRef.current++ : -1;
+      await seedAndSend(chunk, currentIndex);
     }
+    isProcessingQueueRef.current = false;
   };
 
-const stopStream = async () => {
-  if (mediaRecorderRef.current?.state === "recording") {
-    mediaRecorderRef.current.stop();
-  }
+  // --- START THE ENGINE ---
+ const startStream = async () => {
+   try {
+     // 1. THE "ONE COMMAND" ENGINE CHECK
+     // If it's not on the window, we make it. Right here. Right now.
+     if (!window.globalWebTorrentClient) {
+       console.log("🛠️ Engine missing. Hot-starting WebTorrent...");
+       if (!window.WebTorrent) {
+         // If the CDN script failed too, we grab it manually
+         const script = document.createElement("script");
+         script.src =
+           "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+         document.head.appendChild(script);
+         await new Promise((resolve) => (script.onload = resolve));
+       }
+       window.globalWebTorrentClient = new window.WebTorrent();
+       window.globalWebTorrentClient.setMaxListeners(0);
+     }
 
-  // Stop the camera immediately
-  streamRef.current?.getTracks().forEach((track) => track.stop());
+     const client = window.globalWebTorrentClient;
+     console.log("✅ Engine Engaged:", client);
 
-  console.log("⏹️ Stopping stream, flushing remaining chunks...");
+     // 2. CREATE SESSION
+     const { data: streamData } = await createStreamMutation({
+       variables: { title: `${username}'s Live`, neighborhoodId },
+     });
 
-  // Wait for the queue, but with a maximum timeout so it doesn't hang forever
-  let waitCount = 0;
-  while (isProcessingQueueRef.current && waitCount < 20) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    waitCount++;
-  }
+     if (!streamData?.createStream?.sessionId) throw new Error("No Session ID");
+     sessionIdRef.current = streamData.createStream.sessionId;
 
-  await sendMessage({
-    variables: {
-      content: "⏹️ Stream ended",
-      room: "neighborhood",
-      neighborhoodId: neighborhoodId,
-      sessionId: sessionIdRef.current,
-    },
-  });
+     // 3. CAMERA & MEDIA RECORDER
+     const stream = await navigator.mediaDevices.getUserMedia({
+       video: { width: 640, height: 360 },
+       audio: true,
+     });
+     streamRef.current = stream;
 
-  setIsStreaming(false);
-  if (onStreamEnd) onStreamEnd();
-};
+     const mediaRecorder = new MediaRecorder(stream, {
+       mimeType: supportedTypeRef.current,
+     });
+     mediaRecorderRef.current = mediaRecorder;
+
+     mediaRecorder.ondataavailable = (e) => {
+       if (e.data.size > 0) {
+         chunkQueueRef.current.push(e.data);
+         processSeedQueue();
+       }
+     };
+
+     mediaRecorder.start(8000); // 8 second chunks
+     setIsStreaming(true);
+   } catch (error) {
+     console.error("❌ Fatal Stream Error:", error);
+     Alert.alert("Stream Error", error.message);
+   }
+
+ };
+
+    const stopStream = async () => {
+      mediaRecorderRef.current?.stop();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      setIsStreaming(false);
+      if (onStreamEnd) onStreamEnd();
+    };
   
+
   return (
     <View style={styles.recorderContainer}>
       <TouchableOpacity
@@ -322,10 +267,10 @@ const stopStream = async () => {
         ]}
       >
         <Text style={styles.buttonText}>
-          {isStreaming ? "⏹️ STOP LIVE STREAM" : "🔴 START LIVE STREAM"}
+          {isStreaming ? "⏹️ STOP LIVE" : "🔴 START LIVE"}
         </Text>
         {isStreaming && (
-          <Text style={styles.statusText}>{chunkCount} chunks broadcasted</Text>
+          <Text style={styles.statusText}>{chunkCount} chunks live</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -333,23 +278,8 @@ const stopStream = async () => {
 }
 
 const styles = StyleSheet.create({
-  recorderContainer: {
-    padding: 10,
-    width: "100%",
-  },
-  button: {
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  statusText: {
-    color: "white",
-    fontSize: 12,
-    marginTop: 5,
-  },
+  recorderContainer: { padding: 10, width: "100%" },
+  button: { padding: 15, borderRadius: 10, alignItems: "center" },
+  buttonText: { color: "white", fontWeight: "bold", fontSize: 16 },
+  statusText: { color: "white", fontSize: 12, marginTop: 5 },
 });
