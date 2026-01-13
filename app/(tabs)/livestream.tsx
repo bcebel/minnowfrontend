@@ -180,6 +180,9 @@ useEffect(() => {
       } catch (e) {
         console.error("Header fetch failed", e);
       }
+      console.log(
+        `[Scout] 🔍 Looking for Header at: ${API_BASE}/api/live-chunk/${sessionId}/-1`
+      );
     };
     fetchHeader();
   }, [sessionId]);
