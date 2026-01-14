@@ -4,12 +4,14 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   StyleSheet,
   Linking,
   Alert,
   Platform,
 } from "react-native";
+import { Image } from "expo-image"; // 👈 Swap this in
+
+// Inside your AdMessage return:
 
 interface AdProps {
   ad: {
@@ -52,15 +54,13 @@ export default function AdMessage({ ad }: AdProps) {
       activeOpacity={0.7}
     >
       {ad.imageUrl ? (
-        <Image
-          source={{ uri: ad.imageUrl }}
-          style={styles.image}
-          resizeMode="cover"
-          onError={(e) =>
-            console.log("Image failed to load:", e.nativeEvent.error)
-          }
-          onLoad={() => console.log("Image loaded successfully")}
-        />
+<Image
+  source={{ uri: ad.imageUrl }}
+  style={styles.image}
+  contentFit="cover" // 👈 Instead of resizeMode
+  transition={200} // 👈 Smooth fade-in
+  cachePolicy="memory-disk" // 👈 Saves bandwidth/CPU
+/>
       ) : (
         <View style={styles.imagePlaceholder}>
           <Text style={styles.placeholderText}>Ad</Text>

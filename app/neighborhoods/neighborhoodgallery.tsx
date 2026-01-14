@@ -13,7 +13,7 @@ import { Image } from "expo-image";
 import { gql, useQuery } from "@apollo/client";
 import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentMedia from "../../components/WebTorrentMedia"; // Import from your chat
-
+import AdMessage from "../../components/AdMessage"; // New Ad component
 // GraphQL Query
 const GET_NEIGHBORHOOD_GALLERY = gql`
   query GetNeighborhoodGallery($neighborhoodId: ID!) {
@@ -51,6 +51,19 @@ const GET_NEIGHBORHOOD_GALLERY = gql`
         createdAt
       }
       totalCount
+    }
+  }
+`;
+
+const GET_RANDOM_AFFILIATE_LINK = gql`
+  query GetRandomAffiliateLink {
+    randomAffiliateLink {
+      id
+      url
+      title
+      imageUrl
+      description
+      clicks
     }
   }
 `;
@@ -218,19 +231,29 @@ export default function NeighborhoodGallery({
     fetchPolicy: "network-only",
   });
 
+  const { data: adData } = useQuery(GET_RANDOM_AFFILIATE_LINK);
+
   // Combine videos and images
-  const allMedia = React.useMemo(() => {
-    if (!data?.getNeighborhoodGallery) return [];
+ const allMedia = React.useMemo(() => {
+   if (!data?.getNeighborhoodGallery) return [];
 
-    const galleryData = data.getNeighborhoodGallery;
-    const videos = galleryData.videos || [];
-    const images = galleryData.images || [];
+   const rawMedia = [
+     ...(data.getNeighborhoodGallery.videos || []),
+     ...(data.getNeighborhoodGallery.images || []),
+   ].sort(
+     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+   );
 
-    return [...videos, ...images].sort((a, b) => {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-  }, [data?.getNeighborhoodGallery]);
-
+   // Inject an Ad every 6 items for the Gallery
+   const withAds = [];
+   rawMedia.forEach((item, index) => {
+     withAds.push(item);
+     if ((index + 1) % 6 === 0 && adData?.randomAffiliateLink) {
+       withAds.push({ isAd: true, ...adData.randomAffiliateLink });
+     }
+   });
+   return withAds;
+ }, [data, adData]);
   if (loading) {
     return (
       <View style={styles.center}>
@@ -256,6 +279,13 @@ export default function NeighborhoodGallery({
   const totalCount = galleryData?.totalCount || 0;
 
   const renderItem = ({ item }: { item: any }) => {
+    if (item.isAd) {
+      return (
+        <View style={styles.galleryAdWrapper}>
+          <AdMessage ad={item} />
+        </View>
+      );
+    }
     const fileType = getFileType(item.fileName);
 
     return (
@@ -303,12 +333,14 @@ export default function NeighborhoodGallery({
       <Text style={styles.subheader}>{totalCount} items</Text>
 
       <FlatList
-        data={media}
+        data={allMedia}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.list}
-        refreshing={loading}
-        onRefresh={refetch}
+        // --- ADD THESE ---
+        initialNumToRender={6}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS !== "web"}
       />
     </View>
   );

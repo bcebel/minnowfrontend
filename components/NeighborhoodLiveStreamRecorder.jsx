@@ -256,6 +256,31 @@ export default function NeighborhoodLiveStreamRecorder({
       if (onStreamEnd) onStreamEnd();
     };
   
+  async function stitchAndShip(sessionId, totalChunks) {
+    this.addLog("🧵 Stitching archive...");
+    const blobParts = [];
+
+    // 1. Collect all chunks from IndexedDB (Warehouse)
+    for (let i = -1; i <= totalChunks; i++) {
+      // Start at -1 to include the Header!
+      const chunk = await warehouse.getChunk(sessionId, i);
+      if (chunk) blobParts.push(chunk);
+    }
+
+    // 2. Create the unified file and send to your existing upload function
+    const finalFile = new File(
+      blobParts,
+      `neighborhood_live_${sessionId}.mp4`,
+      { type: "video/mp4" }
+    );
+
+    // 3. This calls your existing IPFS upload logic
+    return await this.uploadToIPFS(
+      URL.createObjectURL(finalFile),
+      finalFile.name,
+      "video"
+    );
+  }
 
   return (
     <View style={styles.recorderContainer}>
