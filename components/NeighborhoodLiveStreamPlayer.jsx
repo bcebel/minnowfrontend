@@ -59,7 +59,11 @@ class StreamController {
     this.watchdog = setInterval(async () => {
       if (!this.headerLoaded) {
         // Still looking for the start of the stream...
-        await this.sweepWarehouse();
+        if (!this.headerLoaded && this.sessionId) {
+          this.addLog("📢 Broadcasting: Missing Header (-1).");
+          // This is where you'd emit to your socket
+          // window.globalSocket.emit('request_header', { sessionId: this.sessionId });
+        }
       } else if (!this.isProcessing) {
         // Header is in, let's see if the next chunk is ready in the warehouse
         const nextData = await warehouse.getChunk(
@@ -112,6 +116,38 @@ class StreamController {
     }
   }
 
+  async stitchAndShip() {
+    this.addLog("🧵 Starting Stitch & Ship...");
+    const blobParts = [];
+
+    // 1. Get the Header
+    const header = await warehouse.getChunk(this.sessionId, -1);
+    if (!header) {
+      this.addLog("❌ Cannot archive: Header missing from warehouse.");
+      return;
+    }
+    blobParts.push(header);
+
+    // 2. Loop through all chunks we've seen
+    // (You'll need to keep track of this.maxIndexSeen in your tick function)
+    for (let i = 0; i <= this.nextIndex; i++) {
+      const chunk = await warehouse.getChunk(this.sessionId, i);
+      if (chunk) blobParts.push(chunk);
+    }
+
+    // 3. Create the file
+    const finalFile = new File(
+      blobParts,
+      `neighborhood_stream_${this.sessionId}.mp4`,
+      { type: "video/mp4" }
+    );
+
+    this.addLog("📦 File ready. Sending to Pinata...");
+
+    // 4. Return the file so your component can call your IPFS upload function
+    return finalFile;
+  }
+
   async sweepWarehouse() {
     // 1. Check if the header is actually on the disk
     const header = await warehouse.getChunk(this.sessionId, -1);
@@ -162,7 +198,17 @@ class StreamController {
   async tick() {
     // 1. Check if the "Gates" are open
     if (this.isProcessing) return; // Silent return is fine here
-
+    
+if (this.sb && this.sb.updating === false && this.video.buffered.length > 0) {
+  // If the playhead is stuck at the end of the buffer, kick it!
+  if (
+    this.video.currentTime >=
+    this.video.buffered.end(this.video.buffered.length - 1)
+  ) {
+    this.addLog("🥾 Buffer gap detected. Nudging playhead...");
+    this.video.currentTime += 0.1;
+  }
+}
     if (this.ms.readyState !== "open") {
       this.addLog(`⚠️ Tick Blocked: MediaSource is ${this.ms.readyState}`);
       return;
