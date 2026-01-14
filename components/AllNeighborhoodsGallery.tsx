@@ -13,6 +13,7 @@ import {
 import { gql, useQuery } from "@apollo/client";
 import WebTorrentMedia from "../components/WebTorrentMedia";
 import { Image } from "expo-image";
+import AdMessage from "./AdMessage";
 
 // Use the working 'images' query instead of 'myImages'
 const GET_NEIGHBORHOOD_GALLERY = gql`
@@ -53,6 +54,19 @@ const GET_NEIGHBORHOOD_GALLERY = gql`
         }
       }
       totalCount
+    }
+  }
+`;
+
+const GET_RANDOM_AFFILIATE_LINK = gql`
+  query GetRandomAffiliateLink {
+    randomAffiliateLink {
+      id
+      url
+      title
+      imageUrl
+      description
+      clicks
     }
   }
 `;
@@ -184,17 +198,32 @@ const MediaDisplay = ({ item }: { item: any }) => {
 export default function AllNeighborhoodsGallery() {
   const { data, loading, error, refetch } = useQuery(GET_NEIGHBORHOOD_GALLERY);
   const [refreshing, setRefreshing] = useState(false);
-
+const { data: adData } = useQuery(GET_RANDOM_AFFILIATE_LINK);
   // Extract and combine data from the single query result
   const combinedData = React.useMemo(() => {
     if (!data?.getMyAllNeighborhoodsGallery) return [];
 
     const { videos, images } = data.getMyAllNeighborhoodsGallery;
-    return [...videos, ...images].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-  }, [data]);
+const raw = [...videos, ...images].sort(
+  (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+);
+
+  // Inject Ads
+  const withAds = [];
+  raw.forEach((item, index) => {
+    withAds.push(item);
+    // Every 5 items, inject a full-screen ad "page"
+    if ((index + 1) % 5 === 0 && adData?.randomAffiliateLink) {
+      withAds.push({
+        isAd: true,
+        id: `ad-page-${index}`,
+        ...adData.randomAffiliateLink
+      });
+    }
+  });
+  return withAds;
+}, [data, adData]);
+
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -229,10 +258,21 @@ export default function AllNeighborhoodsGallery() {
   const renderItem = ({ item }: { item: any }) => {
     const fileType = getFileType(item.fileName);
     const neighborhoodName = item.neighborhood?.name || "Unknown Neighborhood";
-
+if (item.isAd) {
+    return (
+      <View style={[styles.card, styles.adCardCenter]}>
+        <View style={styles.adBadgeOverlay}>
+            <Text style={styles.badgeText}>SPONSORED</Text>
+        </View>
+        <View style={styles.adMessageContainer}>
+            <AdMessage ad={item} />
+        </View>
+        <Text style={styles.adSwipeHint}>Swipe to continue gallery →</Text>
+      </View>
+    );
+  }
     return (
       <View style={styles.card}>
-        {/* Header */}
         <View style={styles.cardHeader}>
           <View style={styles.titleContainer}>
             <Text style={styles.itemTitle} numberOfLines={1}>
@@ -255,12 +295,12 @@ export default function AllNeighborhoodsGallery() {
           ) : null}
         </View>
 
-        {/* Media */}
+
         <View style={styles.mediaContainer}>
           <MediaDisplay item={item} />
         </View>
 
-        {/* Metadata */}
+
         <View style={styles.metadata}>
           <View style={styles.metadataRow}>
             <Text style={styles.metadataLabel}>By:</Text>
@@ -613,4 +653,31 @@ const styles = StyleSheet.create({
   footer: {
     height: 50,
   },
+  adCardCenter: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1C0A2E',
+    borderColor: '#591155', // Purple glow for ads
+  },
+  adBadgeOverlay: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    backgroundColor: '#FFFF00',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  adMessageContainer: {
+    width: '100%',
+    alignItems: 'center',
+    padding: 10,
+  },
+  adSwipeHint: {
+    color: '#888',
+    fontSize: 12,
+    marginTop: 20,
+    fontStyle: 'italic',
+  }
+
 });
