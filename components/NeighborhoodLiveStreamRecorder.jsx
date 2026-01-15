@@ -3,7 +3,8 @@ import React, { useState, useRef } from "react";
 import { View, TouchableOpacity, Text, Alert, StyleSheet } from "react-native";
 import { useMutation, gql } from "@apollo/client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { warehouse } from "./StreamWearhouse.js";
+import { unifiedUpload } from "../app/neighborhoods/neighborhood-chat.js";
 const SEND_MESSAGE = gql`
   mutation SendNeighborhoodMessage(
     $content: String!
@@ -56,6 +57,7 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 export default function NeighborhoodLiveStreamRecorder({
   neighborhoodId,
   username,
+  unifiedUpload,
   onStreamEnd,
 }) {
   const [isStreaming, setIsStreaming] = useState(false);
@@ -75,7 +77,41 @@ export default function NeighborhoodLiveStreamRecorder({
   const [createStreamMutation] = useMutation(CREATE_STREAM);
   const activeSwarms = useRef({});
   
+const handleStitchAndShip = async () => {
+  try {
+    const sessionId = sessionIdRef.current;
+    const totalChunks = chunkIndexRef.current;
 
+    // 1. STITCH: Grab everything from the warehouse
+    const parts = [];
+    const header = await warehouse.getChunk(sessionId, -1);
+    if (header) parts.push(header);
+
+    for (let i = 0; i < totalChunks; i++) {
+      const chunk = await warehouse.getChunk(sessionId, i);
+      if (chunk) parts.push(chunk);
+    }
+
+    // 2. WRAP: Create the "Asset" object that unifiedUpload expects
+    const stitchedBlob = new Blob(parts, { type: "video/mp4" });
+    const mockAsset = {
+      uri: URL.createObjectURL(stitchedBlob),
+      name: `live-archive-${sessionId}.mp4`,
+      size: stitchedBlob.size,
+    };
+
+    // 3. SHIP: Use the passed-in unifiedUpload from ChatScreen
+    await unifiedUpload(mockAsset, "video", stitchedBlob.size, "video/mp4");
+
+    // 4. CLEANUP: Clear the warehouse since it's now permanent in the gallery
+    await warehouse.deleteSession(sessionId);
+    Alert.alert("Success", "Stream archived to Gallery!");
+  } catch (error) {
+    console.error("❌ Archive failed:", error);
+    Alert.alert("Error", "Could not stitch and ship.");
+  }
+};
+  
   const seedChunk = (chunkIndex, buffer) => {
     // Every time you finish seeding a new chunk (let's say chunkIndex)
     const keepAfter = chunkIndex - 5; // Keep the last 5 chunks for the P2P swarm
@@ -280,26 +316,49 @@ export default function NeighborhoodLiveStreamRecorder({
       finalFile.name,
       "video"
     );
+
+
   }
 
-  return (
-    <View style={styles.recorderContainer}>
+return (
+  <View style={styles.recorderContainer}>
+    {!isStreaming ? (
+      // 1. Initial State: Just the Start Button
       <TouchableOpacity
-        onPress={isStreaming ? stopStream : startStream}
-        style={[
-          styles.button,
-          { backgroundColor: isStreaming ? "#151159" : "#0066cc" },
-        ]}
+        onPress={startStream}
+        style={[styles.button, styles.startBtn]}
       >
-        <Text style={styles.buttonText}>
-          {isStreaming ? "⏹️ STOP LIVE" : "🔴 START LIVE"}
-        </Text>
-        {isStreaming && (
-          <Text style={styles.statusText}>{chunkCount} chunks live</Text>
-        )}
+        <Text style={styles.buttonText}>🔴 START LIVE STREAM</Text>
       </TouchableOpacity>
-    </View>
-  );
+    ) : (
+      // 2. Live State: The Control Panel
+      <View style={styles.controlsRow}>
+        <TouchableOpacity
+          onPress={stopStream}
+          style={[styles.button, styles.stopBtn]}
+        >
+          <Text style={styles.buttonText}>⏹️ STOP (DELETE)</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => {
+            stopStream(); // Kill the camera
+            handleStitchAndShip(); // Send to Gallery
+          }}
+          style={[styles.button, styles.archiveBtn]}
+        >
+          <Text style={styles.buttonText}>📁 STOP & ARCHIVE</Text>
+        </TouchableOpacity>
+      </View>
+    )}
+
+    {isStreaming && (
+      <Text style={styles.chunkCountText}>
+        📡 Streaming: {chunkCount} chunks broadcasted
+      </Text>
+    )}
+  </View>
+);
 }
 
 const styles = StyleSheet.create({
@@ -307,4 +366,35 @@ const styles = StyleSheet.create({
   button: { padding: 15, borderRadius: 10, alignItems: "center" },
   buttonText: { color: "white", fontWeight: "bold", fontSize: 16 },
   statusText: { color: "white", fontSize: 12, marginTop: 5 },
+  archiveButton: {
+    backgroundColor: "#2ecc71", // Green for success/save
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 10,
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  controlsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  button: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  startBtn: { backgroundColor: "#0066cc" },
+  stopBtn: { backgroundColor: "#444" }, // Gray for "just stop"
+  archiveBtn: { backgroundColor: "#2ecc71" }, // Green for "Save"
+  chunkCountText: {
+    color: "#00ffff",
+    textAlign: "center",
+    marginTop: 10,
+    fontSize: 12,
+    fontWeight: "bold",
+  },
 });

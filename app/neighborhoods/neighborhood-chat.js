@@ -29,6 +29,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
 import AdMessage from "../../components/AdMessage";
 import ChatMediaRenderer from "../../components/ChatMediaRenderer";
+import NeighborhoodLiveStreamRecorder from "@/components/NeighborhoodLiveStreamRecorder";
 
 // Helper function to create optimistic message
 const createOptimisticMessage = (type, fileName, url, thumbnailUrl) => {
@@ -1239,6 +1240,14 @@ export default function NeighborhoodChatScreen() {
         >
           <Text style={styles.membersButtonText}>👥</Text>
         </TouchableOpacity>
+        <NeighborhoodLiveStreamRecorder
+          neighborhoodId={neighborhoodId}
+          username={username}
+          // Pass these working functions from ChatScreen to the Recorder
+          unifiedUpload={unifiedUpload}
+          refetch={refetch}
+          socket={socket}
+        />
       </View>
       {!socket && (
         <View style={styles.connectionWarning}>
@@ -1246,24 +1255,29 @@ export default function NeighborhoodChatScreen() {
         </View>
       )}
       <ScrollView style={styles.messagesList} ref={scrollViewRef}>
-        {messages.map((item, index) => {
-          const showAdHere = index % 20 === 0;
+        {messages
+          .filter(
+            (msg) =>
+              msg.fileType !== "video_chunk" && msg.fileType !== "video_header"
+          )
+          .map((item, index) => {
+            const showAdHere = index % 20 === 0;
 
-          return (
-            <React.Fragment key={item.id}>
-              {renderMessage(item)}
+            return (
+              <React.Fragment key={item.id}>
+                {renderMessage(item)}
 
-              {showAdHere && adData?.randomAffiliateLink && (
-                <View style={styles.adContainer}>
-                  <AdMessage
-                    ad={adData.randomAffiliateLink}
-                    onPress={() => handleAdPress(adData.randomAffiliateLink)}
-                  />
-                </View>
-              )}
-            </React.Fragment>
-          );
-        })}
+                {showAdHere && adData?.randomAffiliateLink && (
+                  <View style={styles.adContainer}>
+                    <AdMessage
+                      ad={adData.randomAffiliateLink}
+                      onPress={() => handleAdPress(adData.randomAffiliateLink)}
+                    />
+                  </View>
+                )}
+              </React.Fragment>
+            );
+          })}
       </ScrollView>
 
       {showAd && currentAd && (

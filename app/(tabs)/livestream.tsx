@@ -11,6 +11,7 @@ import { gql, useQuery, useSubscription } from "@apollo/client";
 import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer";
 import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
 import { warehouse } from "../../components/StreamWearhouse.js";
+import { unifiedUpload } from "../neighborhoods/neighborhood-chat.js";
 
 // --- QUERIES ---
 const GET_ME = gql`
@@ -236,6 +237,7 @@ export default function LivestreamScreen() {
       <NeighborhoodLiveStreamRecorder
         neighborhoodId={selectedHood}
         username={meData?.me?.username}
+        unifiedUpload={unifiedUpload}
         onStreamEnd={() => {
           setIsRecording(false);
           refetch();
