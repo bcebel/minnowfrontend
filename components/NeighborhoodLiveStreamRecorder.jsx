@@ -52,6 +52,25 @@ const CREATE_STREAM = gql`
   }
 `;
 
+const SEND_CHUNK = gql`
+  mutation SendStreamChunk(
+    $sessionId: String!
+    $chunkIndex: Int!
+    $magnetLink: String!
+    $thumbnailUrl: String
+  ) {
+    sendStreamChunk(
+      sessionId: $sessionId
+      chunkIndex: $chunkIndex
+      magnetLink: $magnetLink
+      thumbnailUrl: $thumbnailUrl
+    ) {
+      id
+      thumbnailUrl
+    }
+  }
+`;
+
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function NeighborhoodLiveStreamRecorder({
@@ -72,7 +91,7 @@ export default function NeighborhoodLiveStreamRecorder({
   const isProcessingQueueRef = useRef(false);
   const headerSentRef = useRef(false);
   const supportedTypeRef = useRef('video/mp4; codecs="avc1.4d401f, mp4a.40.2"');
-
+const currentThumbnailRef = useRef(null);
   const [sendMessage] = useMutation(SEND_MESSAGE);
   const [createStreamMutation] = useMutation(CREATE_STREAM);
   const activeSwarms = useRef({});
@@ -152,72 +171,67 @@ const handleStitchAndShip = async () => {
       return;
     }
 
-    const seedAndSend = (chunkData, index) => {
-      return new Promise((resolve) => {
-        const isHeader = index === -1;
-        const fileName = isHeader
-          ? `h_${sessionIdRef.current}.mp4`
-          : `c_${index}.mp4`;
+const seedAndSend = (chunkData, index) => {
+  return new Promise(async (resolve) => {
+    const isHeader = index === -1;
 
-        client.seed(chunkData, { name: fileName }, async (torrent) => {
-          console.log(
-            `📡 Seeding ${isHeader ? "Header" : "Chunk " + index} | Peers: ${
-              torrent.numPeers
-            }`
+    // Use the thumb we already captured during startStream
+    const thumbToSend = isHeader ? currentThumbnailRef.current : null;
+
+    const fileName = isHeader
+      ? `h_${sessionIdRef.current}.mp4`
+      : `c_${index}.mp4`;
+
+    // 2. SEED & UPLOAD
+    client.seed(chunkData, { name: fileName }, async (torrent) => {
+      const uploadToBackend = async (retry = 0) => {
+        try {
+          const formData = new FormData();
+          formData.append(
+            "chunk",
+            new Blob([chunkData], { type: supportedTypeRef.current })
           );
+          formData.append("sessionId", sessionIdRef.current);
+          formData.append("chunkIndex", index.toString());
 
-          // Upload to Heroku as a WebSeed backup
-          const uploadToBackend = async (retry = 0) => {
-            try {
-              const formData = new FormData();
-              formData.append(
-                "chunk",
-                new Blob([chunkData], { type: supportedTypeRef.current })
-              );
-              formData.append("sessionId", sessionIdRef.current);
-              formData.append("chunkIndex", index.toString());
-              formData.append("neighborhoodId", neighborhoodId);
-
-              const token = await AsyncStorage.getItem("token");
-              const res = await fetch(`${BACKEND_URL}/api/live-chunk`, {
-                method: "POST",
-                headers: token ? { Authorization: `Bearer ${token}` } : {},
-                body: formData,
-              });
-              const data = await res.json();
-              return data.magnetUri;
-            } catch (e) {
-              if (isHeader && retry < 2) return uploadToBackend(retry + 1);
-              return null;
-            }
-          };
-
-          const serverMagnet = await uploadToBackend();
-          const finalMagnet = serverMagnet || torrent.magnetURI;
-
-          // Notify the world via GraphQL
-          await sendMessage({
-            variables: {
-              content: isHeader ? "STREAM_HEADER" : "",
-              neighborhoodId,
-              fileName: isHeader ? "Header" : `Chunk ${index}`,
-              fileType: isHeader ? "video_header" : "video_chunk",
-              magnetLink: finalMagnet,
-              mimeType: supportedTypeRef.current,
-              sessionId: sessionIdRef.current,
-              chunkIndex: index,
-            },
+          // We still send the thumb to the backend as a backup,
+          // but we don't wait for it to "work" for the player to start
+          const token = await AsyncStorage.getItem("token");
+          const res = await fetch(`${BACKEND_URL}/api/live-chunk`, {
+            method: "POST",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: formData,
           });
+          return await res.json();
+        } catch (e) {
+          if (isHeader && retry < 2) return uploadToBackend(retry + 1);
+          return null;
+        }
+      };
 
-          if (!isHeader) setChunkCount((prev) => prev + 1);
-          else headerSentRef.current = true;
+      const result = await uploadToBackend();
 
-          // Cleanup seed after 5 mins
-          setTimeout(() => client.remove(torrent.infoHash), 300000);
-          resolve();
-        });
+      // 3. GRAPHQL NOTIFY
+      // This is what the player listens for!
+      await sendMessage({
+        variables: {
+          content: isHeader ? "STREAM_HEADER" : "",
+          neighborhoodId,
+          magnetLink: result?.magnetUri || torrent.magnetURI,
+          thumbnailUrl: thumbToSend, // Using our successful Base64 ref
+          sessionId: sessionIdRef.current,
+          chunkIndex: index,
+          mimeType: supportedTypeRef.current,
+        },
       });
-    };
+
+      if (!isHeader) setChunkCount((prev) => prev + 1);
+      else headerSentRef.current = true;
+
+      resolve();
+    });
+  });
+};
 
     while (chunkQueueRef.current.length > 0) {
       const chunk = chunkQueueRef.current.shift();
@@ -263,6 +277,21 @@ const handleStitchAndShip = async () => {
        audio: true,
      });
      streamRef.current = stream;
+
+     try {
+       const videoTrack = stream.getVideoTracks()[0];
+       const imageCapture = new ImageCapture(videoTrack);
+       const bitmap = await imageCapture.grabFrame();
+       const canvas = document.createElement("canvas");
+       canvas.width = 320; // Small size is better for DB
+       canvas.height = 180;
+       const ctx = canvas.getContext("2d");
+       ctx.drawImage(bitmap, 0, 0, 320, 180);
+       currentThumbnailRef.current = canvas.toDataURL("image/jpeg", 0.7); // 0.7 quality to keep string small
+       console.log("📸 Thumbnail captured!");
+     } catch (e) {
+       console.warn("Could not capture thumbnail:", e);
+     }
 
      const mediaRecorder = new MediaRecorder(stream, {
        mimeType: supportedTypeRef.current,
