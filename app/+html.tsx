@@ -130,7 +130,7 @@ export default function Root({ children }: PropsWithChildren) {
           href="/favicon-16x16.png"
         />
         {/* WebTorrent Script */}
-        <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js" />
+        <script src="https://cdn.jsdelivr.net/npm/webtorrent@2.8.5/index.min.js" />
         // app/_layout.js or your root HTML file // Replace the WebTorrent
         script section with:
         <script
