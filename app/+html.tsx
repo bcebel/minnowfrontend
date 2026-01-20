@@ -132,33 +132,27 @@ export default function Root({ children }: PropsWithChildren) {
         {/*<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
 <script>eruda.init();</script>
         WebTorrent Script */}
-        <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js" />
+        <script
+          src="https://cdn.jsdelivr.net/npm/webtorrent@2.5.10/webtorrent.min.js"
+          crossOrigin="anonymous"
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
-    (function() {
-      try {
-        console.log("⚓ Dropping Global WebTorrent Anchor...");
+    (function initWT() {
+      if (window.WebTorrent) {
         window.globalWebTorrentClient = new window.WebTorrent({
-          tracker: {
-            rtcConfig: {
-              iceServers: [
-                { urls: "stun:stun.l.google.com:19302" },
-                { urls: "stun:global.stun.twilio.com:3478" }
-              ]
-            }
-          }
+          tracker: { announce: ["wss://tracker-0ad4cca9fd92.herokuapp.com"] }
         });
-        window.globalWebTorrentClient.setMaxListeners(0);
-        console.log("✅ Global Client Ready:", window.globalWebTorrentClient);
-      } catch (e) {
-        console.error("❌ Failed to anchor WebTorrent:", e);
+        console.log("⚓ WebTorrent Initialized");
+      } else {
+        console.log("⏳ WebTorrent not ready, retrying in 100ms...");
+        setTimeout(initWT, 100);
       }
     })();
     `,
           }}
         />
-        {/* Additional SEO Meta */}
         <meta name="theme-color" content="#1C0A2E" />
         <meta name="msapplication-TileColor" content="#20B2AA" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -167,7 +161,6 @@ export default function Root({ children }: PropsWithChildren) {
           content="black-translucent"
         />
         <meta name="format-detection" content="telephone=no" />
-        {/* Canonical URL */}
         <link rel="canonical" href={url} />
         <meta
           name="impact-site-verification"

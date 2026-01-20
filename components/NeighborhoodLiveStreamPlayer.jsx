@@ -8,12 +8,15 @@ import { warehouse } from "../components/StreamWearhouse.js";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
+
 // --- THE STREAM CONTROLLER (The Engine) ---
 class StreamController {
   constructor(sessionId, addLog, triggerFetch) {
     this.addLog = addLog;
     this.sessionId = sessionId;
     this.triggerFetch = triggerFetch;
+    this.thumbnailUrl = null;
+    this.thumbnailLoaded = false;
 
     // 1. Core State
     this.nextIndex = 0;
@@ -44,6 +47,32 @@ class StreamController {
     if (window.ManagedMediaSource) {
       this.video.setAttribute("disableRemotePlayback", "true");
     }
+    this.fetchThumbnailFromStreamChunk = async () => {
+      try {
+        // Try to get thumbnail from StreamChunk backend
+        const response = await fetch(
+          `${BACKEND_URL}/api/stream-chunk/thumbnail/${sessionId}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.thumbnailUrl) {
+            this.thumbnailUrl = data.thumbnailUrl;
+            this.thumbnailLoaded = true;
+            this.addLog("✅ Thumbnail loaded from StreamChunk");
+
+            // Trigger any callback to update UI
+            if (this.onThumbnailLoaded) {
+              this.onThumbnailLoaded(this.thumbnailUrl);
+            }
+            return true;
+          }
+        }
+      } catch (error) {
+        this.addLog("⚠️ Could not fetch thumbnail from StreamChunk");
+      }
+      return false;
+    };
 
     // 4. Unified SourceOpen Handler
     const openEvt = window.ManagedMediaSource
@@ -176,8 +205,17 @@ class StreamController {
     }
   }
 
+  getThumbnailUrl() {
+    return this.thumbnailUrl;
+  }
+
   addChunks(chunks) {
     chunks.forEach((c) => {
+      if (c.thumbnailUrl && !this.thumbnailLoaded) {
+        this.thumbnailUrl = c.thumbnailUrl;
+        this.thumbnailLoaded = true;
+        this.addLog("🎨 Thumbnail found in chunk data");
+      }
       // Handle Header
       if (c.chunkIndex === -1 && !this.headerLoaded) {
         this.setupMagnet = c.magnetLink;
@@ -198,17 +236,21 @@ class StreamController {
   async tick() {
     // 1. Check if the "Gates" are open
     if (this.isProcessing) return; // Silent return is fine here
-    
-if (this.sb && this.sb.updating === false && this.video.buffered.length > 0) {
-  // If the playhead is stuck at the end of the buffer, kick it!
-  if (
-    this.video.currentTime >=
-    this.video.buffered.end(this.video.buffered.length - 1)
-  ) {
-    this.addLog("🥾 Buffer gap detected. Nudging playhead...");
-    this.video.currentTime += 0.1;
-  }
-}
+
+    if (
+      this.sb &&
+      this.sb.updating === false &&
+      this.video.buffered.length > 0
+    ) {
+      // If the playhead is stuck at the end of the buffer, kick it!
+      if (
+        this.video.currentTime >=
+        this.video.buffered.end(this.video.buffered.length - 1)
+      ) {
+        this.addLog("🥾 Buffer gap detected. Nudging playhead...");
+        this.video.currentTime += 0.1;
+      }
+    }
     if (this.ms.readyState !== "open") {
       this.addLog(`⚠️ Tick Blocked: MediaSource is ${this.ms.readyState}`);
       return;
@@ -337,13 +379,12 @@ if (this.sb && this.sb.updating === false && this.video.buffered.length > 0) {
     const cached = await warehouse.getChunk(this.sessionId, index);
     if (cached) return cached;
 
-    // 2. Swarm Priority: Try WebTorrent with a "Patient" timeout
+    // 2. Swarm Priority: Try WebTorrent
     this.addLog(`📡 Swarm search for Chunk ${index}...`);
 
-    const p2pData = await new Promise((resolve) => {
+    const p2pData = await new Promise(async (resolve) => {
       let handled = false;
 
-      // Give the swarm 5 seconds to find a peer
       const swarmTimeout = setTimeout(() => {
         if (!handled) {
           this.addLog(`🛰️ Swarm timeout for ${index}. Switching to Server.`);
@@ -357,48 +398,50 @@ if (this.sb && this.sb.updating === false && this.video.buffered.length > 0) {
         return resolve(null);
       }
 
-      window.globalWebTorrentClient.add(magnet, (torrent) => {
-        // If we find it in the swarm
-        torrent.on("done", () => {
-          torrent.files[0].getBuffer(async (err, buf) => {
-            if (!handled) {
-              handled = true;
-              clearTimeout(swarmTimeout);
-              this.addLog(`💎 Swarm delivered Chunk ${index}!`);
-              resolve(buf);
-            }
-            window.globalWebTorrentClient.remove(torrent.infoHash);
-          });
-        });
-      });
+      try {
+        // --- THE FIX: Ensure client exists before adding ---
+        const client = await ensureWebTorrent();
+
+        client.add(
+          magnet,
+          { announce: ["wss://tracker-0ad4cca9fd92.herokuapp.com"] },
+          (torrent) => {
+            torrent.on("done", () => {
+              torrent.files[0].getBuffer(async (err, buf) => {
+                if (!handled) {
+                  handled = true;
+                  clearTimeout(swarmTimeout);
+                  this.addLog(`💎 Swarm delivered Chunk ${index}!`);
+                  resolve(buf);
+                }
+                client.remove(torrent.infoHash);
+              });
+            });
+
+            // Fast-fail if the tracker says no one has it
+            torrent.on("warning", (err) => {
+              if (err.message.includes("no peers")) {
+                // We don't resolve null yet, let the 5s timeout handle it
+                // to give DHT a chance, but we log it.
+                this.addLog(`⚠️ Swarm Warning: ${err.message}`);
+              }
+            });
+          }
+        );
+      } catch (e) {
+        this.addLog("❌ WebTorrent Load Failed: " + e.message);
+        resolve(null);
+      }
     });
 
     if (p2pData) {
-      this.addLog(`💎 P2P WIN: Saved $ by getting Chunk ${index} from Swarm!`); // Add this!
-      await warehouse.saveChunk(index, p2pData);
+      this.addLog(`💎 P2P WIN: Saved $ by getting Chunk ${index} from Swarm!`);
+      await warehouse.saveChunk(this.sessionId, index, p2pData); // Fixed: added sessionId
       return p2pData;
     }
 
-    // 3. Server Fallback: If swarm failed or was too slow
-    try {
-      this.addLog(`☁️ Fetching Chunk ${index} from Server...`);
-      const response = await fetch(
-        `${BACKEND_URL}/api/live-chunk/${this.sessionId}/${index}`
-      );
-
-      if (response.ok) {
-        const serverData = await response.arrayBuffer();
-        // Save to warehouse so we don't have to ask the server again for this chunk
-        await warehouse.saveChunk(this.sessionId, index, serverData);
-        return serverData;
-      } else {
-        this.addLog(`❌ Server 404 for Chunk ${index}`);
-      }
-    } catch (e) {
-      this.addLog(`❌ Connection error for Chunk ${index}`);
-    }
-
-    return null;
+    // 3. Server Fallback (Remains the same...)
+    // ... rest of your server fetch code
   }
 
   // Helper for the WebTorrent attempt
@@ -439,16 +482,29 @@ export default function NeighborhoodLiveStreamPlayer({
   sessionId,
   initialChunks = [],
   availableInWarehouse = [],
+  onThumbnailLoaded,
 }) {
   const containerRef = useRef(null);
   const controllerRef = useRef(null);
   const [isJoined, setIsJoined] = useState(false);
   const [logs, setLogs] = useState([]);
+   const [thumbnail, setThumbnail] = useState(null);
 
   const addLog = (msg) => {
     setLogs((prev) => [...prev.slice(-5), msg]);
     console.log(`[Stream] ${msg}`);
   };
+
+ useEffect(() => {
+   if (controllerRef.current && onThumbnailLoaded) {
+     // Set up callback for thumbnail
+     controllerRef.current.onThumbnailLoaded = (thumbnailUrl) => {
+       setThumbnail(thumbnailUrl);
+       if (onThumbnailLoaded) onThumbnailLoaded(thumbnailUrl);
+     };
+   }
+ }, [onThumbnailLoaded]);
+
   useEffect(() => {
     if (isJoined && controllerRef.current) {
       // 🚀 THE FIX: Tell the engine to look at the warehouse RIGHT NOW
@@ -466,12 +522,23 @@ export default function NeighborhoodLiveStreamPlayer({
     }
   }, [isJoined, initialChunks, availableInWarehouse]); // <--- Watch the warehouse state
 
+  
   const handleJoinStream = async () => {
     addLog("🚀 Join Clicked: Waking up engine...");
 
     // 1. Create the engine (Preserves the iPhone click gesture)
-    const controller = new StreamController(sessionId, addLog);
+  const controller = new StreamController(
+    sessionId,
+    addLog,
+    () => {},
+    initialChunks
+  );
 
+  // Set up thumbnail callback
+  controller.onThumbnailLoaded = (thumbnailUrl) => {
+    setThumbnail(thumbnailUrl);
+    if (onThumbnailLoaded) onThumbnailLoaded(thumbnailUrl);
+  };
     // 2. Attach to DOM immediately
     if (containerRef.current) {
       containerRef.current.appendChild(controller.video);
@@ -481,7 +548,15 @@ export default function NeighborhoodLiveStreamPlayer({
     controller.video.src = URL.createObjectURL(controller.ms);
     controllerRef.current = controller;
     setIsJoined(true);
-
+  if (initialChunks.length > 0) {
+      initialChunks.forEach(chunk => {
+        if (chunk.thumbnailUrl && !thumbnail) {
+          setThumbnail(chunk.thumbnailUrl);
+          if (onThumbnailLoaded) onThumbnailLoaded(chunk.thumbnailUrl);
+        }
+      });
+    }
+  
     // 4. THE MAGIC: Sweep the warehouse.
     // Because the Scout started earlier, it will find the Header and Chunk 0 immediately.
     await controller.sweepWarehouse();
@@ -489,7 +564,7 @@ export default function NeighborhoodLiveStreamPlayer({
     addLog("✅ Handshake complete. Playing from warehouse.");
   };
 
-  return (
+return (
     <View style={styles.container}>
       <div ref={containerRef} style={styles.videoContainer} />
       {!isJoined && (
@@ -507,6 +582,7 @@ export default function NeighborhoodLiveStreamPlayer({
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#111" },

@@ -968,7 +968,7 @@ export default function NeighborhoodChatScreen() {
         chunk,
         {
           name: `neighborhood-video-${sessionId}-chunk-${index}`,
-          announce: ["wss://tracker.openwebtorrent.com"],
+          announce: ["wss://tracker-0ad4cca9fd92.herokuapp.com", "wss://tracker.openwebtorrent.com"],
         },
         (torrent) => {
           sendMessageMutation({

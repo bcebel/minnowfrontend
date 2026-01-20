@@ -131,6 +131,37 @@ const handleStitchAndShip = async () => {
   }
 };
   
+  const ensureWebTorrent = () => {
+    return new Promise((resolve, reject) => {
+      // 1. If it's already there, just return the client
+      if (window.WebTorrent && window.globalWebTorrentClient) {
+        return resolve(window.globalWebTorrentClient);
+      }
+
+      // 2. If the script isn't even in the doc, inject it
+      if (!window.WebTorrent) {
+        console.log("🛠 Injecting WebTorrent Engine...");
+        const script = document.createElement("script");
+        script.src =
+          "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+        script.onload = () => {
+          window.globalWebTorrentClient = new window.WebTorrent({
+            tracker: { announce: ["wss://tracker-0ad4cca9fd92.herokuapp.com"] },
+          });
+          resolve(window.globalWebTorrentClient);
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+      } else {
+        // Script is there, but client isn't built yet
+        window.globalWebTorrentClient = new window.WebTorrent({
+          tracker: { announce: ["wss://tracker-0ad4cca9fd92.herokuapp.com"] },
+        });
+        resolve(window.globalWebTorrentClient);
+      }
+    });
+  };
+
   const seedChunk = (chunkIndex, buffer) => {
     // Every time you finish seeding a new chunk (let's say chunkIndex)
     const keepAfter = chunkIndex - 5; // Keep the last 5 chunks for the P2P swarm
@@ -242,7 +273,8 @@ const seedAndSend = (chunkData, index) => {
   };
 
   // --- START THE ENGINE ---
- const startStream = async () => {
+  const startStream = async () => {
+   const client = await ensureWebTorrent();
    try {
      // 1. THE "ONE COMMAND" ENGINE CHECK
      // If it's not on the window, we make it. Right here. Right now.

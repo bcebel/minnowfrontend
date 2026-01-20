@@ -188,23 +188,55 @@ useEffect(() => {
     fetchHeader();
   }, [sessionId]);
 
-  useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
-    variables: { sessionId },
-    onData: async ({ data }) => {
-      const chunk = data.data?.livestreamChunkAdded;
-      if (!chunk || fetchingRef.current.has(chunk.chunkIndex)) return;
+useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
+  variables: { sessionId },
+  onData: async ({ data }) => {
+    const chunk = data.data?.livestreamChunkAdded;
+    if (!chunk || fetchingRef.current.has(chunk.chunkIndex)) return;
 
-      fetchingRef.current.add(chunk.chunkIndex);
-      const bytes = await fetchChunkBytes(chunk);
-      if (bytes) {
-        await warehouse.saveChunk(sessionId, chunk.chunkIndex, bytes);
-        setAvailableInWarehouse((prev) => [
-          ...new Set([...prev, chunk.chunkIndex]),
-        ]);
+    fetchingRef.current.add(chunk.chunkIndex);
+
+    // Check if this chunk has a thumbnail (header chunk at index -1)
+    if (chunk.chunkIndex === -1 && chunk.thumbnailUrl) {
+      // Save thumbnail to StreamChunk collection
+      try {
+        await saveThumbnailToStreamChunk(sessionId, chunk.thumbnailUrl);
+      } catch (error) {
+        console.log("Could not save thumbnail to StreamChunk:", error);
       }
-      fetchingRef.current.delete(chunk.chunkIndex);
-    },
-  });
+    }
+
+    const bytes = await fetchChunkBytes(chunk);
+    if (bytes) {
+      await warehouse.saveChunk(sessionId, chunk.chunkIndex, bytes);
+      setAvailableInWarehouse((prev) => [
+        ...new Set([...prev, chunk.chunkIndex]),
+      ]);
+    }
+    fetchingRef.current.delete(chunk.chunkIndex);
+  },
+});
+
+// Add this helper function
+const saveThumbnailToStreamChunk = async (sessionId, thumbnailUrl) => {
+  try {
+    const response = await fetch(`${API_BASE}/api/stream-chunk/thumbnail`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId,
+        chunkIndex: -1,
+        thumbnailUrl,
+      }),
+    });
+
+    if (response.ok) {
+      console.log("✅ Thumbnail saved to StreamChunk");
+    }
+  } catch (error) {
+    console.error("Error saving thumbnail:", error);
+  }
+};
 
   return (
     <View style={styles.streamContainer}>
