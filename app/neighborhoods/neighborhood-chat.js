@@ -30,6 +30,8 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import AdMessage from "../../components/AdMessage";
 import ChatMediaRenderer from "../../components/ChatMediaRenderer";
 import NeighborhoodLiveStreamRecorder from "@/components/NeighborhoodLiveStreamRecorder";
+import webtorrentService from "../../utils/webtorrentService"; 
+
 
 // Helper function to create optimistic message
 const createOptimisticMessage = (type, fileName, url, thumbnailUrl) => {
@@ -549,19 +551,7 @@ export default function NeighborhoodChatScreen() {
 
     return () => {
       socket?.disconnect();
-      if (Platform.OS === "web" && window.globalWebTorrentClient) {
-        const client = window.globalWebTorrentClient;
-        console.log("🧹 Cleaning up *live* torrents only...");
-        client.torrents.forEach((torrent) => {
-          if (
-            torrent.name?.includes("live-") ||
-            torrent.name?.includes("clip_")
-          ) {
-            console.log(`🗑️ Destroying live torrent: ${torrent.name}`);
-            torrent.destroy();
-          }
-        });
-      }
+    webtorrentService.cleanup(["video_", "_chunk_"]);
     };
   }, [neighborhoodId]);
 
@@ -896,98 +886,60 @@ export default function NeighborhoodChatScreen() {
     return true;
   };
 
-  const uploadSingleChunk = (
-    chunk,
-    index,
-    sessionId,
-    totalChunks,
-    fileName
-  ) => {
-    return new Promise((resolve, reject) => {
-      const client = window.globalWebTorrentClient;
-      if (!client) {
-        console.error(
-          "❌ Global WebTorrent client not found. Cannot seed chunk."
-        );
-        return reject(new Error("WebTorrent client not initialized."));
+const uploadSingleChunk = (chunk, index, sessionId, totalChunks, fileName) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // 1. Use our global service
+      const client = await webtorrentService.ensureClient();
+
+      // 2. Seed with explicit tracker announcement
+      const torrent = await webtorrentService.seed(chunk, {
+        name: `${sessionId}_chunk_${index}`,
+        // Explicitly announce to your private tracker
+        announce: ["wss://tracker-0ad4cca9fd92.herokuapp.com"],
+      });
+
+      console.log(
+        `✅ Chunk ${index + 1}/${totalChunks} seeded on Private Tracker.`
+      );
+
+      // Send message
+      await sendMessageMutation({
+        variables: {
+          content: `Part ${index + 1}/${totalChunks} of "${fileName}"`,
+          neighborhoodId: neighborhoodId,
+          fileName: `chunk_${index}.mp4`,
+          fileType: "video_chunk",
+          magnetLink: torrent.magnetURI,
+          chunkIndex: index,
+          sessionId: sessionId,
+          totalChunks: totalChunks,
+          imageUrl: null,
+          videoUrl: null,
+          fileUrl: null,
+          thumbnailUrl: null,
+        },
+      });
+
+      resolve();
+    } catch (error) {
+      console.error("❌ Failed to seed chunk:", error);
+
+      // Service will handle reconnection automatically
+      if (
+        error.message.includes("connection") ||
+        error.message.includes("timeout")
+      ) {
+        console.log("🔄 Connection issue, will retry with next chunk");
+        // You could implement retry logic here if needed
       }
 
-      client.seed(
-        chunk,
-        {
-          name: `${sessionId}_chunk_${index}`,
-        },
-        (torrent) => {
-          console.log(
-            `✅ Chunk ${
-              index + 1
-            }/${totalChunks} seeded. Magnet URI generated.`,
-            {
-              index: index,
-              magnet: torrent.magnetURI,
-              size: chunk.size,
-            }
-          );
-
-          sendMessageMutation({
-            variables: {
-              content: `Part ${index + 1}/${totalChunks} of "${fileName}"`,
-              neighborhoodId: neighborhoodId,
-              fileName: `chunk_${index}.mp4`,
-              fileType: "video_chunk",
-              magnetLink: torrent.magnetURI,
-              chunkIndex: index,
-              sessionId: sessionId,
-              totalChunks: totalChunks,
-              imageUrl: null,
-              videoUrl: null,
-              fileUrl: null,
-              thumbnailUrl: null,
-            },
-          })
-            .then(() => {
-              resolve();
-            })
-            .catch((err) => {
-              console.error("❌ Error sending chunk message:", err);
-              reject(err);
-            });
-        }
-      );
-    });
-  };
-
-  const uploadChunk = async (chunk, index, sessionId, totalChunks) => {
-    if (!window.WebTorrent) {
+      reject(error);
     }
+  });
+};
 
-    const client = new window.WebTorrent();
 
-    return new Promise((resolve) => {
-      client.seed(
-        chunk,
-        {
-          name: `neighborhood-video-${sessionId}-chunk-${index}`,
-          announce: ["wss://tracker-0ad4cca9fd92.herokuapp.com", "wss://tracker.openwebtorrent.com"],
-        },
-        (torrent) => {
-          sendMessageMutation({
-            variables: {
-              content: `Video chunk ${index + 1}/${totalChunks}`,
-              neighborhoodId: neighborhoodId,
-              fileName: `chunk-${index}.mp4`,
-              fileType: "video_chunk",
-              magnetLink: torrent.magnetURI,
-              chunkIndex: index,
-              sessionId: sessionId,
-              totalChunks: totalChunks,
-            },
-          });
-          resolve();
-        }
-      );
-    });
-  };
 
   const getMimeType = (filename) => {
     const ext = filename.split(".").pop().toLowerCase();

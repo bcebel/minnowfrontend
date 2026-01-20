@@ -5,7 +5,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { View, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { warehouse } from "../components/StreamWearhouse.js";
-
+import webtorrentService from "../utils/webtorrentService.js";
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 
@@ -399,8 +399,8 @@ class StreamController {
       }
 
       try {
-        // --- THE FIX: Ensure client exists before adding ---
-        const client = await ensureWebTorrent();
+        // Use the service instead of ensureWebTorrent
+        const client = await webtorrentService.ensureClient();
 
         client.add(
           magnet,
@@ -436,7 +436,7 @@ class StreamController {
 
     if (p2pData) {
       this.addLog(`💎 P2P WIN: Saved $ by getting Chunk ${index} from Swarm!`);
-      await warehouse.saveChunk(this.sessionId, index, p2pData); // Fixed: added sessionId
+      await warehouse.saveChunk(this.sessionId, index, p2pData);
       return p2pData;
     }
 
@@ -445,7 +445,7 @@ class StreamController {
   }
 
   // Helper for the WebTorrent attempt
-  tryWebTorrent(magnet) {
+  tryWebTorrent = (magnet) => {
     return new Promise((resolve, reject) => {
       if (!magnet || magnet === "cached") return resolve(null);
 
@@ -454,18 +454,24 @@ class StreamController {
         resolve(null);
       }, 5000);
 
-      window.globalWebTorrentClient.add(magnet, (torrent) => {
-        torrent.on("done", () => {
-          torrent.files[0].getBuffer((err, buf) => {
-            clearTimeout(timeout);
-            if (err) resolve(null);
-            else resolve(buf);
-            window.globalWebTorrentClient.remove(torrent.infoHash);
+      // Use the service
+      webtorrentService
+        .ensureClient()
+        .then((client) => {
+          client.add(magnet, (torrent) => {
+            torrent.on("done", () => {
+              torrent.files[0].getBuffer((err, buf) => {
+                clearTimeout(timeout);
+                if (err) resolve(null);
+                else resolve(buf);
+                client.remove(torrent.infoHash);
+              });
+            });
           });
-        });
-      });
+        })
+        .catch(() => resolve(null));
     });
-  }
+  };
 
   destroy() {
     clearInterval(this.watchdog);

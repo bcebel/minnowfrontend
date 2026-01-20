@@ -10,6 +10,7 @@ import {
 import { Image } from "expo-image";
 import { File, Directory } from "expo-file-system";
 import { useQuery, gql } from "@apollo/client";
+import webtorrentService from "../utils/webtorrentService"; 
 
 let strategy;
 
@@ -309,280 +310,281 @@ export default function WebTorrentMedia({ media, isFocused }) {
     await loadFromRestAPI();
   };
 
-  const loadViaWebTorrent = async () => {
-    debugLog("START WebTorrent load", { strategy, fileType });
+const loadViaWebTorrent = async () => {
+  debugLog("START WebTorrent load", { strategy, fileType });
 
-    // Track if we've already resolved/rejected
-    let hasResolved = false;
+  // Track if we've already resolved/rejected
+  let hasResolved = false;
 
-    const client = window.globalWebTorrentClient;
-    strategy = getStrategy(fileType);
-    setStatus(`Connecting to P2P swarm (${strategy} mode)...`);
+  // Use the service instead of window.globalWebTorrentClient
+  const client = await webtorrentService.ensureClient();
+  strategy = getStrategy(fileType);
+  setStatus(`Connecting to P2P swarm (${strategy} mode)...`);
 
-    // Create a clean promise with multiple timeout strategies
-    return new Promise((resolve, reject) => {
-      // STRATEGY 1: Absolute timeout - ALWAYS resolves after 45 seconds max
-      const absoluteTimeout = setTimeout(() => {
-        if (!hasResolved) {
-          debugLog("ABSOLUTE TIMEOUT - Forcing fallback after 45s", {
-            elapsed: "45s",
-            reason: "Maximum time exceeded",
-          });
-          hasResolved = true;
-          setStatus("Timeout, trying REST API...");
-          resolve();
-        }
-      }, 45000);
-
-      // Quick exit if no client or magnet
-      if (!client || !magnetLink) {
-        debugLog("NO CLIENT/MAGNET - Skipping WebTorrent");
-        clearTimeout(absoluteTimeout);
+  // Create a clean promise with multiple timeout strategies
+  return new Promise((resolve, reject) => {
+    // STRATEGY 1: Absolute timeout - ALWAYS resolves after 45 seconds max
+    const absoluteTimeout = setTimeout(() => {
+      if (!hasResolved) {
+        debugLog("ABSOLUTE TIMEOUT - Forcing fallback after 45s", {
+          elapsed: "45s",
+          reason: "Maximum time exceeded",
+        });
         hasResolved = true;
+        setStatus("Timeout, trying REST API...");
         resolve();
+      }
+    }, 45000);
+
+    // Quick exit if no client or magnet
+    if (!client || !magnetLink) {
+      debugLog("NO CLIENT/MAGNET - Skipping WebTorrent");
+      clearTimeout(absoluteTimeout);
+      hasResolved = true;
+      resolve();
+      return;
+    }
+
+let torrent = client.get(magnetLink);
+if (!torrent) {
+  debugLog("Adding new torrent", {
+    magnetLink: magnetLink.substring(0, 50) + "...",
+  });
+
+  // Use the service's add method which includes trackers
+  torrent = client.add(magnetLink, {
+    strategy: strategy,
+    ...(isVideo
+      ? {
+          storeCacheSlots: 20,
+          preloadStoreSize: 10 * 1024 * 1024,
+          destroyStoreOnDestroy: false,
+        }
+      : {
+          storeCacheSlots: 5,
+          preloadStoreSize: 2 * 1024 * 1024,
+        }),
+  });
+} else {
+  debugLog("Reusing existing torrent", {
+    name: torrent.name,
+    progress: torrent.progress,
+    peers: torrent.numPeers,
+  });
+}
+
+    torrentRef.current = torrent;
+    if (cid) torrent.addWebSeed(ipfsUrl);
+
+    // Progress tracking for "stuck" detection
+    let lastProgress = 0;
+    let lastProgressTime = Date.now();
+    let consecutiveStuckChecks = 0;
+
+    // Track download speed
+    let lastDownloaded = 0;
+    let lastSpeedCheck = Date.now();
+
+    // STRATEGY 2: Stuck progress detection
+    const progressStuckCheck = setInterval(() => {
+      if (!torrent || hasResolved) {
+        clearInterval(progressStuckCheck);
         return;
       }
 
-      let torrent = client.get(magnetLink);
-      if (!torrent) {
-        debugLog("Adding new torrent", {
-          magnetLink: magnetLink.substring(0, 50) + "...",
-        });
-        torrent = client.add(magnetLink, {
-          strategy: strategy,
-          ...(isVideo
-            ? {
-                storeCacheSlots: 20,
-                preloadStoreSize: 10 * 1024 * 1024,
-                destroyStoreOnDestroy: false,
-              }
-            : {
-                storeCacheSlots: 5,
-                preloadStoreSize: 2 * 1024 * 1024,
-              }),
-        });
+      const currentProgress = torrent.progress * 100;
+      const currentTime = Date.now();
+      const timeSinceLastProgress = currentTime - lastProgressTime;
+
+      debugLog("Progress health check", {
+        currentProgress: currentProgress.toFixed(2) + "%",
+        lastProgress: lastProgress.toFixed(2) + "%",
+        timeSinceLastProgress: Math.round(timeSinceLastProgress / 1000) + "s",
+        peers: torrent.numPeers,
+        downloadSpeed: torrent.downloadSpeed
+          ? (torrent.downloadSpeed / 1024).toFixed(1) + "KB/s"
+          : "0 KB/s",
+      });
+
+      // Calculate download speed
+      const downloadedDelta = torrent.downloaded - lastDownloaded;
+      const timeDelta = currentTime - lastSpeedCheck;
+      const downloadSpeed =
+        timeDelta > 0 ? downloadedDelta / (timeDelta / 1000) : 0; // bytes per second
+
+      // Update trackers
+      if (currentProgress > lastProgress) {
+        lastProgress = currentProgress;
+        lastProgressTime = currentTime;
+        consecutiveStuckChecks = 0; // Reset stuck counter on progress
       } else {
-        debugLog("Reusing existing torrent", {
-          name: torrent.name,
-          progress: torrent.progress,
-          peers: torrent.numPeers,
-        });
+        consecutiveStuckChecks++;
       }
 
-      torrentRef.current = torrent;
-      if (cid) torrent.addWebSeed(ipfsUrl);
+      lastDownloaded = torrent.downloaded;
+      lastSpeedCheck = currentTime;
 
-      // Progress tracking for "stuck" detection
-      let lastProgress = 0;
-      let lastProgressTime = Date.now();
-      let consecutiveStuckChecks = 0;
+      // Check if progress is TOO SLOW (not just zero)
+      const loadThreshold = isVideo ? 5 : 2;
+      const minimumAcceptableSpeed = 1024; // 1 KB/s minimum
 
-      // Track download speed
-      let lastDownloaded = 0;
-      let lastSpeedCheck = Date.now();
+      // Conditions for being "stuck":
+      // 1. Has peers but speed is too slow
+      const hasPeersButNoSpeed =
+        torrent.numPeers > 0 && downloadSpeed < minimumAcceptableSpeed;
 
-      // STRATEGY 2: Stuck progress detection
-      const progressStuckCheck = setInterval(() => {
-        if (!torrent || hasResolved) {
-          clearInterval(progressStuckCheck);
-          return;
-        }
+      // 2. No progress for 15+ seconds but still has peers
+      const noProgressForTooLong =
+        timeSinceLastProgress > 15000 && torrent.numPeers > 0;
 
-        const currentProgress = torrent.progress * 100;
-        const currentTime = Date.now();
-        const timeSinceLastProgress = currentTime - lastProgressTime;
+      // 3. Very slow progress rate (would take >5 minutes to reach threshold)
+      if (downloadSpeed > 0 && currentProgress < loadThreshold) {
+        const bytesNeeded =
+          torrent.length * (loadThreshold / 100) - torrent.downloaded;
+        const secondsToThreshold = bytesNeeded / downloadSpeed;
 
-        debugLog("Progress health check", {
-          currentProgress: currentProgress.toFixed(2) + "%",
-          lastProgress: lastProgress.toFixed(2) + "%",
-          timeSinceLastProgress: Math.round(timeSinceLastProgress / 1000) + "s",
-          peers: torrent.numPeers,
-          downloadSpeed: torrent.downloadSpeed
-            ? (torrent.downloadSpeed / 1024).toFixed(1) + "KB/s"
-            : "0 KB/s",
-        });
-
-        // Calculate download speed
-        const downloadedDelta = torrent.downloaded - lastDownloaded;
-        const timeDelta = currentTime - lastSpeedCheck;
-        const downloadSpeed =
-          timeDelta > 0 ? downloadedDelta / (timeDelta / 1000) : 0; // bytes per second
-
-        // Update trackers
-        if (currentProgress > lastProgress) {
-          lastProgress = currentProgress;
-          lastProgressTime = currentTime;
-          consecutiveStuckChecks = 0; // Reset stuck counter on progress
-        } else {
-          consecutiveStuckChecks++;
-        }
-
-        lastDownloaded = torrent.downloaded;
-        lastSpeedCheck = currentTime;
-
-        // Check if progress is TOO SLOW (not just zero)
-        const loadThreshold = isVideo ? 5 : 2;
-        const minimumAcceptableSpeed = 1024; // 1 KB/s minimum
-
-        // Conditions for being "stuck":
-        // 1. Has peers but speed is too slow
-        const hasPeersButNoSpeed =
-          torrent.numPeers > 0 && downloadSpeed < minimumAcceptableSpeed;
-
-        // 2. No progress for 15+ seconds but still has peers
-        const noProgressForTooLong =
-          timeSinceLastProgress > 15000 && torrent.numPeers > 0;
-
-        // 3. Very slow progress rate (would take >5 minutes to reach threshold)
-        if (downloadSpeed > 0 && currentProgress < loadThreshold) {
-          const bytesNeeded =
-            torrent.length * (loadThreshold / 100) - torrent.downloaded;
-          const secondsToThreshold = bytesNeeded / downloadSpeed;
-
-          if (secondsToThreshold > 300) {
-            // Would take >5 minutes
-            debugLog("PROGRESS TOO SLOW - Aborting", {
-              currentSpeed: (downloadSpeed / 1024).toFixed(2) + "KB/s",
-              estimatedTime: Math.round(secondsToThreshold / 60) + " minutes",
-              progressNeeded: loadThreshold + "%",
-            });
-            clearInterval(progressStuckCheck);
-            clearTimeout(absoluteTimeout);
-            hasResolved = true;
-            torrent.destroy({ destroyStore: true });
-            setStatus("Download too slow, trying REST API...");
-            resolve();
-            return;
-          }
-        }
-
-        if (hasPeersButNoSpeed || noProgressForTooLong) {
-          consecutiveStuckChecks++;
-
-          if (consecutiveStuckChecks >= 3) {
-            // 3 consecutive checks = ~15 seconds
-            debugLog("STUCK DETECTED - Aborting WebTorrent", {
-              reason: hasPeersButNoSpeed
-                ? "Low speed with peers"
-                : "No progress with peers",
-              peers: torrent.numPeers,
-              speed: (downloadSpeed / 1024).toFixed(1) + "KB/s",
-              timeStuck: Math.round(timeSinceLastProgress / 1000) + "s",
-            });
-            clearInterval(progressStuckCheck);
-            clearTimeout(absoluteTimeout);
-            hasResolved = true;
-            torrent.destroy({ destroyStore: true });
-            setStatus("Stuck in P2P, trying REST API...");
-            resolve();
-          }
-        } else {
-          consecutiveStuckChecks = 0; // Reset if making progress
-        }
-      }, 5000);
-
-      const startTime = Date.now();
-
-      torrent.on("download", () => {
-        if (hasResolved) return;
-
-        const percent = Math.round(torrent.progress * 100);
-        setProgress(percent);
-        setPeers(torrent.numPeers);
-
-        if (strategy === "sequential") {
-          setStatus(`Streaming: ${percent}% from ${torrent.numPeers} peers`);
-        } else {
-          setStatus(`Loading: ${percent}% from ${torrent.numPeers} peers`);
-        }
-
-        const loadThreshold = isVideo ? 5 : 2;
-        if (percent >= loadThreshold && !mediaUrl) {
-          let file;
-          if (isImage) {
-            file = torrent.files.find((f) =>
-              f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i)
-            );
-          } else {
-            file = torrent.files.find((f) =>
-              f.name.match(/\.(mp4|mov|webm|avi|mkv)$/i)
-            );
-          }
-
-          if (file) {
-            file.getBlob((err, blob) => {
-              if (hasResolved) return;
-
-              if (!err && blob) {
-                debugLog("Torrent success - got blob", {
-                  size: blob.size,
-                  type: blob.type,
-                  timeElapsed: `${((Date.now() - startTime) / 1000).toFixed(
-                    1
-                  )}s`,
-                });
-
-                // Save to IndexedDB
-                mediaCache.saveMedia(cid, blob, blob.type, fileName);
-
-                const newBlobUrl = URL.createObjectURL(blob);
-                setBlobUrl(newBlobUrl);
-                setMediaUrl(newBlobUrl);
-                setStatus(isImage ? "Image loaded via P2P" : "Ready to play");
-
-                clearInterval(progressStuckCheck);
-                clearTimeout(absoluteTimeout);
-                hasResolved = true;
-                resolve();
-              } else if (err) {
-                debugLog("Torrent blob error", { error: err.message });
-                // Continue - don't reject, let fallback handle it
-              }
-            });
-          }
-        }
-      });
-
-      torrent.on("error", (err) => {
-        if (hasResolved) return;
-
-        debugLog("Torrent error event", { error: err.message });
-        clearInterval(progressStuckCheck);
-        clearTimeout(absoluteTimeout);
-        hasResolved = true;
-
-        setStatus("P2P failed, trying REST API...");
-        resolve();
-      });
-
-      // Add 'no peer' detection
-      torrent.on("warning", (warning) => {
-        debugLog("Torrent warning", { warning: warning.toString() });
-        if (
-          warning.toString().includes("no peers") ||
-          warning.toString().includes("tracker")
-        ) {
-          setStatus("Finding peers...");
-        }
-      });
-
-      // STRATEGY 3: If no peers after 10 seconds, give up
-      setTimeout(() => {
-        if (!hasResolved && torrent && torrent.numPeers === 0) {
-          debugLog("NO PEERS TIMEOUT - Aborting after 10s", {
-            timeElapsed: "10s",
-            progress: (torrent.progress * 100).toFixed(2) + "%",
+        if (secondsToThreshold > 300) {
+          // Would take >5 minutes
+          debugLog("PROGRESS TOO SLOW - Aborting", {
+            currentSpeed: (downloadSpeed / 1024).toFixed(2) + "KB/s",
+            estimatedTime: Math.round(secondsToThreshold / 60) + " minutes",
+            progressNeeded: loadThreshold + "%",
           });
           clearInterval(progressStuckCheck);
           clearTimeout(absoluteTimeout);
           hasResolved = true;
           torrent.destroy({ destroyStore: true });
-          setStatus("No peers found, trying REST API...");
+          setStatus("Download too slow, trying REST API...");
+          resolve();
+          return;
+        }
+      }
+
+      if (hasPeersButNoSpeed || noProgressForTooLong) {
+        consecutiveStuckChecks++;
+
+        if (consecutiveStuckChecks >= 3) {
+          // 3 consecutive checks = ~15 seconds
+          debugLog("STUCK DETECTED - Aborting WebTorrent", {
+            reason: hasPeersButNoSpeed
+              ? "Low speed with peers"
+              : "No progress with peers",
+            peers: torrent.numPeers,
+            speed: (downloadSpeed / 1024).toFixed(1) + "KB/s",
+            timeStuck: Math.round(timeSinceLastProgress / 1000) + "s",
+          });
+          clearInterval(progressStuckCheck);
+          clearTimeout(absoluteTimeout);
+          hasResolved = true;
+          torrent.destroy({ destroyStore: true });
+          setStatus("Stuck in P2P, trying REST API...");
           resolve();
         }
-      }, 10000);
+      } else {
+        consecutiveStuckChecks = 0; // Reset if making progress
+      }
+    }, 5000);
+
+    const startTime = Date.now();
+
+    torrent.on("download", () => {
+      if (hasResolved) return;
+
+      const percent = Math.round(torrent.progress * 100);
+      setProgress(percent);
+      setPeers(torrent.numPeers);
+
+      if (strategy === "sequential") {
+        setStatus(`Streaming: ${percent}% from ${torrent.numPeers} peers`);
+      } else {
+        setStatus(`Loading: ${percent}% from ${torrent.numPeers} peers`);
+      }
+
+      const loadThreshold = isVideo ? 5 : 2;
+      if (percent >= loadThreshold && !mediaUrl) {
+        let file;
+        if (isImage) {
+          file = torrent.files.find((f) =>
+            f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+          );
+        } else {
+          file = torrent.files.find((f) =>
+            f.name.match(/\.(mp4|mov|webm|avi|mkv)$/i)
+          );
+        }
+
+        if (file) {
+          file.getBlob((err, blob) => {
+            if (hasResolved) return;
+
+            if (!err && blob) {
+              debugLog("Torrent success - got blob", {
+                size: blob.size,
+                type: blob.type,
+                timeElapsed: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
+              });
+
+              // Save to IndexedDB
+              mediaCache.saveMedia(cid, blob, blob.type, fileName);
+
+              const newBlobUrl = URL.createObjectURL(blob);
+              setBlobUrl(newBlobUrl);
+              setMediaUrl(newBlobUrl);
+              setStatus(isImage ? "Image loaded via P2P" : "Ready to play");
+
+              clearInterval(progressStuckCheck);
+              clearTimeout(absoluteTimeout);
+              hasResolved = true;
+              resolve();
+            } else if (err) {
+              debugLog("Torrent blob error", { error: err.message });
+              // Continue - don't reject, let fallback handle it
+            }
+          });
+        }
+      }
     });
-  };
+
+    torrent.on("error", (err) => {
+      if (hasResolved) return;
+
+      debugLog("Torrent error event", { error: err.message });
+      clearInterval(progressStuckCheck);
+      clearTimeout(absoluteTimeout);
+      hasResolved = true;
+
+      setStatus("P2P failed, trying REST API...");
+      resolve();
+    });
+
+    // Add 'no peer' detection
+    torrent.on("warning", (warning) => {
+      debugLog("Torrent warning", { warning: warning.toString() });
+      if (
+        warning.toString().includes("no peers") ||
+        warning.toString().includes("tracker")
+      ) {
+        setStatus("Finding peers...");
+      }
+    });
+
+    // STRATEGY 3: If no peers after 10 seconds, give up
+    setTimeout(() => {
+      if (!hasResolved && torrent && torrent.numPeers === 0) {
+        debugLog("NO PEERS TIMEOUT - Aborting after 10s", {
+          timeElapsed: "10s",
+          progress: (torrent.progress * 100).toFixed(2) + "%",
+        });
+        clearInterval(progressStuckCheck);
+        clearTimeout(absoluteTimeout);
+        hasResolved = true;
+        torrent.destroy({ destroyStore: true });
+        setStatus("No peers found, trying REST API...");
+        resolve();
+      }
+    }, 10000);
+  });
+};
 
   const loadFromRestAPI = async () => {
     if (!cid) return;

@@ -5,6 +5,7 @@ import { useMutation, gql } from "@apollo/client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { warehouse } from "./StreamWearhouse.js";
 import { unifiedUpload } from "../app/neighborhoods/neighborhood-chat.js";
+import webtorrentService from "../utils/webtorrentService.js"
 const SEND_MESSAGE = gql`
   mutation SendNeighborhoodMessage(
     $content: String!
@@ -162,15 +163,17 @@ const handleStitchAndShip = async () => {
     });
   };
 
-  const seedChunk = (chunkIndex, buffer) => {
-    // Every time you finish seeding a new chunk (let's say chunkIndex)
+   const seedChunk = (chunkIndex, buffer) => {
+    // Every time you finish seeding a new chunk
     const keepAfter = chunkIndex - 5; // Keep the last 5 chunks for the P2P swarm
     if (keepAfter > 0) {
-      warehouse.deleteOldChunks(sessionId, keepAfter);
+      warehouse.deleteOldChunks(sessionIdRef.current, keepAfter);
     }
-    const client = window.globalWebTorrentClient;
-
-    client.seed(buffer, { announce: TRACKERS }, (torrent) => {
+    
+    // Use the service to seed
+    webtorrentService.seed(buffer, { 
+      name: `stream_${sessionIdRef.current}_chunk_${chunkIndex}` 
+    }).then(torrent => {
       activeSwarms.current[chunkIndex] = torrent;
 
       // --- THE JANITOR ---
@@ -186,6 +189,8 @@ const handleStitchAndShip = async () => {
           delete activeSwarms.current[oldestIndex];
         }
       }
+    }).catch(error => {
+      console.error(`❌ Failed to seed chunk ${chunkIndex}:`, error);
     });
   };
 
@@ -195,7 +200,8 @@ const handleStitchAndShip = async () => {
       return;
     isProcessingQueueRef.current = true;
 
-    const client = window.globalWebTorrentClient;
+    // Use the service to get the client
+    const client = await webtorrentService.ensureClient();
     if (!client) {
       console.error("❌ No Global WebTorrent Client found!");
       isProcessingQueueRef.current = false;
@@ -274,35 +280,18 @@ const seedAndSend = (chunkData, index) => {
 
   // --- START THE ENGINE ---
   const startStream = async () => {
-   const client = await ensureWebTorrent();
-   try {
-     // 1. THE "ONE COMMAND" ENGINE CHECK
-     // If it's not on the window, we make it. Right here. Right now.
-     if (!window.globalWebTorrentClient) {
-       console.log("🛠️ Engine missing. Hot-starting WebTorrent...");
-       if (!window.WebTorrent) {
-         // If the CDN script failed too, we grab it manually
-         const script = document.createElement("script");
-         script.src =
-           "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-         document.head.appendChild(script);
-         await new Promise((resolve) => (script.onload = resolve));
-       }
-       window.globalWebTorrentClient = new window.WebTorrent();
-       window.globalWebTorrentClient.setMaxListeners(0);
-     }
+    try {
+      // 1. Use the service to ensure WebTorrent is ready
+      const client = await webtorrentService.ensureClient();
+      console.log("✅ Engine Engaged via Service:", client);
 
-     const client = window.globalWebTorrentClient;
-     console.log("✅ Engine Engaged:", client);
+      // 2. CREATE SESSION
+      const { data: streamData } = await createStreamMutation({
+        variables: { title: `${username}'s Live`, neighborhoodId },
+      });
 
-     // 2. CREATE SESSION
-     const { data: streamData } = await createStreamMutation({
-       variables: { title: `${username}'s Live`, neighborhoodId },
-     });
-
-     if (!streamData?.createStream?.sessionId) throw new Error("No Session ID");
-     sessionIdRef.current = streamData.createStream.sessionId;
-
+      if (!streamData?.createStream?.sessionId) throw new Error("No Session ID");
+      sessionIdRef.current = streamData.createStream.sessionId;
      // 3. CAMERA & MEDIA RECORDER
      const stream = await navigator.mediaDevices.getUserMedia({
        video: { width: 640, height: 360 },

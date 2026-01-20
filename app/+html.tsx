@@ -129,38 +129,56 @@ export default function Root({ children }: PropsWithChildren) {
           sizes="16x16"
           href="/favicon-16x16.png"
         />
-        {/*<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
-        WebTorrent Script */}
-        <script
-          src="https://cdn.jsdelivr.net/npm/webtorrent@2.5.10/webtorrent.min.js"
-          crossOrigin="anonymous"
-        />
+        {/* WebTorrent Script */}
+        <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js" />
+        // app/_layout.js or your root HTML file // Replace the WebTorrent
+        script section with:
         <script
           dangerouslySetInnerHTML={{
             __html: `
-    (function initWT() {
-      if (window.WebTorrent) {
-        window.globalWebTorrentClient = new window.WebTorrent({
-          tracker: { announce: ["wss://tracker-0ad4cca9fd92.herokuapp.com"] }
-        });
-        console.log("⚓ WebTorrent Initialized");
-      } else {
-        console.log("⏳ WebTorrent not ready, retrying in 100ms...");
-        setTimeout(initWT, 100);
-      }
-    })();
+      // Initialize global WebTorrent service
+      window.initWebTorrent = async function() {
+        if (!window.WebTorrent) {
+          console.log('🌪️ Loading WebTorrent library...');
+          return new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js';
+            script.onload = () => {
+              console.log('✅ WebTorrent loaded');
+              resolve();
+            };
+            document.head.appendChild(script);
+          });
+        }
+        return Promise.resolve();
+      };
+      
+      // Pre-load trackers configuration
+      window.enhancedTrackers = [
+        "wss://tracker-0ad4cca9fd92.herokuapp.com",
+        'wss://tracker.openwebtorrent.com',
+        'wss://tracker.btorrent.xyz',
+        'wss://tracker.files.fm:7073/announce'
+      ];
+      
+      // Global stats placeholder
+      window.globalTorrentStats = {
+        downloadSpeed: 0,
+        uploadSpeed: 0,
+        progress: 0,
+        ratio: 0,
+        torrents: 0,
+        peerCount: 0
+      };
     `,
           }}
         />
-        <meta name="theme-color" content="#1C0A2E" />
+        <meta name="theme-color" content="#20B2AA" />
         <meta name="msapplication-TileColor" content="#20B2AA" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta
-          name="apple-mobile-web-app-status-bar-style"
-          content="black-translucent"
-        />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="format-detection" content="telephone=no" />
+        {/* Canonical URL */}
         <link rel="canonical" href={url} />
         <meta
           name="impact-site-verification"
