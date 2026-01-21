@@ -20,6 +20,37 @@ import { Platform } from "react-native";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+if (Platform.OS === "web" && typeof window !== "undefined") {
+  // 1. Check if the library is already there
+  const initChamp = () => {
+    if (window.WebTorrent && !window.globalWebTorrentClient) {
+      try {
+        window.globalWebTorrentClient = new window.WebTorrent({
+          tracker: {
+            announce: [
+              "wss://tracker-0ad4cca9fd92.herokuapp.com",
+            ],
+          },
+        });
+        console.log("🌪️ CHAMP INITIALIZED IN LAYOUT");
+      } catch (e) {
+        console.error("🌪️ CHAMP FAILED TO START:", e);
+      }
+    }
+  };
+
+  // 2. Load the library if it's missing
+  if (!window.WebTorrent) {
+    const script = document.createElement("script");
+    script.src =
+      "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+    script.onload = initChamp;
+    document.head.appendChild(script);
+  } else {
+    initChamp();
+  }
+}
+
   const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
   const [loaded] = useFonts({

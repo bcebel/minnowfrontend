@@ -129,47 +129,27 @@ export default function Root({ children }: PropsWithChildren) {
           sizes="16x16"
           href="/favicon-16x16.png"
         />
-        {/* WebTorrent Script */}
-        <script src="https://cdn.jsdelivr.net/npm/webtorrent@2.8.5/index.min.js" />
-        // app/_layout.js or your root HTML file // Replace the WebTorrent
-        script section with:
+
+        {/* 1. Load the library first */}
+        <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+
         <script
           dangerouslySetInnerHTML={{
             __html: `
-      // Initialize global WebTorrent service
-      window.initWebTorrent = async function() {
-        if (!window.WebTorrent) {
-          console.log('🌪️ Loading WebTorrent library...');
-          return new Promise((resolve) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js';
-            script.onload = () => {
-              console.log('✅ WebTorrent loaded');
-              resolve();
-            };
-            document.head.appendChild(script);
-          });
-        }
-        return Promise.resolve();
-      };
-      
-      // Pre-load trackers configuration
       window.enhancedTrackers = [
         "wss://tracker-0ad4cca9fd92.herokuapp.com",
-        'wss://tracker.openwebtorrent.com',
-        'wss://tracker.btorrent.xyz',
-        'wss://tracker.files.fm:7073/announce'
       ];
-      
-      // Global stats placeholder
-      window.globalTorrentStats = {
-        downloadSpeed: 0,
-        uploadSpeed: 0,
-        progress: 0,
-        ratio: 0,
-        torrents: 0,
-        peerCount: 0
-      };
+      try {
+        window.globalWebTorrentClient = new window.WebTorrent({
+          tracker: { 
+            announce: window.enhancedTrackers,
+            heartbeat: 10 // Keeps Heroku connection alive
+          }
+        });
+        console.log("🌪️ CHAMP INITIALIZED WITH HEROKU TRACKER");
+      } catch(e) {
+        console.error("🌪️ CHAMP FAILED:", e);
+      }
     `,
           }}
         />

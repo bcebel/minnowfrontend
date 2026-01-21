@@ -32,7 +32,7 @@ import ChatMediaRenderer from "../../components/ChatMediaRenderer";
 import NeighborhoodLiveStreamRecorder from "@/components/NeighborhoodLiveStreamRecorder";
 import webtorrentService from "../../utils/webtorrentService"; 
 
-
+const myTracker = "wss://tracker-0ad4cca9fd92.herokuapp.com";
 // Helper function to create optimistic message
 const createOptimisticMessage = (type, fileName, url, thumbnailUrl) => {
   const tempId = `temp-${Date.now()}`;
@@ -752,83 +752,77 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  const unifiedUpload = async (asset, type, fileSize, mimeType) => {
-    setUploading(true);
-    setUploadType(type);
+ const unifiedUpload = async (asset, type, fileSize, mimeType) => {
+   setUploading(true);
+   setUploadType(type);
 
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) throw new Error("No authentication token found");
+   try {
+     const token = await AsyncStorage.getItem("token");
 
-      if (
-        type === "video" &&
-        Platform.OS === "web" &&
-        fileSize > 5 * 1024 * 1024
-      ) {
-        console.log("📦 Using chunked upload for large video");
-        await uploadChunkedVideo(asset);
-        return;
-      }
+     // 1. UPLOAD TO IPFS (Your existing logic)
+     const {
+       ipfsUrl,
+       magnetLink: serverMagnet,
+       thumbnailUrl,
+     } = await uploadToIPFS(
+       asset.uri,
+       asset.name || `file-${Date.now()}`,
+       type,
+       token,
+       neighborhoodId
+     );
 
-      let fileUri = asset.uri;
-      let fileName = asset.name || asset.fileName || `file-${Date.now()}`;
+     // 2. THE CHAMP SEED (The missing link)
+     let finalMagnet = serverMagnet;
 
-      console.log("🔄 Upload with thumbnail generation:", { fileName, type });
+     if (window.globalWebTorrentClient) {
+       const response = await fetch(asset.uri);
+       const blob = await response.blob();
 
-      const { ipfsUrl, magnetLink, thumbnailUrl } = await uploadToIPFS(
-        fileUri,
-        fileName,
-        type,
-        token,
-        neighborhoodId
-      );
+       // We wrap seeding in a promise so we get the Magnet Link before sending the chat message
+       finalMagnet = await new Promise((resolve) => {
+         window.globalWebTorrentClient.seed(
+           blob,
+           {
+             name: asset.name,
+             announce: [myTracker],
+             private: true,
+           },
+           (torrent) => {
+             console.log("🌱 CHAMP IS SEEDING:", torrent.magnetURI);
+             resolve(torrent.magnetURI);
+           }
+         );
+       });
+     }
 
-      if (ipfsUrl) {
-        const messageVariables = {
-          content: `Shared: ${fileName}`,
-          neighborhoodId: neighborhoodId,
-          fileName,
-          fileType: type,
-          magnetLink: magnetLink || null,
-          thumbnailUrl: thumbnailUrl || null,
-        };
+     // 3. SEND MESSAGE (Now with a REAL magnet link)
+     if (ipfsUrl || finalMagnet) {
+       await sendMessageMutation({
+         variables: {
+           content: `Shared: ${asset.name || "media"}`,
+           neighborhoodId: neighborhoodId,
+           fileName: asset.name,
+           fileType: type,
+           magnetLink: finalMagnet, // Use the P2P magnet we just created
+           thumbnailUrl: thumbnailUrl,
+           imageUrl: type === "image" ? ipfsUrl : null,
+           videoUrl: type === "video" ? ipfsUrl : null,
+           fileUrl: type !== "image" && type !== "video" ? ipfsUrl : null,
+         },
+       });
 
-        if (type === "image") {
-          messageVariables.imageUrl = ipfsUrl;
-        } else if (type === "video") {
-          messageVariables.videoUrl = ipfsUrl;
-        } else {
-          messageVariables.fileUrl = ipfsUrl;
-        }
-
-        console.log("📤 Sending message with thumbnail:", messageVariables);
-
-        // Send the message
-        await sendMessageMutation({
-          variables: messageVariables,
-        });
-
-        console.log(`✅ ${type} uploaded successfully with thumbnail`);
-
-        // CRITICAL: Immediately refetch messages to show the new media
-        await refetch();
-
-        // Also trigger a socket refresh if socket exists
-        if (socket) {
-          socket.emit("refresh-messages", neighborhoodId);
-        }
-
-        // Clear the input or any pending state
-        setNewMessage("");
-      }
-    } catch (error) {
-      console.error(`❌ Upload error:`, error);
-      Alert.alert("Upload Failed", error.message);
-    } finally {
-      setUploading(false);
-      setUploadType(null);
-    }
-  };
+       await refetch();
+       if (socket) socket.emit("refresh-messages", neighborhoodId);
+     }
+   } catch (error) {
+     console.error(`❌ Upload error:`, error);
+     Alert.alert("Upload Failed", error.message);
+   } finally {
+     setUploading(false);
+     setUploadType(null);
+   }
+ };
 
   const uploadChunkedVideo = async (asset) => {
     console.log("🎬 Starting chunked video upload...");
@@ -889,51 +883,47 @@ export default function NeighborhoodChatScreen() {
 const uploadSingleChunk = (chunk, index, sessionId, totalChunks, fileName) => {
   return new Promise(async (resolve, reject) => {
     try {
-      // 1. Use our global service
-      const client = await webtorrentService.ensureClient();
+      // 1. Grab the Global Champ directly (Skip the service!)
+      const client = window.globalWebTorrentClient;
 
-      // 2. Seed with explicit tracker announcement
-      const torrent = await webtorrentService.seed(chunk, {
-        name: `${sessionId}_chunk_${index}`,
-        // Explicitly announce to your private tracker
-        announce: ["wss://tracker-0ad4cca9fd92.herokuapp.com"],
-      });
-
-      console.log(
-        `✅ Chunk ${index + 1}/${totalChunks} seeded on Private Tracker.`
-      );
-
-      // Send message
-      await sendMessageMutation({
-        variables: {
-          content: `Part ${index + 1}/${totalChunks} of "${fileName}"`,
-          neighborhoodId: neighborhoodId,
-          fileName: `chunk_${index}.mp4`,
-          fileType: "video_chunk",
-          magnetLink: torrent.magnetURI,
-          chunkIndex: index,
-          sessionId: sessionId,
-          totalChunks: totalChunks,
-          imageUrl: null,
-          videoUrl: null,
-          fileUrl: null,
-          thumbnailUrl: null,
-        },
-      });
-
-      resolve();
-    } catch (error) {
-      console.error("❌ Failed to seed chunk:", error);
-
-      // Service will handle reconnection automatically
-      if (
-        error.message.includes("connection") ||
-        error.message.includes("timeout")
-      ) {
-        console.log("🔄 Connection issue, will retry with next chunk");
-        // You could implement retry logic here if needed
+      if (!client) {
+        throw new Error("WebTorrent Client not initialized. Refresh the page.");
       }
 
+      // 2. Seed it using the global trackers from +html.tsx
+      client.seed(
+        chunk,
+        {
+          name: `${sessionId}_chunk_${index}`,
+          announce: window.enhancedTrackers, // Use the ones from your HTML file
+        },
+        async (torrent) => {
+          console.log(
+            `✅ Chunk ${index + 1}/${totalChunks} is now LIVE on P2P`
+          );
+
+          // 3. Send the message with the REAL magnet link
+          try {
+            await sendMessageMutation({
+              variables: {
+                content: `Shared: ${fileName} (Part ${index + 1})`,
+                neighborhoodId: neighborhoodId,
+                fileName: `${fileName}_part${index}`,
+                fileType: "video_chunk",
+                magnetLink: torrent.magnetURI, // THIS is what the neighbor needs
+                chunkIndex: index,
+                sessionId: sessionId,
+                totalChunks: totalChunks,
+              },
+            });
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        }
+      );
+    } catch (error) {
+      console.error("❌ Seeding failed:", error);
       reject(error);
     }
   });
