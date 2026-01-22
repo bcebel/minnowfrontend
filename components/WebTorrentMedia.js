@@ -4,11 +4,15 @@ import {
   View,
   StyleSheet,
   Text,
-  TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
+
+// 1. IMPORT YOUR CACHE (Ensure mediaCache.js exists in same folder)
+import { mediaCache } from "./mediaCache";
+
 const myTracker = "wss://tracker-0ad4cca9fd92.herokuapp.com";
+const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
 export default function WebTorrentMedia({ media }) {
   const [mediaUrl, setMediaUrl] = useState(null);
@@ -17,81 +21,89 @@ export default function WebTorrentMedia({ media }) {
   const [peers, setPeers] = useState(0);
   const torrentRef = useRef(null);
 
-  const { magnetLink, fileName, imageUrl, videoUrl } = media;
+  const { magnetLink, fileName, cid } = media;
   const isImage =
     media.fileType === "image" ||
     fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+  const ipfsUrl = cid ? `https://${PINATA_GATEWAY}/ipfs/${cid}` : null;
 
   useEffect(() => {
     let isActive = true;
+    let fallbackTimer = null;
 
-    const startP2P = async () => {
-      // 1. Wait for the Champ
+    const startMediaFlow = async () => {
+      // --- STAGE 1: LOCAL CACHE CHECK ---
+      if (cid) {
+        const cached = await mediaCache.getMedia(cid);
+        if (cached && isActive) {
+          const url = URL.createObjectURL(cached.blob);
+          setMediaUrl(url);
+          setStatus("Ready (Cached)");
+          return;
+        }
+      }
+
+      // --- STAGE 2: P2P ATTEMPT ---
       let client = window.globalWebTorrentClient;
-      if (!client) {
-        setStatus("Waiting for P2P...");
+      if (!client || !magnetLink) {
+        // No P2P available, go straight to Pinata
+        if (ipfsUrl) setMediaUrl(ipfsUrl);
         return;
       }
 
-      if (!magnetLink) {
-        // Fallback to IPFS if no magnet exists
-        setMediaUrl(imageUrl || videoUrl);
-        return;
-      }
-
-      // 2. Check if already seeding (OWNER CHECK)
       let torrent = client.get(magnetLink);
-
       if (!torrent) {
-        setStatus("Connecting to peers...");
-        torrent = client.add(magnetLink, {
-          announce: [myTracker],
-        });
+        torrent = client.add(magnetLink, { announce: [myTracker] });
       }
-
       torrentRef.current = torrent;
 
-      // 3. THE "OWNER" SHORT-CIRCUIT
-      // If we have 100% of the file, show it NOW.
-      if (torrent.progress === 1 && torrent.files[0]) {
-        torrent.files[0].getBlobURL((err, url) => {
-          if (isActive && !err) {
-            setMediaUrl(url);
-            setStatus("Ready (Seeding)");
-          }
-        });
-      }
+      // --- STAGE 3: PINATA FALLBACK TIMER ---
+      // If after 5 seconds we don't have enough data, use Pinata
+      fallbackTimer = setTimeout(() => {
+        if (isActive && !mediaUrl && ipfsUrl) {
+          console.log("🐢 P2P slow, falling back to Pinata");
+          setMediaUrl(ipfsUrl);
+          setStatus("Loaded via Pinata");
+        }
+      }, 5000);
 
-      // 4. Update stats and handle download
-      const updateStats = () => {
+      const handleData = () => {
         if (!isActive) return;
-        setProgress(Math.round(torrent.progress * 100));
+        const p = Math.round(torrent.progress * 100);
+        setProgress(p);
         setPeers(torrent.numPeers);
 
-        // If we just hit 100% or enough to show
-        if (torrent.progress > 0.05 && !mediaUrl) {
-          torrent.files[0].getBlobURL((err, url) => {
-            if (isActive && !err) setMediaUrl(url);
+        // If we hit a threshold (5% for video, 100% for image)
+        const threshold = isImage ? 1 : 0.05;
+        if (torrent.progress >= threshold && !mediaUrl) {
+          torrent.files[0].getBlob(async (err, blob) => {
+            if (isActive && !err && blob) {
+              const url = URL.createObjectURL(blob);
+              setMediaUrl(url);
+              setStatus("Ready (P2P)");
+              // SAVE TO CACHE for next time
+              if (cid)
+                await mediaCache.saveMedia(cid, blob, blob.type, fileName);
+              clearTimeout(fallbackTimer);
+            }
           });
         }
       };
 
-      torrent.on("download", updateStats);
-      torrent.on("wire", updateStats);
-      torrent.on("done", () => {
-        setStatus("Ready");
-        updateStats();
-      });
+      torrent.on("download", handleData);
+      torrent.on("done", handleData);
+
+      // If already done (Seeder side)
+      if (torrent.progress >= 1) handleData();
     };
 
-    startP2P();
+    startMediaFlow();
 
     return () => {
       isActive = false;
-      // Note: Don't destroy the torrent here if you want to keep seeding
-      // while navigating other parts of the chat!
+      if (fallbackTimer) clearTimeout(fallbackTimer);
     };
-  }, [magnetLink]);
+  }, [magnetLink, cid]);
 
   return (
     <View style={styles.container}>
@@ -103,7 +115,7 @@ export default function WebTorrentMedia({ media }) {
             contentFit="contain"
           />
         ) : (
-          <video src={mediaUrl} controls style={styles.video} autoPlay />
+          <video src={mediaUrl} controls style={styles.video} autoPlay muted />
         )
       ) : (
         <View style={styles.loadingContainer}>
@@ -128,7 +140,7 @@ const styles = StyleSheet.create({
   image: { width: "100%", height: 300 },
   video: { width: "100%", height: 300 },
   loadingContainer: {
-    height: 200,
+    height: 250,
     justifyContent: "center",
     alignItems: "center",
   },
