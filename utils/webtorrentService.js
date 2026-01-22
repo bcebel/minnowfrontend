@@ -25,14 +25,16 @@ class WebTorrentService {
   }
 
   // Simplified Seed
-  async seed(data, options = {}) {
+    async seed(data, options = {}) {
+      const myTracker = "wss://tracker-0ad4cca9fd92.herokuapp.com";
+
     const client = await this.ensureClient();
     return new Promise((resolve) => {
       client.seed(
         data,
         {
           ...options,
-          announce: this.trackers,
+          announce: [myTracker],
         },
         (torrent) => {
           console.log("🌱 Champ is seeding:", torrent.name);
@@ -45,6 +47,7 @@ class WebTorrentService {
   // Simplified Add
   async add(magnetUri, options = {}) {
     const client = await this.ensureClient();
+      const myTracker = "wss://tracker-0ad4cca9fd92.herokuapp.com";
 
     // Check if we already have this torrent to avoid errors
     const existing = client.get(magnetUri);
@@ -55,7 +58,7 @@ class WebTorrentService {
         magnetUri,
         {
           ...options,
-          announce: this.trackers,
+          announce: [myTracker],
         },
         (torrent) => {
           resolve(torrent);

@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
+const myTracker = "wss://tracker-0ad4cca9fd92.herokuapp.com";
 
 export default function WebTorrentPlayer({ video, isFocused }) {
   const [videoUrl, setVideoUrl] = useState(null);

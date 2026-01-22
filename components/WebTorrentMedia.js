@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
+const myTracker = "wss://tracker-0ad4cca9fd92.herokuapp.com";
 
 export default function WebTorrentMedia({ media }) {
   const [mediaUrl, setMediaUrl] = useState(null);
@@ -44,7 +45,7 @@ export default function WebTorrentMedia({ media }) {
       if (!torrent) {
         setStatus("Connecting to peers...");
         torrent = client.add(magnetLink, {
-          announce: window.enhancedTrackers || [],
+          announce: [myTracker],
         });
       }
 
