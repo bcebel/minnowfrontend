@@ -36,7 +36,10 @@ export default function WebTorrentMedia({ media }) {
       if (cid) {
         const cached = await mediaCache.getMedia(cid);
         if (cached && isActive) {
-          const url = URL.createObjectURL(cached.blob);
+     const safariFriendlyBlob = new Blob([cached.blob], {
+       type: cached.mimeType,
+     });
+     const url = URL.createObjectURL(safariFriendlyBlob);
           setMediaUrl(url);
           setStatus("Ready (Cached)");
           return;

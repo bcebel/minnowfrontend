@@ -44,22 +44,24 @@ if (isBrowser()) {
         const tx = db.transaction(STORE_NAME, "readwrite");
         const store = tx.objectStore(STORE_NAME);
 
+        // Convert to ArrayBuffer for Safari stability
+        const arrayBuffer = await blob.arrayBuffer();
+
         const item = {
           cid,
-          blob,
-          mimeType, // e.g., 'video/mp4', 'image/jpeg'
+          data: arrayBuffer, // Ditch the 'blob: blob' property
+          mimeType,
           fileName,
           isPublic,
-          lastAccessed: new Date(), // Track usage for cache management
+          lastAccessed: new Date(),
           storedAt: new Date(),
         };
 
         await store.put(item);
         await tx.done;
-        console.log(`✅ Media cached: ${cid}`);
         return true;
       } catch (error) {
-        console.error("❌ Failed to save media to IndexedDB:", error);
+        console.error("❌ Save failed:", error);
         return false;
       }
     }
@@ -73,22 +75,26 @@ if (isBrowser()) {
 
         const item = await store.get(cid);
 
-        if (item) {
-          // Update lastAccessed timestamp on successful read
-          item.lastAccessed = new Date();
-          const updateTx = db.transaction(STORE_NAME, "readwrite");
-          await updateTx.objectStore(STORE_NAME).put(item);
-          await updateTx.done;
+   if (item) {
+     // 1. Update timestamp
+     item.lastAccessed = new Date();
+     const updateTx = db.transaction(STORE_NAME, "readwrite");
+     await updateTx.objectStore(STORE_NAME).put(item);
+     await updateTx.done;
 
-          console.log(`✅ Cache HIT for CID: ${cid}`);
-          // Return the blob and metadata
-          return {
-            blob: item.blob,
-            mimeType: item.mimeType,
-            fileName: item.fileName,
-            isPublic: item.isPublic,
-          };
-        }
+     console.log(`✅ Cache HIT: ${cid}`);
+
+     // 2. RECONSTRUCT the Blob from the stored ArrayBuffer
+     // This fresh wrap is what Safari needs to display it after a refresh
+     const freshBlob = new Blob([item.data], { type: item.mimeType });
+
+     return {
+       blob: freshBlob,
+       mimeType: item.mimeType,
+       fileName: item.fileName,
+       isPublic: item.isPublic,
+     };
+   }
 
         console.log(`❌ Cache MISS for CID: ${cid}`);
         return null;
