@@ -217,9 +217,27 @@ if (isBrowser()) {
 } else {
   // Server/Node.js or native: Use a mock that doesn't crash
   class ServerMediaCache {
-    async saveMedia(cid, blob, mimeType, fileName, isPublic) {
-      console.log("ServerMediaCache: saveMedia called (no-op)");
-      return false;
+    // Inside mediaCache.saveMedia
+    async saveMedia(cid, blob, mimeType, fileName) {
+      const db = await this.getDB(); // Ensure DB is open
+
+      // WRONG: const tx = db.transaction(...) -> await something -> tx.store.put()
+      // RIGHT:
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction("media", "readwrite");
+        const store = transaction.objectStore("media");
+
+        const request = store.put({
+          cid,
+          blob,
+          mimeType,
+          fileName,
+          timestamp: Date.now(),
+        });
+
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
     }
 
     async getMedia(cid) {

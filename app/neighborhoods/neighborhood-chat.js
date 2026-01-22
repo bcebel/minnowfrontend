@@ -31,7 +31,8 @@ import AdMessage from "../../components/AdMessage";
 import ChatMediaRenderer from "../../components/ChatMediaRenderer";
 import NeighborhoodLiveStreamRecorder from "@/components/NeighborhoodLiveStreamRecorder";
 import webtorrentService from "../../utils/webtorrentService"; 
-
+import heic2any from "heic2any";
+import convert from "heic-convert/browser";
 const myTracker = "wss://tracker-0ad4cca9fd92.herokuapp.com";
 // Helper function to create optimistic message
 const createOptimisticMessage = (type, fileName, url, thumbnailUrl) => {
@@ -333,6 +334,45 @@ const handleFilePress = async (message) => {
   }
 };
 
+const normalizeImage = async (blob, fileName) => {
+  const extension = fileName.split(".").pop().toLowerCase();
+
+  if (extension === "heic" || extension === "heif") {
+    console.log("🛠 Actual conversion: HEIC to JPEG...");
+    try {
+      const buffer = await blob.arrayBuffer();
+
+      // ✅ FIX: Explicitly convert to Uint8Array.
+      // The library's 'isHeic' check is crashing because it can't iterate a raw ArrayBuffer.
+      const uint8View = new Uint8Array(buffer);
+
+      const outputBuffer = await convert({
+        buffer: uint8View, // Pass the view, not the raw buffer
+        format: "JPEG",
+        quality: 0.8,
+      });
+
+      const newFileName = fileName.replace(/\.(heic|heif)$/i, ".jpg");
+      return new File([outputBuffer], newFileName, { type: "image/jpeg" });
+    } catch (err) {
+      console.error("❌ Conversion failed, falling back to spoof:", err);
+      const fallbackName = fileName.replace(/\.(heic|heif)$/i, ".jpg");
+      return new File([blob], fallbackName, { type: "image/jpeg" });
+    }
+  }
+
+  const cleanName = fileName.replace(/\s+/g, "_").replace(/[()]/g, "");
+  return new File([blob], cleanName, { type: blob.type });
+};
+
+
+const cleanFileName = (name) => {
+  return name
+    .replace(/\s+/g, "_") // Spaces to underscores
+    .replace(/[()]/g, "") // Remove parentheses
+    .replace(/\.(heic|heif)$/i, ".jpg"); // Force the extension to jpg for the DB
+};
+
 export default function NeighborhoodChatScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
@@ -448,6 +488,18 @@ export default function NeighborhoodChatScreen() {
   );
 
   const [sendMessageMutation] = useMutation(SEND_NEIGHBORHOOD_MESSAGE);
+
+  useEffect(() => {
+    if (!window.heic2any) {
+      console.log("💉 Injecting heic2any script...");
+      const script = document.createElement("script");
+      script.src =
+        "https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
 
   useEffect(() => {
     if (data?.neighborhoodMessages) {
@@ -720,109 +772,120 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  const pickFile = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: "*/*",
-    });
+const pickFile = async () => {
+  const result = await DocumentPicker.getDocumentAsync({ type: "*/*" });
 
-    if (!result.canceled) {
-      const file = result.assets[0];
-      const type = getFileType(file.name || file.fileName);
+  if (!result.canceled) {
+    let asset = result.assets[0];
 
-      if (
-        type === "video" &&
-        file.size > 10 * 1024 * 1024 &&
-        Platform.OS === "web"
-      ) {
-        Alert.alert(
-          "Large Video",
-          "Upload as chunked P2P video (faster for neighbors)?",
-          [
-            {
-              text: "Regular Upload",
-              onPress: () =>
-                unifiedUpload(file, type, file.size, file.mimeType),
-            },
-            { text: "Chunked P2P", onPress: () => uploadChunkedVideo(file) },
-          ]
-        );
-      } else {
-        unifiedUpload(file, type, file.size, file.mimeType);
+    // 1. Get the type data first!
+    const typeInfo = getFileType(asset.name);
+    const resolvedType = typeInfo; // getFileType returns a string "image" or "video"
+
+    // 2. Handle Image Normalization
+    if (resolvedType === "image") {
+      try {
+        const response = await fetch(asset.uri);
+        const rawBlob = await response.blob();
+        const cleanFile = await normalizeImage(rawBlob, asset.name);
+
+        asset = {
+          ...asset,
+          uri: URL.createObjectURL(cleanFile),
+          name: cleanFile.name,
+          mimeType: cleanFile.type,
+          size: cleanFile.size,
+        };
+      } catch (err) {
+        console.error("PickFile Normalization Error:", err);
       }
     }
-  };
+    // 2. Large Video check (using 'type' and 'asset')
+    if (
+      resolvedType === "video" &&
+      asset.size > 10 * 1024 * 1024 &&
+      Platform.OS === "web"
+    ) {
+      Alert.alert(
+        "Large Video",
+        "Upload as chunked P2P video (faster for neighbors)?",
+        [
+          {
+            text: "Regular Upload",
+            onPress: () =>
+              unifiedUpload(asset, type, asset.size, asset.mimeType),
+          },
+          {
+            text: "Chunked P2P",
+            onPress: () => uploadChunkedVideo(asset),
+          },
+        ]
+      );
+    } else {
+      // 3. Regular flow
+      await unifiedUpload(asset, resolvedType, asset.size, asset.mimeType);
+    }
+  }
+};
+  
+const unifiedUpload = async (asset, type, fileSize, mimeType) => {
+  setUploading(true);
+  let uploadUri = null; // Track this for cleanup
 
- const unifiedUpload = async (asset, type, fileSize, mimeType) => {
-   setUploading(true);
-   setUploadType(type);
+  try {
+    const token = await AsyncStorage.getItem("token");
+    const response = await fetch(asset.uri);
+    const rawBlob = await response.blob();
 
-   try {
-     const token = await AsyncStorage.getItem("token");
+    // 1. Normalize & Spoof
+    const cleanFile = await normalizeImage(rawBlob, asset.name);
+    const safeName = cleanFile.name;
 
-     // 1. UPLOAD TO IPFS (Your existing logic)
-     const {
-       ipfsUrl,
-       magnetLink: serverMagnet,
-       thumbnailUrl,
-     } = await uploadToIPFS(
-       asset.uri,
-       asset.name || `file-${Date.now()}`,
-       type,
-       token,
-       neighborhoodId
-     );
+    // 2. Create local URL for the upload tool
+    uploadUri = URL.createObjectURL(cleanFile);
 
-     // 2. THE CHAMP SEED (The missing link)
-     let finalMagnet = serverMagnet;
+    // 3. IPFS UPLOAD
+    const uploadResult = await uploadToIPFS(
+      uploadUri,
+      safeName,
+      type,
+      token,
+      neighborhoodId
+    );
 
-     if (window.globalWebTorrentClient) {
-       const response = await fetch(asset.uri);
-       const blob = await response.blob();
+    // 4. SEND MESSAGE
+    await sendMessageMutation({
+      variables: {
+        content: `Shared: ${safeName}`,
+        neighborhoodId: neighborhoodId,
+        fileName: safeName,
+        fileType: type,
+        // Force the mimeType to image/jpeg so the DB knows how to serve it
+        mimeType: type === "image" ? "image/jpeg" : cleanFile.type,
+        imageUrl: type === "image" ? uploadResult.ipfsUrl : null,
+        videoUrl: type === "video" ? uploadResult.ipfsUrl : null,
+        fileUrl:
+          type !== "image" && type !== "video" ? uploadResult.ipfsUrl : null,
+        magnetLink: uploadResult.magnetLink || "",
+        thumbnailUrl: uploadResult.thumbnailUrl || null,
+        sessionId: null,
+        chunkIndex: null,
+        totalChunks: null,
+      },
+    });
 
-       // We wrap seeding in a promise so we get the Magnet Link before sending the chat message
-       finalMagnet = await new Promise((resolve) => {
-         window.globalWebTorrentClient.seed(
-           blob,
-           {
-             name: asset.name,
-             announce: [myTracker],
-             private: true,
-           },
-           (torrent) => {
-             console.log("🌱 CHAMP IS SEEDING:", torrent.magnetURI);
-             resolve(torrent.magnetURI);
-           }
-         );
-       });
-     }
-
-     // 3. SEND MESSAGE (Now with a REAL magnet link)
-     if (ipfsUrl || finalMagnet) {
-       await sendMessageMutation({
-         variables: {
-           content: `Shared: ${asset.name || "media"}`,
-           neighborhoodId: neighborhoodId,
-           fileName: asset.name,
-           fileType: type,
-           magnetLink: finalMagnet, // Use the P2P magnet we just created
-           thumbnailUrl: thumbnailUrl,
-           imageUrl: type === "image" ? ipfsUrl : null,
-           videoUrl: type === "video" ? ipfsUrl : null,
-           fileUrl: type !== "image" && type !== "video" ? ipfsUrl : null,
-         },
-       });
-
-       await refetch();
-       if (socket) socket.emit("refresh-messages", neighborhoodId);
-     }
-   } catch (error) {
-     console.error(`❌ Upload error:`, error);
-     Alert.alert("Upload Failed", error.message);
-   } finally {
-     setUploading(false);
-     setUploadType(null);
-   }
- };
+    if (refetch) await refetch();
+  } catch (error) {
+    console.error("❌ Final Upload Crash:", error);
+  } finally {
+    // 🔥 THE FIX FOR LAG: Clear the memory!
+    if (uploadUri) {
+      URL.revokeObjectURL(uploadUri);
+      console.log("🧹 Memory cleared: Revoked upload blob.");
+    }
+    setUploading(false);
+  }
+};
 
   const uploadChunkedVideo = async (asset) => {
     console.log("🎬 Starting chunked video upload...");

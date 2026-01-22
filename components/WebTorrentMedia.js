@@ -24,7 +24,7 @@ export default function WebTorrentMedia({ media }) {
   const { magnetLink, fileName, cid } = media;
   const isImage =
     media.fileType === "image" ||
-    fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    fileName?.match(/\.(jpg|jpeg|png|gif|webp|heic|heif|avif)$/i);
   const ipfsUrl = cid ? `https://${PINATA_GATEWAY}/ipfs/${cid}` : null;
 
   useEffect(() => {
@@ -36,10 +36,10 @@ export default function WebTorrentMedia({ media }) {
       if (cid) {
         const cached = await mediaCache.getMedia(cid);
         if (cached && isActive) {
-     const safariFriendlyBlob = new Blob([cached.blob], {
-       type: cached.mimeType,
-     });
-     const url = URL.createObjectURL(safariFriendlyBlob);
+          const safariFriendlyBlob = new Blob([cached.blob], {
+            type: cached.mimeType,
+          });
+          const url = URL.createObjectURL(safariFriendlyBlob);
           setMediaUrl(url);
           setStatus("Ready (Cached)");
           return;

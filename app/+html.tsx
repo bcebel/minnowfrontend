@@ -18,7 +18,6 @@ export default function Root({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
         />
         <ScrollViewStyleReset />
-        {/* Primary Meta Tags */}
         <title>{title}</title>
         <meta name="title" content={title} />
         <meta name="description" content={description} />
@@ -47,7 +46,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta property="twitter:description" content={description} />
         <meta property="twitter:image" content={image} />
         <meta property="twitter:creator" content="@bubblebase" />
-        {/* Schema.org structured data */}
+
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -172,7 +171,13 @@ export default function Root({ children }: PropsWithChildren) {
         />
       </head>
 
-      <body>{children}</body>
+      <body>
+        {children}
+        <script
+          src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"
+          strategy="lazyOnload"
+        ></script>
+      </body>
     </html>
   );
 }
