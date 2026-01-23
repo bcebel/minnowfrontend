@@ -1,157 +1,132 @@
-import React, { useEffect, useRef, useState } from "react";
-import {
-  Platform,
-  View,
-  StyleSheet,
-  Text,
-  ActivityIndicator,
-} from "react-native";
-import { Image } from "expo-image";
+import React, { useState, useEffect, useRef } from "react";
+import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
+import { getMedia, saveMedia } from "../components/mediaCache";
 
-// 1. IMPORT YOUR CACHE (Ensure mediaCache.js exists in same folder)
-import { mediaCache } from "./mediaCache";
-
-const myTracker = [
-  "wss://tracker-0ad4cca9fd92.herokuapp.com",
-  "wss://tracker.openwebtorrent.com",
-  "wss://tracker.files.fm:7073",
-  "wss://tracker.webtorrent.dev",
-];
-const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
-
-export default function WebTorrentMedia({ media }) {
-  const [mediaUrl, setMediaUrl] = useState(null);
-  const [status, setStatus] = useState("Initializing...");
-  const [progress, setProgress] = useState(0);
-  const [peers, setPeers] = useState(0);
-  const torrentRef = useRef(null);
-
-  const { magnetLink, fileName, cid } = media;
-  const isImage =
-    media.fileType === "image" ||
-    fileName?.match(/\.(jpg|jpeg|png|gif|webp|heic|heif|avif)$/i);
-  const ipfsUrl = cid ? `https://${PINATA_GATEWAY}/ipfs/${cid}` : null;
+export default function WebTorrentMedia({ media, isFocused }) {
+  const [videoSrc, setVideoSrc] = useState(null);
+  const [status, setStatus] = useState("connecting");
+  const videoRef = useRef(null);
+  const currentUrlRef = useRef(null); // Keep track of the URL for cleanup
 
   useEffect(() => {
-    let isActive = true;
-    let fallbackTimer = null;
+    let isMounted = true;
 
-    const startMediaFlow = async () => {
-      // --- STAGE 1: LOCAL CACHE CHECK ---
-      if (cid) {
-        const cached = await mediaCache.getMedia(cid);
-        if (cached && isActive) {
-          const safariFriendlyBlob = new Blob([cached.blob], {
-            type: cached.mimeType,
-          });
-          const url = URL.createObjectURL(safariFriendlyBlob);
-          setMediaUrl(url);
-          setStatus("Ready (Cached)");
-          return;
-        }
-      }
+    const startLoading = async () => {
+      // 1. Check Cache First
+      const cachedData = await getMedia(media.cid);
 
-      // --- STAGE 2: P2P ATTEMPT ---
-      let client = window.globalWebTorrentClient;
-      if (!client || !magnetLink) {
-        // No P2P available, go straight to Pinata
-        if (ipfsUrl) setMediaUrl(ipfsUrl);
+      if (cachedData?.blob && isMounted) {
+        console.log("🚀 Playing from Cache");
+        const url = URL.createObjectURL(cachedData.blob);
+        currentUrlRef.current = url;
+        setVideoSrc(url);
+        setStatus("streaming");
         return;
       }
 
-      let torrent = client.get(magnetLink);
-      if (!torrent) {
-        torrent = client.add(magnetLink, { announce: myTracker });
+      // 2. If NOT in cache, set fallback immediately so it starts loading
+      // This solves the "video doesn't populate" issue
+      console.log("🐢 Cache miss, starting with Pinata/IPFS Fallback");
+      setVideoSrc(media.ipfsUrl || media.fallbackUrl);
+      setStatus("fallback");
+
+      // 3. WebTorrent Logic (Attempt to "upgrade" to P2P and cache it)
+      if (window.globalWebTorrentClient && media.magnetLink) {
+        const client = window.globalWebTorrentClient;
+
+        client.add(media.magnetLink, (torrent) => {
+ const file = torrent.files.find((f) =>
+   f.name.match(/\.(mp4|mov|jpg|jpeg|png|gif|webp)$/i)
+ );
+
+          if (file && isMounted) {
+            file.getBlob(async (err, blob) => {
+              if (!err && blob && isMounted) {
+                // If we were on fallback, upgrade to the P2P blob
+                const url = URL.createObjectURL(blob);
+
+                // Cleanup old URL if it was a blob
+                if (currentUrlRef.current)
+                  URL.revokeObjectURL(currentUrlRef.current);
+
+                currentUrlRef.current = url;
+                setVideoSrc(url);
+                setStatus("streaming");
+
+                // Save to cache for next time
+const mimeType = file.name.endsWith(".mp4") ? "video/mp4" : "image/jpeg";
+saveMedia(media.cid, blob, mimeType, file.name);              }
+            });
+          }
+        });
       }
-      torrentRef.current = torrent;
-
-      // --- STAGE 3: PINATA FALLBACK TIMER ---
-      // If after 5 seconds we don't have enough data, use Pinata
-      fallbackTimer = setTimeout(() => {
-        if (isActive && !mediaUrl && ipfsUrl) {
-          console.log("🐢 P2P slow, falling back to Pinata");
-          setMediaUrl(ipfsUrl);
-          setStatus("Loaded via Pinata");
-        }
-      }, 5000);
-
-      const handleData = () => {
-        if (!isActive) return;
-        const p = Math.round(torrent.progress * 100);
-        setProgress(p);
-        setPeers(torrent.numPeers);
-
-        // If we hit a threshold (5% for video, 100% for image)
-        const threshold = isImage ? 1 : 0.05;
-        if (torrent.progress >= threshold && !mediaUrl) {
-          torrent.files[0].getBlob(async (err, blob) => {
-            if (isActive && !err && blob) {
-              const url = URL.createObjectURL(blob);
-              setMediaUrl(url);
-              setStatus("Ready (P2P)");
-              // SAVE TO CACHE for next time
-              if (cid)
-                await mediaCache.saveMedia(cid, blob, blob.type, fileName);
-              clearTimeout(fallbackTimer);
-            }
-          });
-        }
-      };
-
-      torrent.on("download", handleData);
-      torrent.on("done", handleData);
-
-      // If already done (Seeder side)
-      if (torrent.progress >= 1) handleData();
     };
 
-    startMediaFlow();
+    startLoading();
 
     return () => {
-      isActive = false;
-      if (fallbackTimer) clearTimeout(fallbackTimer);
+      isMounted = false;
+      // 🧹 CRITICAL: Clear memory to prevent ERR_BLOB_OUT_OF_MEMORY
+      if (currentUrlRef.current) {
+        URL.revokeObjectURL(currentUrlRef.current);
+      }
     };
-  }, [magnetLink, cid]);
+  }, [media.magnetLink, media.cid]);
+
+  if (!videoSrc) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator color="#00ffff" />
+        <Text style={{ color: "#fff", fontSize: 10, marginTop: 10 }}>
+          Initializing...
+        </Text>
+      </View>
+    );
+  }
+
+  // Helper to check if it's an image
+  const isImage =
+    media.type === "image" ||
+    media.fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+
+  if (isImage) {
+    return (
+      <img
+        src={videoSrc} // This holds our Blob URL or IPFS URL
+        style={styles.image}
+        alt="User content"
+      />
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      {mediaUrl ? (
-        isImage ? (
-          <Image
-            source={{ uri: mediaUrl }}
-            style={styles.image}
-            contentFit="contain"
-          />
-        ) : (
-          <video src={mediaUrl} controls style={styles.video} autoPlay muted />
-        )
-      ) : (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator color="#00ffff" />
-          <Text style={styles.status}>{status}</Text>
-          <Text style={styles.progress}>
-            {progress}% • {peers} peers
-          </Text>
-        </View>
-      )}
-    </View>
+    <video
+      ref={videoRef}
+      src={videoSrc}
+      style={styles.video}
+      autoPlay
+      muted
+      controls
+      playsInline
+      loop
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: "#130720",
-    borderRadius: 12,
-    overflow: "hidden",
+  video: { width: "100%", height: "100%", backgroundColor: "#000" },
+  image: {
     width: "100%",
-  },
-  image: { width: "100%", height: 300 },
-  video: { width: "100%", height: 300 },
-  loadingContainer: {
-    height: 250,
+    height: "auto",
+    objectFit: "contain",
+    backgroundColor: "#000",
+  }, // Added image style
+  loader: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    minHeight: 200,
   },
-  status: { color: "#fff", marginTop: 10 },
-  progress: { color: "#00ffff", fontSize: 12 },
 });
+
+

@@ -1,24 +1,25 @@
 import React, { useState } from "react";
 import {
   View,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
-  Platform,
   ActivityIndicator,
+  Platform,
+  Linking,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import WebTorrentMedia from "./WebTorrentMedia";
-import { NeighborhoodVideoReassembler } from "./NeighborhoodVideoReassembler";
 
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
-function ChatMediaRenderer({ message }) {
-  // Filter out video chunks - they're handled separately
-  if (message.fileType === "video_chunk") {
-    return null;
-  }
+export default function ChatMediaRenderer({ message }) {
+  // 1. Block raw chunks from rendering
+  if (!message || message.fileType === "video_chunk") return null;
+
+  const [isDownloadingChunks, setIsDownloadingChunks] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
   const {
     imageUrl,
@@ -28,168 +29,94 @@ function ChatMediaRenderer({ message }) {
     fileName,
     fileType,
     thumbnailUrl,
+    ipfsUrl,
+    cid,
   } = message;
 
-  if (!message) return null;
-
-  const [isDownloadingChunks, setIsDownloadingChunks] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [chunkedVideoUrl, setChunkedVideoUrl] = useState(null);
-
-  // Get the correct IPFS URL
+  // Standardized URL helper to ensure we always have a working gateway link
   const getPinataUrl = (url) => {
     if (!url) return null;
-
-    // If it's already a full URL, return it
-    if (url.startsWith("http") || url.startsWith("https")) {
-      return url;
-    }
-
-    // If it's just a CID, construct the URL
+    if (url.startsWith("http")) return url;
     if (url.startsWith("Qm") || url.startsWith("baf")) {
       return `https://${PINATA_GATEWAY}/ipfs/${url}`;
     }
-
-    // If it contains /ipfs/, extract the CID
     if (url.includes("/ipfs/")) {
-      const cid = url.split("/ipfs/")[1];
-      return `https://${PINATA_GATEWAY}/ipfs/${cid}`;
+      return `https://${PINATA_GATEWAY}/ipfs/${url.split("/ipfs/")[1]}`;
     }
-
     return url;
   };
 
-  console.log("Media renderer received:", {
-    imageUrl,
-    videoUrl,
-    fileType,
-    thumbnailUrl,
-    getPinataUrl: getPinataUrl(imageUrl || videoUrl),
-  });
-
-  // Handle file press for downloads
-  const handleFilePress = async (message) => {
-    try {
-      const url = getPinataUrl(
-        message.fileUrl || message.videoUrl || message.imageUrl
-      );
-
-      if (Platform.OS === "web") {
-        window.open(url, "_blank");
-      } else {
-        Alert.alert(message.fileName || "File", "What would you like to do?", [
-          {
-            text: "Open in Browser",
-            onPress: () => Linking.openURL(url),
-          },
-          { text: "Cancel", style: "cancel" },
-        ]);
-      }
-    } catch (error) {
-      console.error("File press error:", error);
-      Alert.alert("Error", "Failed to open file");
-    }
-  };
-
-  // RENDER LOGIC
-
-  // 1. CHUNKED VIDEO
-  if (message.fileType === "video_chunked") {
-    if (chunkedVideoUrl) {
-      // For chunked videos, we need a video player
-      return (
-        <TouchableOpacity
-          style={styles.chunkedVideoContainer}
-          onPress={() => console.log("Play chunked video")}
-        >
-          <Image
-            source={{ uri: message.thumbnailUrl }}
-            style={styles.videoThumbnail}
-            contentFit="cover"
-          />
-          <View style={styles.videoOverlay}>
-            <Text style={styles.playIcon}>▶️</Text>
-          </View>
-        </TouchableOpacity>
-      );
-    }
-
+  // --- PATH 1: CHUNKED ARCHIVES ---
+  if (fileType === "video_chunked") {
     return (
       <TouchableOpacity
         style={styles.chunkedVideoContainer}
         disabled={isDownloadingChunks}
       >
-        {message.thumbnailUrl ? (
+        {thumbnailUrl ? (
           <Image
-            source={{ uri: message.thumbnailUrl }}
+            source={{ uri: thumbnailUrl }}
             style={styles.videoThumbnail}
             contentFit="cover"
           />
         ) : (
           <View style={[styles.videoThumbnail, styles.videoPlaceholder]}>
             <Text style={styles.videoIcon}>🎬</Text>
-            <Text style={styles.chunkCount}>{message.totalChunks} parts</Text>
+            <Text style={styles.chunkCount}>
+              {message.totalChunks || 0} parts
+            </Text>
           </View>
         )}
-        {isDownloadingChunks && (
-          <View style={styles.downloadOverlay}>
-            <ActivityIndicator size="large" color="#00ffff" />
-            <Text style={styles.progressText}>{downloadProgress}%</Text>
-          </View>
-        )}
+        <View style={styles.videoOverlay}>
+          {isDownloadingChunks ? (
+            <ActivityIndicator color="#00ffff" />
+          ) : (
+            <Text style={styles.playIcon}>▶️</Text>
+          )}
+        </View>
       </TouchableOpacity>
     );
   }
 
-  // 2. REGULAR MEDIA - Use WebTorrentMedia for everything
-  // WebTorrentMedia can handle both images and videos with or without magnet links
-  // 2. REGULAR MEDIA - Fix the CID extraction
-  if (imageUrl || videoUrl || magnetLink || message.ipfsUrl || message.cid) {
-    // Prepare media object for WebTorrentMedia
-    const mediaForWebTorrent = {
+  // --- PATH 2: SWARMABLE MEDIA (The "Working" Fix) ---
+  // If there is a magnet link OR a CID, we want it in the swarm.
+  if (magnetLink || cid || ipfsUrl || videoUrl || imageUrl) {
+    // We construct the media object to include a "WebSeed" fallback.
+    // This ensures that if the P2P swarm is empty, it pulls from Pinata.
+    const mediaForSwarm = {
       ...message,
-      // FIX: Check the actual DB field 'ipfsUrl' or the direct 'cid' field first
-      cid: (() => {
-        if (message.cid) return message.cid;
-        const targetUrl = imageUrl || videoUrl || message.ipfsUrl;
-        if (targetUrl?.includes("/ipfs/")) return targetUrl.split("/ipfs/")[1];
-        return null;
-      })(),
-      // Ensure WebTorrentMedia has a URL to fallback to if P2P fails
-      imageUrl: getPinataUrl(
-        imageUrl || (fileType === "image" ? message.ipfsUrl : null)
-      ),
-      videoUrl: getPinataUrl(
-        videoUrl || (fileType === "video" ? message.ipfsUrl : null)
-      ),
-      magnetLink: magnetLink || null,
-      fileName: fileName || "Media",
+      cid: cid || (imageUrl || videoUrl || ipfsUrl)?.split("/ipfs/")[1],
+      // Use the IPFS URL as the direct source for WebTorrent's "WebSeed" feature
+      fallbackUrl: getPinataUrl(videoUrl || imageUrl || ipfsUrl),
+      fileName: fileName || (fileType === "image" ? "image.jpg" : "video.mp4"),
       fileType:
-        fileType || (imageUrl || fileType === "image" ? "image" : "video"),
+        fileType ||
+        (imageUrl || ipfsUrl || fileName?.match(/\.(jpg|jpeg|png|gif)$/i)
+          ? "image"
+          : "video"),
     };
 
     return (
       <View style={styles.mediaContainer}>
-        <WebTorrentMedia media={mediaForWebTorrent} isFocused={true} />
+        {/* WebTorrentMedia must be updated to use fallbackUrl if P2P fails/is empty */}
+        <WebTorrentMedia media={mediaForSwarm} isFocused={true} />
       </View>
     );
   }
 
+  // --- PATH 3: GENERAL FILES ---
   if (fileUrl) {
-    const pinataUrl = getPinataUrl(fileUrl);
     return (
       <TouchableOpacity
         style={styles.fileContainer}
-        onPress={() => handleFilePress({ ...message, fileUrl: pinataUrl })}
+        onPress={() => Linking.openURL(getPinataUrl(fileUrl))}
       >
         <Text style={styles.fileIcon}>📄</Text>
         <View style={styles.fileInfo}>
           <Text style={styles.fileName} numberOfLines={1}>
             {fileName || "File"}
           </Text>
-          <Text style={styles.fileType}>
-            {fileType || "File"} • Tap to open
-          </Text>
+          <Text style={styles.fileSubtext}>Tap to open</Text>
         </View>
       </TouchableOpacity>
     );
@@ -200,100 +127,38 @@ function ChatMediaRenderer({ message }) {
 
 const styles = StyleSheet.create({
   mediaContainer: {
-    marginBottom: 8,
+    width: "100%",
+    minHeight: 220,
     borderRadius: 12,
     overflow: "hidden",
-    width: "100%",
-    maxWidth: 800,
-    alignSelf: "center",
+    backgroundColor: "#000",
+    marginVertical: 4,
   },
   chunkedVideoContainer: {
-    marginBottom: 8,
+    width: "100%",
+    height: 200,
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "#130720",
-    position: "relative",
-    width: "100%",
-    maxWidth: 800,
-    alignSelf: "center",
+    backgroundColor: "#1a1a1a",
   },
-  videoThumbnail: {
-    width: "100%",
-    minHeight: 200,
-    aspectRatio: 16 / 9,
-  },
+  videoThumbnail: { width: "100%", height: "100%", opacity: 0.8 },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.3)",
   },
-  playIcon: {
-    fontSize: 40,
-    color: "#fff",
-  },
-  videoPlaceholder: {
-    backgroundColor: "#1C0A2E",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: 200,
-  },
-  videoIcon: {
-    fontSize: 48,
-    color: "#00ffff",
-  },
-  downloadOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.7)",
-  },
-  chunkCount: {
-    color: "#fff",
-    fontSize: 12,
-    marginTop: 8,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  progressText: {
-    color: "#00ffff",
-    fontSize: 14,
-    marginTop: 8,
-    fontWeight: "bold",
-  },
+  playIcon: { fontSize: 42 },
+  videoPlaceholder: { justifyContent: "center", alignItems: "center" },
   fileContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#222222",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "#333333",
-    maxWidth: 600,
-    alignSelf: "center",
-    width: "100%",
+    padding: 12,
+    backgroundColor: "#2a2a2a",
+    borderRadius: 8,
   },
-  fileIcon: {
-    fontSize: 28,
-    marginRight: 16,
-    color: "#00ffff",
-  },
-  fileInfo: {
-    flex: 1,
-  },
-  fileName: {
-    color: "#F5F2FA",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  fileType: {
-    color: "#00AA00",
-    fontSize: 14,
-  },
+  fileInfo: { marginLeft: 12, flex: 1 },
+  fileName: { color: "#fff", fontWeight: "bold" },
+  fileSubtext: { color: "#aaa", fontSize: 12 },
+  fileIcon: { fontSize: 24 },
+  videoIcon: { fontSize: 32 },
+  chunkCount: { color: "#00ffff", fontSize: 11 },
 });
-
-export default ChatMediaRenderer;
