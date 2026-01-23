@@ -137,6 +137,8 @@ export default function Root({ children }: PropsWithChildren) {
             __html: `
       window.enhancedTrackers = [
         "wss://tracker-0ad4cca9fd92.herokuapp.com",
+        "wss://tracker.files.fm:7073",
+    "wss://tracker.webtorrent.dev",
       ];
       try {
         window.globalWebTorrentClient = new window.WebTorrent({

@@ -143,22 +143,29 @@ function ChatMediaRenderer({ message }) {
 
   // 2. REGULAR MEDIA - Use WebTorrentMedia for everything
   // WebTorrentMedia can handle both images and videos with or without magnet links
-  if (imageUrl || videoUrl || magnetLink) {
+  // 2. REGULAR MEDIA - Fix the CID extraction
+  if (imageUrl || videoUrl || magnetLink || message.ipfsUrl || message.cid) {
     // Prepare media object for WebTorrentMedia
     const mediaForWebTorrent = {
       ...message,
+      // FIX: Check the actual DB field 'ipfsUrl' or the direct 'cid' field first
       cid: (() => {
-        // Extract CID from URL if available
-        if (imageUrl?.includes("/ipfs/")) return imageUrl.split("/ipfs/")[1];
-        if (videoUrl?.includes("/ipfs/")) return videoUrl.split("/ipfs/")[1];
-        return message.cid;
+        if (message.cid) return message.cid;
+        const targetUrl = imageUrl || videoUrl || message.ipfsUrl;
+        if (targetUrl?.includes("/ipfs/")) return targetUrl.split("/ipfs/")[1];
+        return null;
       })(),
-      imageUrl: imageUrl || null,
-      videoUrl: videoUrl || null,
+      // Ensure WebTorrentMedia has a URL to fallback to if P2P fails
+      imageUrl: getPinataUrl(
+        imageUrl || (fileType === "image" ? message.ipfsUrl : null)
+      ),
+      videoUrl: getPinataUrl(
+        videoUrl || (fileType === "video" ? message.ipfsUrl : null)
+      ),
       magnetLink: magnetLink || null,
       fileName: fileName || "Media",
       fileType:
-        fileType || (imageUrl ? "image" : videoUrl ? "video" : "unknown"),
+        fileType || (imageUrl || fileType === "image" ? "image" : "video"),
     };
 
     return (
@@ -168,7 +175,6 @@ function ChatMediaRenderer({ message }) {
     );
   }
 
-  // 3. REGULAR FILES (PDF, DOC, etc.)
   if (fileUrl) {
     const pinataUrl = getPinataUrl(fileUrl);
     return (

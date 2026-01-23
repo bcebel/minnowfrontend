@@ -30,11 +30,9 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import AdMessage from "../../components/AdMessage";
 import ChatMediaRenderer from "../../components/ChatMediaRenderer";
 import NeighborhoodLiveStreamRecorder from "@/components/NeighborhoodLiveStreamRecorder";
-import webtorrentService from "../../utils/webtorrentService"; 
-import heic2any from "heic2any";
+import webtorrentService from "../../utils/webtorrentService";
 import convert from "heic-convert/browser";
-const myTracker = "wss://tracker-0ad4cca9fd92.herokuapp.com";
-// Helper function to create optimistic message
+
 const createOptimisticMessage = (type, fileName, url, thumbnailUrl) => {
   const tempId = `temp-${Date.now()}`;
   return {
@@ -365,7 +363,6 @@ const normalizeImage = async (blob, fileName) => {
   return new File([blob], cleanName, { type: blob.type });
 };
 
-
 const cleanFileName = (name) => {
   return name
     .replace(/\s+/g, "_") // Spaces to underscores
@@ -500,7 +497,6 @@ export default function NeighborhoodChatScreen() {
     }
   }, []);
 
-
   useEffect(() => {
     if (data?.neighborhoodMessages) {
       setMessages(data.neighborhoodMessages);
@@ -542,17 +538,23 @@ export default function NeighborhoodChatScreen() {
               <Text style={styles.timestamp}>{timestamp}</Text>
             </View>
 
-            {message.content && !message.content.startsWith("Shared: ") && (
+            {/* 1. Normal Text Message (Not Shared) */}
+            {!!message.content && !message.content.startsWith("Shared: ") && (
               <Text style={styles.messageText}>{message.content}</Text>
             )}
 
-            {/* This will now properly render media */}
+            {/* 2. Media Layer (Photos, Videos, or Livestream Swarms) */}
             {(message.imageUrl ||
               message.videoUrl ||
               message.fileUrl ||
-              message.magnetLink) && <ChatMediaRenderer message={message} />}
+              message.magnetLink) && (
+              <View style={styles.mediaContainer}>
+                <ChatMediaRenderer message={message} />
+              </View>
+            )}
 
-            {message.content && message.content.startsWith("Shared: ") && (
+            {/* 3. Shared Link/Item Label */}
+            {!!message.content && message.content.startsWith("Shared: ") && (
               <Text style={styles.sharedLabel}>{message.content}</Text>
             )}
 
@@ -603,7 +605,7 @@ export default function NeighborhoodChatScreen() {
 
     return () => {
       socket?.disconnect();
-    webtorrentService.cleanup(["video_", "_chunk_"]);
+      webtorrentService.cleanup(["video_", "_chunk_"]);
     };
   }, [neighborhoodId]);
 
@@ -772,120 +774,120 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-const pickFile = async () => {
-  const result = await DocumentPicker.getDocumentAsync({ type: "*/*" });
+  const pickFile = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ type: "*/*" });
 
-  if (!result.canceled) {
-    let asset = result.assets[0];
+    if (!result.canceled) {
+      let asset = result.assets[0];
 
-    // 1. Get the type data first!
-    const typeInfo = getFileType(asset.name);
-    const resolvedType = typeInfo; // getFileType returns a string "image" or "video"
+      // 1. Get the type data first!
+      const typeInfo = getFileType(asset.name);
+      const resolvedType = typeInfo; // getFileType returns a string "image" or "video"
 
-    // 2. Handle Image Normalization
-    if (resolvedType === "image") {
-      try {
-        const response = await fetch(asset.uri);
-        const rawBlob = await response.blob();
-        const cleanFile = await normalizeImage(rawBlob, asset.name);
+      // 2. Handle Image Normalization
+      if (resolvedType === "image") {
+        try {
+          const response = await fetch(asset.uri);
+          const rawBlob = await response.blob();
+          const cleanFile = await normalizeImage(rawBlob, asset.name);
 
-        asset = {
-          ...asset,
-          uri: URL.createObjectURL(cleanFile),
-          name: cleanFile.name,
-          mimeType: cleanFile.type,
-          size: cleanFile.size,
-        };
-      } catch (err) {
-        console.error("PickFile Normalization Error:", err);
+          asset = {
+            ...asset,
+            uri: URL.createObjectURL(cleanFile),
+            name: cleanFile.name,
+            mimeType: cleanFile.type,
+            size: cleanFile.size,
+          };
+        } catch (err) {
+          console.error("PickFile Normalization Error:", err);
+        }
+      }
+      // 2. Large Video check (using 'type' and 'asset')
+      if (
+        resolvedType === "video" &&
+        asset.size > 10 * 1024 * 1024 &&
+        Platform.OS === "web"
+      ) {
+        Alert.alert(
+          "Large Video",
+          "Upload as chunked P2P video (faster for neighbors)?",
+          [
+            {
+              text: "Regular Upload",
+              onPress: () =>
+                unifiedUpload(asset, type, asset.size, asset.mimeType),
+            },
+            {
+              text: "Chunked P2P",
+              onPress: () => uploadChunkedVideo(asset),
+            },
+          ]
+        );
+      } else {
+        // 3. Regular flow
+        await unifiedUpload(asset, resolvedType, asset.size, asset.mimeType);
       }
     }
-    // 2. Large Video check (using 'type' and 'asset')
-    if (
-      resolvedType === "video" &&
-      asset.size > 10 * 1024 * 1024 &&
-      Platform.OS === "web"
-    ) {
-      Alert.alert(
-        "Large Video",
-        "Upload as chunked P2P video (faster for neighbors)?",
-        [
-          {
-            text: "Regular Upload",
-            onPress: () =>
-              unifiedUpload(asset, type, asset.size, asset.mimeType),
-          },
-          {
-            text: "Chunked P2P",
-            onPress: () => uploadChunkedVideo(asset),
-          },
-        ]
+  };
+
+  const unifiedUpload = async (asset, type, fileSize, mimeType) => {
+    setUploading(true);
+    let uploadUri = null; // Track this for cleanup
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const response = await fetch(asset.uri);
+      const rawBlob = await response.blob();
+
+      // 1. Normalize & Spoof
+      const cleanFile = await normalizeImage(rawBlob, asset.name);
+      const safeName = cleanFile.name;
+
+      // 2. Create local URL for the upload tool
+      uploadUri = URL.createObjectURL(cleanFile);
+
+      // 3. IPFS UPLOAD
+      const uploadResult = await uploadToIPFS(
+        uploadUri,
+        safeName,
+        type,
+        token,
+        neighborhoodId
       );
-    } else {
-      // 3. Regular flow
-      await unifiedUpload(asset, resolvedType, asset.size, asset.mimeType);
+
+      // 4. SEND MESSAGE
+      await sendMessageMutation({
+        variables: {
+          content: `Shared: ${safeName}`,
+          neighborhoodId: neighborhoodId,
+          fileName: safeName,
+          fileType: type,
+          // Force the mimeType to image/jpeg so the DB knows how to serve it
+          mimeType: type === "image" ? "image/jpeg" : cleanFile.type,
+          imageUrl: type === "image" ? uploadResult.ipfsUrl : null,
+          videoUrl: type === "video" ? uploadResult.ipfsUrl : null,
+          fileUrl:
+            type !== "image" && type !== "video" ? uploadResult.ipfsUrl : null,
+          magnetLink: uploadResult.magnetLink || "",
+          thumbnailUrl: uploadResult.thumbnailUrl || null,
+          sessionId: null,
+          chunkIndex: null,
+          totalChunks: null,
+        },
+      });
+
+      if (refetch) await refetch();
+    } catch (error) {
+      console.error("❌ Final Upload Crash:", error);
+    } finally {
+      // 🔥 THE FIX FOR LAG: Clear the memory!
+      if (uploadUri) {
+        URL.revokeObjectURL(uploadUri);
+        console.log("🧹 Memory cleared: Revoked upload blob.");
+      }
+      setUploading(false);
     }
-  }
-};
-  
-const unifiedUpload = async (asset, type, fileSize, mimeType) => {
-  setUploading(true);
-  let uploadUri = null; // Track this for cleanup
-
-  try {
-    const token = await AsyncStorage.getItem("token");
-    const response = await fetch(asset.uri);
-    const rawBlob = await response.blob();
-
-    // 1. Normalize & Spoof
-    const cleanFile = await normalizeImage(rawBlob, asset.name);
-    const safeName = cleanFile.name;
-
-    // 2. Create local URL for the upload tool
-    uploadUri = URL.createObjectURL(cleanFile);
-
-    // 3. IPFS UPLOAD
-    const uploadResult = await uploadToIPFS(
-      uploadUri,
-      safeName,
-      type,
-      token,
-      neighborhoodId
-    );
-
-    // 4. SEND MESSAGE
-    await sendMessageMutation({
-      variables: {
-        content: `Shared: ${safeName}`,
-        neighborhoodId: neighborhoodId,
-        fileName: safeName,
-        fileType: type,
-        // Force the mimeType to image/jpeg so the DB knows how to serve it
-        mimeType: type === "image" ? "image/jpeg" : cleanFile.type,
-        imageUrl: type === "image" ? uploadResult.ipfsUrl : null,
-        videoUrl: type === "video" ? uploadResult.ipfsUrl : null,
-        fileUrl:
-          type !== "image" && type !== "video" ? uploadResult.ipfsUrl : null,
-        magnetLink: uploadResult.magnetLink || "",
-        thumbnailUrl: uploadResult.thumbnailUrl || null,
-        sessionId: null,
-        chunkIndex: null,
-        totalChunks: null,
-      },
-    });
-
-    if (refetch) await refetch();
-  } catch (error) {
-    console.error("❌ Final Upload Crash:", error);
-  } finally {
-    // 🔥 THE FIX FOR LAG: Clear the memory!
-    if (uploadUri) {
-      URL.revokeObjectURL(uploadUri);
-      console.log("🧹 Memory cleared: Revoked upload blob.");
-    }
-    setUploading(false);
-  }
-};
+  };
 
   const uploadChunkedVideo = async (asset) => {
     console.log("🎬 Starting chunked video upload...");
@@ -943,56 +945,61 @@ const unifiedUpload = async (asset, type, fileSize, mimeType) => {
     return true;
   };
 
-const uploadSingleChunk = (chunk, index, sessionId, totalChunks, fileName) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      // 1. Grab the Global Champ directly (Skip the service!)
-      const client = window.globalWebTorrentClient;
+  const uploadSingleChunk = (
+    chunk,
+    index,
+    sessionId,
+    totalChunks,
+    fileName
+  ) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        // 1. Grab the Global Champ directly (Skip the service!)
+        const client = window.globalWebTorrentClient;
 
-      if (!client) {
-        throw new Error("WebTorrent Client not initialized. Refresh the page.");
-      }
-
-      // 2. Seed it using the global trackers from +html.tsx
-      client.seed(
-        chunk,
-        {
-          name: `${sessionId}_chunk_${index}`,
-          announce: window.enhancedTrackers, // Use the ones from your HTML file
-        },
-        async (torrent) => {
-          console.log(
-            `✅ Chunk ${index + 1}/${totalChunks} is now LIVE on P2P`
+        if (!client) {
+          throw new Error(
+            "WebTorrent Client not initialized. Refresh the page."
           );
-
-          // 3. Send the message with the REAL magnet link
-          try {
-            await sendMessageMutation({
-              variables: {
-                content: `Shared: ${fileName} (Part ${index + 1})`,
-                neighborhoodId: neighborhoodId,
-                fileName: `${fileName}_part${index}`,
-                fileType: "video_chunk",
-                magnetLink: torrent.magnetURI, // THIS is what the neighbor needs
-                chunkIndex: index,
-                sessionId: sessionId,
-                totalChunks: totalChunks,
-              },
-            });
-            resolve();
-          } catch (err) {
-            reject(err);
-          }
         }
-      );
-    } catch (error) {
-      console.error("❌ Seeding failed:", error);
-      reject(error);
-    }
-  });
-};
 
+        // 2. Seed it using the global trackers from +html.tsx
+        client.seed(
+          chunk,
+          {
+            name: `${sessionId}_chunk_${index}`,
+            announce: window.enhancedTrackers, // Use the ones from your HTML file
+          },
+          async (torrent) => {
+            console.log(
+              `✅ Chunk ${index + 1}/${totalChunks} is now LIVE on P2P`
+            );
 
+            try {
+              await sendMessageMutation({
+                variables: {
+                  content: `Shared: ${fileName} (Part ${index + 1})`,
+                  neighborhoodId: neighborhoodId,
+                  fileName: `${fileName}_part${index}`,
+                  fileType: "video_chunk",
+                  magnetLink: torrent.magnetURI,
+                  chunkIndex: index,
+                  sessionId: sessionId,
+                  totalChunks: totalChunks,
+                },
+              });
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          }
+        );
+      } catch (error) {
+        console.error("❌ Seeding failed:", error);
+        reject(error);
+      }
+    });
+  };
 
   const getMimeType = (filename) => {
     const ext = filename.split(".").pop().toLowerCase();
@@ -1248,7 +1255,6 @@ const uploadSingleChunk = (chunk, index, sessionId, totalChunks, fileName) => {
         <NeighborhoodLiveStreamRecorder
           neighborhoodId={neighborhoodId}
           username={username}
-          // Pass these working functions from ChatScreen to the Recorder
           unifiedUpload={unifiedUpload}
           refetch={refetch}
           socket={socket}

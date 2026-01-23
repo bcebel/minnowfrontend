@@ -3,7 +3,9 @@ class WebTorrentService {
     // Stick to the trackers defined in your +html.tsx for consistency
     this.trackers = window.enhancedTrackers || [
       "wss://tracker-0ad4cca9fd92.herokuapp.com",
-
+      "wss://tracker.openwebtorrent.com",
+      "wss://tracker.files.fm:7073",
+      "wss://tracker.webtorrent.dev",
     ];
   }
 

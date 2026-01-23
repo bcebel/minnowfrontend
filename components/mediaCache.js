@@ -40,16 +40,17 @@ if (isBrowser()) {
     // ✅ Save a media blob (video/image) with its metadata
     async saveMedia(cid, blob, mimeType, fileName, isPublic = true) {
       try {
+        // 1. Prepare data OUTSIDE the transaction
+        const arrayBuffer = await blob.arrayBuffer();
+
         const db = await this.dbPromise;
+        // 2. Open transaction ONLY when ready to write
         const tx = db.transaction(STORE_NAME, "readwrite");
         const store = tx.objectStore(STORE_NAME);
 
-        // Convert to ArrayBuffer for Safari stability
-        const arrayBuffer = await blob.arrayBuffer();
-
         const item = {
           cid,
-          data: arrayBuffer, // Ditch the 'blob: blob' property
+          data: arrayBuffer,
           mimeType,
           fileName,
           isPublic,
@@ -57,8 +58,11 @@ if (isBrowser()) {
           storedAt: new Date(),
         };
 
+        // 3. Execute immediately
         await store.put(item);
         await tx.done;
+
+        console.log(`✅ Saved to Cache: ${cid}`);
         return true;
       } catch (error) {
         console.error("❌ Save failed:", error);
@@ -75,26 +79,26 @@ if (isBrowser()) {
 
         const item = await store.get(cid);
 
-   if (item) {
-     // 1. Update timestamp
-     item.lastAccessed = new Date();
-     const updateTx = db.transaction(STORE_NAME, "readwrite");
-     await updateTx.objectStore(STORE_NAME).put(item);
-     await updateTx.done;
+        if (item) {
+          // 1. Update timestamp
+          item.lastAccessed = new Date();
+          const updateTx = db.transaction(STORE_NAME, "readwrite");
+          await updateTx.objectStore(STORE_NAME).put(item);
+          await updateTx.done;
 
-     console.log(`✅ Cache HIT: ${cid}`);
+          console.log(`✅ Cache HIT: ${cid}`);
 
-     // 2. RECONSTRUCT the Blob from the stored ArrayBuffer
-     // This fresh wrap is what Safari needs to display it after a refresh
-     const freshBlob = new Blob([item.data], { type: item.mimeType });
+          // 2. RECONSTRUCT the Blob from the stored ArrayBuffer
+          // This fresh wrap is what Safari needs to display it after a refresh
+          const freshBlob = new Blob([item.data], { type: item.mimeType });
 
-     return {
-       blob: freshBlob,
-       mimeType: item.mimeType,
-       fileName: item.fileName,
-       isPublic: item.isPublic,
-     };
-   }
+          return {
+            blob: freshBlob,
+            mimeType: item.mimeType,
+            fileName: item.fileName,
+            isPublic: item.isPublic,
+          };
+        }
 
         console.log(`❌ Cache MISS for CID: ${cid}`);
         return null;

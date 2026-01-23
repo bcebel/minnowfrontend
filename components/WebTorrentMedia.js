@@ -11,7 +11,12 @@ import { Image } from "expo-image";
 // 1. IMPORT YOUR CACHE (Ensure mediaCache.js exists in same folder)
 import { mediaCache } from "./mediaCache";
 
-const myTracker = "wss://tracker-0ad4cca9fd92.herokuapp.com";
+const myTracker = [
+  "wss://tracker-0ad4cca9fd92.herokuapp.com",
+  "wss://tracker.openwebtorrent.com",
+  "wss://tracker.files.fm:7073",
+  "wss://tracker.webtorrent.dev",
+];
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
 export default function WebTorrentMedia({ media }) {
@@ -56,7 +61,7 @@ export default function WebTorrentMedia({ media }) {
 
       let torrent = client.get(magnetLink);
       if (!torrent) {
-        torrent = client.add(magnetLink, { announce: [myTracker] });
+        torrent = client.add(magnetLink, { announce: myTracker });
       }
       torrentRef.current = torrent;
 
