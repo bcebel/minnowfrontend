@@ -500,10 +500,57 @@ export default function NeighborhoodLiveStreamPlayer({
     console.log(`[Stream] ${msg}`);
   };
 
+  // Replace your existing auto-join effect with this:
+  useEffect(() => {
+    // Auto-initialize when we have a sessionId
+    const autoInitialize = async () => {
+      if (!controllerRef.current && sessionId) {
+        addLog("🚀 Auto-initializing player...");
+
+        const controller = new StreamController(
+          sessionId,
+          addLog,
+          () => {},
+          initialChunks,
+        );
+
+        controller.onThumbnailLoaded = (thumbnailUrl) => {
+          setThumbnail(thumbnailUrl);
+          if (onThumbnailLoaded) onThumbnailLoaded(thumbnailUrl);
+        };
+
+        if (containerRef.current) {
+          containerRef.current.appendChild(controller.video);
+        }
+
+        controller.video.src = URL.createObjectURL(controller.ms);
+        controllerRef.current = controller;
+
+        // Set isJoined to true so existing effects work
+        setIsJoined(true);
+
+        if (initialChunks.length > 0) {
+          initialChunks.forEach((chunk) => {
+            if (chunk.thumbnailUrl && !thumbnail) {
+              setThumbnail(chunk.thumbnailUrl);
+              if (onThumbnailLoaded) onThumbnailLoaded(chunk.thumbnailUrl);
+            }
+          });
+        }
+
+        await controller.sweepWarehouse();
+        addLog("✅ Auto-initialization complete.");
+      }
+    };
+
+    autoInitialize();
+  }, [sessionId]); // Only depend on sessionId
+
+  // Keep all your existing effects - they'll work once isJoined is true
   // Try to get thumbnail from initial chunks
   useEffect(() => {
     if (initialChunks.length > 0) {
-      initialChunks.forEach(chunk => {
+      initialChunks.forEach((chunk) => {
         if (chunk.thumbnailUrl && !thumbnail) {
           setThumbnail(chunk.thumbnailUrl);
           if (onThumbnailLoaded) onThumbnailLoaded(chunk.thumbnailUrl);
@@ -543,7 +590,7 @@ export default function NeighborhoodLiveStreamPlayer({
       sessionId,
       addLog,
       () => {},
-      initialChunks
+      initialChunks,
     );
 
     controller.onThumbnailLoaded = (thumbnailUrl) => {
@@ -560,7 +607,7 @@ export default function NeighborhoodLiveStreamPlayer({
     setIsJoined(true);
 
     if (initialChunks.length > 0) {
-      initialChunks.forEach(chunk => {
+      initialChunks.forEach((chunk) => {
         if (chunk.thumbnailUrl && !thumbnail) {
           setThumbnail(chunk.thumbnailUrl);
           if (onThumbnailLoaded) onThumbnailLoaded(chunk.thumbnailUrl);
@@ -575,26 +622,9 @@ export default function NeighborhoodLiveStreamPlayer({
   return (
     <View style={styles.container}>
       <div ref={containerRef} style={styles.videoContainer} />
-      
-      {!isJoined && (
-        <TouchableOpacity onPress={handleJoinStream} style={styles.button}>
-          {/* If we have a thumbnail, use it as button background */}
-          {thumbnail ? (
-            <Image 
-              source={{ uri: thumbnail }} 
-              style={styles.buttonBackground}
-              resizeMode="cover"
-            />
-          ) : null}
-          <View style={[
-            styles.buttonOverlay,
-            thumbnail ? styles.buttonWithBackground : styles.buttonWithoutBackground
-          ]}>
-            <Text style={styles.buttonText}>🔴 JOIN LIVE STREAM</Text>
-          </View>
-        </TouchableOpacity>
-      )}
-      
+
+      {/* Remove the button overlay completely */}
+
       <View style={styles.logBox}>
         {logs.map((l, i) => (
           <Text key={i} style={styles.logText}>
