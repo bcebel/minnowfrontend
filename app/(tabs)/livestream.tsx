@@ -282,20 +282,67 @@ function Livestream({ stream }) {
     },
   });
 
-return (
-  <View style={styles.streamContainer}>
-    <Text style={styles.streamTitle}>{stream.title}</Text>
-    <View style={styles.videoBox}>
-      <NeighborhoodLiveStreamPlayer
-        sessionId={stream.sessionId}
-        onThumbnailLoaded={() => {}}
-        // FIX: Use 'thumbnailUrl' (which you defined with useState)
-        // instead of 'thumbnailOverride'
-        initialChunks={thumbnailUrl ? [{ thumbnailUrl: thumbnailUrl }] : []}
-      />
+  return (
+    <View style={styles.streamContainer}>
+      <Text style={styles.streamTitle}>{stream.title}</Text>
+      <Text style={styles.sessionId}>{sessionId}</Text>
+
+      <View style={styles.videoContainer}>
+        {!showPlayer ? (
+          // THUMBNAIL VIEW
+          <TouchableOpacity
+            style={styles.thumbnailWrapper}
+            onPress={() => setShowPlayer(true)}
+            activeOpacity={0.8}
+          >
+            {loadingThumbnail ? (
+              <View style={styles.thumbnailLoading}>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={styles.loadingText}>Loading thumbnail...</Text>
+              </View>
+            ) : thumbnailUrl ? (
+              <>
+                <Image
+                  source={{ uri: thumbnailUrl }}
+                  style={styles.thumbnailImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.playOverlay}>
+                  <View style={styles.playButton}>
+                    <Text style={styles.playIcon}>▶</Text>
+                  </View>
+                  <Text style={styles.playText}>Click to watch live</Text>
+                </View>
+                <View style={styles.liveBadge}>
+                  <View style={styles.liveDot} />
+                  <Text style={styles.liveText}>LIVE</Text>
+                </View>
+              </>
+            ) : (
+              <View style={styles.thumbnailPlaceholder}>
+                <Text style={styles.placeholderText}>No thumbnail</Text>
+                <Text style={styles.placeholderSubtext}>Click to watch</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ) : (
+          // PLAYER VIEW
+          <>
+            <NeighborhoodLiveStreamPlayer
+              sessionId={sessionId}
+              availableInWarehouse={availableInWarehouse}
+            />
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => setShowPlayer(false)}
+            >
+              <Text style={styles.backButtonText}>← Back to thumbnail</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
     </View>
-  </View>
-);
+  );
 }
 
 // --- MAIN SCREEN ---
@@ -570,13 +617,5 @@ const styles = StyleSheet.create({
   noStreamsSubtext: {
     color: "#888",
     fontSize: 14,
-  },
-  videoBox: {
-    width: "100%",
-    aspectRatio: 16 / 9,
-    borderRadius: 10,
-    overflow: "hidden",
-    backgroundColor: "#000",
-    position: "relative",
   },
 });

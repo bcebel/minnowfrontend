@@ -482,6 +482,7 @@ this.video.poster = "";
   }
 }
 // --- THE REACT COMPONENT ---
+// --- THE REACT COMPONENT ---
 export default function NeighborhoodLiveStreamPlayer({
   sessionId,
   initialChunks = [],
@@ -498,19 +499,6 @@ export default function NeighborhoodLiveStreamPlayer({
     setLogs((prev) => [...prev.slice(-5), msg]);
     console.log(`[Stream] ${msg}`);
   };
-
-  useEffect(() => {
-    if (sessionId) {
-      controllerRef.current?.fetchThumbnailFromStreamChunk();
-      // Also try a manual fetch if controller isn't ready
-      fetch(`${BACKEND_URL}/api/stream-chunk/thumbnail/${sessionId}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.thumbnailUrl) setThumbnail(data.thumbnailUrl);
-        })
-        .catch(() => {});
-    }
-  }, [sessionId]);
 
   // Try to get thumbnail from initial chunks
   useEffect(() => {
@@ -554,7 +542,7 @@ export default function NeighborhoodLiveStreamPlayer({
     const controller = new StreamController(
       sessionId,
       addLog,
-      () => { },
+      () => {},
       initialChunks
     );
 
@@ -583,92 +571,48 @@ export default function NeighborhoodLiveStreamPlayer({
     await controller.sweepWarehouse();
     addLog("✅ Handshake complete. Playing from warehouse.");
   };
-  // In the return statement of NeighborhoodLiveStreamPlayer:
-return (
-  <View style={styles.container}>
-    <div
-      ref={containerRef}
-      style={{
-        width: "100%",
-        height: "100%",
-        backgroundColor: "#000",
-        display: isJoined ? "block" : "none",
-      }}
-    />
 
-    {!isJoined && (
-      <TouchableOpacity
-        onPress={handleJoinStream}
-        activeOpacity={0.8}
-        style={StyleSheet.absoluteFill}
-      >
-        {thumbnail ? (
-          <View style={StyleSheet.absoluteFill}>
-            <Image
-              source={{ uri: thumbnail }}
-              style={StyleSheet.absoluteFill}
+  return (
+    <View style={styles.container}>
+      <div ref={containerRef} style={styles.videoContainer} />
+      
+      {!isJoined && (
+        <TouchableOpacity onPress={handleJoinStream} style={styles.button}>
+          {/* If we have a thumbnail, use it as button background */}
+          {thumbnail ? (
+            <Image 
+              source={{ uri: thumbnail }} 
+              style={styles.buttonBackground}
               resizeMode="cover"
             />
-            {/* Play Overlay */}
-            <View
-              style={{
-                flex: 1,
-                backgroundColor: "rgba(0,0,0,0.3)",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ color: "white", fontSize: 50 }}>▶</Text>
-            </View>
+          ) : null}
+          <View style={[
+            styles.buttonOverlay,
+            thumbnail ? styles.buttonWithBackground : styles.buttonWithoutBackground
+          ]}>
+            <Text style={styles.buttonText}>🔴 JOIN LIVE STREAM</Text>
           </View>
-        ) : (
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                backgroundColor: "#151159",
-                justifyContent: "center",
-                alignItems: "center",
-              },
-            ]}
-          >
-            <ActivityIndicator color="white" />
-            <Text style={{ color: "white", marginTop: 10 }}>
-              LOADING STREAM...
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    )}
-
-    {/* Small overlay logs so they don't push the video down */}
-    <View
-      style={[
-        styles.logBox,
-        {
-          position: "absolute",
-          bottom: 0,
-          width: "100%",
-          backgroundColor: "rgba(0,0,0,0.5)",
-        },
-      ]}
-    >
-      {logs.map((l, i) => (
-        <Text key={i} style={styles.logText}>
-          {l}
-        </Text>
-      ))}
+        </TouchableOpacity>
+      )}
+      
+      <View style={styles.logBox}>
+        {logs.map((l, i) => (
+          <Text key={i} style={styles.logText}>
+            {l}
+          </Text>
+        ))}
+      </View>
     </View>
-  </View>
-);
-  
+  );
 }
+
 
 const styles = StyleSheet.create({
   container: { 
     width: "100%", 
     aspectRatio: 16 / 9, 
-    backgroundColor: "#111" 
+    backgroundColor: "#111",
+    position: 'relative',
   },
   videoContainer: { 
     width: "100%", 
@@ -676,57 +620,47 @@ const styles = StyleSheet.create({
     backgroundColor: "#130720" 
   },
   button: {
-    backgroundColor: "transparent",
-    padding: 0,
-    marginTop: 0,
-    width: "100%",
-    height: "100%",
     position: 'absolute',
-    top: 0,
-    left: 0,
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: '-50%' }, { translateY: '-50%' }],
+    width: '80%',
+    height: '80%',
+    borderRadius: 10,
+    overflow: 'hidden',
     zIndex: 10,
   },
-  thumbnailButton: {
+  buttonBackground: {
     width: '100%',
     height: '100%',
-    position: 'relative',
+    position: 'absolute',
   },
-  thumbnailImage: {
+  buttonOverlay: {
     width: '100%',
     height: '100%',
-  },
-  noThumbnail: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#151159',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  playIcon: {
-    fontSize: 60,
-    color: 'white',
+  buttonWithBackground: {
+    backgroundColor: 'rgba(21, 17, 89, 0.7)', // Semi-transparent overlay on thumbnail
   },
-  buttonLabel: {
-    position: 'absolute',
-    bottom: 20,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
+  buttonWithoutBackground: {
+    backgroundColor: "#151159", // Solid color if no thumbnail
   },
-  buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+  buttonText: { 
+    color: "white", 
+    fontWeight: "bold",
+    fontSize: 18,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    padding: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: 8,
   },
   logBox: { 
     padding: 10, 
-    backgroundColor: "#222",
-    position: 'relative',
-    zIndex: 1,
+    backgroundColor: "#222" 
   },
   logText: { 
     color: "#0f0", 
