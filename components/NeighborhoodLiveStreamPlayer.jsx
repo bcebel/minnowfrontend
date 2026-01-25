@@ -3,11 +3,10 @@
 // KEEP TORRENTS ALIVE AS LONG AS POSSIBLE WITHOUT OVERLOADING THE BROWSER. USE A WAREHOUSE TO CACHE VIDEO CHUNKS LOCALLY. //
 
 import React, { useEffect, useRef, useState } from "react";
-import { View, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { View, StyleSheet, Text, TouchableOpacity, Image, ActivityIndicator } from "react-native";
 import { warehouse } from "../components/StreamWearhouse.js";
 import webtorrentService from "../utils/webtorrentService.js";
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-
 
 // --- THE STREAM CONTROLLER (The Engine) ---
 class StreamController {
@@ -43,7 +42,7 @@ class StreamController {
     this.video.style.width = "100%";
     this.video.style.height = "100%";
     this.video.style.backgroundColor = "black";
-
+this.video.poster = "";
     if (window.ManagedMediaSource) {
       this.video.setAttribute("disableRemotePlayback", "true");
     }
@@ -51,7 +50,7 @@ class StreamController {
       try {
         // Try to get thumbnail from StreamChunk backend
         const response = await fetch(
-          `${BACKEND_URL}/api/stream-chunk/thumbnail/${sessionId}`
+          `${BACKEND_URL}/api/stream-chunk/thumbnail/${sessionId}`,
         );
 
         if (response.ok) {
@@ -97,11 +96,11 @@ class StreamController {
         // Header is in, let's see if the next chunk is ready in the warehouse
         const nextData = await warehouse.getChunk(
           this.sessionId,
-          this.nextIndex
+          this.nextIndex,
         );
         if (nextData) {
           this.addLog(
-            `📦 Watchdog found chunk ${this.nextIndex} in warehouse.`
+            `📦 Watchdog found chunk ${this.nextIndex} in warehouse.`,
           );
           this.tick(); // Trigger processing
         }
@@ -168,7 +167,7 @@ class StreamController {
     const finalFile = new File(
       blobParts,
       `neighborhood_stream_${this.sessionId}.mp4`,
-      { type: "video/mp4" }
+      { type: "video/mp4" },
     );
 
     this.addLog("📦 File ready. Sending to Pinata...");
@@ -294,7 +293,7 @@ class StreamController {
       const hasHeaderInWarehouse = await warehouse.getChunk(this.sessionId, -1);
       this.addLog(
         `🔍 Checking Header: Magnet=${!!this
-          .setupMagnet}, Warehouse=${!!hasHeaderInWarehouse}`
+          .setupMagnet}, Warehouse=${!!hasHeaderInWarehouse}`,
       );
 
       if (this.setupMagnet || hasHeaderInWarehouse) {
@@ -325,7 +324,7 @@ class StreamController {
     const hasInQueue = this.chunkQueue.has(this.nextIndex);
     const hasInWarehouse = await warehouse.getChunk(
       this.sessionId,
-      this.nextIndex
+      this.nextIndex,
     );
 
     if (this.headerLoaded && (hasInQueue || hasInWarehouse)) {
@@ -426,7 +425,7 @@ class StreamController {
                 this.addLog(`⚠️ Swarm Warning: ${err.message}`);
               }
             });
-          }
+          },
         );
       } catch (e) {
         this.addLog("❌ WebTorrent Load Failed: " + e.message);
@@ -482,7 +481,6 @@ class StreamController {
     }
   }
 }
-
 // --- THE REACT COMPONENT ---
 export default function NeighborhoodLiveStreamPlayer({
   sessionId,
@@ -494,67 +492,29 @@ export default function NeighborhoodLiveStreamPlayer({
   const controllerRef = useRef(null);
   const [isJoined, setIsJoined] = useState(false);
   const [logs, setLogs] = useState([]);
-   const [thumbnail, setThumbnail] = useState(null);
+  const [thumbnail, setThumbnail] = useState(null);
 
   const addLog = (msg) => {
     setLogs((prev) => [...prev.slice(-5), msg]);
     console.log(`[Stream] ${msg}`);
   };
 
- useEffect(() => {
-   if (controllerRef.current && onThumbnailLoaded) {
-     // Set up callback for thumbnail
-     controllerRef.current.onThumbnailLoaded = (thumbnailUrl) => {
-       setThumbnail(thumbnailUrl);
-       if (onThumbnailLoaded) onThumbnailLoaded(thumbnailUrl);
-     };
-   }
- }, [onThumbnailLoaded]);
-
   useEffect(() => {
-    if (isJoined && controllerRef.current) {
-      // 🚀 THE FIX: Tell the engine to look at the warehouse RIGHT NOW
-      controllerRef.current.forceTick();
+    if (sessionId) {
+      controllerRef.current?.fetchThumbnailFromStreamChunk();
+      // Also try a manual fetch if controller isn't ready
+      fetch(`${BACKEND_URL}/api/stream-chunk/thumbnail/${sessionId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.thumbnailUrl) setThumbnail(data.thumbnailUrl);
+        })
+        .catch(() => {});
     }
-  }, [availableInWarehouse]); // This triggers every time a chunk hits the warehouse
+  }, [sessionId]);
+
+  // Try to get thumbnail from initial chunks
   useEffect(() => {
-    // This tells the engine: "Hey, something new just hit the warehouse, check it now!"
-    if (isJoined && controllerRef.current) {
-      if (initialChunks.length > 0) {
-        controllerRef.current.addChunks(initialChunks);
-      }
-      // Force the engine to run its logic because we know the warehouse changed
-      controllerRef.current.tick();
-    }
-  }, [isJoined, initialChunks, availableInWarehouse]); // <--- Watch the warehouse state
-
-  
-  const handleJoinStream = async () => {
-    addLog("🚀 Join Clicked: Waking up engine...");
-
-    // 1. Create the engine (Preserves the iPhone click gesture)
-  const controller = new StreamController(
-    sessionId,
-    addLog,
-    () => {},
-    initialChunks
-  );
-
-  // Set up thumbnail callback
-  controller.onThumbnailLoaded = (thumbnailUrl) => {
-    setThumbnail(thumbnailUrl);
-    if (onThumbnailLoaded) onThumbnailLoaded(thumbnailUrl);
-  };
-    // 2. Attach to DOM immediately
-    if (containerRef.current) {
-      containerRef.current.appendChild(controller.video);
-    }
-
-    // 3. Link the source (No 'await' gaps here!)
-    controller.video.src = URL.createObjectURL(controller.ms);
-    controllerRef.current = controller;
-    setIsJoined(true);
-  if (initialChunks.length > 0) {
+    if (initialChunks.length > 0) {
       initialChunks.forEach(chunk => {
         if (chunk.thumbnailUrl && !thumbnail) {
           setThumbnail(chunk.thumbnailUrl);
@@ -562,45 +522,215 @@ export default function NeighborhoodLiveStreamPlayer({
         }
       });
     }
-  
-    // 4. THE MAGIC: Sweep the warehouse.
-    // Because the Scout started earlier, it will find the Header and Chunk 0 immediately.
-    await controller.sweepWarehouse();
+  }, [initialChunks, thumbnail, onThumbnailLoaded]);
 
+  useEffect(() => {
+    if (controllerRef.current && onThumbnailLoaded) {
+      controllerRef.current.onThumbnailLoaded = (thumbnailUrl) => {
+        setThumbnail(thumbnailUrl);
+        if (onThumbnailLoaded) onThumbnailLoaded(thumbnailUrl);
+      };
+    }
+  }, [onThumbnailLoaded]);
+
+  useEffect(() => {
+    if (isJoined && controllerRef.current) {
+      controllerRef.current.forceTick();
+    }
+  }, [availableInWarehouse]);
+
+  useEffect(() => {
+    if (isJoined && controllerRef.current) {
+      if (initialChunks.length > 0) {
+        controllerRef.current.addChunks(initialChunks);
+      }
+      controllerRef.current.tick();
+    }
+  }, [isJoined, initialChunks, availableInWarehouse]);
+
+  const handleJoinStream = async () => {
+    addLog("🚀 Join Clicked: Waking up engine...");
+
+    const controller = new StreamController(
+      sessionId,
+      addLog,
+      () => { },
+      initialChunks
+    );
+
+    controller.onThumbnailLoaded = (thumbnailUrl) => {
+      setThumbnail(thumbnailUrl);
+      if (onThumbnailLoaded) onThumbnailLoaded(thumbnailUrl);
+    };
+
+    if (containerRef.current) {
+      containerRef.current.appendChild(controller.video);
+    }
+
+    controller.video.src = URL.createObjectURL(controller.ms);
+    controllerRef.current = controller;
+    setIsJoined(true);
+
+    if (initialChunks.length > 0) {
+      initialChunks.forEach(chunk => {
+        if (chunk.thumbnailUrl && !thumbnail) {
+          setThumbnail(chunk.thumbnailUrl);
+          if (onThumbnailLoaded) onThumbnailLoaded(chunk.thumbnailUrl);
+        }
+      });
+    }
+
+    await controller.sweepWarehouse();
     addLog("✅ Handshake complete. Playing from warehouse.");
   };
-
+  // In the return statement of NeighborhoodLiveStreamPlayer:
 return (
-    <View style={styles.container}>
-      <div ref={containerRef} style={styles.videoContainer} />
-      {!isJoined && (
-        <TouchableOpacity onPress={handleJoinStream} style={styles.button}>
-          <Text style={styles.buttonText}>🔴 JOIN LIVE STREAM</Text>
-        </TouchableOpacity>
-      )}
-      <View style={styles.logBox}>
-        {logs.map((l, i) => (
-          <Text key={i} style={styles.logText}>
-            {l}
-          </Text>
-        ))}
-      </View>
+  <View style={styles.container}>
+    <div
+      ref={containerRef}
+      style={{
+        width: "100%",
+        height: "100%",
+        backgroundColor: "#000",
+        display: isJoined ? "block" : "none",
+      }}
+    />
+
+    {!isJoined && (
+      <TouchableOpacity
+        onPress={handleJoinStream}
+        activeOpacity={0.8}
+        style={StyleSheet.absoluteFill}
+      >
+        {thumbnail ? (
+          <View style={StyleSheet.absoluteFill}>
+            <Image
+              source={{ uri: thumbnail }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+            {/* Play Overlay */}
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.3)",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: "white", fontSize: 50 }}>▶</Text>
+            </View>
+          </View>
+        ) : (
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: "#151159",
+                justifyContent: "center",
+                alignItems: "center",
+              },
+            ]}
+          >
+            <ActivityIndicator color="white" />
+            <Text style={{ color: "white", marginTop: 10 }}>
+              LOADING STREAM...
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    )}
+
+    {/* Small overlay logs so they don't push the video down */}
+    <View
+      style={[
+        styles.logBox,
+        {
+          position: "absolute",
+          bottom: 0,
+          width: "100%",
+          backgroundColor: "rgba(0,0,0,0.5)",
+        },
+      ]}
+    >
+      {logs.map((l, i) => (
+        <Text key={i} style={styles.logText}>
+          {l}
+        </Text>
+      ))}
     </View>
-  );
+  </View>
+);
+  
 }
 
-
 const styles = StyleSheet.create({
-  container: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#111" },
-  videoContainer: { width: "100%", height: "100%", backgroundColor: "#130720" },
-  button: {
-    backgroundColor: "#151159",
-    padding: 20,
-    borderRadius: 10,
-    alignSelf: "center",
-    marginTop: 20,
+  container: { 
+    width: "100%", 
+    aspectRatio: 16 / 9, 
+    backgroundColor: "#111" 
   },
-  buttonText: { color: "white", fontWeight: "bold" },
-  logBox: { padding: 10, backgroundColor: "#222" },
-  logText: { color: "#0f0", fontSize: 10, fontFamily: "monospace" },
+  videoContainer: { 
+    width: "100%", 
+    height: "100%", 
+    backgroundColor: "#130720" 
+  },
+  button: {
+    backgroundColor: "transparent",
+    padding: 0,
+    marginTop: 0,
+    width: "100%",
+    height: "100%",
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: 10,
+  },
+  thumbnailButton: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  noThumbnail: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#151159',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playIcon: {
+    fontSize: 60,
+    color: 'white',
+  },
+  buttonLabel: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  logBox: { 
+    padding: 10, 
+    backgroundColor: "#222",
+    position: 'relative',
+    zIndex: 1,
+  },
+  logText: { 
+    color: "#0f0", 
+    fontSize: 10, 
+    fontFamily: "monospace" 
+  },
 });
