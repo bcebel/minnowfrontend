@@ -1,3 +1,4 @@
+
 // StreamWarehouse.js
 class StreamWarehouse {
   constructor() {
@@ -6,6 +7,7 @@ class StreamWarehouse {
     this.version = 1;
   }
 
+  
   async _getDB() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.version);

@@ -108,6 +108,44 @@ this.video.poster = "";
     }, 2000);
   }
 
+// Add this method to StreamController class
+cleanupResources() {
+  clearInterval(this.watchdog);
+  
+  // Clean up video element
+  if (this.video) {
+    this.video.pause();
+    this.video.src = "";
+    this.video.load();
+    
+    // Remove event listeners
+    this.video.removeAttribute('src');
+    this.video.remove();
+  }
+  
+  // Clean up MediaSource
+  if (this.ms && this.ms.readyState === 'open') {
+    try {
+      this.ms.endOfStream();
+    } catch (e) {}
+  }
+  
+  // Clean up SourceBuffer
+  if (this.sb) {
+    try {
+      this.ms.removeSourceBuffer(this.sb);
+    } catch (e) {}
+  }
+  
+  // Revoke object URL
+  if (this.objectUrl) {
+    URL.revokeObjectURL(this.objectUrl);
+  }
+  
+  // Clear chunk queue
+  this.chunkQueue.clear();
+}
+
   forceTick() {
     this.addLog("⚡ Force Tick triggered");
     this.tick();
@@ -557,7 +595,7 @@ export default function NeighborhoodLiveStreamPlayer({
         }
       });
     }
-  }, [initialChunks, thumbnail, onThumbnailLoaded]);
+  }, [initialChunks]);
 
   useEffect(() => {
     if (controllerRef.current && onThumbnailLoaded) {
