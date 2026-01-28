@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  useWindowDimensions,
   ActivityIndicator,
   Image,
   TouchableOpacity,
@@ -39,10 +40,10 @@ const GET_ACTIVE_LIVESTREAMS = gql`
       id
       title
       sessionId
-      neighborhood {
-        id
-        name
-      }
+    }
+    messages {
+      sessionId
+      thumbnailUrl
     }
   }
 `;
@@ -345,277 +346,174 @@ function Livestream({ stream }) {
   );
 }
 
-// --- MAIN SCREEN ---
 export default function LivestreamScreen() {
+  const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const [isRecording, setIsRecording] = useState(false);
   const [selectedHood, setSelectedHood] = useState(null);
 
-  const { data: meData, loading: l1 } = useQuery(GET_ME);
-  const {
-    data: streamsData,
-    loading: l2,
-    refetch,
-  } = useQuery(GET_ACTIVE_LIVESTREAMS, {
+  const { data, loading } = useQuery(GET_ACTIVE_LIVESTREAMS, {
     pollInterval: 5000,
   });
-  const { data: hoodsData, loading: l3 } = useQuery(GET_MY_NEIGHBORHOODS);
 
-  // Debug
-  useEffect(() => {
-    if (streamsData) {
-      console.log("📊 Streams loaded:", streamsData.streams?.length || 0);
-    }
-  }, [streamsData]);
-
-  if (l1 || l2 || l3) {
+  if (loading && !data)
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#ffffff" />
-        <Text style={styles.loadingText}>Loading streams...</Text>
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color="#fff" />
       </View>
     );
-  }
-
-  if (isRecording) {
-    return (
-      <NeighborhoodLiveStreamRecorder
-        neighborhoodId={selectedHood}
-        username={meData?.me?.username}
-        onStreamEnd={() => {
-          setIsRecording(false);
-          refetch();
-        }}
-      />
-    );
-  }
 
   return (
-    <ScrollView style={styles.scroll}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Bubbles</Text>
-        <View style={styles.picker}>
-          {hoodsData?.myNeighborhoods.map((h) => (
-            <TouchableOpacity
-              key={h.id}
-              onPress={() => setSelectedHood(h.id)}
-              style={[styles.item, selectedHood === h.id && styles.selected]}
-            >
-              <Text style={{ color: "white" }}>{h.name}</Text>
-            </TouchableOpacity>
-          ))}
+    <View style={[styles.mainWrapper, { height: SCREEN_HEIGHT }]}>
+      <ScrollView
+        pagingEnabled
+        showsVerticalScrollIndicator={false}
+        decelerationRate="fast"
+      >
+        {/* PAGE 1: PICKER */}
+        <View style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
+          <Text style={styles.title}>Bubbles</Text>
+          <View style={styles.picker}>{/* ... neighborhood map ... */}</View>
+          <TouchableOpacity
+            style={styles.goLive}
+            onPress={() => setIsRecording(true)}
+          >
+            <Text style={styles.btnText}>GO LIVE</Text>
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={styles.goLive}
-          onPress={() =>
-            selectedHood ? setIsRecording(true) : alert("Pick a bubble")
-          }
-        >
-          <Text style={styles.btnText}>GO LIVE</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.title}>Active Streams</Text>
-        {streamsData?.streams && streamsData.streams.length > 0 ? (
-          streamsData.streams.map((s) => <Livestream key={s.id} stream={s} />)
-        ) : (
-          <View style={styles.noStreams}>
-            <Text style={styles.noStreamsText}>No active streams</Text>
-            <Text style={styles.noStreamsSubtext}>
-              Start a stream to see it here!
-            </Text>
+        {/* PAGES 2+: LIVE PREVIEWS */}
+        {data?.streams?.map((s) => (
+          <View key={s.id} style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
+            <LivestreamPreview stream={s} />
           </View>
-        )}
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+// --- THE NEW "LIVESTREAM PREVIEW" COMPONENT ---
+function LivestreamPreview({ stream }) {
+  const [availableInWarehouse, setAvailableInWarehouse] = useState([]);
+  const sessionId = stream.sessionId;
+
+  // 1. THE SCOUT: Polls for the header/chunk 0 until it finds them
+  // This handles the "It just started" race condition
+  useEffect(() => {
+    let interval;
+    const findInitialData = async () => {
+      const chunksToGet = [-1, 0];
+      let allFound = true;
+
+      for (const idx of chunksToGet) {
+        if (availableInWarehouse.includes(idx)) continue;
+
+        try {
+          const res = await fetch(
+            `${API_BASE}/api/live-chunk/${sessionId}/${idx}`,
+          );
+          if (res.ok) {
+            const bytes = await res.arrayBuffer();
+            await warehouse.saveChunk(sessionId, idx, new Uint8Array(bytes));
+            setAvailableInWarehouse((prev) => [...new Set([...prev, idx])]);
+          } else {
+            allFound = false; // Still missing something
+          }
+        } catch (e) {
+          allFound = false;
+        }
+      }
+
+      if (allFound) clearInterval(interval);
+    };
+
+    interval = setInterval(findInitialData, 3000); // Check every 3 seconds until we get the start of the video
+    findInitialData();
+
+    return () => clearInterval(interval);
+  }, [sessionId]);
+
+  // 2. THE SUBSCRIPTION: Listens for any NEW chunks as they happen
+  useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
+    variables: { sessionId },
+    onData: async ({ data }) => {
+      const chunk = data.data?.livestreamChunkAdded;
+      if (!chunk) return;
+
+      // When a new chunk arrives, we go get it immediately
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/live-chunk/${sessionId}/${chunk.chunkIndex}`,
+        );
+        if (res.ok) {
+          const bytes = await res.arrayBuffer();
+          await warehouse.saveChunk(
+            sessionId,
+            chunk.chunkIndex,
+            new Uint8Array(bytes),
+          );
+          setAvailableInWarehouse((prev) => [
+            ...new Set([...prev, chunk.chunkIndex]),
+          ]);
+        }
+      } catch (e) {
+        console.log("Sub fetch fail");
+      }
+    },
+  });
+
+  return (
+    <View style={styles.streamContainer}>
+      <View style={styles.infoOverlay}>
+        <Text style={styles.streamTitle}>{stream.title}</Text>
+        <View style={styles.liveBadge}>
+          <Text style={styles.liveText}>LIVE</Text>
+        </View>
       </View>
-    </ScrollView>
+
+      {/* We pass the availableInWarehouse array. 
+         The Player needs to "watch" this array to start the engine.
+      */}
+      <NeighborhoodLiveStreamPlayer
+        sessionId={sessionId}
+        availableInWarehouse={availableInWarehouse}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: {
-    backgroundColor: "#130720",
-    flex: 1,
-  },
-  container: {
-    padding: 20,
-    alignItems: "center",
-    paddingBottom: 40,
-  },
-  title: {
-    color: "white",
-    fontSize: 20,
-    marginVertical: 15,
-    fontWeight: "bold",
-  },
-  picker: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-  },
-  item: {
-    padding: 10,
-    backgroundColor: "#333",
-    margin: 5,
-    borderRadius: 20,
-  },
-  selected: {
-    backgroundColor: "#007AFF",
-  },
-  goLive: {
-    backgroundColor: "#ff375f",
-    padding: 15,
-    borderRadius: 8,
-    width: "100%",
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  btnText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  streamContainer: {
-    width: "100%",
-    marginBottom: 30,
-  },
-  streamTitle: {
-    color: "white",
-    marginBottom: 5,
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  sessionId: {
-    color: "#888",
-    fontSize: 10,
-    marginBottom: 10,
-    fontFamily: "monospace",
-  },
-  videoContainer: {
-    width: "100%",
-    aspectRatio: 16 / 9,
-    borderRadius: 10,
-    overflow: "hidden",
-    backgroundColor: "#000",
-    position: "relative",
-  },
-  thumbnailWrapper: {
-    width: "100%",
-    height: "100%",
-    position: "relative",
-  },
-  thumbnailLoading: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#222",
-  },
-  thumbnailImage: {
-    width: "100%",
-    height: "100%",
-  },
-  thumbnailPlaceholder: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#333",
-  },
-  placeholderText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
-  placeholderSubtext: {
-    color: "#aaa",
-    fontSize: 12,
-  },
-  playOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  playButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 3,
-    borderColor: "white",
-    marginBottom: 10,
-  },
-  playIcon: {
-    color: "white",
-    fontSize: 30,
-    marginLeft: 5,
-  },
-  playText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
+  mainWrapper: { flex: 1, backgroundColor: "#000" },
+  fullPage: { width: "100%", justifyContent: "center", alignItems: "center" },
+  streamContainer: { width: "100%", height: "100%", position: "relative" },
+  infoOverlay: { position: "absolute", top: 60, left: 20, zIndex: 10 },
+  streamTitle: { color: "white", fontSize: 24, fontWeight: "bold" },
   liveBadge: {
-    position: "absolute",
-    top: 10,
-    left: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 0, 0, 0.8)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: "red",
+    padding: 4,
     borderRadius: 4,
-  },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "white",
-    marginRight: 6,
+    width: 50,
+    marginTop: 5,
   },
   liveText: {
     color: "white",
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "bold",
+    textAlign: "center",
   },
-  backButton: {
-    position: "absolute",
-    top: 10,
-    left: 10,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    zIndex: 10,
+  touchOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 5 },
+  title: { color: "white", fontSize: 32, fontWeight: "bold" },
+  goLive: {
+    backgroundColor: "#ff375f",
+    padding: 20,
+    borderRadius: 15,
+    marginTop: 40,
   },
-  backButtonText: {
-    color: "white",
-    fontSize: 12,
-  },
-  loadingContainer: {
+  btnText: { color: "white", fontWeight: "bold" },
+  loading: {
     flex: 1,
+    backgroundColor: "#000",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#130720",
-  },
-  loadingText: {
-    color: "#fff",
-    marginTop: 10,
-    fontSize: 16,
-  },
-  noStreams: {
-    padding: 40,
-    alignItems: "center",
-  },
-  noStreamsText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  noStreamsSubtext: {
-    color: "#888",
-    fontSize: 14,
   },
 });
