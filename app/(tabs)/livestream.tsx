@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -19,7 +13,7 @@ import { gql, useQuery, useSubscription } from "@apollo/client";
 import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer";
 import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
 import { warehouse } from "../../components/StreamWearhouse.js";
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
 // --- QUERIES ---
 const GET_ME = gql`
   query GetMe {
@@ -354,203 +348,151 @@ function Livestream({ stream }) {
 
 export default function LivestreamScreen() {
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
-  const [activeIndex, setActiveIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [selectedHood, setSelectedHood] = useState(null);
 
-  const { data: meData, loading: l1 } = useQuery(GET_ME);
-  const {
-    data: streamsData,
-    loading: l2,
-    refetch,
-  } = useQuery(GET_ACTIVE_LIVESTREAMS, {
-    pollInterval: 8000,
+  const { data, loading } = useQuery(GET_ACTIVE_LIVESTREAMS, {
+    pollInterval: 5000,
   });
-  const { data: hoodsData, loading: l3 } = useQuery(GET_MY_NEIGHBORHOODS);
 
-  // Handle scrolling to switch active video
-  const handleScroll = useCallback(
-    (event) => {
-      const yOffset = event.nativeEvent.contentOffset.y;
-      const index = Math.round(yOffset / SCREEN_HEIGHT);
-      if (index !== activeIndex) {
-        setActiveIndex(index);
-      }
-    },
-    [activeIndex, SCREEN_HEIGHT],
-  );
-
-  if (l1 || l2 || l3)
+  if (loading && !data)
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#fff" />
       </View>
     );
 
-  if (isRecording) {
-    return (
-      <NeighborhoodLiveStreamRecorder
-        neighborhoodId={selectedHood}
-        username={meData?.me?.username}
-        onStreamEnd={() => {
-          setIsRecording(false);
-          refetch();
-        }}
-      />
-    );
-  }
-
   return (
     <View style={[styles.mainWrapper, { height: SCREEN_HEIGHT }]}>
       <ScrollView
         pagingEnabled
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         decelerationRate="fast"
       >
-        {/* PAGE 1: THE PICKER (Index 0) */}
+        {/* PAGE 1: PICKER */}
         <View style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
           <Text style={styles.title}>Bubbles</Text>
-          <View style={styles.picker}>
-            {hoodsData?.myNeighborhoods.map((h) => (
-              <TouchableOpacity
-                key={h.id}
-                onPress={() => setSelectedHood(h.id)}
-                style={[styles.item, selectedHood === h.id && styles.selected]}
-              >
-                <Text style={{ color: "white" }}>{h.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
+          <View style={styles.picker}>{/* ... neighborhood map ... */}</View>
           <TouchableOpacity
             style={styles.goLive}
-            onPress={() =>
-              selectedHood ? setIsRecording(true) : alert("Pick a bubble")
-            }
+            onPress={() => setIsRecording(true)}
           >
             <Text style={styles.btnText}>GO LIVE</Text>
           </TouchableOpacity>
-          <Text style={styles.hint}>↓ Scroll for Streams ↓</Text>
         </View>
 
-        {/* PAGES 2+: LIVE STREAMS (Index 1+) */}
-        {streamsData?.streams?.map((s, index) => (
-          <LivestreamItem
-            key={s.id}
-            stream={s}
-            screenHeight={SCREEN_HEIGHT}
-            // Only mount player if this page is active
-            isVisible={index + 1 === activeIndex}
-          />
+        {/* PAGES 2+: LIVE PREVIEWS */}
+        {data?.streams?.map((s) => (
+          <View key={s.id} style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
+            <LivestreamPreview stream={s} />
+          </View>
         ))}
       </ScrollView>
     </View>
   );
 }
 
-// --- ISOLATED ITEM COMPONENT ---
-const LivestreamItem = React.memo(({ stream, screenHeight, isVisible }) => {
-  const [ready, setReady] = useState(false);
+// --- THE NEW "LIVESTREAM PREVIEW" COMPONENT ---
+function LivestreamPreview({ stream }) {
+  const [availableInWarehouse, setAvailableInWarehouse] = useState([]);
+  const sessionId = stream.sessionId;
 
+  // 1. THE SCOUT: Polls for the header/chunk 0 until it finds them
+  // This handles the "It just started" race condition
   useEffect(() => {
-    if (!isVisible) return;
+    let interval;
+    const findInitialData = async () => {
+      const chunksToGet = [-1, 0];
+      let allFound = true;
 
-    const huntForHeader = async () => {
-      const sessionId = stream.sessionId;
+      for (const idx of chunksToGet) {
+        if (availableInWarehouse.includes(idx)) continue;
 
-      // 1. Check Warehouse
-      const existing = await warehouse.getChunk(sessionId, -1);
-      if (existing) {
-        setReady(true);
-        return;
+        try {
+          const res = await fetch(
+            `${API_BASE}/api/live-chunk/${sessionId}/${idx}`,
+          );
+          if (res.ok) {
+            const bytes = await res.arrayBuffer();
+            await warehouse.saveChunk(sessionId, idx, new Uint8Array(bytes));
+            setAvailableInWarehouse((prev) => [...new Set([...prev, idx])]);
+          } else {
+            allFound = false; // Still missing something
+          }
+        } catch (e) {
+          allFound = false;
+        }
       }
 
-      // 2. Check Server Fallback
+      if (allFound) clearInterval(interval);
+    };
+
+    interval = setInterval(findInitialData, 3000); // Check every 3 seconds until we get the start of the video
+    findInitialData();
+
+    return () => clearInterval(interval);
+  }, [sessionId]);
+
+  // 2. THE SUBSCRIPTION: Listens for any NEW chunks as they happen
+  useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
+    variables: { sessionId },
+    onData: async ({ data }) => {
+      const chunk = data.data?.livestreamChunkAdded;
+      if (!chunk) return;
+
+      // When a new chunk arrives, we go get it immediately
       try {
         const res = await fetch(
-          `${BACKEND_URL}/api/live-chunk/${sessionId}/-1`,
+          `${API_BASE}/api/live-chunk/${sessionId}/${chunk.chunkIndex}`,
         );
         if (res.ok) {
           const bytes = await res.arrayBuffer();
-          await warehouse.saveChunk(sessionId, -1, new Uint8Array(bytes));
-          setReady(true);
-          console.log("✅ Header recovered from Server");
-          return;
+          await warehouse.saveChunk(
+            sessionId,
+            chunk.chunkIndex,
+            new Uint8Array(bytes),
+          );
+          setAvailableInWarehouse((prev) => [
+            ...new Set([...prev, chunk.chunkIndex]),
+          ]);
         }
       } catch (e) {
-        console.log("📡 Server fetch failed, waiting for P2P...");
+        console.log("Sub fetch fail");
       }
-
-      // 3. If the stream object has a magnet, try WebTorrent here too
-      // (This is what makes 'New' streams work if the server is still processing)
-    };
-
-    const interval = setInterval(huntForHeader, 4000);
-    huntForHeader();
-    return () => clearInterval(interval);
-  }, [isVisible, stream.sessionId]);
-
-  if (!isVisible) return <View style={{ height: screenHeight }} />;
+    },
+  });
 
   return (
-    <View style={{ height: screenHeight, backgroundColor: "#000" }}>
-      {ready ? (
-        <NeighborhoodLiveStreamPlayer
-          sessionId={stream.sessionId}
-          muted
-          autoPlay
-        />
-      ) : (
-        <View
-          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-        >
-          <ActivityIndicator size="large" color="#ff375f" />
-          <Text style={{ color: "#fff", marginTop: 10 }}>
-            Connecting to Hive...
-          </Text>
+    <View style={styles.streamContainer}>
+      <View style={styles.infoOverlay}>
+        <Text style={styles.streamTitle}>{stream.title}</Text>
+        <View style={styles.liveBadge}>
+          <Text style={styles.liveText}>LIVE</Text>
         </View>
-      )}
+      </View>
+
+      {/* We pass the availableInWarehouse array. 
+         The Player needs to "watch" this array to start the engine.
+      */}
+      <NeighborhoodLiveStreamPlayer
+        sessionId={sessionId}
+        availableInWarehouse={availableInWarehouse}
+      />
     </View>
   );
-});
+}
 
 const styles = StyleSheet.create({
   mainWrapper: { flex: 1, backgroundColor: "#000" },
   fullPage: { width: "100%", justifyContent: "center", alignItems: "center" },
-  title: { color: "white", fontSize: 32, fontWeight: "bold", marginBottom: 30 },
-  picker: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    marginBottom: 30,
-  },
-  item: {
-    padding: 15,
-    backgroundColor: "#222",
-    margin: 5,
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: "#444",
-  },
-  selected: { backgroundColor: "#007AFF", borderColor: "#007AFF" },
-  goLive: {
-    backgroundColor: "#ff375f",
-    padding: 20,
-    borderRadius: 15,
-    width: "70%",
-    alignItems: "center",
-  },
-  btnText: { color: "white", fontWeight: "bold", fontSize: 18 },
-  hint: { color: "#444", marginTop: 40 },
-  overlay: { position: "absolute", bottom: 100, left: 20 },
-  streamTitle: { color: "white", fontSize: 22, fontWeight: "bold" },
+  streamContainer: { width: "100%", height: "100%", position: "relative" },
+  infoOverlay: { position: "absolute", top: 60, left: 20, zIndex: 10 },
+  streamTitle: { color: "white", fontSize: 24, fontWeight: "bold" },
   liveBadge: {
     backgroundColor: "red",
     padding: 4,
     borderRadius: 4,
-    width: 45,
+    width: 50,
     marginTop: 5,
   },
   liveText: {
@@ -559,6 +501,15 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
   },
+  touchOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 5 },
+  title: { color: "white", fontSize: 32, fontWeight: "bold" },
+  goLive: {
+    backgroundColor: "#ff375f",
+    padding: 20,
+    borderRadius: 15,
+    marginTop: 40,
+  },
+  btnText: { color: "white", fontWeight: "bold" },
   loading: {
     flex: 1,
     backgroundColor: "#000",
