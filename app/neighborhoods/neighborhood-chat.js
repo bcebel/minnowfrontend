@@ -1210,8 +1210,11 @@ console.log("📨 New real message via socket:", newMsg.content);
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>Error loading chat</Text>
         <Text style={styles.errorDetail}>{error.message}</Text>
-        <TouchableOpacity onPress={() => refetch()} style={styles.retryButton}>
-          <Text style={styles.retryText}>Retry</Text>
+        <TouchableOpacity
+          onPress={() => router.push("/login")}
+          style={styles.retryButton}
+        >
+          <Text style={styles.retryText}>Log In</Text>
         </TouchableOpacity>
       </View>
     );
