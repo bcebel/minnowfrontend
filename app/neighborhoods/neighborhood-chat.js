@@ -497,14 +497,16 @@ export default function NeighborhoodChatScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    if (data?.neighborhoodMessages) {
-const cleanMessages = data.neighborhoodMessages.filter(
-  (m) => m.chunkIndex === null || m.chunkIndex === undefined,
-);
-setMessages(cleanMessages);
-    }
-  }, [data?.neighborhoodMessages]);
+useEffect(() => {
+  if (data?.neighborhoodMessages) {
+    const cleanMessages = data.neighborhoodMessages
+      .filter((m) => !m.sessionId)
+      // SORT: Ensure oldest is at top, newest is at bottom
+      .sort((a, b) => parseInt(a.createdAt) - parseInt(b.createdAt));
+
+    setMessages(cleanMessages);
+  }
+}, [data?.neighborhoodMessages]);
 
   const isNeighborhoodAdmin = useMemo(() => {
     if (!username || !neighborhoodData?.neighborhood) return false;
@@ -650,16 +652,17 @@ setMessages(cleanMessages);
       console.error("❌ Neighborhood socket connection error:", err);
     });
 
+
+
     newSocket.on("message", async (newMsg) => {
-if (newMsg.chunkIndex !== null && newMsg.chunkIndex !== undefined) {
+if (newMsg.sessionId) {
   return;
 }
 
-console.log("📨 New real message via socket:", newMsg.content);
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === newMsg.id)) return prev;
-        return [...prev, newMsg];
-      });
+setMessages((prev) => {
+  if (prev.some((m) => m.id === newMsg.id)) return prev;
+  return [...prev, newMsg];
+});
 
       // Refetch after a short delay to ensure media is included
       setTimeout(() => {
