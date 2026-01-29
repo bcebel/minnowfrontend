@@ -351,42 +351,115 @@ export default function LivestreamScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [selectedHood, setSelectedHood] = useState(null);
 
-  const { data, loading } = useQuery(GET_ACTIVE_LIVESTREAMS, {
+  // 1. Get Me, Neighborhoods, and Streams
+  const { data: meData } = useQuery(GET_ME);
+  const { data: hoodsData, loading: lHoods } = useQuery(GET_MY_NEIGHBORHOODS);
+  const {
+    data: streamsData,
+    loading: lStreams,
+    refetch,
+  } = useQuery(GET_ACTIVE_LIVESTREAMS, {
     pollInterval: 5000,
   });
 
-  if (loading && !data)
+  // 2. Handle Recording State
+  if (isRecording) {
+    return (
+      <NeighborhoodLiveStreamRecorder
+        neighborhoodId={selectedHood}
+        username={meData?.me?.username}
+        onStreamEnd={() => {
+          setIsRecording(false);
+          refetch();
+        }}
+      />
+    );
+  }
+
+  if (lHoods || lStreams) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#fff" />
       </View>
     );
+  }
 
   return (
     <View style={[styles.mainWrapper, { height: SCREEN_HEIGHT }]}>
       <ScrollView
         pagingEnabled
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         decelerationRate="fast"
       >
-        {/* PAGE 1: PICKER */}
-        <View style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
-          <Text style={styles.title}>Bubbles</Text>
-          <View style={styles.picker}>{/* ... neighborhood map ... */}</View>
-          <TouchableOpacity
-            style={styles.goLive}
-            onPress={() => setIsRecording(true)}
-          >
-            <Text style={styles.btnText}>GO LIVE</Text>
-          </TouchableOpacity>
+        {/* PAGE 1: THE SELECTOR & GO LIVE BUTTON */}
+        <View
+          style={[
+            styles.fullPage,
+            { height: SCREEN_HEIGHT, backgroundColor: "#130720" },
+          ]}
+        >
+          {/* Wrap the content in a View that doesn't compete with the ScrollView's paging */}
+          <View style={{ width: "100%", alignItems: "center", zIndex: 10 }}>
+            <Text style={styles.title}>Bubbles</Text>
+
+            <View style={styles.picker}>
+              {hoodsData?.myNeighborhoods?.map((h) => (
+                <TouchableOpacity
+                  key={h.id}
+                  // hitSlop gives you 10px of "invisible" padding to make tapping easier
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={[
+                    styles.item,
+                    selectedHood === h.id && styles.selected,
+                  ]}
+                  onPress={() => {
+                    console.log("Selected:", h.name);
+                    setSelectedHood(h.id);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  {/* Ensure the text doesn't block the touch */}
+                  <Text
+                    pointerEvents="none"
+                    style={{ color: "white", fontWeight: "600" }}
+                  >
+                    {h.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.goLive, { zIndex: 20 }]}
+              onPress={() =>
+                selectedHood ? setIsRecording(true) : alert("Pick a bubble")
+              }
+            >
+              <Text style={styles.btnText}>GO LIVE</Text>
+            </TouchableOpacity>
+
+            <Text style={[styles.loadingText, { marginTop: 40, opacity: 0.6 }]}>
+              Scroll down to watch active streams ↓
+            </Text>
+          </View>
         </View>
 
-        {/* PAGES 2+: LIVE PREVIEWS */}
-        {data?.streams?.map((s) => (
-          <View key={s.id} style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
-            <LivestreamPreview stream={s} />
+        {/* PAGES 2+: LIVE PREVIEWS (Your New Working Logic) */}
+        {streamsData?.streams && streamsData.streams.length > 0 ? (
+          streamsData.streams.map((s) => (
+            <View
+              key={s.id}
+              style={[styles.fullPage, { height: SCREEN_HEIGHT }]}
+            >
+              <LivestreamPreview stream={s} />
+            </View>
+          ))
+        ) : (
+          <View style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
+            <Text style={styles.noStreamsText}>No active streams nearby</Text>
           </View>
-        ))}
+        )}
       </ScrollView>
     </View>
   );
@@ -501,7 +574,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
   },
-  touchOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 5 },
+  //touchOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 5 },
   title: { color: "white", fontSize: 32, fontWeight: "bold" },
   goLive: {
     backgroundColor: "#ff375f",
@@ -515,5 +588,28 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
     justifyContent: "center",
     alignItems: "center",
+  },
+  picker: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    marginVertical: 20,
+    width: "100%", // Ensure it spans the width to allow wrapping
+  },
+  item: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: "#333",
+    margin: 8,
+    borderRadius: 25, // Make them look like bubbles
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  selected: {
+    backgroundColor: "#ff375f", // Use the same pink as GO LIVE for high contrast
+    borderColor: "#ffffff",
+    borderWidth: 3,
+    transform: [{ scale: 1.1 }], // Physically pop the bubble out
   },
 });

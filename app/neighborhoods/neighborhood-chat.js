@@ -499,7 +499,10 @@ export default function NeighborhoodChatScreen() {
 
   useEffect(() => {
     if (data?.neighborhoodMessages) {
-      setMessages(data.neighborhoodMessages);
+const cleanMessages = data.neighborhoodMessages.filter(
+  (m) => m.chunkIndex === null || m.chunkIndex === undefined,
+);
+setMessages(cleanMessages);
     }
   }, [data?.neighborhoodMessages]);
 
@@ -648,8 +651,11 @@ export default function NeighborhoodChatScreen() {
     });
 
     newSocket.on("message", async (newMsg) => {
-      console.log("📨 New message via socket:", newMsg.content);
+if (newMsg.chunkIndex !== null && newMsg.chunkIndex !== undefined) {
+  return;
+}
 
+console.log("📨 New real message via socket:", newMsg.content);
       setMessages((prev) => {
         if (prev.some((m) => m.id === newMsg.id)) return prev;
         return [...prev, newMsg];
