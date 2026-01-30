@@ -20,7 +20,7 @@ import {
   CREATE_INVITE_LINK,
   UPDATE_INVITE_LINK,
   DELETE_INVITE_LINK,
-} from "../graphql/queries";
+} from "../../../graphql/queries";
 
 export default function InviteLinksScreen() {
   const router = useRouter();
@@ -79,7 +79,7 @@ export default function InviteLinksScreen() {
         } else if (days === 0) {
           Alert.alert(
             "Error",
-            "Expiration days must be greater than 0, or leave empty for no expiration"
+            "Expiration days must be greater than 0, or leave empty for no expiration",
           );
           return;
         }
@@ -134,7 +134,7 @@ export default function InviteLinksScreen() {
         "Error details:",
         error.message,
         error.graphQLErrors,
-        error.networkError
+        error.networkError,
       );
       Alert.alert("Error", error.message || "Failed to create invite link");
     }
@@ -171,7 +171,7 @@ export default function InviteLinksScreen() {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -257,7 +257,7 @@ export default function InviteLinksScreen() {
             style={styles.actionButton}
             onPress={() =>
               handleCopyLink(
-                item.url || `https://bubblebase.app/join/${item.code}`
+                item.url || `https://bubblebase.app/join/${item.code}`,
               )
             }
           >
@@ -269,7 +269,7 @@ export default function InviteLinksScreen() {
             onPress={() =>
               handleShareLink(
                 item.url || `https://bubblebase.app/join/${item.code}`,
-                item.name
+                item.name,
               )
             }
           >
@@ -446,7 +446,7 @@ export default function InviteLinksScreen() {
                   console.log("Links:", data?.neighborhoodInviteLinks);
                   console.log(
                     "Number of links:",
-                    data?.neighborhoodInviteLinks?.length
+                    data?.neighborhoodInviteLinks?.length,
                   );
                 }}
               >

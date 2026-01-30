@@ -11,8 +11,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useQuery } from "@apollo/client";
-import { GET_NEIGHBORHOOD } from "../graphql/queries";
-import WebTorrentPlayer from "../../components/WebTorrentPlayer"; // Add this import
+import { GET_NEIGHBORHOOD } from "../../../graphql/queries";
+import WebTorrentPlayer from "../../../../components/WebTorrentPlayer"; // Add this import
 
 // ADD THIS FUNCTION - Generates static pages for each neighborhood
 export async function generateStaticParams() {
@@ -184,7 +184,7 @@ export default function NeighborhoodDetailScreen() {
           style={styles.chatButton}
           onPress={() =>
             router.push(
-              `/bubbles/neighborhood-chat?neighborhoodId=${neighborhood.id}`
+              `/bubbles/neighborhood-chat?neighborhoodId=${neighborhood.id}`,
             )
           }
         >

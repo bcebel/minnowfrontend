@@ -19,6 +19,6 @@
     "app/(tabs)/webcam.tsx",
     "app/(tabs)/index.tsx",
     "components/WebTorrentPlayer.js",
-    "app/bubbles/neighborhood-chat.js"
+    "app/(tabs)/neighborhoods/bubbles/neighborhood-chat.js"
   ]
 }

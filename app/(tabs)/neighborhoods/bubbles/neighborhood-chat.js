@@ -27,10 +27,10 @@ import { gql, useQuery, useMutation, useApolloClient } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
-import AdMessage from "../../components/AdMessage";
-import ChatMediaRenderer from "../../components/ChatMediaRenderer";
-import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
-import webtorrentService from "../../utils/webtorrentService";
+import AdMessage from "../../../../components/AdMessage";
+import ChatMediaRenderer from "../../../../components/ChatMediaRenderer";
+import NeighborhoodLiveStreamRecorder from "../../../../components/NeighborhoodLiveStreamRecorder";
+import webtorrentService from "../../../../utils/webtorrentService";
 import convert from "heic-convert/browser";
 
 const createOptimisticMessage = (type, fileName, url, thumbnailUrl) => {
@@ -287,7 +287,7 @@ const handleFilePress = async (message) => {
 
       Alert.alert(
         "Download Started",
-        `${message.fileName || "File"} download started in new tab.`
+        `${message.fileName || "File"} download started in new tab.`,
       );
     } else {
       Alert.alert(message.fileName || "File", "What would you like to do?", [
@@ -394,7 +394,7 @@ export default function NeighborhoodChatScreen() {
     GET_RANDOM_AFFILIATE_LINK,
     {
       skip: !isAuthenticated,
-    }
+    },
   );
 
   const TRACK_CLICK = gql`
@@ -409,7 +409,7 @@ export default function NeighborhoodChatScreen() {
     const shouldProceed = await new Promise((resolve) => {
       if (Platform.OS === "web") {
         const proceed = window.confirm(
-          "Are you sure you want to permanently delete this message?"
+          "Are you sure you want to permanently delete this message?",
         );
         resolve(proceed);
       } else {
@@ -423,7 +423,7 @@ export default function NeighborhoodChatScreen() {
               style: "destructive",
               onPress: () => resolve(true),
             },
-          ]
+          ],
         );
       }
     });
@@ -440,7 +440,7 @@ export default function NeighborhoodChatScreen() {
             fields: {
               neighborhoodMessages(existingMessageRefs = [], { readField }) {
                 return existingMessageRefs.filter(
-                  (messageRef) => readField("id", messageRef) !== messageId
+                  (messageRef) => readField("id", messageRef) !== messageId,
                 );
               },
             },
@@ -462,7 +462,7 @@ export default function NeighborhoodChatScreen() {
 
       Alert.alert(
         "Deletion Failed",
-        errorMessage.replace("GraphQL error: ", "")
+        errorMessage.replace("GraphQL error: ", ""),
       );
     }
   };
@@ -472,7 +472,7 @@ export default function NeighborhoodChatScreen() {
     {
       variables: { id: neighborhoodId },
       skip: !neighborhoodId,
-    }
+    },
   );
 
   const { loading, error, data, refetch } = useQuery(
@@ -481,7 +481,7 @@ export default function NeighborhoodChatScreen() {
       variables: { neighborhoodId },
       fetchPolicy: "cache-and-network",
       skip: !isAuthenticated || !neighborhoodId,
-    }
+    },
   );
 
   const [sendMessageMutation] = useMutation(SEND_NEIGHBORHOOD_MESSAGE);
@@ -497,16 +497,16 @@ export default function NeighborhoodChatScreen() {
     }
   }, []);
 
-useEffect(() => {
-  if (data?.neighborhoodMessages) {
-    const cleanMessages = data.neighborhoodMessages
-      .filter((m) => !m.sessionId)
-      // SORT: Ensure oldest is at top, newest is at bottom
-      .sort((a, b) => parseInt(a.createdAt) - parseInt(b.createdAt));
+  useEffect(() => {
+    if (data?.neighborhoodMessages) {
+      const cleanMessages = data.neighborhoodMessages
+        .filter((m) => !m.sessionId)
+        // SORT: Ensure oldest is at top, newest is at bottom
+        .sort((a, b) => parseInt(a.createdAt) - parseInt(b.createdAt));
 
-    setMessages(cleanMessages);
-  }
-}, [data?.neighborhoodMessages]);
+      setMessages(cleanMessages);
+    }
+  }, [data?.neighborhoodMessages]);
 
   const isNeighborhoodAdmin = useMemo(() => {
     if (!username || !neighborhoodData?.neighborhood) return false;
@@ -515,7 +515,7 @@ useEffect(() => {
     const isOwner = neighborhood.owner?.username === username;
 
     const member = neighborhood.members?.find(
-      (m) => m.user?.username === username
+      (m) => m.user?.username === username,
     );
     const isAdmin = member?.role === "admin";
 
@@ -575,7 +575,7 @@ useEffect(() => {
         </View>
       );
     },
-    [isNeighborhoodAdmin]
+    [isNeighborhoodAdmin],
   );
 
   useEffect(() => {
@@ -591,7 +591,7 @@ useEffect(() => {
         if (!token) {
           Alert.alert(
             "Authentication Required",
-            "Please log in to access chat"
+            "Please log in to access chat",
           );
           router.replace("/login");
           return;
@@ -652,17 +652,15 @@ useEffect(() => {
       console.error("❌ Neighborhood socket connection error:", err);
     });
 
-
-
     newSocket.on("message", async (newMsg) => {
-if (newMsg.sessionId) {
-  return;
-}
+      if (newMsg.sessionId) {
+        return;
+      }
 
-setMessages((prev) => {
-  if (prev.some((m) => m.id === newMsg.id)) return prev;
-  return [...prev, newMsg];
-});
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === newMsg.id)) return prev;
+        return [...prev, newMsg];
+      });
 
       // Refetch after a short delay to ensure media is included
       setTimeout(() => {
@@ -739,7 +737,7 @@ setMessages((prev) => {
         },
         type,
         0,
-        ""
+        "",
       );
     }
   };
@@ -830,7 +828,7 @@ setMessages((prev) => {
               text: "Chunked P2P",
               onPress: () => uploadChunkedVideo(asset),
             },
-          ]
+          ],
         );
       } else {
         // 3. Regular flow
@@ -861,7 +859,7 @@ setMessages((prev) => {
         safeName,
         type,
         token,
-        neighborhoodId
+        neighborhoodId,
       );
 
       // 4. SEND MESSAGE
@@ -959,7 +957,7 @@ setMessages((prev) => {
     index,
     sessionId,
     totalChunks,
-    fileName
+    fileName,
   ) => {
     return new Promise(async (resolve, reject) => {
       try {
@@ -968,7 +966,7 @@ setMessages((prev) => {
 
         if (!client) {
           throw new Error(
-            "WebTorrent Client not initialized. Refresh the page."
+            "WebTorrent Client not initialized. Refresh the page.",
           );
         }
 
@@ -981,7 +979,7 @@ setMessages((prev) => {
           },
           async (torrent) => {
             console.log(
-              `✅ Chunk ${index + 1}/${totalChunks} is now LIVE on P2P`
+              `✅ Chunk ${index + 1}/${totalChunks} is now LIVE on P2P`,
             );
 
             try {
@@ -1001,7 +999,7 @@ setMessages((prev) => {
             } catch (err) {
               reject(err);
             }
-          }
+          },
         );
       } catch (error) {
         console.error("❌ Seeding failed:", error);
@@ -1073,8 +1071,8 @@ setMessages((prev) => {
 
           console.log(
             `📸 Thumbnail ready: JPEG (via DataURL), ~${sizeEstimate.toFixed(
-              0
-            )} bytes`
+              0,
+            )} bytes`,
           );
 
           resolve({
@@ -1109,7 +1107,7 @@ setMessages((prev) => {
     fileName,
     type,
     token,
-    neighborhoodId
+    neighborhoodId,
   ) => {
     try {
       const response = await fetch(fileUri);
@@ -1158,13 +1156,13 @@ setMessages((prev) => {
           const { base64, format, size } = await generateThumbnail(fileUri);
 
           console.log(
-            `✅ ${format.toUpperCase()} thumbnail generated: ${size} bytes`
+            `✅ ${format.toUpperCase()} thumbnail generated: ${size} bytes`,
           );
           thumbnailUrl = base64;
         } catch (thumbnailError) {
           console.error(
             "❌ Thumbnail generation failed completely:",
-            thumbnailError.message
+            thumbnailError.message,
           );
         }
       }
@@ -1234,7 +1232,7 @@ setMessages((prev) => {
         <TouchableOpacity
           onPress={() =>
             router.push(
-              `/bubbles/neighborhood-gallery?neighborhoodId=${neighborhoodId}`
+              `neighborhoods/bubbles/neighborhood-gallery?neighborhoodId=${neighborhoodId}`,
             )
           }
           style={styles.galleryButton}
@@ -1245,7 +1243,7 @@ setMessages((prev) => {
         <TouchableOpacity
           onPress={() =>
             router.push(
-              `/bubbles/invite-links?neighborhoodId=${neighborhoodId}`
+              `neighborhoods/bubbles/invite-links?neighborhoodId=${neighborhoodId}`,
             )
           }
           style={styles.galleryButton}
@@ -1257,7 +1255,7 @@ setMessages((prev) => {
         <TouchableOpacity
           onPress={() =>
             router.push(
-              `/neighborhood-members?neighborhoodId=${neighborhoodId}`
+              `neighborhoods/neighborhood-members?neighborhoodId=${neighborhoodId}`,
             )
           }
           style={styles.membersButton}
@@ -1281,7 +1279,7 @@ setMessages((prev) => {
         {messages
           .filter(
             (msg) =>
-              msg.fileType !== "video_chunk" && msg.fileType !== "video_header"
+              msg.fileType !== "video_chunk" && msg.fileType !== "video_header",
           )
           .map((item, index) => {
             const showAdHere = index % 20 === 0;

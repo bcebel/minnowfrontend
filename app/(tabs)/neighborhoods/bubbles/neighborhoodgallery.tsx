@@ -12,8 +12,8 @@ import {
 import { Image } from "expo-image";
 import { gql, useQuery } from "@apollo/client";
 import { useVideoPlayer, VideoView } from "expo-video";
-import WebTorrentMedia from "../../components/WebTorrentMedia"; // Import from your chat
-import AdMessage from "../../components/AdMessage"; // New Ad component
+import WebTorrentMedia from "../../../../components/WebTorrentMedia"; // Import from your chat
+import AdMessage from "../../../../components/AdMessage"; // New Ad component
 // GraphQL Query
 const GET_NEIGHBORHOOD_GALLERY = gql`
   query GetNeighborhoodGallery($neighborhoodId: ID!) {
@@ -135,7 +135,7 @@ const MediaDisplay = ({ item }: { item: any }) => {
     if (item.ipfsUrl) {
       return item.ipfsUrl.replace(
         "ipfs.filebase.io",
-        process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud"
+        process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud",
       );
     }
 
@@ -234,26 +234,27 @@ export default function NeighborhoodGallery({
   const { data: adData } = useQuery(GET_RANDOM_AFFILIATE_LINK);
 
   // Combine videos and images
- const allMedia = React.useMemo(() => {
-   if (!data?.getNeighborhoodGallery) return [];
+  const allMedia = React.useMemo(() => {
+    if (!data?.getNeighborhoodGallery) return [];
 
-   const rawMedia = [
-     ...(data.getNeighborhoodGallery.videos || []),
-     ...(data.getNeighborhoodGallery.images || []),
-   ].sort(
-     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-   );
+    const rawMedia = [
+      ...(data.getNeighborhoodGallery.videos || []),
+      ...(data.getNeighborhoodGallery.images || []),
+    ].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
 
-   // Inject an Ad every 6 items for the Gallery
-   const withAds = [];
-   rawMedia.forEach((item, index) => {
-     withAds.push(item);
-     if ((index + 1) % 6 === 0 && adData?.randomAffiliateLink) {
-       withAds.push({ isAd: true, ...adData.randomAffiliateLink });
-     }
-   });
-   return withAds;
- }, [data, adData]);
+    // Inject an Ad every 6 items for the Gallery
+    const withAds = [];
+    rawMedia.forEach((item, index) => {
+      withAds.push(item);
+      if ((index + 1) % 6 === 0 && adData?.randomAffiliateLink) {
+        withAds.push({ isAd: true, ...adData.randomAffiliateLink });
+      }
+    });
+    return withAds;
+  }, [data, adData]);
   if (loading) {
     return (
       <View style={styles.center}>

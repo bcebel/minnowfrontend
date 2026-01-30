@@ -4,7 +4,7 @@ import { View, TouchableOpacity, Text, Alert, StyleSheet } from "react-native";
 import { useMutation, gql } from "@apollo/client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { warehouse } from "./StreamWearhouse.js";
-import { unifiedUpload } from "../app/bubbles/neighborhood-chat.js";
+import { unifiedUpload } from "../app/(tabs)/neighborhoods/bubbles/neighborhood-chat.js";
 import webtorrentService from "../utils/webtorrentService.js";
 const SEND_MESSAGE = gql`
   mutation SendNeighborhoodMessage(
