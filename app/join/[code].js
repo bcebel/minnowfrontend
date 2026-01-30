@@ -91,7 +91,7 @@ export default function JoinViaLinkScreen() {
             onPress: () => {
               // Navigate to the neighborhood
               router.push(
-                `/neighborhoods/${data.joinViaInviteLink.neighborhood.id}`
+                `/bubbles/${data.joinViaInviteLink.neighborhood.id}`
               );
             },
           },

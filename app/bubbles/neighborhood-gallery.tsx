@@ -1,6 +1,6 @@
 import React from "react";
 import { useLocalSearchParams } from "expo-router";
-import NeighborhoodGallery from "./neighborhoods/neighborhoodgallery";
+import NeighborhoodGallery from "./neighborhoodgallery";
 
 export default function NeighborhoodGalleryScreen() {
   const params = useLocalSearchParams();

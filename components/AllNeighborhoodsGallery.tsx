@@ -72,6 +72,7 @@ const GET_RANDOM_AFFILIATE_LINK = gql`
 `;
 
 // Utility function
+// Utility function - UPDATED
 const getFileType = (fileName: string) => {
   if (!fileName) return "unknown";
   fileName = fileName.toLowerCase();
@@ -89,20 +90,24 @@ const getFileType = (fileName: string) => {
     fileName.endsWith(".jpg") ||
     fileName.endsWith(".jpeg") ||
     fileName.endsWith(".png") ||
-    fileName.endsWith(".gif") ||
-    fileName.endsWith(".webp")
+    fileName.endsWith(".gif") ||  // Keep GIF as "image" type
+    fileName.endsWith(".webp") ||
+    fileName.endsWith(".bmp") ||
+    fileName.endsWith(".tiff")
   ) {
-    return "image";
+    return "image";  // GIF is still an image type
   }
   return "unknown";
 };
 
 // Simple media display component
+// Media Display Component - WITH GIF SUPPORT
 const MediaDisplay = ({ item }: { item: any }) => {
   const fileType = getFileType(item.fileName);
   const isImage = fileType === "image";
   const isVideo = fileType === "video";
-
+  const isGif = item.fileName?.toLowerCase().endsWith('.gif');
+  
   // Get the display URL
   const getDisplayUrl = () => {
     if (item.ipfsUrl) {
@@ -131,7 +136,7 @@ const MediaDisplay = ({ item }: { item: any }) => {
     );
   }
 
-  // If it has magnet link → WebTorrentMedia
+  // 🎯 If it has magnet link → WebTorrentMedia (handles everything)
   if (item.magnetLink && (isImage || isVideo)) {
     return (
       <View style={styles.magnetContainer}>
@@ -141,6 +146,7 @@ const MediaDisplay = ({ item }: { item: any }) => {
             imageUrl: isImage ? displayUrl : null,
             videoUrl: isVideo ? displayUrl : null,
             fileType: fileType,
+            isGif: isGif, // Pass GIF info
           }}
           isFocused={true}
         />
@@ -148,7 +154,35 @@ const MediaDisplay = ({ item }: { item: any }) => {
     );
   }
 
-  // If it's an image → Direct image
+  // 🎯 If it's a GIF → Use Expo Image with proper GIF support
+  if (isGif) {
+    return (
+      <TouchableOpacity
+        style={styles.gifContainer}
+        activeOpacity={1}
+        onPress={() => {
+          // Optional: Add fullscreen GIF viewer
+          console.log("GIF tapped:", displayUrl);
+        }}
+      >
+        <Image
+          source={{ uri: displayUrl }}
+          style={styles.image}
+          contentFit="contain"
+          transition={100}
+          // GIF-specific props
+          cachePolicy="memory-disk"
+          recyclingKey={`gif-${item.id}`}
+        />
+        <View style={styles.gifBadge}>
+          <Text style={styles.gifBadgeText}>GIF</Text>
+        </View>
+        <Text style={styles.gifHint}>Tap and hold to save</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  // 🎯 If it's a regular image → Direct image
   if (isImage) {
     return (
       <Image
@@ -161,7 +195,7 @@ const MediaDisplay = ({ item }: { item: any }) => {
     );
   }
 
-  // If it's a video → Show a thumbnail with play button
+  // 🎯 If it's a video → Show a thumbnail with play button
   if (isVideo) {
     return (
       <TouchableOpacity
@@ -176,7 +210,7 @@ const MediaDisplay = ({ item }: { item: any }) => {
     );
   }
 
-  // File download fallback
+  // 🎯 File download fallback
   return (
     <TouchableOpacity
       onPress={() => Linking.openURL(displayUrl)}
@@ -539,6 +573,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#222222",
   },
+
   videoContainer: {
     width: "100%",
     height: 250,
@@ -654,30 +689,58 @@ const styles = StyleSheet.create({
     height: 50,
   },
   adCardCenter: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1C0A2E',
-    borderColor: '#591155', // Purple glow for ads
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#1C0A2E",
+    borderColor: "#591155", // Purple glow for ads
   },
   adBadgeOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 15,
     right: 15,
-    backgroundColor: '#FFFF00',
+    backgroundColor: "#FFFF00",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
   },
   adMessageContainer: {
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
     padding: 10,
   },
   adSwipeHint: {
-    color: '#888',
+    color: "#888",
     fontSize: 12,
     marginTop: 20,
-    fontStyle: 'italic',
-  }
+    fontStyle: "italic",
+  },
+  gifContainer: {
+    position: "relative",
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  gifBadge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: "#FF00FF",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    zIndex: 10,
+  },
+  gifBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  gifHint: {
+    color: "#888",
+    fontSize: 12,
+    marginTop: 5,
+    fontStyle: "italic",
+  },
 
+  // Make sure image style works for GIFs too
 });

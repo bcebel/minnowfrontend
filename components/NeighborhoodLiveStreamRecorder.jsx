@@ -4,8 +4,8 @@ import { View, TouchableOpacity, Text, Alert, StyleSheet } from "react-native";
 import { useMutation, gql } from "@apollo/client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { warehouse } from "./StreamWearhouse.js";
-import { unifiedUpload } from "../app/neighborhoods/neighborhood-chat.js";
-import webtorrentService from "../utils/webtorrentService.js"
+import { unifiedUpload } from "../app/bubbles/neighborhood-chat.js";
+import webtorrentService from "../utils/webtorrentService.js";
 const SEND_MESSAGE = gql`
   mutation SendNeighborhoodMessage(
     $content: String!
@@ -92,46 +92,46 @@ export default function NeighborhoodLiveStreamRecorder({
   const isProcessingQueueRef = useRef(false);
   const headerSentRef = useRef(false);
   const supportedTypeRef = useRef('video/mp4; codecs="avc1.4d401f, mp4a.40.2"');
-const currentThumbnailRef = useRef(null);
+  const currentThumbnailRef = useRef(null);
   const [sendMessage] = useMutation(SEND_MESSAGE);
   const [createStreamMutation] = useMutation(CREATE_STREAM);
   const activeSwarms = useRef({});
-  
-const handleStitchAndShip = async () => {
-  try {
-    const sessionId = sessionIdRef.current;
-    const totalChunks = chunkIndexRef.current;
 
-    // 1. STITCH: Grab everything from the warehouse
-    const parts = [];
-    const header = await warehouse.getChunk(sessionId, -1);
-    if (header) parts.push(header);
+  const handleStitchAndShip = async () => {
+    try {
+      const sessionId = sessionIdRef.current;
+      const totalChunks = chunkIndexRef.current;
 
-    for (let i = 0; i < totalChunks; i++) {
-      const chunk = await warehouse.getChunk(sessionId, i);
-      if (chunk) parts.push(chunk);
+      // 1. STITCH: Grab everything from the warehouse
+      const parts = [];
+      const header = await warehouse.getChunk(sessionId, -1);
+      if (header) parts.push(header);
+
+      for (let i = 0; i < totalChunks; i++) {
+        const chunk = await warehouse.getChunk(sessionId, i);
+        if (chunk) parts.push(chunk);
+      }
+
+      // 2. WRAP: Create the "Asset" object that unifiedUpload expects
+      const stitchedBlob = new Blob(parts, { type: "video/mp4" });
+      const mockAsset = {
+        uri: URL.createObjectURL(stitchedBlob),
+        name: `live-archive-${sessionId}.mp4`,
+        size: stitchedBlob.size,
+      };
+
+      // 3. SHIP: Use the passed-in unifiedUpload from ChatScreen
+      await unifiedUpload(mockAsset, "video", stitchedBlob.size, "video/mp4");
+
+      // 4. CLEANUP: Clear the warehouse since it's now permanent in the gallery
+      await warehouse.deleteSession(sessionId);
+      Alert.alert("Success", "Stream archived to Gallery!");
+    } catch (error) {
+      console.error("❌ Archive failed:", error);
+      Alert.alert("Error", "Could not stitch and ship.");
     }
+  };
 
-    // 2. WRAP: Create the "Asset" object that unifiedUpload expects
-    const stitchedBlob = new Blob(parts, { type: "video/mp4" });
-    const mockAsset = {
-      uri: URL.createObjectURL(stitchedBlob),
-      name: `live-archive-${sessionId}.mp4`,
-      size: stitchedBlob.size,
-    };
-
-    // 3. SHIP: Use the passed-in unifiedUpload from ChatScreen
-    await unifiedUpload(mockAsset, "video", stitchedBlob.size, "video/mp4");
-
-    // 4. CLEANUP: Clear the warehouse since it's now permanent in the gallery
-    await warehouse.deleteSession(sessionId);
-    Alert.alert("Success", "Stream archived to Gallery!");
-  } catch (error) {
-    console.error("❌ Archive failed:", error);
-    Alert.alert("Error", "Could not stitch and ship.");
-  }
-};
-  
   const ensureWebTorrent = () => {
     return new Promise((resolve, reject) => {
       // 1. If it's already there, just return the client
@@ -163,35 +163,38 @@ const handleStitchAndShip = async () => {
     });
   };
 
-   const seedChunk = (chunkIndex, buffer) => {
+  const seedChunk = (chunkIndex, buffer) => {
     // Every time you finish seeding a new chunk
     const keepAfter = chunkIndex - 5; // Keep the last 5 chunks for the P2P swarm
     if (keepAfter > 0) {
       warehouse.deleteOldChunks(sessionIdRef.current, keepAfter);
     }
-    
+
     // Use the service to seed
-    webtorrentService.seed(buffer, { 
-      name: `stream_${sessionIdRef.current}_chunk_${chunkIndex}` 
-    }).then(torrent => {
-      activeSwarms.current[chunkIndex] = torrent;
+    webtorrentService
+      .seed(buffer, {
+        name: `stream_${sessionIdRef.current}_chunk_${chunkIndex}`,
+      })
+      .then((torrent) => {
+        activeSwarms.current[chunkIndex] = torrent;
 
-      // --- THE JANITOR ---
-      // Keep only the last 5 chunks seeding
-      const keys = Object.keys(activeSwarms.current).map(Number);
-      if (keys.length > 5) {
-        const oldestIndex = Math.min(...keys);
-        const oldTorrent = activeSwarms.current[oldestIndex];
+        // --- THE JANITOR ---
+        // Keep only the last 5 chunks seeding
+        const keys = Object.keys(activeSwarms.current).map(Number);
+        if (keys.length > 5) {
+          const oldestIndex = Math.min(...keys);
+          const oldTorrent = activeSwarms.current[oldestIndex];
 
-        if (oldTorrent) {
-          console.log(`🧹 Killing swarm for chunk ${oldestIndex}`);
-          oldTorrent.destroy(); // Stops seeding and closes trackers
-          delete activeSwarms.current[oldestIndex];
+          if (oldTorrent) {
+            console.log(`🧹 Killing swarm for chunk ${oldestIndex}`);
+            oldTorrent.destroy(); // Stops seeding and closes trackers
+            delete activeSwarms.current[oldestIndex];
+          }
         }
-      }
-    }).catch(error => {
-      console.error(`❌ Failed to seed chunk ${chunkIndex}:`, error);
-    });
+      })
+      .catch((error) => {
+        console.error(`❌ Failed to seed chunk ${chunkIndex}:`, error);
+      });
   };
 
   // --- THE WORKER: SEEDS P2P & UPLOADS TO BACKEND ---
@@ -208,67 +211,67 @@ const handleStitchAndShip = async () => {
       return;
     }
 
-const seedAndSend = (chunkData, index) => {
-  return new Promise(async (resolve) => {
-    const isHeader = index === -1;
+    const seedAndSend = (chunkData, index) => {
+      return new Promise(async (resolve) => {
+        const isHeader = index === -1;
 
-    // Use the thumb we already captured during startStream
-    const thumbToSend = isHeader ? currentThumbnailRef.current : null;
+        // Use the thumb we already captured during startStream
+        const thumbToSend = isHeader ? currentThumbnailRef.current : null;
 
-    const fileName = isHeader
-      ? `h_${sessionIdRef.current}.mp4`
-      : `c_${index}.mp4`;
+        const fileName = isHeader
+          ? `h_${sessionIdRef.current}.mp4`
+          : `c_${index}.mp4`;
 
-    // 2. SEED & UPLOAD
-    client.seed(chunkData, { name: fileName }, async (torrent) => {
-      const uploadToBackend = async (retry = 0) => {
-        try {
-          const formData = new FormData();
-          formData.append(
-            "chunk",
-            new Blob([chunkData], { type: supportedTypeRef.current })
-          );
-          formData.append("sessionId", sessionIdRef.current);
-          formData.append("chunkIndex", index.toString());
+        // 2. SEED & UPLOAD
+        client.seed(chunkData, { name: fileName }, async (torrent) => {
+          const uploadToBackend = async (retry = 0) => {
+            try {
+              const formData = new FormData();
+              formData.append(
+                "chunk",
+                new Blob([chunkData], { type: supportedTypeRef.current }),
+              );
+              formData.append("sessionId", sessionIdRef.current);
+              formData.append("chunkIndex", index.toString());
 
-          // We still send the thumb to the backend as a backup,
-          // but we don't wait for it to "work" for the player to start
-          const token = await AsyncStorage.getItem("token");
-          const res = await fetch(`${BACKEND_URL}/api/live-chunk`, {
-            method: "POST",
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-            body: formData,
+              // We still send the thumb to the backend as a backup,
+              // but we don't wait for it to "work" for the player to start
+              const token = await AsyncStorage.getItem("token");
+              const res = await fetch(`${BACKEND_URL}/api/live-chunk`, {
+                method: "POST",
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                body: formData,
+              });
+              return await res.json();
+            } catch (e) {
+              if (isHeader && retry < 2) return uploadToBackend(retry + 1);
+              return null;
+            }
+          };
+
+          const result = await uploadToBackend();
+
+          // 3. GRAPHQL NOTIFY
+          // This is what the player listens for!
+          await sendMessage({
+            variables: {
+              content: isHeader ? "STREAM_HEADER" : "",
+              neighborhoodId,
+              magnetLink: result?.magnetUri || torrent.magnetURI,
+              thumbnailUrl: thumbToSend, // Using our successful Base64 ref
+              sessionId: sessionIdRef.current,
+              chunkIndex: index,
+              mimeType: supportedTypeRef.current,
+            },
           });
-          return await res.json();
-        } catch (e) {
-          if (isHeader && retry < 2) return uploadToBackend(retry + 1);
-          return null;
-        }
-      };
 
-      const result = await uploadToBackend();
+          if (!isHeader) setChunkCount((prev) => prev + 1);
+          else headerSentRef.current = true;
 
-      // 3. GRAPHQL NOTIFY
-      // This is what the player listens for!
-      await sendMessage({
-        variables: {
-          content: isHeader ? "STREAM_HEADER" : "",
-          neighborhoodId,
-          magnetLink: result?.magnetUri || torrent.magnetURI,
-          thumbnailUrl: thumbToSend, // Using our successful Base64 ref
-          sessionId: sessionIdRef.current,
-          chunkIndex: index,
-          mimeType: supportedTypeRef.current,
-        },
+          resolve();
+        });
       });
-
-      if (!isHeader) setChunkCount((prev) => prev + 1);
-      else headerSentRef.current = true;
-
-      resolve();
-    });
-  });
-};
+    };
 
     while (chunkQueueRef.current.length > 0) {
       const chunk = chunkQueueRef.current.shift();
@@ -290,58 +293,58 @@ const seedAndSend = (chunkData, index) => {
         variables: { title: `${username}'s Live`, neighborhoodId },
       });
 
-      if (!streamData?.createStream?.sessionId) throw new Error("No Session ID");
+      if (!streamData?.createStream?.sessionId)
+        throw new Error("No Session ID");
       sessionIdRef.current = streamData.createStream.sessionId;
-     // 3. CAMERA & MEDIA RECORDER
-     const stream = await navigator.mediaDevices.getUserMedia({
-       video: { width: 640, height: 360 },
-       audio: true,
-     });
-     streamRef.current = stream;
+      // 3. CAMERA & MEDIA RECORDER
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 360 },
+        audio: true,
+      });
+      streamRef.current = stream;
 
-     try {
-       const videoTrack = stream.getVideoTracks()[0];
-       const imageCapture = new ImageCapture(videoTrack);
-       const bitmap = await imageCapture.grabFrame();
-       const canvas = document.createElement("canvas");
-       canvas.width = 320; // Small size is better for DB
-       canvas.height = 180;
-       const ctx = canvas.getContext("2d");
-       ctx.drawImage(bitmap, 0, 0, 320, 180);
-       currentThumbnailRef.current = canvas.toDataURL("image/jpeg", 0.7); // 0.7 quality to keep string small
-       console.log("📸 Thumbnail captured!");
-     } catch (e) {
-       console.warn("Could not capture thumbnail:", e);
-     }
+      try {
+        const videoTrack = stream.getVideoTracks()[0];
+        const imageCapture = new ImageCapture(videoTrack);
+        const bitmap = await imageCapture.grabFrame();
+        const canvas = document.createElement("canvas");
+        canvas.width = 320; // Small size is better for DB
+        canvas.height = 180;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(bitmap, 0, 0, 320, 180);
+        currentThumbnailRef.current = canvas.toDataURL("image/jpeg", 0.7); // 0.7 quality to keep string small
+        console.log("📸 Thumbnail captured!");
+      } catch (e) {
+        console.warn("Could not capture thumbnail:", e);
+      }
 
-     const mediaRecorder = new MediaRecorder(stream, {
-       mimeType: supportedTypeRef.current,
-     });
-     mediaRecorderRef.current = mediaRecorder;
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: supportedTypeRef.current,
+      });
+      mediaRecorderRef.current = mediaRecorder;
 
-     mediaRecorder.ondataavailable = (e) => {
-       if (e.data.size > 0) {
-         chunkQueueRef.current.push(e.data);
-         processSeedQueue();
-       }
-     };
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunkQueueRef.current.push(e.data);
+          processSeedQueue();
+        }
+      };
 
-     mediaRecorder.start(8000); // 8 second chunks
-     setIsStreaming(true);
-   } catch (error) {
-     console.error("❌ Fatal Stream Error:", error);
-     Alert.alert("Stream Error", error.message);
-   }
+      mediaRecorder.start(8000); // 8 second chunks
+      setIsStreaming(true);
+    } catch (error) {
+      console.error("❌ Fatal Stream Error:", error);
+      Alert.alert("Stream Error", error.message);
+    }
+  };
 
- };
+  const stopStream = async () => {
+    mediaRecorderRef.current?.stop();
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    setIsStreaming(false);
+    if (onStreamEnd) onStreamEnd();
+  };
 
-    const stopStream = async () => {
-      mediaRecorderRef.current?.stop();
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      setIsStreaming(false);
-      if (onStreamEnd) onStreamEnd();
-    };
-  
   async function stitchAndShip(sessionId, totalChunks) {
     this.addLog("🧵 Stitching archive...");
     const blobParts = [];
@@ -357,58 +360,56 @@ const seedAndSend = (chunkData, index) => {
     const finalFile = new File(
       blobParts,
       `neighborhood_live_${sessionId}.mp4`,
-      { type: "video/mp4" }
+      { type: "video/mp4" },
     );
 
     // 3. This calls your existing IPFS upload logic
     return await this.uploadToIPFS(
       URL.createObjectURL(finalFile),
       finalFile.name,
-      "video"
+      "video",
     );
-
-
   }
 
-return (
-  <View style={styles.recorderContainer}>
-    {!isStreaming ? (
-      // 1. Initial State: Just the Start Button
-      <TouchableOpacity
-        onPress={startStream}
-        style={[styles.button, styles.startBtn]}
-      >
-        <Text style={styles.buttonText}>🔴 START LIVE STREAM</Text>
-      </TouchableOpacity>
-    ) : (
-      // 2. Live State: The Control Panel
-      <View style={styles.controlsRow}>
+  return (
+    <View style={styles.recorderContainer}>
+      {!isStreaming ? (
+        // 1. Initial State: Just the Start Button
         <TouchableOpacity
-          onPress={stopStream}
-          style={[styles.button, styles.stopBtn]}
+          onPress={startStream}
+          style={[styles.button, styles.startBtn]}
         >
-          <Text style={styles.buttonText}>⏹️ STOP (DELETE)</Text>
+          <Text style={styles.buttonText}>🔴 START LIVE STREAM</Text>
         </TouchableOpacity>
+      ) : (
+        // 2. Live State: The Control Panel
+        <View style={styles.controlsRow}>
+          <TouchableOpacity
+            onPress={stopStream}
+            style={[styles.button, styles.stopBtn]}
+          >
+            <Text style={styles.buttonText}>⏹️ STOP (DELETE)</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => {
-            stopStream(); // Kill the camera
-            handleStitchAndShip(); // Send to Gallery
-          }}
-          style={[styles.button, styles.archiveBtn]}
-        >
-          <Text style={styles.buttonText}>📁 STOP & ARCHIVE</Text>
-        </TouchableOpacity>
-      </View>
-    )}
+          <TouchableOpacity
+            onPress={() => {
+              stopStream(); // Kill the camera
+              handleStitchAndShip(); // Send to Gallery
+            }}
+            style={[styles.button, styles.archiveBtn]}
+          >
+            <Text style={styles.buttonText}>📁 STOP & ARCHIVE</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-    {isStreaming && (
-      <Text style={styles.chunkCountText}>
-        📡 Streaming: {chunkCount} chunks broadcasted
-      </Text>
-    )}
-  </View>
-);
+      {isStreaming && (
+        <Text style={styles.chunkCountText}>
+          📡 Streaming: {chunkCount} chunks broadcasted
+        </Text>
+      )}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

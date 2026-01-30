@@ -30,7 +30,7 @@ async function getNeighborhoodIds() {
 
   // Option 2: Fetch from your API (if available during build)
   try {
-    const response = await fetch("https://your-api.com/neighborhoods/ids");
+    const response = await fetch("https://your-api.com/bubbles/ids");
     const data = await response.json();
     return data.ids;
   } catch (error) {
@@ -184,7 +184,7 @@ export default function NeighborhoodDetailScreen() {
           style={styles.chatButton}
           onPress={() =>
             router.push(
-              `/neighborhoods/neighborhood-chat?neighborhoodId=${neighborhood.id}`
+              `/bubbles/neighborhood-chat?neighborhoodId=${neighborhood.id}`
             )
           }
         >

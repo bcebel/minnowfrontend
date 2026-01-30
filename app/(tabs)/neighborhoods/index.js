@@ -22,7 +22,11 @@ export default function NeighborhoodsScreen() {
   const router = useRouter();
 
   // Use MY_NEIGHBORHOODS query instead of GET_NEIGHBORHOODS
-  const { loading, error, data, refetch } = useQuery(MY_NEIGHBORHOODS);
+const { loading, error, data, refetch } = useQuery(MY_NEIGHBORHOODS, {
+  fetchPolicy: "cache-and-network", // Check cache first, but always update from server
+  nextFetchPolicy: "network-only", // Future calls go straight to server
+});
+
   const [joinNeighborhood] = useMutation(JOIN_NEIGHBORHOOD);
   const [leaveNeighborhood] = useMutation(LEAVE_NEIGHBORHOOD);
 
@@ -80,7 +84,7 @@ export default function NeighborhoodsScreen() {
           </TouchableOpacity>
 
           <Link
-            href={`/neighborhoods/neighborhood-chat?neighborhoodId=${item.id}`}
+            href={`/bubbles/neighborhood-chat?neighborhoodId=${item.id}`}
             asChild
           >
             <TouchableOpacity style={styles.viewButton}>
@@ -99,7 +103,7 @@ export default function NeighborhoodsScreen() {
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.browseButton}
-          onPress={() => router.push(`/neighborhoods/all`)} // You'll need to create this page
+          onPress={() => router.push(`/bubbles/all`)} // You'll need to create this page
         >
           <Text style={styles.browseButtonText}>
             🔍 Browse All Bubbles
@@ -108,7 +112,7 @@ export default function NeighborhoodsScreen() {
 
         <TouchableOpacity
           style={styles.createButton}
-          onPress={() => router.push(`/neighborhoods/create`)}
+          onPress={() => router.push(`/bubbles/create`)}
         >
           <Text style={styles.createButtonText}>
             ➕ Create New Bubble
@@ -130,7 +134,7 @@ export default function NeighborhoodsScreen() {
           </Text>
           <TouchableOpacity
             style={styles.browseButton}
-            onPress={() => router.push(`/neighborhoods/all`)}
+            onPress={() => router.push(`/bubbles/all`)}
           >
             <Text style={styles.browseButtonText}>
               Browse Bubbles to Join

@@ -29,7 +29,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
 import AdMessage from "../../components/AdMessage";
 import ChatMediaRenderer from "../../components/ChatMediaRenderer";
-import NeighborhoodLiveStreamRecorder from "@/components/NeighborhoodLiveStreamRecorder";
+import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
 import webtorrentService from "../../utils/webtorrentService";
 import convert from "heic-convert/browser";
 
@@ -1234,7 +1234,7 @@ setMessages((prev) => {
         <TouchableOpacity
           onPress={() =>
             router.push(
-              `/neighborhood-gallery?neighborhoodId=${neighborhoodId}`
+              `/bubbles/neighborhood-gallery?neighborhoodId=${neighborhoodId}`
             )
           }
           style={styles.galleryButton}
@@ -1245,7 +1245,7 @@ setMessages((prev) => {
         <TouchableOpacity
           onPress={() =>
             router.push(
-              `/neighborhoods/invite-links?neighborhoodId=${neighborhoodId}`
+              `/bubbles/invite-links?neighborhoodId=${neighborhoodId}`
             )
           }
           style={styles.galleryButton}
