@@ -72,6 +72,44 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+        <View style={styles.features}>
+          <View style={styles.featureItem}>
+            <Text
+              style={[
+                { color: "#ffffff" },
+                { backgroundColor: "#000" },
+                { marginBottom: 10 },
+                {fontSize: 20}
+              ]}
+            >
+              It’s a big club and you are in it.
+            </Text>
+            <Text
+              style={[
+                { color: "#ffffff" },
+                { backgroundColor: "#000" },
+                { marginBottom: 10 },
+                                {fontSize: 20}
+
+              ]}
+            >
+              Welcome to Bubblebase. The neighborhood-first social network where
+              the community powers the media and the users own the ads. Your
+              neighborhood seeds the media. 
+            </Text>
+            <Text
+              style={[
+                { color: "#ffffff" },
+                { backgroundColor: "#000" },
+                                {fontSize: 20}
+
+              ]}
+            >
+Decentralized. Fast. Unstoppable.
+              Invite-only access. No bots. No surveillance. Just us.
+            </Text>
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -212,6 +250,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   features: {
+    fontSize: 20,
     marginHorizontal: 20,
     padding: 16,
     backgroundColor: "transparent",

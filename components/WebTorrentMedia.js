@@ -114,13 +114,18 @@ saveMedia(media.cid, blob, mimeType, file.name);              }
 }
 
 const styles = StyleSheet.create({
-  video: { width: "100%", height: "100%", backgroundColor: "#000" },
+  video: {
+    width: "100%",
+    height: "100%", // Fill the container provided by AllNeighborhoodsGallery
+    objectFit: "contain", // 🎯 KEY: keeps the whole video visible
+    backgroundColor: "#000",
+  },
   image: {
     width: "100%",
-    height: "auto",
-    objectFit: "contain",
+    height: "100%", // 🎯 CHANGE THIS from 'auto' to '100%'
+    objectFit: "contain", // 🎯 KEY: keeps the whole image visible
     backgroundColor: "#000",
-  }, // Added image style
+  },
   loader: {
     flex: 1,
     justifyContent: "center",
