@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Linking,
   Dimensions,
+  Platform,
 } from "react-native";
 import { gql, useQuery } from "@apollo/client";
 import WebTorrentMedia from "../components/WebTorrentMedia";
@@ -232,7 +233,9 @@ if (isImage) {
 };
 
 export default function AllNeighborhoodsGallery() {
-  const { data, loading, error, refetch } = useQuery(GET_NEIGHBORHOOD_GALLERY);
+  const { data, loading, error, refetch } = useQuery(GET_NEIGHBORHOOD_GALLERY, {
+    fetchPolicy: "cache-and-network",
+  });
   const [refreshing, setRefreshing] = useState(false);
 const { data: adData } = useQuery(GET_RANDOM_AFFILIATE_LINK);
   // Extract and combine data from the single query result
@@ -410,8 +413,12 @@ if (item.isAd) {
         renderItem={renderItem}
         horizontal={true}
         pagingEnabled={true}
+        initialNumToRender={6}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
+        removeClippedSubviews={Platform.OS !== "web"}
         refreshing={refreshing}
         onRefresh={handleRefresh}
         ListFooterComponent={<View style={styles.footer} />}
@@ -422,9 +429,8 @@ if (item.isAd) {
 
 const styles = StyleSheet.create({
   mediaContainer: {
-    height: Dimensions.get("window").width * 0.5,
-    justifyContent: "center",
-    alignItems: "center",
+    padding: 10,
+    width: "100%", // 🎯 Remove the fixed height here
     backgroundColor: "#000",
   },
 
@@ -446,8 +452,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#1C0A2E",
     borderRadius: 12,
     marginHorizontal: 10,
-    maxHeight: Dimensions.get("window").width * .5,
-    maxWidth: Dimensions.get("window").width * .5,
+    maxHeight: Dimensions.get("window").width * 0.5,
+    maxWidth: Dimensions.get("window").width * 0.5,
     // Remove fixed height from card if you want it to wrap content,
     // OR set it large enough to fit media + header + metadata
     minHeight: 500,
@@ -592,7 +598,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: "100%",
-    height: 250,
+    aspectRatio: 1, // 🎯 Force a square if it's a photo, or 16/9
     borderRadius: 8,
     backgroundColor: "#222222",
   },
