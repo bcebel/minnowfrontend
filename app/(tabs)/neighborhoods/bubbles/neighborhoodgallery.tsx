@@ -309,7 +309,6 @@ export default function NeighborhoodGallery({
         <View style={styles.info}>
           <Text>👤 {item.user?.username || "Unknown"}</Text>
           <Text>🏘️ {item.neighborhood?.name || "No neighborhood"}</Text>
-          <Text>📅 {new Date(item.createdAt).toLocaleDateString()}</Text>
         </View>
       </View>
     );

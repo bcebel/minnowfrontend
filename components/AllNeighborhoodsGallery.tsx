@@ -312,27 +312,7 @@ if (item.isAd) {
   }
     return (
       <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.itemTitle} numberOfLines={1}>
-              {item.title || item.fileName || "Untitled"}
-            </Text>
-            <View
-              style={[
-                styles.fileTypeBadge,
-                fileType === "video" ? styles.videoBadge : styles.imageBadge,
-              ]}
-            >
-              <Text style={styles.badgeText}>{fileType.toUpperCase()}</Text>
-            </View>
-          </View>
 
-          {item.description ? (
-            <Text style={styles.description} numberOfLines={2}>
-              {item.description}
-            </Text>
-          ) : null}
-        </View>
 
 
         <View style={styles.mediaContainer}>
@@ -354,10 +334,7 @@ if (item.isAd) {
           </View>
 
           <View style={styles.metadataRow}>
-            <Text style={styles.metadataLabel}>Posted:</Text>
-            <Text style={styles.metadataValue}>
-              {new Date(item.createdAt).toLocaleDateString()}
-            </Text>
+ 
           </View>
         </View>
       </View>
