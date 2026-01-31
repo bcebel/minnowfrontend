@@ -74,7 +74,7 @@ export default function HomeScreen() {
           <View style={styles.featureItem}>
             <Text
               style={[
-                { color: "#ffffff" },
+                { color: "#F5F2FA" },
                 { marginBottom: 15 },
                 { fontSize: 24 },
               ]}
@@ -83,7 +83,7 @@ export default function HomeScreen() {
             </Text>
             <Text
               style={[
-                { color: "#ffffff" },
+                { color: "#F5F2FA" },
                 { marginBottom: 15 },
                 { fontSize: 24 },
               ]}
@@ -92,7 +92,7 @@ export default function HomeScreen() {
             </Text>
             <Text
               style={[
-                { color: "#ffffff" },
+                { color: "#F5F2FA" },
                 { backgroundColor: "#000" },
                 { fontSize: 24 },
                 { marginBottom: 15 },
@@ -226,23 +226,20 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   primaryButton: {
-    maxWidth: 280,
-    borderRadius: 100,
+    borderWidth: 2,
     paddingVertical: 16,
     paddingHorizontal: 20,
+    borderRadius: 48,
     alignItems: "center",
-    borderWidth: 2,
     borderColor: "#B8B0C9",
   },
   primaryButtonText: {
-    maxWidth: 275,
-    borderRadius: 100,
     fontSize: 16,
     fontWeight: "bold",
   },
   secondaryButton: {
     borderWidth: 2,
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 48,
     alignItems: "center",
@@ -306,7 +303,7 @@ const styles = StyleSheet.create({
 
   logoutButton: {
     borderWidth: 2,
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 48,
     borderColor: "#B8B0C9",
