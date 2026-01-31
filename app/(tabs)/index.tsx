@@ -93,20 +93,13 @@ export default function HomeScreen() {
             <Text
               style={[
                 { color: "#F5F2FA" },
-                { backgroundColor: "#000" },
                 { fontSize: 24 },
                 { marginBottom: 15 },
               ]}
             >
               Community powered media and the users own the ads.
             </Text>
-            <Text
-              style={[
-                { color: "#ffffff" },
-                { backgroundColor: "#000" },
-                { fontSize: 24 },
-              ]}
-            >
+            <Text style={[{ color: "#ffffff" }, { fontSize: 24 }]}>
               Decentralized social media for the people.
             </Text>
           </View>
