@@ -27,7 +27,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <ImageBackground
-        source={require("@/assets/images/bubble.avif")}
+        source={require("@/assets/images/bbl.jpg")}
         style={styles.heroBubble}
         resizeMode="cover"
       />
@@ -38,7 +38,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroOverlay}>
-          <Text style={[styles.heroTitle, { backgroundColor: theme.tint }]}>
+          <Text style={[styles.heroTitle, { color: "#F5F2FA" }]}>
             bubblebase.app
           </Text>
         </View>
@@ -46,28 +46,26 @@ export default function HomeScreen() {
         {/* Rest of your content */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity
-            style={[styles.secondaryButton, { borderColor: theme.tint }]}
+            style={[styles.secondaryButton, { borderColor: "#B8B0C9" }]}
             onPress={() => router.push("/login")}
           >
-            <Text style={[styles.secondaryButtonText, { color: theme.tint }]}>
+            <Text style={[styles.secondaryButtonText, { color: "#B8B0C9" }]}>
               Sign In
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleLogout}
-            style={[styles.logoutButton, { backgroundColor: "#130720" }]}
+            style={[styles.logoutButton, { backgroundColor: "#591155" }]}
           >
-            <Text style={[styles.logoutButtonText, { color: theme.tint }]}>
+            <Text style={[styles.logoutButtonText, { color: "#B8B0C9" }]}>
               Logout
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: theme.tint }]}
+            style={[styles.primaryButton, { backgroundColor: "#151159" }]}
             onPress={() => router.push("/register")}
           >
-            <Text
-              style={[styles.primaryButtonText, { color: theme.background }]}
-            >
+            <Text style={[styles.primaryButtonText, { color: "#B8B0C9" }]}>
               New User? Join the Bubble
             </Text>
           </TouchableOpacity>
@@ -77,36 +75,39 @@ export default function HomeScreen() {
             <Text
               style={[
                 { color: "#ffffff" },
-                { backgroundColor: "#000" },
-                { marginBottom: 10 },
-                {fontSize: 20}
+                { marginBottom: 15 },
+                { fontSize: 24 },
               ]}
             >
-              It’s a big club and you are in it.
+              Welcome to Bubblebase.
+            </Text>
+            <Text
+              style={[
+                { color: "#ffffff" },
+                { marginBottom: 15 },
+                { fontSize: 24 },
+              ]}
+            >
+              It’s a big club and you're in it.
             </Text>
             <Text
               style={[
                 { color: "#ffffff" },
                 { backgroundColor: "#000" },
-                { marginBottom: 10 },
-                                {fontSize: 20}
-
+                { fontSize: 24 },
+                { marginBottom: 15 },
               ]}
             >
-              Welcome to Bubblebase. The neighborhood-first social network where
-              the community powers the media and the users own the ads. Your
-              neighborhood seeds the media. 
+              Community powered media and the users own the ads.
             </Text>
             <Text
               style={[
                 { color: "#ffffff" },
                 { backgroundColor: "#000" },
-                                {fontSize: 20}
-
+                { fontSize: 24 },
               ]}
             >
-Decentralized. Fast. Unstoppable.
-              Invite-only access. No bots. No surveillance. Just us.
+              Decentralized social media for the people.
             </Text>
           </View>
         </View>
@@ -230,6 +231,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#B8B0C9",
   },
   primaryButtonText: {
     maxWidth: 275,
@@ -241,9 +244,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 12,
+    borderRadius: 48,
     alignItems: "center",
-    backgroundColor: "#130720",
+    backgroundColor: "#391159",
   },
   secondaryButtonText: {
     fontSize: 18,
@@ -305,8 +308,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 12,
-    borderColor: "#ff00ff",
+    borderRadius: 48,
+    borderColor: "#B8B0C9",
     alignItems: "center",
     backgroundColor: "#130720",
   },
