@@ -182,18 +182,20 @@ const MediaDisplay = ({ item }: { item: any }) => {
     );
   }
 
-  // 🎯 If it's a regular image → Direct image
-  if (isImage) {
-    return (
+if (isImage) {
+  return (
+    <View style={styles.fixedMediaWrapper}>
       <Image
         source={{ uri: displayUrl }}
-        style={styles.image}
-        contentFit="cover"
+        // Use a style that doesn't conflict with the webtorrent one
+        style={styles.standardImage}
+        contentFit="contain" // 🎯 Use contain so nothing cuts off
         transition={300}
-        onError={() => console.log("Image failed to load")}
+        onError={(e) => console.log("Image failed:", displayUrl, e)}
       />
-    );
-  }
+    </View>
+  );
+}
 
   // 🎯 If it's a video → Show a thumbnail with play button
   if (isVideo) {
@@ -419,6 +421,40 @@ if (item.isAd) {
 }
 
 const styles = StyleSheet.create({
+  mediaContainer: {
+    height: Dimensions.get("window").width * 0.5,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
+  },
+
+  fixedMediaWrapper: {
+    height: Dimensions.get("window").width * 0.5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  standardImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 8,
+    backgroundColor: "#1C0A2E",
+  },
+
+  // Update your existing card style to handle the vertical stack better
+  card: {
+    backgroundColor: "#1C0A2E",
+    borderRadius: 12,
+    marginHorizontal: 10,
+    maxHeight: Dimensions.get("window").width * .5,
+    maxWidth: Dimensions.get("window").width * .5,
+    // Remove fixed height from card if you want it to wrap content,
+    // OR set it large enough to fit media + header + metadata
+    minHeight: 500,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "#222222",
+  },
   container: {
     flex: 1,
     backgroundColor: "#130720",
@@ -494,18 +530,7 @@ const styles = StyleSheet.create({
     padding: 0, // Set to 0 or remove padding to avoid clipping
     paddingBottom: 20, // Keep if you want space below the card
   },
-  card: {
-    backgroundColor: "#1C0A2E",
-    borderRadius: 12,
-    // Add margin to separate cards visually (if desired)
-    marginHorizontal: 10,
-    // 👇 CRITICAL: Set card width to screen width minus margins
-    width: Dimensions.get("window").width - 20, // (Full width - left margin - right margin)
-    marginBottom: 15,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "#222222",
-  },
+
   cardHeader: {
     padding: 15,
     paddingBottom: 10,
@@ -547,9 +572,7 @@ const styles = StyleSheet.create({
     color: "#CCCCCC",
     lineHeight: 20,
   },
-  mediaContainer: {
-    padding: 10,
-  },
+
   noMedia: {
     padding: 40,
     backgroundColor: "#130720",

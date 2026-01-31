@@ -46,10 +46,10 @@ export default function HomeScreen() {
         {/* Rest of your content */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity
-            style={[styles.secondaryButton, { borderColor: "#B8B0C9" }]}
+            style={[styles.secondaryButton, { borderColor: "#F5F2FA" }]}
             onPress={() => router.push("/login")}
           >
-            <Text style={[styles.secondaryButtonText, { color: "#B8B0C9" }]}>
+            <Text style={[styles.secondaryButtonText, { color: "#F5F2FA" }]}>
               Sign In
             </Text>
           </TouchableOpacity>
@@ -57,7 +57,7 @@ export default function HomeScreen() {
             onPress={handleLogout}
             style={[styles.logoutButton, { backgroundColor: "#591155" }]}
           >
-            <Text style={[styles.logoutButtonText, { color: "#B8B0C9" }]}>
+            <Text style={[styles.logoutButtonText, { color: "#F5F2FA" }]}>
               Logout
             </Text>
           </TouchableOpacity>
@@ -65,7 +65,7 @@ export default function HomeScreen() {
             style={[styles.primaryButton, { backgroundColor: "#151159" }]}
             onPress={() => router.push("/register")}
           >
-            <Text style={[styles.primaryButtonText, { color: "#B8B0C9" }]}>
+            <Text style={[styles.primaryButtonText, { color: "#F5F2FA" }]}>
               New User? Join the Bubble
             </Text>
           </TouchableOpacity>
@@ -99,7 +99,7 @@ export default function HomeScreen() {
             >
               Community powered media and the users own the ads.
             </Text>
-            <Text style={[{ color: "#ffffff" }, { fontSize: 24 }]}>
+            <Text style={[{ color: "#F5F2FA" }, { fontSize: 24 }]}>
               Decentralized social media for the people.
             </Text>
           </View>
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 48,
     alignItems: "center",
-    borderColor: "#B8B0C9",
+    borderColor: "#F5F2FA",
   },
   primaryButtonText: {
     fontSize: 16,
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 48,
-    borderColor: "#B8B0C9",
+    borderColor: "#F5F2FA",
     alignItems: "center",
     backgroundColor: "#130720",
   },
