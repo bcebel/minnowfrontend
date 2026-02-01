@@ -68,11 +68,7 @@ export default function AdMessage({ ad }: AdProps) {
       )}
 
       <View style={styles.content}>
-        <Text style={styles.title}>{ad.title || "Sponsored Link"}</Text>
-        {ad.description ? (
-          <Text style={styles.description} numberOfLines={2}>
-            {ad.description}
-          </Text>
+    
         ) : (
           <Text style={styles.defaultDescription}>
             Visit our partner's website
