@@ -97,7 +97,16 @@ export default function HomeScreen() {
                 { marginBottom: 15 },
               ]}
             >
-              Community powered media and the users own the ads.
+              Community powered p2p media.
+            </Text>
+            <Text
+              style={[
+                { color: "#F5F2FA" },
+                { fontSize: 24 },
+                { marginBottom: 15 },
+              ]}
+            >
+              Users run free affiliate ads.
             </Text>
             <Text style={[{ color: "#F5F2FA" }, { fontSize: 24 }]}>
               Decentralized social media for the people.
