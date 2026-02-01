@@ -102,9 +102,7 @@ export default function Root({ children }: PropsWithChildren) {
           }}
         />
         {/* Preconnect for performance */}
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" />        <link
           rel="preconnect"
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"

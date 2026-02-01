@@ -101,18 +101,11 @@ const { loading, error, data, refetch } = useQuery(MY_NEIGHBORHOODS, {
       <Text style={styles.header}>🏘️ My Bubbles</Text>
 
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.browseButton}
-          onPress={() => router.push(`/bubbles/all`)} // You'll need to create this page
-        >
-          <Text style={styles.browseButtonText}>
-            🔍 Browse All Bubbles
-          </Text>
-        </TouchableOpacity>
+ 
 
         <TouchableOpacity
           style={styles.createButton}
-          onPress={() => router.push(`/bubbles/create`)}
+          onPress={() => router.push(`/neighborhoods/bubbles/create`)}
         >
           <Text style={styles.createButtonText}>
             ➕ Create New Bubble
