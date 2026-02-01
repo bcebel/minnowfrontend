@@ -67,7 +67,11 @@ const JOIN_VIA_INVITE_LINK = gql`
   }
 `;
 
+
 export default function JoinViaLinkScreen() {
+  const [hasJoined, setHasJoined] = useState(false);
+  const [newNeighborhoodId, setNewNeighborhoodId] = useState(null);
+
   const params = useLocalSearchParams();
   const navigation = useNavigation();
   const router = useRouter();
@@ -89,10 +93,10 @@ export default function JoinViaLinkScreen() {
           {
             text: "Go to Neighborhood",
             onPress: () => {
-              // Navigate to the neighborhood
-              router.push(
-                `/bubbles/${data.joinViaInviteLink.neighborhood.id}`
-              );
+router.replace({
+  pathname: "/neighborhoods/bubbles/neighborhood-chat",
+  params: { neighborhoodId: nId },
+});
             },
           },
         ]);
@@ -106,17 +110,22 @@ export default function JoinViaLinkScreen() {
     },
   });
 
-  const handleJoin = async () => {
-    setIsJoining(true);
-    try {
-      await joinViaInviteLink({
-        variables: { code },
-      });
-    } catch (err) {
-      setIsJoining(false);
-      console.error("Join error:", err);
+const handleJoin = async () => {
+  setIsJoining(true);
+  try {
+    const result = await joinViaInviteLink({ variables: { code } });
+    if (result.data?.joinViaInviteLink.success) {
+      setNewNeighborhoodId(result.data.joinViaInviteLink.neighborhood.id);
+      setHasJoined(true); // 🎯 Switch the UI
+    } else {
+      Alert.alert("Error", result.data.joinViaInviteLink.message);
     }
-  };
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setIsJoining(false);
+  }
+};
 
   if (loading) {
     return (
@@ -190,26 +199,34 @@ export default function JoinViaLinkScreen() {
         </View>
       )}
 
+{!hasJoined ? (
       <TouchableOpacity
         style={[styles.joinButton, isJoining && styles.joinButtonDisabled]}
         onPress={handleJoin}
         disabled={isJoining}
       >
-        {isJoining ? (
-          <ActivityIndicator color="#FFF" />
-        ) : (
-          <Text style={styles.joinButtonText}>Join Neighborhood</Text>
-        )}
+        {isJoining ? <ActivityIndicator color="#FFF" /> : <Text style={styles.joinButtonText}>Join Neighborhood</Text>}
       </TouchableOpacity>
-
+    ) : (
       <TouchableOpacity
-        style={styles.cancelButton}
-        onPress={() => router.back()}
+        style={[styles.joinButton, { backgroundColor: '#28a745' }]} // Green for success
+        onPress={() => {
+          router.push({
+            pathname: "/neighborhoods/bubbles/neighborhood-chat",
+            params: { neighborhoodId: newNeighborhoodId }
+          });
+        }}
       >
-        <Text style={styles.cancelButtonText}>Cancel</Text>
+        <Text style={styles.joinButtonText}>✅ GO TO NEIGHBORHOOD</Text>
       </TouchableOpacity>
-    </View>
-  );
+    )}
+
+    <TouchableOpacity style={styles.cancelButton} onPress={() => router.back()}>
+      <Text style={styles.cancelButtonText}>{hasJoined ? "Back to Home" : "Cancel"}</Text>
+    </TouchableOpacity>
+  </View>
+);
+
 }
 
 const styles = StyleSheet.create({
