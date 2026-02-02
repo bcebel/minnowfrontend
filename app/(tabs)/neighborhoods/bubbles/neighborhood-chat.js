@@ -543,12 +543,10 @@ export default function NeighborhoodChatScreen() {
               <Text style={styles.timestamp}>{timestamp}</Text>
             </View>
 
-            {/* 1. Normal Text Message (Not Shared) */}
             {!!message.content && !message.content.startsWith("Shared: ") && (
               <Text style={styles.messageText}>{message.content}</Text>
             )}
 
-            {/* 2. Media Layer (Photos, Videos, or Livestream Swarms) */}
             {(message.imageUrl ||
               message.videoUrl ||
               message.fileUrl ||
@@ -558,7 +556,6 @@ export default function NeighborhoodChatScreen() {
               </View>
             )}
 
-            {/* 3. Shared Link/Item Label */}
             {!!message.content && message.content.startsWith("Shared: ") && (
               <Text style={styles.sharedLabel}>{message.content}</Text>
             )}
@@ -1147,25 +1144,34 @@ export default function NeighborhoodChatScreen() {
 
       console.log("✅ IPFS Result:", { ipfsUrl, magnetLink });
 
-      let thumbnailUrl = null;
+let thumbnailUrl = null;
 
-      if (type === "video") {
-        try {
-          console.log("🎬 Starting thumbnail generation for video...");
+if (type === "video") {
+  try {
+    console.log("🎬 Attempting thumbnail generation...");
 
-          const { base64, format, size } = await generateThumbnail(fileUri);
+    // 1. Create a timeout so iPhone doesn't hang the whole upload
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Thumb Timeout")), 2500),
+    );
 
-          console.log(
-            `✅ ${format.toUpperCase()} thumbnail generated: ${size} bytes`,
-          );
-          thumbnailUrl = base64;
-        } catch (thumbnailError) {
-          console.error(
-            "❌ Thumbnail generation failed completely:",
-            thumbnailError.message,
-          );
-        }
-      }
+    // 2. Try the actual generation
+    const thumbResult = await Promise.race([
+      generateThumbnail(fileUri),
+      timeout,
+    ]);
+
+    thumbnailUrl = thumbResult.base64;
+    console.log("✅ Thumbnail success (PC or compatible Mobile)");
+  } catch (err) {
+    // 3. PC will usually succeed. iPhone will usually hit this catch block.
+    // Either way, the upload CONTINUES.
+    console.log(
+      "⚠️ Thumbnail skipped or timed out. Proceeding with video only.",
+    );
+    thumbnailUrl = null;
+  }
+}
 
       console.log("📊 Final return values:", {
         ipfsUrl,
