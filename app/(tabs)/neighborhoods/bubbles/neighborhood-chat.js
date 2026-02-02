@@ -543,10 +543,12 @@ export default function NeighborhoodChatScreen() {
               <Text style={styles.timestamp}>{timestamp}</Text>
             </View>
 
+            {/* 1. Normal Text Message (Not Shared) */}
             {!!message.content && !message.content.startsWith("Shared: ") && (
               <Text style={styles.messageText}>{message.content}</Text>
             )}
 
+            {/* 2. Media Layer (Photos, Videos, or Livestream Swarms) */}
             {(message.imageUrl ||
               message.videoUrl ||
               message.fileUrl ||
@@ -556,6 +558,7 @@ export default function NeighborhoodChatScreen() {
               </View>
             )}
 
+            {/* 3. Shared Link/Item Label */}
             {!!message.content && message.content.startsWith("Shared: ") && (
               <Text style={styles.sharedLabel}>{message.content}</Text>
             )}
@@ -629,54 +632,47 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  const initializeSocket = (token) => {
-    console.log("🔌 Initializing neighborhood socket...");
+ const initializeSocket = (token) => {
+   console.log("🔌 Initializing neighborhood socket...");
 
-    const newSocket = io(BACKEND_URL, {
-      auth: { token },
-      path: "/socket.io-chat/",
-      transports: ["polling"],
-    });
+   // 1. Force WebSocket to stop the "Polling" lag on iPhone
+   const newSocket = io(BACKEND_URL, {
+     auth: { token },
+     path: "/socket.io-chat/",
+     transports: ["polling","websocket"], // 🎯 FIX: No polling, direct connection
+     jsonp: false,
+     forceNew: true,
+   });
 
-    newSocket.on("connect", () => {
-      console.log("✅ Neighborhood socket connected");
-      refetch(); // Initial fetch
-      setSocket(newSocket);
-      newSocket.emit("join-neighborhood", neighborhoodId);
-    });
+   newSocket.on("connect", () => {
+     console.log("✅ Neighborhood socket connected");
+     refetch();
+     setSocket(newSocket);
+     newSocket.emit("join-neighborhood", neighborhoodId);
+   });
 
-    newSocket.on("connect_error", (err) => {
-      console.error("❌ Neighborhood socket connection error:", err);
-    });
+   newSocket.on("connect_error", (err) => {
+     // Don't spam logs, just one clear error
+     console.log("⚠️ Socket connection issue:", err.message);
+   });
 
-    newSocket.on("message", async (newMsg) => {
-      if (newMsg.sessionId) {
-        return;
-      }
+   newSocket.on("message", async (newMsg) => {
+     if (newMsg.sessionId) return;
 
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === newMsg.id)) return prev;
-        return [...prev, newMsg];
-      });
+     setMessages((prev) => {
+       // Dedup check
+       if (prev.some((m) => m.id === newMsg.id)) return prev;
+       return [...prev, newMsg];
+     });
 
-      // Refetch after a short delay to ensure media is included
-      setTimeout(() => {
-        refetch();
-      }, 500);
+     // Quick scroll
+     setTimeout(() => {
+       scrollViewRef.current?.scrollToEnd({ animated: true });
+     }, 100);
+   });
 
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 300);
-    });
-
-    // Add this new event listener for refresh
-    newSocket.on("refresh-messages", async () => {
-      console.log("🔄 Refreshing messages via socket");
-      await refetch();
-    });
-
-    setSocket(newSocket);
-  };
+   setSocket(newSocket);
+ };
 
   const takeCameraMedia = async () => {
     setUploading(true);
@@ -834,64 +830,130 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  const unifiedUpload = async (asset, type, fileSize, mimeType) => {
-    setUploading(true);
-    let uploadUri = null; // Track this for cleanup
+  // Helper to actually send data to backend
+  const performIpfsUpload = async (
+    blob,
+    fileName,
+    type,
+    token,
+    neighborhoodId,
+  ) => {
+    const formData = new FormData();
+    formData.append("video", blob, fileName); // Pass Blob directly!
+    formData.append("title", fileName);
+    formData.append("description", `Uploaded ${type}`);
+    if (neighborhoodId) formData.append("neighborhoodId", neighborhoodId);
 
-    try {
-      const token = await AsyncStorage.getItem("token");
-      const response = await fetch(asset.uri);
-      const rawBlob = await response.blob();
+    console.log(
+      `📤 Uploading ${fileName} (${(blob.size / 1024 / 1024).toFixed(2)} MB)`,
+    );
 
-      // 1. Normalize & Spoof
-      const cleanFile = await normalizeImage(rawBlob, asset.name);
-      const safeName = cleanFile.name;
+    const res = await fetch(`${BACKEND_URL}/upload`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
 
-      // 2. Create local URL for the upload tool
-      uploadUri = URL.createObjectURL(cleanFile);
-
-      // 3. IPFS UPLOAD
-      const uploadResult = await uploadToIPFS(
-        uploadUri,
-        safeName,
-        type,
-        token,
-        neighborhoodId,
-      );
-
-      // 4. SEND MESSAGE
-      await sendMessageMutation({
-        variables: {
-          content: `Shared: ${safeName}`,
-          neighborhoodId: neighborhoodId,
-          fileName: safeName,
-          fileType: type,
-          // Force the mimeType to image/jpeg so the DB knows how to serve it
-          mimeType: type === "image" ? "image/jpeg" : cleanFile.type,
-          imageUrl: type === "image" ? uploadResult.ipfsUrl : null,
-          videoUrl: type === "video" ? uploadResult.ipfsUrl : null,
-          fileUrl:
-            type !== "image" && type !== "video" ? uploadResult.ipfsUrl : null,
-          magnetLink: uploadResult.magnetLink || "",
-          thumbnailUrl: uploadResult.thumbnailUrl || null,
-          sessionId: null,
-          chunkIndex: null,
-          totalChunks: null,
-        },
-      });
-
-      if (refetch) await refetch();
-    } catch (error) {
-      console.error("❌ Final Upload Crash:", error);
-    } finally {
-      // 🔥 THE FIX FOR LAG: Clear the memory!
-      if (uploadUri) {
-        URL.revokeObjectURL(uploadUri);
-        console.log("🧹 Memory cleared: Revoked upload blob.");
-      }
-      setUploading(false);
-    }
+    if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
+    return await res.json();
   };
+
+ const unifiedUpload = async (asset, type, fileSize, mimeType) => {
+   console.log("🚀 Starting Unified Upload...");
+   setUploading(true);
+   let tempUrlForThumbnail = null;
+
+   try {
+     const token = await AsyncStorage.getItem("token");
+
+     let uploadBlob = null;
+     let safeName = asset.name;
+
+     // 🎯 STEP 1: Get the File efficiently
+     // If we already have the DOM File object (Web), use it directly!
+     // This prevents "Double Memory" usage (reading blob vs holding file ref)
+     if (asset.file) {
+       console.log("📂 Using direct file object (Memory Safe)");
+       uploadBlob = asset.file;
+     } else {
+       console.log("🔄 Fetching blob from URI...");
+       const response = await fetch(asset.uri);
+       uploadBlob = await response.blob();
+     }
+
+     // 🎯 STEP 2: Normalize Name (spaces to underscores)
+     safeName = uploadBlob.name || asset.name || `upload_${Date.now()}`;
+     safeName = safeName.replace(/\s+/g, "_").replace(/[()]/g, "");
+
+     // 🎯 STEP 3: Smart Thumbnail Logic
+     let thumbnailUrl = null;
+     const SIZE_LIMIT_MB = 25; // ⚠️ Safety limit for iPhone
+
+     if (type === "video") {
+       const sizeInMB = uploadBlob.size / (1024 * 1024);
+
+       if (sizeInMB > SIZE_LIMIT_MB) {
+         console.log(
+           `⚠️ Video is ${sizeInMB.toFixed(1)}MB. Skipping thumbnail to prevent iOS crash.`,
+         );
+         thumbnailUrl = null;
+       } else {
+         try {
+           // Only generate thumbnail for small/medium videos
+           console.log("🎬 Video is small enough. Attempting thumbnail...");
+           tempUrlForThumbnail = URL.createObjectURL(uploadBlob);
+           const thumbResult = await generateThumbnail(tempUrlForThumbnail);
+           thumbnailUrl = thumbResult.base64;
+         } catch (e) {
+           console.log("⚠️ Thumbnail skipped (timeout or error).");
+           thumbnailUrl = null;
+         }
+       }
+     }
+
+     // 🎯 STEP 4: Perform the Upload
+     // Using the helper function that keeps FormData clean
+     const uploadResult = await performIpfsUpload(
+       uploadBlob,
+       safeName,
+       type,
+       token,
+       neighborhoodId,
+     );
+
+     console.log("✅ IPFS Upload Complete:", uploadResult.ipfsUrl);
+
+     // 🎯 STEP 5: Send the Message
+     await sendMessageMutation({
+       variables: {
+         content: `Shared: ${safeName}`,
+         neighborhoodId: neighborhoodId,
+         fileName: safeName,
+         fileType: type,
+         mimeType: type === "image" ? "image/jpeg" : uploadBlob.type,
+         imageUrl: type === "image" ? uploadResult.ipfsUrl : null,
+         videoUrl: type === "video" ? uploadResult.ipfsUrl : null,
+         fileUrl:
+           type !== "image" && type !== "video" ? uploadResult.ipfsUrl : null,
+         magnetLink: uploadResult.magnetLink || "",
+         thumbnailUrl: thumbnailUrl,
+       },
+     });
+
+     if (refetch) await refetch();
+   } catch (error) {
+     console.error("❌ Upload failed:", error);
+     Alert.alert(
+       "Upload Error",
+       "The file could not be uploaded. It might be too large for this device.",
+     );
+   } finally {
+     if (tempUrlForThumbnail) {
+       URL.revokeObjectURL(tempUrlForThumbnail);
+     }
+     setUploading(false);
+   }
+ };
 
   const uploadChunkedVideo = async (asset) => {
     console.log("🎬 Starting chunked video upload...");
@@ -1041,6 +1103,11 @@ export default function NeighborhoodChatScreen() {
     console.log("🔄 Starting thumbnail generation for:", videoUrl);
 
     return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        console.log("⚠️ Thumbnail timed out (iPhone restriction), skipping...");
+        reject(new Error("Timeout")); // This allows the catch block to run and upload to proceed
+      }, 2000);
+
       const video = document.createElement("video");
       video.crossOrigin = "anonymous";
       video.src = videoUrl;
@@ -1048,6 +1115,7 @@ export default function NeighborhoodChatScreen() {
       video.muted = true;
 
       video.onloadeddata = async () => {
+        clearTimeout(timeoutId);
         console.log("✅ Video loaded successfully");
 
         try {
@@ -1084,6 +1152,7 @@ export default function NeighborhoodChatScreen() {
       };
 
       video.onerror = (e) => {
+        clearTimeout(timeoutId);
         console.error("❌ Video load failed:", e);
         reject(new Error(`Video load error: ${e.message}`));
       };
@@ -1099,97 +1168,6 @@ export default function NeighborhoodChatScreen() {
     });
   };
 
-  const uploadToIPFS = async (
-    fileUri,
-    fileName,
-    type,
-    token,
-    neighborhoodId,
-  ) => {
-    try {
-      const response = await fetch(fileUri);
-      const blob = await response.blob();
-
-      const formData = new FormData();
-      formData.append("video", blob, fileName);
-      formData.append("title", fileName);
-      formData.append("description", `Uploaded ${type} - ${fileName}`);
-
-      if (neighborhoodId) {
-        formData.append("neighborhoodId", neighborhoodId);
-      }
-
-      console.log("📤 IPFS Upload:", {
-        fileName,
-        type,
-        size: blob.size,
-        neighborhoodId,
-      });
-
-      const res = await fetch(`${BACKEND_URL}/upload`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
-      console.log("📥 upload response status:", res.status);
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`IPFS upload failed: ${res.status} – ${errorText}`);
-      }
-
-      const result = await res.json();
-      const { ipfsUrl, magnetLink } = result;
-
-      console.log("✅ IPFS Result:", { ipfsUrl, magnetLink });
-
-let thumbnailUrl = null;
-
-if (type === "video") {
-  try {
-    console.log("🎬 Attempting thumbnail generation...");
-
-    // 1. Create a timeout so iPhone doesn't hang the whole upload
-    const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Thumb Timeout")), 2500),
-    );
-
-    // 2. Try the actual generation
-    const thumbResult = await Promise.race([
-      generateThumbnail(fileUri),
-      timeout,
-    ]);
-
-    thumbnailUrl = thumbResult.base64;
-    console.log("✅ Thumbnail success (PC or compatible Mobile)");
-  } catch (err) {
-    // 3. PC will usually succeed. iPhone will usually hit this catch block.
-    // Either way, the upload CONTINUES.
-    console.log(
-      "⚠️ Thumbnail skipped or timed out. Proceeding with video only.",
-    );
-    thumbnailUrl = null;
-  }
-}
-
-      console.log("📊 Final return values:", {
-        ipfsUrl,
-        magnetLink,
-        thumbnailUrl,
-        hasThumbnail: !!thumbnailUrl,
-      });
-
-      return {
-        ipfsUrl,
-        magnetLink,
-        thumbnailUrl,
-      };
-    } catch (error) {
-      console.error("❌ IPFS upload error:", error);
-      throw error;
-    }
-  };
 
   const neighborhoodName =
     neighborhoodData?.neighborhood?.name || "Neighborhood";
