@@ -73,16 +73,19 @@ const getFileType = (fileName) => {
 };
 
 // Simple Video Player Component
+// Updated SimpleVideoPlayer Component
 const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
-  // 1. Force useVideoPlayer to handle the specific requirements of mobile browsers
   const player = useVideoPlayer(url, (player) => {
     player.loop = false;
-    // player.muted = true; // 🎯 Unmute if you want, but muted helps it load faster
+    // iPhone requires user interaction for sound, so start muted
+    player.muted = true;
+    // iPhone needs explicit configuration
+    player.allowsExternalPlayback = true;
   });
 
   useEffect(() => {
-    // 2. We don't call player.play() immediately anymore
-    // because mobile browsers block autoplay unless muted.
+    // iPhone Safari blocks autoplay, so we don't auto-play
+    // The user will need to tap the play button
     return () => {
       if (isTorrent && url.startsWith("blob:")) {
         URL.revokeObjectURL(url);
@@ -95,12 +98,14 @@ const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
       <VideoView
         player={player}
         style={styles.videoPlayer}
-        showsControls={true}
-        contentFit="contain"
-        // 🎯 FIX: These 3 lines are REQUIRED for iPhone/Web playback
+        // iPhone requires native controls to be enabled
+        nativeControls={Platform.OS === 'web' && /iPhone|iPad|iPod/.test(navigator.userAgent)}
         allowsFullscreen={true}
         allowsExternalPlayback={true}
-        nativeControls={true}
+        // For iPhone web, we need specific props
+        allowsPictureInPicture={true}
+        requiresLinearPlayback={false}
+        contentFit="contain"
       />
       {fileName && (
         <Text style={styles.videoCaption} numberOfLines={1}>
@@ -632,47 +637,59 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
- const initializeSocket = (token) => {
-   console.log("🔌 Initializing neighborhood socket...");
+const initializeSocket = (token) => {
+  console.log("🔌 Initializing neighborhood socket for iPhone...");
 
-   // 1. Force WebSocket to stop the "Polling" lag on iPhone
-   const newSocket = io(BACKEND_URL, {
-     auth: { token },
-     path: "/socket.io-chat/",
-     transports: ["polling","websocket"], // 🎯 FIX: No polling, direct connection
-     jsonp: false,
-     forceNew: true,
-   });
+  // iPhone-specific socket configuration
+  const newSocket = io(BACKEND_URL, {
+    auth: { token },
+    path: "/socket.io-chat/",
+    // iPhone works better with websocket priority
+    transports: ["websocket", "polling"],
+    // iPhone connection optimizations
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    timeout: 10000,
+    // Force JSON for better iPhone compatibility
+    forceJSONP: false,
+    jsonp: false,
+    // Enable debugging for iPhone issues
+    debug: process.env.NODE_ENV === "development",
+  });
 
-   newSocket.on("connect", () => {
-     console.log("✅ Neighborhood socket connected");
-     refetch();
-     setSocket(newSocket);
-     newSocket.emit("join-neighborhood", neighborhoodId);
-   });
+  newSocket.on("connect", () => {
+    console.log("✅ Neighborhood socket connected on iPhone");
+    refetch();
+    setSocket(newSocket);
+    newSocket.emit("join-neighborhood", neighborhoodId);
+  });
 
-   newSocket.on("connect_error", (err) => {
-     // Don't spam logs, just one clear error
-     console.log("⚠️ Socket connection issue:", err.message);
-   });
+  newSocket.on("connect_error", (err) => {
+    console.log("⚠️ iPhone Socket connection issue:", err.message);
+    // Try to reconnect with different transport if websocket fails
+    if (err.message.includes("websocket")) {
+      console.log("🔄 Falling back to polling for iPhone...");
+      newSocket.io.opts.transports = ["polling", "websocket"];
+    }
+  });
 
-   newSocket.on("message", async (newMsg) => {
-     if (newMsg.sessionId) return;
+  newSocket.on("message", async (newMsg) => {
+    if (newMsg.sessionId) return;
 
-     setMessages((prev) => {
-       // Dedup check
-       if (prev.some((m) => m.id === newMsg.id)) return prev;
-       return [...prev, newMsg];
-     });
+    setMessages((prev) => {
+      // Dedup check
+      if (prev.some((m) => m.id === newMsg.id)) return prev;
+      return [...prev, newMsg];
+    });
 
-     // Quick scroll
-     setTimeout(() => {
-       scrollViewRef.current?.scrollToEnd({ animated: true });
-     }, 100);
-   });
+    // Quick scroll
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  });
 
-   setSocket(newSocket);
- };
+  setSocket(newSocket);
+};
 
   const takeCameraMedia = async () => {
     setUploading(true);
@@ -1800,5 +1817,29 @@ const styles = StyleSheet.create({
   closeAdText: {
     color: "#fff",
     fontSize: 16,
+  },
+  videoContainer: {
+    marginBottom: 8,
+    borderRadius: 12,
+    overflow: "hidden",
+    width: "100%",
+    maxWidth: 800,
+    alignSelf: "center",
+    // iPhone-specific: ensure proper aspect ratio
+    aspectRatio: 16 / 9,
+  },
+
+  videoPlayer: {
+    width: "100%",
+    height: "100%",
+    minHeight: 200, // Minimum height for iPhone touch targets
+    backgroundColor: "#000",
+  },
+
+  // iPhone-specific video override
+  iphoneVideoPlayer: {
+    width: "100%",
+    height: 300, // Fixed height for better iPhone UX
+    backgroundColor: "#000",
   },
 });
