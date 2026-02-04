@@ -29,10 +29,12 @@ import * as DocumentPicker from "expo-document-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
 import AdMessage from "../../../../components/AdMessage";
 import ChatMediaRenderer from "../../../../components/ChatMediaRenderer";
-import NeighborhoodLiveStreamRecorder from "../../../../components/NeighborhoodLiveStreamRecorder";
+import NeighborhoodLiveStreamRecorder from "@/components/NeighborhoodLiveStreamRecorder";
 import webtorrentService from "../../../../utils/webtorrentService";
+import heic2any from "heic2any";
 import convert from "heic-convert/browser";
-
+const myTracker = "wss://tracker-0ad4cca9fd92.herokuapp.com";
+// Helper function to create optimistic message
 const createOptimisticMessage = (type, fileName, url, thumbnailUrl) => {
   const tempId = `temp-${Date.now()}`;
   return {
@@ -73,19 +75,16 @@ const getFileType = (fileName) => {
 };
 
 // Simple Video Player Component
-// Updated SimpleVideoPlayer Component
 const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
   const player = useVideoPlayer(url, (player) => {
     player.loop = false;
-    // iPhone requires user interaction for sound, so start muted
-    player.muted = true;
-    // iPhone needs explicit configuration
-    player.allowsExternalPlayback = true;
   });
 
   useEffect(() => {
-    // iPhone Safari blocks autoplay, so we don't auto-play
-    // The user will need to tap the play button
+    if (player) {
+      player.play();
+    }
+
     return () => {
       if (isTorrent && url.startsWith("blob:")) {
         URL.revokeObjectURL(url);
@@ -94,25 +93,23 @@ const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
   }, [player, url, isTorrent]);
 
   return (
-    <View style={styles.videoContainer}>
+    <TouchableOpacity
+      style={styles.videoContainer}
+      onPress={() => player.play()}
+    >
       <VideoView
         player={player}
         style={styles.videoPlayer}
-        // iPhone requires native controls to be enabled
-        nativeControls={Platform.OS === 'web' && /iPhone|iPad|iPod/.test(navigator.userAgent)}
-        allowsFullscreen={true}
-        allowsExternalPlayback={true}
-        // For iPhone web, we need specific props
-        allowsPictureInPicture={true}
-        requiresLinearPlayback={false}
+        showsControls={true}
         contentFit="contain"
+        allowsExternalPlayback={true}
       />
       {fileName && (
         <Text style={styles.videoCaption} numberOfLines={1}>
           {fileName} {isTorrent && "🔗"}
         </Text>
       )}
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -504,12 +501,7 @@ export default function NeighborhoodChatScreen() {
 
   useEffect(() => {
     if (data?.neighborhoodMessages) {
-      const cleanMessages = data.neighborhoodMessages
-        .filter((m) => !m.sessionId)
-        // SORT: Ensure oldest is at top, newest is at bottom
-        .sort((a, b) => parseInt(a.createdAt) - parseInt(b.createdAt));
-
-      setMessages(cleanMessages);
+      setMessages(data.neighborhoodMessages);
     }
   }, [data?.neighborhoodMessages]);
 
@@ -548,23 +540,17 @@ export default function NeighborhoodChatScreen() {
               <Text style={styles.timestamp}>{timestamp}</Text>
             </View>
 
-            {/* 1. Normal Text Message (Not Shared) */}
-            {!!message.content && !message.content.startsWith("Shared: ") && (
+            {message.content && !message.content.startsWith("Shared: ") && (
               <Text style={styles.messageText}>{message.content}</Text>
             )}
 
-            {/* 2. Media Layer (Photos, Videos, or Livestream Swarms) */}
+            {/* This will now properly render media */}
             {(message.imageUrl ||
               message.videoUrl ||
               message.fileUrl ||
-              message.magnetLink) && (
-              <View style={styles.mediaContainer}>
-                <ChatMediaRenderer message={message} />
-              </View>
-            )}
+              message.magnetLink) && <ChatMediaRenderer message={message} />}
 
-            {/* 3. Shared Link/Item Label */}
-            {!!message.content && message.content.startsWith("Shared: ") && (
+            {message.content && message.content.startsWith("Shared: ") && (
               <Text style={styles.sharedLabel}>{message.content}</Text>
             )}
 
@@ -637,59 +623,52 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-const initializeSocket = (token) => {
-  console.log("🔌 Initializing neighborhood socket for iPhone...");
+  const initializeSocket = (token) => {
+    console.log("🔌 Initializing neighborhood socket...");
 
-  // iPhone-specific socket configuration
-  const newSocket = io(BACKEND_URL, {
-    auth: { token },
-    path: "/socket.io-chat/",
-    // iPhone works better with websocket priority
-    transports: ["websocket", "polling"],
-    // iPhone connection optimizations
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
-    timeout: 10000,
-    // Force JSON for better iPhone compatibility
-    forceJSONP: false,
-    jsonp: false,
-    // Enable debugging for iPhone issues
-    debug: process.env.NODE_ENV === "development",
-  });
-
-  newSocket.on("connect", () => {
-    console.log("✅ Neighborhood socket connected on iPhone");
-    refetch();
-    setSocket(newSocket);
-    newSocket.emit("join-neighborhood", neighborhoodId);
-  });
-
-  newSocket.on("connect_error", (err) => {
-    console.log("⚠️ iPhone Socket connection issue:", err.message);
-    // Try to reconnect with different transport if websocket fails
-    if (err.message.includes("websocket")) {
-      console.log("🔄 Falling back to polling for iPhone...");
-      newSocket.io.opts.transports = ["polling", "websocket"];
-    }
-  });
-
-  newSocket.on("message", async (newMsg) => {
-    if (newMsg.sessionId) return;
-
-    setMessages((prev) => {
-      // Dedup check
-      if (prev.some((m) => m.id === newMsg.id)) return prev;
-      return [...prev, newMsg];
+    const newSocket = io(BACKEND_URL, {
+      auth: { token },
+      path: "/socket.io-chat/",
+      transports: ["polling"],
     });
 
-    // Quick scroll
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  });
+    newSocket.on("connect", () => {
+      console.log("✅ Neighborhood socket connected");
+      refetch(); // Initial fetch
+      setSocket(newSocket);
+      newSocket.emit("join-neighborhood", neighborhoodId);
+    });
 
-  setSocket(newSocket);
-};
+    newSocket.on("connect_error", (err) => {
+      console.error("❌ Neighborhood socket connection error:", err);
+    });
+
+    newSocket.on("message", async (newMsg) => {
+      console.log("📨 New message via socket:", newMsg.content);
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === newMsg.id)) return prev;
+        return [...prev, newMsg];
+      });
+
+      // Refetch after a short delay to ensure media is included
+      setTimeout(() => {
+        refetch();
+      }, 500);
+
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 300);
+    });
+
+    // Add this new event listener for refresh
+    newSocket.on("refresh-messages", async () => {
+      console.log("🔄 Refreshing messages via socket");
+      await refetch();
+    });
+
+    setSocket(newSocket);
+  };
 
   const takeCameraMedia = async () => {
     setUploading(true);
@@ -847,155 +826,89 @@ const initializeSocket = (token) => {
     }
   };
 
-  // Helper to actually send data to backend
-  const performIpfsUpload = async (
-    blob,
-    fileName,
-    type,
-    token,
-    neighborhoodId,
-  ) => {
-    const formData = new FormData();
-    formData.append("video", blob, fileName); // Pass Blob directly!
-    formData.append("title", fileName);
-    formData.append("description", `Uploaded ${type}`);
-    if (neighborhoodId) formData.append("neighborhoodId", neighborhoodId);
+  const unifiedUpload = async (asset, type, fileSize, mimeType) => {
+    setUploading(true);
+    let uploadUri = null; // Track this for cleanup
 
-    console.log(
-      `📤 Uploading ${fileName} (${(blob.size / 1024 / 1024).toFixed(2)} MB)`,
-    );
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const response = await fetch(asset.uri);
+      const rawBlob = await response.blob();
 
-    const res = await fetch(`${BACKEND_URL}/upload`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
+      // 1. Normalize & Spoof
+      const cleanFile = await normalizeImage(rawBlob, asset.name);
+      const safeName = cleanFile.name;
 
-    if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
-    return await res.json();
+      // 2. Create local URL for the upload tool
+      uploadUri = URL.createObjectURL(cleanFile);
+
+      // 3. IPFS UPLOAD
+      const uploadResult = await uploadToIPFS(
+        uploadUri,
+        safeName,
+        type,
+        token,
+        neighborhoodId,
+      );
+
+      // 4. SEND MESSAGE
+      await sendMessageMutation({
+        variables: {
+          content: `Shared: ${safeName}`,
+          neighborhoodId: neighborhoodId,
+          fileName: safeName,
+          fileType: type,
+          // Force the mimeType to image/jpeg so the DB knows how to serve it
+          mimeType: type === "image" ? "image/jpeg" : cleanFile.type,
+          imageUrl: type === "image" ? uploadResult.ipfsUrl : null,
+          videoUrl: type === "video" ? uploadResult.ipfsUrl : null,
+          fileUrl:
+            type !== "image" && type !== "video" ? uploadResult.ipfsUrl : null,
+          magnetLink: uploadResult.magnetLink || "",
+          thumbnailUrl: uploadResult.thumbnailUrl || null,
+          sessionId: null,
+          chunkIndex: null,
+          totalChunks: null,
+        },
+      });
+
+      if (refetch) await refetch();
+    } catch (error) {
+      console.error("❌ Final Upload Crash:", error);
+    } finally {
+      // 🔥 THE FIX FOR LAG: Clear the memory!
+      if (uploadUri) {
+        URL.revokeObjectURL(uploadUri);
+        console.log("🧹 Memory cleared: Revoked upload blob.");
+      }
+      setUploading(false);
+    }
   };
 
- const unifiedUpload = async (asset, type, fileSize, mimeType) => {
-   console.log("🚀 Starting Unified Upload...");
-   setUploading(true);
-   let tempUrlForThumbnail = null;
+  const uploadChunkedVideo = async (asset) => {
+    console.log("🎬 Starting chunked video upload...");
 
-   try {
-     const token = await AsyncStorage.getItem("token");
-
-     let uploadBlob = null;
-     let safeName = asset.name;
-
-     // 🎯 STEP 1: Get the File efficiently
-     // If we already have the DOM File object (Web), use it directly!
-     // This prevents "Double Memory" usage (reading blob vs holding file ref)
-     if (asset.file) {
-       console.log("📂 Using direct file object (Memory Safe)");
-       uploadBlob = asset.file;
-     } else {
-       console.log("🔄 Fetching blob from URI...");
-       const response = await fetch(asset.uri);
-       uploadBlob = await response.blob();
-     }
-
-     // 🎯 STEP 2: Normalize Name (spaces to underscores)
-     safeName = uploadBlob.name || asset.name || `upload_${Date.now()}`;
-     safeName = safeName.replace(/\s+/g, "_").replace(/[()]/g, "");
-
-     // 🎯 STEP 3: Smart Thumbnail Logic
-     let thumbnailUrl = null;
-     const SIZE_LIMIT_MB = 25; // ⚠️ Safety limit for iPhone
-
-     if (type === "video") {
-       const sizeInMB = uploadBlob.size / (1024 * 1024);
-
-       if (sizeInMB > SIZE_LIMIT_MB) {
-         console.log(
-           `⚠️ Video is ${sizeInMB.toFixed(1)}MB. Skipping thumbnail to prevent iOS crash.`,
-         );
-         thumbnailUrl = null;
-       } else {
-         try {
-           // Only generate thumbnail for small/medium videos
-           console.log("🎬 Video is small enough. Attempting thumbnail...");
-           tempUrlForThumbnail = URL.createObjectURL(uploadBlob);
-           const thumbResult = await generateThumbnail(tempUrlForThumbnail);
-           thumbnailUrl = thumbResult.base64;
-         } catch (e) {
-           console.log("⚠️ Thumbnail skipped (timeout or error).");
-           thumbnailUrl = null;
-         }
-       }
-     }
-
-     // 🎯 STEP 4: Perform the Upload
-     // Using the helper function that keeps FormData clean
-     const uploadResult = await performIpfsUpload(
-       uploadBlob,
-       safeName,
-       type,
-       token,
-       neighborhoodId,
-     );
-
-     console.log("✅ IPFS Upload Complete:", uploadResult.ipfsUrl);
-
-     // 🎯 STEP 5: Send the Message
-     await sendMessageMutation({
-       variables: {
-         content: `Shared: ${safeName}`,
-         neighborhoodId: neighborhoodId,
-         fileName: safeName,
-         fileType: type,
-         mimeType: type === "image" ? "image/jpeg" : uploadBlob.type,
-         imageUrl: type === "image" ? uploadResult.ipfsUrl : null,
-         videoUrl: type === "video" ? uploadResult.ipfsUrl : null,
-         fileUrl:
-           type !== "image" && type !== "video" ? uploadResult.ipfsUrl : null,
-         magnetLink: uploadResult.magnetLink || "",
-         thumbnailUrl: thumbnailUrl,
-       },
-     });
-
-     if (refetch) await refetch();
-   } catch (error) {
-     console.error("❌ Upload failed:", error);
-     Alert.alert(
-       "Upload Error",
-       "The file could not be uploaded. It might be too large for this device.",
-     );
-   } finally {
-     if (tempUrlForThumbnail) {
-       URL.revokeObjectURL(tempUrlForThumbnail);
-     }
-     setUploading(false);
-   }
- };
-
-const uploadChunkedVideo = async (asset) => {
-  console.log("🎬 Starting Optimized Chunked Upload...");
-  setUploading(true);
-
-  try {
-    // 🎯 FIX: Get the Blob directly without .arrayBuffer()
-    // Fetching the blob is okay, but we NEVER call .arrayBuffer() on the whole thing.
     const response = await fetch(asset.uri);
-    const originalBlob = await response.blob();
 
-    const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
+    const arrayBuffer = await response.arrayBuffer();
+    const originalBlob = new Blob({ arrayBuffer, type: "video/mp4" });
+
+    const CHUNK_SIZE = 2 * 1024 * 1024;
     const totalChunks = Math.ceil(originalBlob.size / CHUNK_SIZE);
-    const sessionId = `video_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const sessionId = `video_${Date.now()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
 
-    // 🎯 Attempt Thumbnail safely (using our optimized thumb generator)
+    console.log(`📦 Splitting into ${totalChunks} chunks...`);
+
     let thumbnailUrl = null;
     try {
-      const thumbResult = await generateThumbnail(asset.uri);
-      thumbnailUrl = thumbResult.base64;
+      const { base64 } = await generateThumbnail(asset.uri);
+      thumbnailUrl = base64;
     } catch (e) {
-      console.log("⚠️ Skipping thumbnail for chunked video");
+      console.log("⚠️ Could not generate thumbnail");
     }
 
-    // Send the "Header" message so the UI knows a stream is starting
     await sendMessageMutation({
       variables: {
         content: `🎬 Neighborhood Video (${totalChunks} parts)`,
@@ -1005,74 +918,85 @@ const uploadChunkedVideo = async (asset) => {
         sessionId: sessionId,
         totalChunks: totalChunks,
         thumbnailUrl: thumbnailUrl,
+        imageUrl: null,
+        videoUrl: null,
+        fileUrl: null,
+        magnetLink: null,
       },
     });
 
-    // 🎯 THE OPTIMIZED LOOP
     for (let i = 0; i < totalChunks; i++) {
       const start = i * CHUNK_SIZE;
       const end = Math.min(start + CHUNK_SIZE, originalBlob.size);
-
-      // .slice() on a Blob is "lazy" and doesn't use RAM until read
       const chunk = originalBlob.slice(start, end, "video/mp4");
 
-      // Wait for each chunk to seed before moving to the next
-      // This prevents stacking 50 seeding processes in memory
       await uploadSingleChunk(chunk, i, sessionId, totalChunks, asset.name);
 
-      console.log(`📦 Chunk ${i + 1}/${totalChunks} processed...`);
+      if (i < totalChunks - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
     }
 
     console.log("✅ All chunks uploaded!");
     return true;
-  } catch (err) {
-    console.error("❌ Chunked upload failed:", err);
-    Alert.alert("Upload Failed", "Memory limit reached on device.");
-  } finally {
-    setUploading(false);
-  }
-};
+  };
 
- const uploadSingleChunk = (chunk, index, sessionId, totalChunks, fileName) => {
-   return new Promise(async (resolve, reject) => {
-     try {
-       const client = window.globalWebTorrentClient;
-       if (!client) throw new Error("WebTorrent Client missing");
+  const uploadSingleChunk = (
+    chunk,
+    index,
+    sessionId,
+    totalChunks,
+    fileName,
+  ) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        // 1. Grab the Global Champ directly (Skip the service!)
+        const client = window.globalWebTorrentClient;
 
-       client.seed(
-         chunk,
-         {
-           name: `${sessionId}_chunk_${index}`,
-           announce: window.enhancedTrackers,
-         },
-         async (torrent) => {
-           try {
-             await sendMessageMutation({
-               variables: {
-                 content: `Shared: ${fileName} (Part ${index + 1})`,
-                 neighborhoodId: neighborhoodId,
-                 fileName: `${fileName}_part${index}`,
-                 fileType: "video_chunk",
-                 magnetLink: torrent.magnetURI,
-                 chunkIndex: index,
-                 sessionId: sessionId,
-                 totalChunks: totalChunks,
-               },
-             });
+        if (!client) {
+          throw new Error(
+            "WebTorrent Client not initialized. Refresh the page.",
+          );
+        }
 
-             // 🎯 CRITICAL: Don't keep the torrent object alive in the UI thread
-             // We just need the magnet link to be out there.
-             resolve();
-           } catch (err) {
-             reject(err);
-           }
-         },
-       );
-     } catch (error) {
-       reject(error);
-     }
-   });
- };
+        // 2. Seed it using the global trackers from +html.tsx
+        client.seed(
+          chunk,
+          {
+            name: `${sessionId}_chunk_${index}`,
+            announce: window.enhancedTrackers, // Use the ones from your HTML file
+          },
+          async (torrent) => {
+            console.log(
+              `✅ Chunk ${index + 1}/${totalChunks} is now LIVE on P2P`,
+            );
+
+            // 3. Send the message with the REAL magnet link
+            try {
+              await sendMessageMutation({
+                variables: {
+                  content: `Shared: ${fileName} (Part ${index + 1})`,
+                  neighborhoodId: neighborhoodId,
+                  fileName: `${fileName}_part${index}`,
+                  fileType: "video_chunk",
+                  magnetLink: torrent.magnetURI, // THIS is what the neighbor needs
+                  chunkIndex: index,
+                  sessionId: sessionId,
+                  totalChunks: totalChunks,
+                },
+              });
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          },
+        );
+      } catch (error) {
+        console.error("❌ Seeding failed:", error);
+        reject(error);
+      }
+    });
+  };
 
   const getMimeType = (filename) => {
     const ext = filename.split(".").pop().toLowerCase();
@@ -1110,11 +1034,6 @@ const uploadChunkedVideo = async (asset) => {
     console.log("🔄 Starting thumbnail generation for:", videoUrl);
 
     return new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        console.log("⚠️ Thumbnail timed out (iPhone restriction), skipping...");
-        reject(new Error("Timeout")); // This allows the catch block to run and upload to proceed
-      }, 2000);
-
       const video = document.createElement("video");
       video.crossOrigin = "anonymous";
       video.src = videoUrl;
@@ -1122,7 +1041,6 @@ const uploadChunkedVideo = async (asset) => {
       video.muted = true;
 
       video.onloadeddata = async () => {
-        clearTimeout(timeoutId);
         console.log("✅ Video loaded successfully");
 
         try {
@@ -1159,7 +1077,6 @@ const uploadChunkedVideo = async (asset) => {
       };
 
       video.onerror = (e) => {
-        clearTimeout(timeoutId);
         console.error("❌ Video load failed:", e);
         reject(new Error(`Video load error: ${e.message}`));
       };
@@ -1175,6 +1092,88 @@ const uploadChunkedVideo = async (asset) => {
     });
   };
 
+  const uploadToIPFS = async (
+    fileUri,
+    fileName,
+    type,
+    token,
+    neighborhoodId,
+  ) => {
+    try {
+      const response = await fetch(fileUri);
+      const blob = await response.blob();
+
+      const formData = new FormData();
+      formData.append("video", blob, fileName);
+      formData.append("title", fileName);
+      formData.append("description", `Uploaded ${type} - ${fileName}`);
+
+      if (neighborhoodId) {
+        formData.append("neighborhoodId", neighborhoodId);
+      }
+
+      console.log("📤 IPFS Upload:", {
+        fileName,
+        type,
+        size: blob.size,
+        neighborhoodId,
+      });
+
+      const res = await fetch(`${BACKEND_URL}/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      console.log("📥 upload response status:", res.status);
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`IPFS upload failed: ${res.status} – ${errorText}`);
+      }
+
+      const result = await res.json();
+      const { ipfsUrl, magnetLink } = result;
+
+      console.log("✅ IPFS Result:", { ipfsUrl, magnetLink });
+
+      let thumbnailUrl = null;
+
+      if (type === "video") {
+        try {
+          console.log("🎬 Starting thumbnail generation for video...");
+
+          const { base64, format, size } = await generateThumbnail(fileUri);
+
+          console.log(
+            `✅ ${format.toUpperCase()} thumbnail generated: ${size} bytes`,
+          );
+          thumbnailUrl = base64;
+        } catch (thumbnailError) {
+          console.error(
+            "❌ Thumbnail generation failed completely:",
+            thumbnailError.message,
+          );
+        }
+      }
+
+      console.log("📊 Final return values:", {
+        ipfsUrl,
+        magnetLink,
+        thumbnailUrl,
+        hasThumbnail: !!thumbnailUrl,
+      });
+
+      return {
+        ipfsUrl,
+        magnetLink,
+        thumbnailUrl,
+      };
+    } catch (error) {
+      console.error("❌ IPFS upload error:", error);
+      throw error;
+    }
+  };
 
   const neighborhoodName =
     neighborhoodData?.neighborhood?.name || "Neighborhood";
@@ -1202,11 +1201,8 @@ const uploadChunkedVideo = async (asset) => {
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>Error loading chat</Text>
         <Text style={styles.errorDetail}>{error.message}</Text>
-        <TouchableOpacity
-          onPress={() => router.push("/login")}
-          style={styles.retryButton}
-        >
-          <Text style={styles.retryText}>Log In</Text>
+        <TouchableOpacity onPress={() => refetch()} style={styles.retryButton}>
+          <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
@@ -1223,7 +1219,7 @@ const uploadChunkedVideo = async (asset) => {
         <TouchableOpacity
           onPress={() =>
             router.push(
-              `neighborhoods/bubbles/neighborhood-gallery?neighborhoodId=${neighborhoodId}`,
+              `/neighborhood-gallery?neighborhoodId=${neighborhoodId}`,
             )
           }
           style={styles.galleryButton}
@@ -1234,7 +1230,7 @@ const uploadChunkedVideo = async (asset) => {
         <TouchableOpacity
           onPress={() =>
             router.push(
-              `neighborhoods/bubbles/invite-links?neighborhoodId=${neighborhoodId}`,
+              `/neighborhoods/invite-links?neighborhoodId=${neighborhoodId}`,
             )
           }
           style={styles.galleryButton}
@@ -1246,7 +1242,7 @@ const uploadChunkedVideo = async (asset) => {
         <TouchableOpacity
           onPress={() =>
             router.push(
-              `neighborhoods/neighborhood-members?neighborhoodId=${neighborhoodId}`,
+              `/neighborhood-members?neighborhoodId=${neighborhoodId}`,
             )
           }
           style={styles.membersButton}
@@ -1256,6 +1252,7 @@ const uploadChunkedVideo = async (asset) => {
         <NeighborhoodLiveStreamRecorder
           neighborhoodId={neighborhoodId}
           username={username}
+          // Pass these working functions from ChatScreen to the Recorder
           unifiedUpload={unifiedUpload}
           refetch={refetch}
           socket={socket}
@@ -1817,29 +1814,5 @@ const styles = StyleSheet.create({
   closeAdText: {
     color: "#fff",
     fontSize: 16,
-  },
-  videoContainer: {
-    marginBottom: 8,
-    borderRadius: 12,
-    overflow: "hidden",
-    width: "100%",
-    maxWidth: 800,
-    alignSelf: "center",
-    // iPhone-specific: ensure proper aspect ratio
-    aspectRatio: 16 / 9,
-  },
-
-  videoPlayer: {
-    width: "100%",
-    height: "100%",
-    minHeight: 200, // Minimum height for iPhone touch targets
-    backgroundColor: "#000",
-  },
-
-  // iPhone-specific video override
-  iphoneVideoPlayer: {
-    width: "100%",
-    height: 300, // Fixed height for better iPhone UX
-    backgroundColor: "#000",
   },
 });
