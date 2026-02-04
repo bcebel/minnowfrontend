@@ -10,9 +10,41 @@ import {
   Alert,
 } from "react-native";
 import { Image } from "expo-image";
+import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentMedia from "./WebTorrentMedia";
 
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
+
+// Standardized URL helper to ensure we always have a working gateway link
+const getPinataUrl = (url) => {
+  if (!url) return null;
+  if (typeof url !== "string") return url;
+  if (url.startsWith("http")) return url;
+  if (url.startsWith("Qm") || url.startsWith("baf")) {
+    return `https://${PINATA_GATEWAY}/ipfs/${url}`;
+  }
+  if (url.includes("/ipfs/")) {
+    return `https://${PINATA_GATEWAY}/ipfs/${url.split("/ipfs/")[1]}`;
+  }
+  return url;
+};
+
+const SimpleVideoPlayer = ({ url }) => {
+  const player = useVideoPlayer(url, (player) => {
+    player.loop = false;
+  });
+
+  return (
+    <View style={styles.videoPlayerContainer}>
+      <VideoView
+        player={player}
+        style={styles.videoPlayer}
+        showsControls={true}
+        contentFit="contain"
+      />
+    </View>
+  );
+};
 
 export default function ChatMediaRenderer({ message }) {
   // 1. Block raw chunks from rendering
@@ -32,19 +64,6 @@ export default function ChatMediaRenderer({ message }) {
     ipfsUrl,
     cid,
   } = message;
-
-  // Standardized URL helper to ensure we always have a working gateway link
-  const getPinataUrl = (url) => {
-    if (!url) return null;
-    if (url.startsWith("http")) return url;
-    if (url.startsWith("Qm") || url.startsWith("baf")) {
-      return `https://${PINATA_GATEWAY}/ipfs/${url}`;
-    }
-    if (url.includes("/ipfs/")) {
-      return `https://${PINATA_GATEWAY}/ipfs/${url.split("/ipfs/")[1]}`;
-    }
-    return url;
-  };
 
   // --- PATH 1: CHUNKED ARCHIVES ---
   if (fileType === "video_chunked") {
@@ -78,27 +97,50 @@ export default function ChatMediaRenderer({ message }) {
     );
   }
 
-  // --- PATH 2: SWARMABLE MEDIA (The "Working" Fix) ---
-  // If there is a magnet link OR a CID, we want it in the swarm.
+  // --- PATH 2: SWARMABLE MEDIA ---
+  // If it's a standard video on native, use SimpleVideoPlayer
+  const isVideo =
+    fileType === "video" ||
+    videoUrl ||
+    fileName?.match(/\.(mp4|mov|webm)$/i);
+  const isImage =
+    fileType === "image" ||
+    imageUrl ||
+    fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+
+  if (Platform.OS !== "web" && isVideo) {
+    return (
+      <View style={styles.mediaContainer}>
+        <SimpleVideoPlayer url={getPinataUrl(videoUrl || ipfsUrl || cid)} />
+      </View>
+    );
+  }
+
+  // On Web, or for images on Native, we can use WebTorrentMedia or direct Image
   if (magnetLink || cid || ipfsUrl || videoUrl || imageUrl) {
-    // We construct the media object to include a "WebSeed" fallback.
-    // This ensures that if the P2P swarm is empty, it pulls from Pinata.
+    if (Platform.OS !== "web" && isImage) {
+      return (
+        <View style={styles.mediaContainer}>
+          <Image
+            source={{ uri: getPinataUrl(imageUrl || ipfsUrl || cid) }}
+            style={styles.image}
+            contentFit="contain"
+          />
+        </View>
+      );
+    }
+
+    // Default to WebTorrentMedia for Web (handles P2P)
     const mediaForSwarm = {
       ...message,
       cid: cid || (imageUrl || videoUrl || ipfsUrl)?.split("/ipfs/")[1],
-      // Use the IPFS URL as the direct source for WebTorrent's "WebSeed" feature
       fallbackUrl: getPinataUrl(videoUrl || imageUrl || ipfsUrl),
-      fileName: fileName || (fileType === "image" ? "image.jpg" : "video.mp4"),
-      fileType:
-        fileType ||
-        (imageUrl || ipfsUrl || fileName?.match(/\.(jpg|jpeg|png|gif)$/i)
-          ? "image"
-          : "video"),
+      fileName: fileName || (isImage ? "image.jpg" : "video.mp4"),
+      fileType: fileType || (isImage ? "image" : "video"),
     };
 
     return (
       <View style={styles.mediaContainer}>
-        {/* WebTorrentMedia must be updated to use fallbackUrl if P2P fails/is empty */}
         <WebTorrentMedia media={mediaForSwarm} isFocused={true} />
       </View>
     );
@@ -133,6 +175,18 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: "#000",
     marginVertical: 4,
+  },
+  videoPlayerContainer: {
+    width: "100%",
+    height: "100%",
+  },
+  videoPlayer: {
+    width: "100%",
+    height: "100%",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
   },
   chunkedVideoContainer: {
     width: "100%",
