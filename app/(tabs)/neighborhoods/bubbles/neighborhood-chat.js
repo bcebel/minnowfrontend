@@ -372,6 +372,23 @@ const cleanFileName = (name) => {
     .replace(/\.(heic|heif)$/i, ".jpg"); // Force the extension to jpg for the DB
 };
 
+const getMimeTypeFromExtension = (filename) => {
+  const ext = filename.split(".").pop().toLowerCase();
+  const mimeTypes = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    heic: "image/heic",
+    bmp: "image/bmp",
+    mp4: "video/mp4",
+    mov: "video/quicktime",
+    avi: "video/x-msvideo",
+  };
+  return mimeTypes[ext] || "application/octet-stream";
+};
+
 export default function NeighborhoodChatScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
@@ -832,19 +849,30 @@ export default function NeighborhoodChatScreen() {
 
     try {
       const token = await AsyncStorage.getItem("token");
-      const response = await fetch(asset.uri);
-      const rawBlob = await response.blob();
+      let safeName = asset.name;
+      let finalUri = asset.uri;
 
-      // 1. Normalize & Spoof
-      const cleanFile = await normalizeImage(rawBlob, asset.name);
-      const safeName = cleanFile.name;
+      if (Platform.OS === "web") {
+        const response = await fetch(asset.uri);
+        const rawBlob = await response.blob();
 
-      // 2. Create local URL for the upload tool
-      uploadUri = URL.createObjectURL(cleanFile);
+        // 1. Normalize & Spoof
+        const cleanFile = await normalizeImage(rawBlob, asset.name);
+        safeName = cleanFile.name;
+
+        // 2. Create local URL for the upload tool
+        uploadUri = URL.createObjectURL(cleanFile);
+        finalUri = uploadUri;
+      } else {
+        // For Native, we use the URI directly.
+        // If it's a HEIC, we might still want to normalize it, but
+        // for now let's use the asset's name and URI.
+        safeName = cleanFileName(asset.name);
+      }
 
       // 3. IPFS UPLOAD
       const uploadResult = await uploadToIPFS(
-        uploadUri,
+        finalUri,
         safeName,
         type,
         token,
@@ -859,7 +887,7 @@ export default function NeighborhoodChatScreen() {
           fileName: safeName,
           fileType: type,
           // Force the mimeType to image/jpeg so the DB knows how to serve it
-          mimeType: type === "image" ? "image/jpeg" : cleanFile.type,
+          mimeType: type === "image" ? "image/jpeg" : (asset.mimeType || getMimeTypeFromExtension(safeName)),
           imageUrl: type === "image" ? uploadResult.ipfsUrl : null,
           videoUrl: type === "video" ? uploadResult.ipfsUrl : null,
           fileUrl:
@@ -1013,23 +1041,6 @@ export default function NeighborhoodChatScreen() {
     return mimeTypes[ext] || "application/octet-stream";
   };
 
-  const getMimeTypeFromExtension = (filename) => {
-    const ext = filename.split(".").pop().toLowerCase();
-    const mimeTypes = {
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      png: "image/png",
-      gif: "image/gif",
-      webp: "image/webp",
-      heic: "image/heic",
-      bmp: "image/bmp",
-      mp4: "video/mp4",
-      mov: "video/quicktime",
-      avi: "video/x-msvideo",
-    };
-    return mimeTypes[ext] || "application/octet-stream";
-  };
-
   const generateThumbnail = async (videoUrl) => {
     console.log("🔄 Starting thumbnail generation for:", videoUrl);
 
@@ -1100,11 +1111,20 @@ export default function NeighborhoodChatScreen() {
     neighborhoodId,
   ) => {
     try {
-      const response = await fetch(fileUri);
-      const blob = await response.blob();
-
       const formData = new FormData();
-      formData.append("video", blob, fileName);
+
+      if (Platform.OS === "web") {
+        const response = await fetch(fileUri);
+        const blob = await response.blob();
+        formData.append("video", blob, fileName);
+      } else {
+        formData.append("video", {
+          uri: fileUri,
+          name: fileName,
+          type: getMimeTypeFromExtension(fileName),
+        });
+      }
+
       formData.append("title", fileName);
       formData.append("description", `Uploaded ${type} - ${fileName}`);
 
@@ -1115,7 +1135,6 @@ export default function NeighborhoodChatScreen() {
       console.log("📤 IPFS Upload:", {
         fileName,
         type,
-        size: blob.size,
         neighborhoodId,
       });
 
