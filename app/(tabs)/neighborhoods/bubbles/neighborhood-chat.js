@@ -817,28 +817,31 @@ export default function NeighborhoodChatScreen() {
         }
       }
       // 2. Large Video check (using 'type' and 'asset')
-      if (
-        resolvedType === "video" &&
-        asset.size > 10 * 1024 * 1024 &&
-        Platform.OS === "web"
-      ) {
+      const isLargeVideo = resolvedType === "video" && asset.size > 5 * 1024 * 1024;
+      const canDoP2P = typeof window !== "undefined" && !!window.globalWebTorrentClient;
+
+      if (isLargeVideo && canDoP2P) {
         Alert.alert(
           "Large Video",
-          "Upload as chunked P2P video (faster for neighbors)?",
+          "This video is large. How would you like to share it?",
           [
             {
-              text: "Regular Upload",
+              text: "Upload to Pinata (Slower)",
               onPress: () =>
                 unifiedUpload(asset, resolvedType, asset.size, asset.mimeType),
             },
             {
-              text: "Chunked P2P",
+              text: "Share via P2P (Faster, must keep app open)",
               onPress: () => uploadChunkedVideo(asset),
+            },
+            {
+              text: "Cancel",
+              style: "cancel",
             },
           ],
         );
       } else {
-        // 3. Regular flow
+        // 3. Regular flow for images, small videos, or when P2P is not available
         await unifiedUpload(asset, resolvedType, asset.size, asset.mimeType);
       }
     }
@@ -850,7 +853,7 @@ export default function NeighborhoodChatScreen() {
 
     try {
       const token = await AsyncStorage.getItem("token");
-      let safeName = asset.name;
+      let safeName = safeFileName(asset);
       let finalUri = asset.uri;
 
       if (Platform.OS === "web") {
@@ -858,7 +861,7 @@ export default function NeighborhoodChatScreen() {
         const rawBlob = await response.blob();
 
         // 1. Normalize & Spoof
-        const cleanFile = await normalizeImage(rawBlob, asset.name);
+        const cleanFile = await normalizeImage(rawBlob, safeName);
         safeName = cleanFile.name;
 
         // 2. Create local URL for the upload tool
@@ -868,7 +871,7 @@ export default function NeighborhoodChatScreen() {
         // For Native, we use the URI directly.
         // If it's a HEIC, we might still want to normalize it, but
         // for now let's use the asset's name and URI.
-        safeName = cleanFileName(asset.name);
+        safeName = cleanFileName(safeName);
       }
 
       // 3. IPFS UPLOAD
@@ -918,9 +921,8 @@ export default function NeighborhoodChatScreen() {
     console.log("🎬 Starting chunked video upload...");
 
     const response = await fetch(asset.uri);
-
     const arrayBuffer = await response.arrayBuffer();
-    const originalBlob = new Blob({ arrayBuffer, type: "video/mp4" });
+    const originalBlob = new Blob([arrayBuffer], { type: "video/mp4" });
 
     const CHUNK_SIZE = 2 * 1024 * 1024;
     const totalChunks = Math.ceil(originalBlob.size / CHUNK_SIZE);
@@ -931,18 +933,22 @@ export default function NeighborhoodChatScreen() {
     console.log(`📦 Splitting into ${totalChunks} chunks...`);
 
     let thumbnailUrl = null;
-    try {
-      const { base64 } = await generateThumbnail(asset.uri);
-      thumbnailUrl = base64;
-    } catch (e) {
-      console.log("⚠️ Could not generate thumbnail");
+    if (Platform.OS === "web") {
+      try {
+        const thumbResult = await generateThumbnail(asset.uri);
+        if (thumbResult) thumbnailUrl = thumbResult.base64;
+      } catch (e) {
+        console.log("⚠️ Could not generate thumbnail");
+      }
     }
+
+    const safeName = safeFileName(asset);
 
     await sendMessageMutation({
       variables: {
         content: `🎬 Neighborhood Video (${totalChunks} parts)`,
         neighborhoodId: neighborhoodId,
-        fileName: asset.name || "neighborhood-video.mp4",
+        fileName: safeName,
         fileType: "video_chunked",
         sessionId: sessionId,
         totalChunks: totalChunks,
@@ -959,7 +965,7 @@ export default function NeighborhoodChatScreen() {
       const end = Math.min(start + CHUNK_SIZE, originalBlob.size);
       const chunk = originalBlob.slice(start, end, "video/mp4");
 
-      await uploadSingleChunk(chunk, i, sessionId, totalChunks, asset.name);
+      await uploadSingleChunk(chunk, i, sessionId, totalChunks, safeName);
 
       if (i < totalChunks - 1) {
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -1157,6 +1163,7 @@ export default function NeighborhoodChatScreen() {
             httpMethod: "POST",
             uploadType: FileSystem.FileSystemUploadType.MULTIPART,
             fieldName: "video",
+            mimeType: getMimeTypeFromExtension(fileName),
             parameters: {
               title: fileName,
               description: `Uploaded ${type} - ${fileName}`,
