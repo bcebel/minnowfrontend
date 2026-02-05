@@ -26,6 +26,7 @@ import { io } from "socket.io-client";
 import { gql, useQuery, useMutation, useApolloClient } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
 import { useVideoPlayer, VideoView } from "expo-video";
 import AdMessage from "../../../../components/AdMessage";
 import ChatMediaRenderer from "../../../../components/ChatMediaRenderer";
@@ -828,7 +829,7 @@ export default function NeighborhoodChatScreen() {
             {
               text: "Regular Upload",
               onPress: () =>
-                unifiedUpload(asset, type, asset.size, asset.mimeType),
+                unifiedUpload(asset, resolvedType, asset.size, asset.mimeType),
             },
             {
               text: "Chunked P2P",
@@ -1042,6 +1043,10 @@ export default function NeighborhoodChatScreen() {
   };
 
   const generateThumbnail = async (videoUrl) => {
+    if (Platform.OS !== "web") {
+      console.log("📱 Skipping web-based thumbnail generation on Native.");
+      return null;
+    }
     console.log("🔄 Starting thumbnail generation for:", videoUrl);
 
     return new Promise((resolve, reject) => {
@@ -1111,49 +1116,67 @@ export default function NeighborhoodChatScreen() {
     neighborhoodId,
   ) => {
     try {
-      const formData = new FormData();
+      let result;
 
       if (Platform.OS === "web") {
+        const formData = new FormData();
         const response = await fetch(fileUri);
         const blob = await response.blob();
         formData.append("video", blob, fileName);
-      } else {
-        formData.append("video", {
-          uri: fileUri,
-          name: fileName,
-          type: getMimeTypeFromExtension(fileName),
+        formData.append("title", fileName);
+        formData.append("description", `Uploaded ${type} - ${fileName}`);
+
+        if (neighborhoodId) {
+          formData.append("neighborhoodId", neighborhoodId);
+        }
+
+        console.log("📤 IPFS Upload (Web):", { fileName, type, neighborhoodId });
+
+        const res = await fetch(`${BACKEND_URL}/upload`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
         });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`IPFS upload failed: ${res.status} – ${errorText}`);
+        }
+        result = await res.json();
+      } else {
+        console.log("📤 IPFS Upload (Native):", {
+          fileName,
+          type,
+          neighborhoodId,
+        });
+
+        const uploadResponse = await FileSystem.uploadAsync(
+          `${BACKEND_URL}/upload`,
+          fileUri,
+          {
+            httpMethod: "POST",
+            uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+            fieldName: "video",
+            parameters: {
+              title: fileName,
+              description: `Uploaded ${type} - ${fileName}`,
+              neighborhoodId: neighborhoodId || "",
+            },
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (uploadResponse.status !== 200 && uploadResponse.status !== 201) {
+          throw new Error(
+            `IPFS upload failed: ${uploadResponse.status} – ${uploadResponse.body}`,
+          );
+        }
+        result = JSON.parse(uploadResponse.body);
       }
 
-      formData.append("title", fileName);
-      formData.append("description", `Uploaded ${type} - ${fileName}`);
-
-      if (neighborhoodId) {
-        formData.append("neighborhoodId", neighborhoodId);
-      }
-
-      console.log("📤 IPFS Upload:", {
-        fileName,
-        type,
-        neighborhoodId,
-      });
-
-      const res = await fetch(`${BACKEND_URL}/upload`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
-      console.log("📥 upload response status:", res.status);
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`IPFS upload failed: ${res.status} – ${errorText}`);
-      }
-
-      const result = await res.json();
       const { ipfsUrl, magnetLink } = result;
-
       console.log("✅ IPFS Result:", { ipfsUrl, magnetLink });
 
       let thumbnailUrl = null;
@@ -1162,12 +1185,17 @@ export default function NeighborhoodChatScreen() {
         try {
           console.log("🎬 Starting thumbnail generation for video...");
 
-          const { base64, format, size } = await generateThumbnail(fileUri);
+          const thumbResult = await generateThumbnail(fileUri);
 
-          console.log(
-            `✅ ${format.toUpperCase()} thumbnail generated: ${size} bytes`,
-          );
-          thumbnailUrl = base64;
+          if (thumbResult) {
+            const { base64, format, size } = thumbResult;
+            console.log(
+              `✅ ${format.toUpperCase()} thumbnail generated: ${size} bytes`,
+            );
+            thumbnailUrl = base64;
+          } else {
+            console.log("⚠️ No thumbnail generated (likely Native).");
+          }
         } catch (thumbnailError) {
           console.error(
             "❌ Thumbnail generation failed completely:",
