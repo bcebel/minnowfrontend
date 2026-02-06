@@ -26,6 +26,7 @@ import { io } from "socket.io-client";
 import { gql, useQuery, useMutation, useApolloClient } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
 import { useVideoPlayer, VideoView } from "expo-video";
 import AdMessage from "../../../../components/AdMessage";
 import ChatMediaRenderer from "../../../../components/ChatMediaRenderer";
@@ -370,6 +371,23 @@ const cleanFileName = (name) => {
     .replace(/\s+/g, "_") // Spaces to underscores
     .replace(/[()]/g, "") // Remove parentheses
     .replace(/\.(heic|heif)$/i, ".jpg"); // Force the extension to jpg for the DB
+};
+
+const getMimeTypeFromExtension = (filename) => {
+  const ext = filename.split(".").pop().toLowerCase();
+  const mimeTypes = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    heic: "image/heic",
+    bmp: "image/bmp",
+    mp4: "video/mp4",
+    mov: "video/quicktime",
+    avi: "video/x-msvideo",
+  };
+  return mimeTypes[ext] || "application/octet-stream";
 };
 
 export default function NeighborhoodChatScreen() {
@@ -771,13 +789,17 @@ export default function NeighborhoodChatScreen() {
   };
 
   const pickFile = async () => {
-    const result = await DocumentPicker.getDocumentAsync({ type: "*/*" });
+    const result = await DocumentPicker.getDocumentAsync({
+      type: "*/*",
+      copyToCacheDirectory: true,
+    });
 
     if (!result.canceled) {
       let asset = result.assets[0];
+      const fileName = safeFileName(asset);
 
       // 1. Get the type data first!
-      const typeInfo = getFileType(asset.name);
+      const typeInfo = getFileType(fileName);
       const resolvedType = typeInfo; // getFileType returns a string "image" or "video"
 
       // 2. Handle Image Normalization
@@ -799,28 +821,35 @@ export default function NeighborhoodChatScreen() {
         }
       }
       // 2. Large Video check (using 'type' and 'asset')
-      if (
-        resolvedType === "video" &&
-        asset.size > 10 * 1024 * 1024 &&
-        Platform.OS === "web"
-      ) {
+      // Ensure we have a size, fallback to 0 if missing (though it shouldn't be)
+      const fileSize = asset.size || 0;
+      const isLargeVideo =
+        resolvedType === "video" && fileSize > 5 * 1024 * 1024;
+      const canDoP2P =
+        typeof window !== "undefined" && !!window.globalWebTorrentClient;
+
+      if (isLargeVideo && canDoP2P) {
         Alert.alert(
           "Large Video",
-          "Upload as chunked P2P video (faster for neighbors)?",
+          "This video is large. How would you like to share it?",
           [
             {
-              text: "Regular Upload",
+              text: "Upload to Pinata (Slower)",
               onPress: () =>
-                unifiedUpload(asset, type, asset.size, asset.mimeType),
+                unifiedUpload(asset, resolvedType, asset.size, asset.mimeType),
             },
             {
-              text: "Chunked P2P",
+              text: "Share via P2P (Faster, must keep app open)",
               onPress: () => uploadChunkedVideo(asset),
+            },
+            {
+              text: "Cancel",
+              style: "cancel",
             },
           ],
         );
       } else {
-        // 3. Regular flow
+        // 3. Regular flow for images, small videos, or when P2P is not available
         await unifiedUpload(asset, resolvedType, asset.size, asset.mimeType);
       }
     }
@@ -832,19 +861,37 @@ export default function NeighborhoodChatScreen() {
 
     try {
       const token = await AsyncStorage.getItem("token");
-      const response = await fetch(asset.uri);
-      const rawBlob = await response.blob();
+      if (!token)
+        throw new Error("No authentication token found. Please log in again.");
 
-      // 1. Normalize & Spoof
-      const cleanFile = await normalizeImage(rawBlob, asset.name);
-      const safeName = cleanFile.name;
+      let safeName = safeFileName(asset);
+      let finalUri = asset.uri;
 
-      // 2. Create local URL for the upload tool
-      uploadUri = URL.createObjectURL(cleanFile);
+      if (Platform.OS === "web") {
+        // Optimization: For videos, skip normalization to save memory/time
+        if (type === "video" || type === "unknown") {
+          finalUri = asset.uri;
+        } else {
+          const response = await fetch(asset.uri);
+          const rawBlob = await response.blob();
+
+          // 1. Normalize & Spoof
+          const cleanFile = await normalizeImage(rawBlob, safeName);
+          safeName = cleanFile.name;
+
+          // 2. Create local URL for the upload tool
+          uploadUri = URL.createObjectURL(cleanFile);
+          finalUri = uploadUri;
+        }
+      } else {
+        // For Native, we use the URI directly.
+        safeName = cleanFileName(safeName);
+      }
 
       // 3. IPFS UPLOAD
+      console.log(`🚀 Starting ${type} upload to IPFS...`);
       const uploadResult = await uploadToIPFS(
-        uploadUri,
+        finalUri,
         safeName,
         type,
         token,
@@ -859,7 +906,10 @@ export default function NeighborhoodChatScreen() {
           fileName: safeName,
           fileType: type,
           // Force the mimeType to image/jpeg so the DB knows how to serve it
-          mimeType: type === "image" ? "image/jpeg" : cleanFile.type,
+          mimeType:
+            type === "image"
+              ? "image/jpeg"
+              : asset.mimeType || getMimeTypeFromExtension(safeName),
           imageUrl: type === "image" ? uploadResult.ipfsUrl : null,
           videoUrl: type === "video" ? uploadResult.ipfsUrl : null,
           fileUrl:
@@ -873,8 +923,13 @@ export default function NeighborhoodChatScreen() {
       });
 
       if (refetch) await refetch();
+      console.log(`✅ ${type} upload complete!`);
     } catch (error) {
       console.error("❌ Final Upload Crash:", error);
+      Alert.alert(
+        "Upload Failed",
+        error.message || "An unexpected error occurred during upload.",
+      );
     } finally {
       // 🔥 THE FIX FOR LAG: Clear the memory!
       if (uploadUri) {
@@ -886,59 +941,81 @@ export default function NeighborhoodChatScreen() {
   };
 
   const uploadChunkedVideo = async (asset) => {
-    console.log("🎬 Starting chunked video upload...");
-
-    const response = await fetch(asset.uri);
-
-    const arrayBuffer = await response.arrayBuffer();
-    const originalBlob = new Blob({ arrayBuffer, type: "video/mp4" });
-
-    const CHUNK_SIZE = 2 * 1024 * 1024;
-    const totalChunks = Math.ceil(originalBlob.size / CHUNK_SIZE);
-    const sessionId = `video_${Date.now()}_${Math.random()
-      .toString(36)
-      .substr(2, 9)}`;
-
-    console.log(`📦 Splitting into ${totalChunks} chunks...`);
-
-    let thumbnailUrl = null;
     try {
-      const { base64 } = await generateThumbnail(asset.uri);
-      thumbnailUrl = base64;
-    } catch (e) {
-      console.log("⚠️ Could not generate thumbnail");
-    }
+      console.log("🎬 Starting chunked video upload...");
 
-    await sendMessageMutation({
-      variables: {
-        content: `🎬 Neighborhood Video (${totalChunks} parts)`,
-        neighborhoodId: neighborhoodId,
-        fileName: asset.name || "neighborhood-video.mp4",
-        fileType: "video_chunked",
-        sessionId: sessionId,
-        totalChunks: totalChunks,
-        thumbnailUrl: thumbnailUrl,
-        imageUrl: null,
-        videoUrl: null,
-        fileUrl: null,
-        magnetLink: null,
-      },
-    });
-
-    for (let i = 0; i < totalChunks; i++) {
-      const start = i * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, originalBlob.size);
-      const chunk = originalBlob.slice(start, end, "video/mp4");
-
-      await uploadSingleChunk(chunk, i, sessionId, totalChunks, asset.name);
-
-      if (i < totalChunks - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+      let originalBlob;
+      if (Platform.OS === "web" && asset.file) {
+        // Optimized: Use file directly
+        originalBlob = asset.file;
+      } else {
+        const response = await fetch(asset.uri);
+        const arrayBuffer = await response.arrayBuffer();
+        originalBlob = new Blob([arrayBuffer], { type: "video/mp4" });
       }
-    }
 
-    console.log("✅ All chunks uploaded!");
-    return true;
+      const CHUNK_SIZE = 2 * 1024 * 1024;
+      const totalChunks = Math.ceil(originalBlob.size / CHUNK_SIZE);
+      const sessionId = `video_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+
+      console.log(`📦 Splitting into ${totalChunks} chunks...`);
+
+      let thumbnailUrl = null;
+      if (Platform.OS === "web") {
+        try {
+          const thumbResult = await generateThumbnail(asset.uri);
+          if (thumbResult) thumbnailUrl = thumbResult.base64;
+        } catch (e) {
+          console.log("⚠️ Could not generate thumbnail");
+        }
+      }
+
+      const safeName = safeFileName(asset);
+
+      await sendMessageMutation({
+        variables: {
+          content: `🎬 Neighborhood Video (${totalChunks} parts)`,
+          neighborhoodId: neighborhoodId,
+          fileName: safeName,
+          fileType: "video_chunked",
+          sessionId: sessionId,
+          totalChunks: totalChunks,
+          thumbnailUrl: thumbnailUrl,
+          imageUrl: null,
+          videoUrl: null,
+          fileUrl: null,
+          magnetLink: null,
+        },
+      });
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, originalBlob.size);
+        const chunk = originalBlob.slice(start, end, "video/mp4");
+
+        await uploadSingleChunk(chunk, i, sessionId, totalChunks, safeName);
+
+        if (i < totalChunks - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+
+      console.log("✅ All chunks uploaded!");
+      Alert.alert(
+        "Upload Successful",
+        "Large video shared successfully via P2P.",
+      );
+      return true;
+    } catch (error) {
+      console.error("❌ Chunked Upload Failed:", error);
+      Alert.alert(
+        "Chunked Upload Failed",
+        error.message || "An unexpected error occurred.",
+      );
+      return false;
+    }
   };
 
   const uploadSingleChunk = (
@@ -949,6 +1026,11 @@ export default function NeighborhoodChatScreen() {
     fileName,
   ) => {
     return new Promise(async (resolve, reject) => {
+      // 5 minute timeout for seeding a chunk
+      const timeout = setTimeout(() => {
+        reject(new Error(`Seeding timeout for chunk ${index + 1}`));
+      }, 300000);
+
       try {
         // 1. Grab the Global Champ directly (Skip the service!)
         const client = window.globalWebTorrentClient;
@@ -985,14 +1067,17 @@ export default function NeighborhoodChatScreen() {
                   totalChunks: totalChunks,
                 },
               });
+              clearTimeout(timeout);
               resolve();
             } catch (err) {
+              clearTimeout(timeout);
               reject(err);
             }
           },
         );
       } catch (error) {
         console.error("❌ Seeding failed:", error);
+        clearTimeout(timeout);
         reject(error);
       }
     });
@@ -1013,24 +1098,11 @@ export default function NeighborhoodChatScreen() {
     return mimeTypes[ext] || "application/octet-stream";
   };
 
-  const getMimeTypeFromExtension = (filename) => {
-    const ext = filename.split(".").pop().toLowerCase();
-    const mimeTypes = {
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      png: "image/png",
-      gif: "image/gif",
-      webp: "image/webp",
-      heic: "image/heic",
-      bmp: "image/bmp",
-      mp4: "video/mp4",
-      mov: "video/quicktime",
-      avi: "video/x-msvideo",
-    };
-    return mimeTypes[ext] || "application/octet-stream";
-  };
-
   const generateThumbnail = async (videoUrl) => {
+    if (Platform.OS !== "web") {
+      console.log("📱 Skipping web-based thumbnail generation on Native.");
+      return null;
+    }
     console.log("🔄 Starting thumbnail generation for:", videoUrl);
 
     return new Promise((resolve, reject) => {
@@ -1100,41 +1172,72 @@ export default function NeighborhoodChatScreen() {
     neighborhoodId,
   ) => {
     try {
-      const response = await fetch(fileUri);
-      const blob = await response.blob();
+      let result;
 
-      const formData = new FormData();
-      formData.append("video", blob, fileName);
-      formData.append("title", fileName);
-      formData.append("description", `Uploaded ${type} - ${fileName}`);
+      if (Platform.OS === "web") {
+        const formData = new FormData();
+        const response = await fetch(fileUri);
+        const blob = await response.blob();
+        formData.append("video", blob, fileName);
+        formData.append("title", fileName);
+        formData.append("description", `Uploaded ${type} - ${fileName}`);
 
-      if (neighborhoodId) {
-        formData.append("neighborhoodId", neighborhoodId);
+        if (neighborhoodId) {
+          formData.append("neighborhoodId", neighborhoodId);
+        }
+
+        console.log("📤 IPFS Upload (Web):", {
+          fileName,
+          type,
+          neighborhoodId,
+        });
+
+        const res = await fetch(`${BACKEND_URL}/upload`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`IPFS upload failed: ${res.status} – ${errorText}`);
+        }
+        result = await res.json();
+      } else {
+        console.log("📤 IPFS Upload (Native):", {
+          fileName,
+          type,
+          neighborhoodId,
+        });
+
+        const uploadResponse = await FileSystem.uploadAsync(
+          `${BACKEND_URL}/upload`,
+          fileUri,
+          {
+            httpMethod: "POST",
+            uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+            fieldName: "video",
+            mimeType: getMimeTypeFromExtension(fileName),
+            parameters: {
+              title: fileName,
+              description: `Uploaded ${type} - ${fileName}`,
+              neighborhoodId: neighborhoodId || "",
+            },
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (uploadResponse.status !== 200 && uploadResponse.status !== 201) {
+          throw new Error(
+            `IPFS upload failed: ${uploadResponse.status} – ${uploadResponse.body}`,
+          );
+        }
+        result = JSON.parse(uploadResponse.body);
       }
 
-      console.log("📤 IPFS Upload:", {
-        fileName,
-        type,
-        size: blob.size,
-        neighborhoodId,
-      });
-
-      const res = await fetch(`${BACKEND_URL}/upload`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
-      console.log("📥 upload response status:", res.status);
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`IPFS upload failed: ${res.status} – ${errorText}`);
-      }
-
-      const result = await res.json();
       const { ipfsUrl, magnetLink } = result;
-
       console.log("✅ IPFS Result:", { ipfsUrl, magnetLink });
 
       let thumbnailUrl = null;
@@ -1143,12 +1246,17 @@ export default function NeighborhoodChatScreen() {
         try {
           console.log("🎬 Starting thumbnail generation for video...");
 
-          const { base64, format, size } = await generateThumbnail(fileUri);
+          const thumbResult = await generateThumbnail(fileUri);
 
-          console.log(
-            `✅ ${format.toUpperCase()} thumbnail generated: ${size} bytes`,
-          );
-          thumbnailUrl = base64;
+          if (thumbResult) {
+            const { base64, format, size } = thumbResult;
+            console.log(
+              `✅ ${format.toUpperCase()} thumbnail generated: ${size} bytes`,
+            );
+            thumbnailUrl = base64;
+          } else {
+            console.log("⚠️ No thumbnail generated (likely Native).");
+          }
         } catch (thumbnailError) {
           console.error(
             "❌ Thumbnail generation failed completely:",
@@ -1171,6 +1279,7 @@ export default function NeighborhoodChatScreen() {
       };
     } catch (error) {
       console.error("❌ IPFS upload error:", error);
+      // Re-throw so unifiedUpload can catch it and show Alert
       throw error;
     }
   };

@@ -57,9 +57,9 @@ export default function AdMessage({ ad }: AdProps) {
 <Image
   source={{ uri: ad.imageUrl }}
   style={styles.image}
-  contentFit="cover" // 👈 Instead of resizeMode
-  transition={200} // 👈 Smooth fade-in
-  cachePolicy="memory-disk" // 👈 Saves bandwidth/CPU
+  contentFit="cover" 
+  transition={200} 
+  cachePolicy="memory-disk"
 />
       ) : (
         <View style={styles.imagePlaceholder}>
@@ -69,11 +69,11 @@ export default function AdMessage({ ad }: AdProps) {
 
       <View style={styles.content}>
     
-        ) : (
+      
           <Text style={styles.defaultDescription}>
             Visit our partner's website
           </Text>
-        )}
+      
 
         <View style={styles.footer}>
           <Text style={styles.cta}>Visit Partner Site →</Text>
