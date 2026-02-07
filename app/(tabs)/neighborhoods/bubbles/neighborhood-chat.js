@@ -788,107 +788,82 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
-  const pickFile = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: "*/*",
-      copyToCacheDirectory: true,
-    });
-
-    if (!result.canceled) {
-      let asset = result.assets[0];
-      const fileName = safeFileName(asset);
-
-      // 1. Get the type data first!
-      const typeInfo = getFileType(fileName);
-      const resolvedType = typeInfo; // getFileType returns a string "image" or "video"
-
-      // 2. Handle Image Normalization
-      if (resolvedType === "image") {
-        try {
-          const response = await fetch(asset.uri);
-          const rawBlob = await response.blob();
-          const cleanFile = await normalizeImage(rawBlob, asset.name);
-
-          asset = {
-            ...asset,
-            uri: URL.createObjectURL(cleanFile),
-            name: cleanFile.name,
-            mimeType: cleanFile.type,
-            size: cleanFile.size,
-          };
-        } catch (err) {
-          console.error("PickFile Normalization Error:", err);
-        }
-      }
-      // 2. Large Video check (using 'type' and 'asset')
-      // Ensure we have a size, fallback to 0 if missing (though it shouldn't be)
-      const fileSize = asset.size || 0;
-      const isLargeVideo =
-        resolvedType === "video" && fileSize > 10 * 1024 * 1024;
-      const canDoP2P =
-        typeof window !== "undefined" && !!window.globalWebTorrentClient;
-
-      if (isLargeVideo && canDoP2P) {
-        Alert.alert(
-          "Large Video",
-          "This video is large. How would you like to share it?",
-          [
-            {
-              text: "Upload to Pinata (Slower)",
-              onPress: () =>
-                unifiedUpload(asset, resolvedType, asset.size, asset.mimeType),
-            },
-            {
-              text: "Share via P2P (Faster, must keep app open)",
-              onPress: () => uploadChunkedVideo(asset),
-            },
-            {
-              text: "Cancel",
-              style: "cancel",
-            },
-          ],
-        );
-      } else {
-        // 3. Regular flow for images, small videos, or when P2P is not available
-        await unifiedUpload(asset, resolvedType, asset.size, asset.mimeType);
-      }
-    }
-  };
+  // In your neighborhood-chat.js, update the unifiedUpload function:
 
   const unifiedUpload = async (asset, type, fileSize, mimeType) => {
     setUploading(true);
-    let uploadUri = null; // Track this for cleanup
+    let uploadUri = null;
 
     try {
       const token = await AsyncStorage.getItem("token");
-      if (!token)
-        throw new Error("No authentication token found. Please log in again.");
+      if (!token) throw new Error("No authentication token found");
 
       let safeName = safeFileName(asset);
       let finalUri = asset.uri;
 
       if (Platform.OS === "web") {
-        // Optimization: For videos, skip normalization to save memory/time
-        if (type === "video" || type === "unknown") {
-          finalUri = asset.uri;
-        } else {
-          const response = await fetch(asset.uri);
-          const rawBlob = await response.blob();
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
 
-          // 1. Normalize & Spoof
-          const cleanFile = await normalizeImage(rawBlob, safeName);
+        // Check if it's a large video
+        const isLargeVideo = blob.size > 10 * 1024 * 1024; // 10MB
+
+        if (type === "video" && isLargeVideo) {
+          try {
+            // Try to seed via P2P first
+            const seedResult = await webtorrentService.seed(blob, {
+              name: safeName,
+            });
+
+            // Generate thumbnail
+            let thumbnailUrl = null;
+            try {
+              const videoUrl = URL.createObjectURL(blob);
+              const thumbResult = await generateThumbnail(videoUrl);
+              thumbnailUrl = thumbResult?.base64;
+              URL.revokeObjectURL(videoUrl);
+            } catch (e) {
+              console.log("⚠️ Could not generate thumbnail");
+            }
+
+            // Send message with magnet link
+            await sendMessageMutation({
+              variables: {
+                content: `🎬 P2P Video: ${safeName}`,
+                neighborhoodId: neighborhoodId,
+                fileName: safeName,
+                fileType: "video",
+                mimeType: blob.type,
+                videoUrl: null, // No IPFS URL for P2P
+                magnetLink: seedResult.magnetUri,
+                thumbnailUrl: thumbnailUrl,
+              },
+            });
+
+            console.log("✅ Video shared via P2P");
+            if (refetch) await refetch();
+            return;
+          } catch (p2pError) {
+            console.log("⚠️ P2P failed, falling back to IPFS:", p2pError);
+            // Fall through to IPFS upload
+          }
+        }
+
+        // Continue with normal IPFS upload for images or if P2P failed
+        if (type === "image") {
+          const cleanFile = await normalizeImage(blob, safeName);
           safeName = cleanFile.name;
-
-          // 2. Create local URL for the upload tool
           uploadUri = URL.createObjectURL(cleanFile);
+          finalUri = uploadUri;
+        } else {
+          uploadUri = URL.createObjectURL(blob);
           finalUri = uploadUri;
         }
       } else {
-        // For Native, we use the URI directly.
         safeName = cleanFileName(safeName);
       }
 
-      // 3. IPFS UPLOAD
+      // IPFS UPLOAD
       console.log(`🚀 Starting ${type} upload to IPFS...`);
       const uploadResult = await uploadToIPFS(
         finalUri,
@@ -898,47 +873,127 @@ export default function NeighborhoodChatScreen() {
         neighborhoodId,
       );
 
-      // 4. SEND MESSAGE
+      // CACHE THE MAGNET LINK FROM IPFS
+      if (uploadResult.magnetLink) {
+        await webtorrentService.cacheMagnetLink(uploadResult.magnetLink, {
+          fileName: safeName,
+          fileType: type,
+          ipfsUrl: uploadResult.ipfsUrl,
+        });
+
+        // Optional: pre-warm the magnet link (start downloading in background)
+        setTimeout(() => {
+          webtorrentService.prewarmMagnet(uploadResult.magnetLink).catch(() => {
+            // Silent fail - it's just pre-warming
+          });
+        }, 1000);
+      }
+
+      // SEND MESSAGE
       await sendMessageMutation({
         variables: {
           content: `Shared: ${safeName}`,
           neighborhoodId: neighborhoodId,
           fileName: safeName,
           fileType: type,
-          // Force the mimeType to image/jpeg so the DB knows how to serve it
-          mimeType:
-            type === "image"
-              ? "image/jpeg"
-              : asset.mimeType || getMimeTypeFromExtension(safeName),
+          mimeType: type === "image" ? "image/jpeg" : mimeType,
           imageUrl: type === "image" ? uploadResult.ipfsUrl : null,
           videoUrl: type === "video" ? uploadResult.ipfsUrl : null,
           fileUrl:
             type !== "image" && type !== "video" ? uploadResult.ipfsUrl : null,
           magnetLink: uploadResult.magnetLink || "",
           thumbnailUrl: uploadResult.thumbnailUrl || null,
-          sessionId: null,
-          chunkIndex: null,
-          totalChunks: null,
         },
       });
 
       if (refetch) await refetch();
       console.log(`✅ ${type} upload complete!`);
     } catch (error) {
-      console.error("❌ Final Upload Crash:", error);
-      Alert.alert(
-        "Upload Failed",
-        error.message || "An unexpected error occurred during upload.",
-      );
+      console.error("❌ Upload error:", error);
+      Alert.alert("Upload Failed", error.message);
     } finally {
-      // 🔥 THE FIX FOR LAG: Clear the memory!
       if (uploadUri) {
         URL.revokeObjectURL(uploadUri);
-        console.log("🧹 Memory cleared: Revoked upload blob.");
       }
       setUploading(false);
     }
   };
+
+  // New function for P2P video upload
+  const uploadVideoViaP2P = async (videoBlob, fileName, token) => {
+    try {
+      console.log("🎬 Uploading video via P2P...");
+
+      // Seed the video
+      const seedResult = await webtorrentService.seedFile(videoBlob, fileName);
+
+      // Generate thumbnail
+      let thumbnailUrl = null;
+      try {
+        const videoUrl = URL.createObjectURL(videoBlob);
+        const thumbResult = await generateThumbnail(videoUrl);
+        thumbnailUrl = thumbResult?.base64;
+        URL.revokeObjectURL(videoUrl);
+      } catch (e) {
+        console.log("⚠️ Could not generate thumbnail");
+      }
+
+      // Send message with magnet link
+      await sendMessageMutation({
+        variables: {
+          content: `🎬 P2P Video: ${fileName}`,
+          neighborhoodId: neighborhoodId,
+          fileName: fileName,
+          fileType: "video",
+          mimeType: videoBlob.type,
+          videoUrl: null, // No IPFS URL for P2P-only
+          magnetLink: seedResult.magnetUri,
+          thumbnailUrl: thumbnailUrl,
+        },
+      });
+
+      console.log("✅ Video shared via P2P with magnet link");
+    } catch (error) {
+      console.error("❌ P2P upload failed:", error);
+      throw error;
+    }
+  };
+
+  // Simplify the pickFile function
+const pickFile = async () => {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: "*/*",
+    copyToCacheDirectory: true,
+  });
+
+  if (!result.canceled) {
+    let asset = result.assets[0];
+    const fileName = safeFileName(asset);
+    const resolvedType = getFileType(fileName);
+
+    // Handle Image Normalization
+    if (resolvedType === "image") {
+      try {
+        const response = await fetch(asset.uri);
+        const rawBlob = await response.blob();
+        const cleanFile = await normalizeImage(rawBlob, asset.name);
+
+        asset = {
+          ...asset,
+          uri: URL.createObjectURL(cleanFile),
+          name: cleanFile.name,
+          mimeType: cleanFile.type,
+          size: cleanFile.size,
+        };
+      } catch (err) {
+        console.error("Image normalization error:", err);
+      }
+    }
+
+    // Just use unifiedUpload - it will handle P2P vs IPFS decision
+    await unifiedUpload(asset, resolvedType, asset.size, asset.mimeType);
+  }
+};
 
   const uploadChunkedVideo = async (asset) => {
     try {
