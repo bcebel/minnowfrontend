@@ -3,9 +3,22 @@ class WebTorrentService {
     // Stick to the trackers defined in your +html.tsx for consistency
     this.trackers = window.enhancedTrackers || [
       "wss://tracker-0ad4cca9fd92.herokuapp.com",
-      "wss://tracker.openwebtorrent.com",
-      "wss://tracker.files.fm:7073",
+      "wss://tracker.files.fm:7073/announce",
       "wss://tracker.webtorrent.dev",
+      "wss://tracker.openwebtorrent.com",
+      "wss://tracker.btorrent.xyz",
+      "wss://tracker.files.fm:7073",
+      "udp://tracker.opentrackr.org:1337/announce",
+      "udp://open.tracker.cl:1337/announce",
+      "udp://9.rarbg.to:2710/announce",
+      "udp://tracker.coppersurfer.tk:6969/announce",
+      "udp://tracker.leechers-paradise.org:6969/announce",
+      "udp://tracker.internetwarriors.net:1337/announce",
+      "udp://exodus.desync.com:6969/announce",
+      "udp://tracker.moeking.me:6969/announce",
+      "udp://opentor.org:2710/announce",
+      "udp://tracker.cyberia.is:6969/announce",
+      "udp://tracker3.itzmx.com:6961/announce",
     ];
   }
 

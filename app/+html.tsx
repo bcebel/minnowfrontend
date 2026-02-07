@@ -46,7 +46,6 @@ export default function Root({ children }: PropsWithChildren) {
         <meta property="twitter:description" content={description} />
         <meta property="twitter:image" content={image} />
         <meta property="twitter:creator" content="@bubblebase" />
-
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -102,7 +101,8 @@ export default function Root({ children }: PropsWithChildren) {
           }}
         />
         {/* Preconnect for performance */}
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" />        <link
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" />{" "}
+        <link
           rel="preconnect"
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
@@ -126,17 +126,29 @@ export default function Root({ children }: PropsWithChildren) {
           sizes="16x16"
           href="/favicon-16x16.png"
         />
-
         {/* 1. Load the library first */}
         <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-
         <script
           dangerouslySetInnerHTML={{
             __html: `
       window.enhancedTrackers = [
-        "wss://tracker-0ad4cca9fd92.herokuapp.com",
-        "wss://tracker.files.fm:7073",
-    "wss://tracker.webtorrent.dev",
+  "wss://tracker-0ad4cca9fd92.herokuapp.com",
+  "wss://tracker.files.fm:7073/announce",
+  "wss://tracker.webtorrent.dev",
+  "wss://tracker.openwebtorrent.com",
+  "wss://tracker.btorrent.xyz",
+  "wss://tracker.files.fm:7073",
+  "udp://tracker.opentrackr.org:1337/announce",
+  "udp://open.tracker.cl:1337/announce",
+  "udp://9.rarbg.to:2710/announce",
+  "udp://tracker.coppersurfer.tk:6969/announce",
+  "udp://tracker.leechers-paradise.org:6969/announce",
+  "udp://tracker.internetwarriors.net:1337/announce",
+  "udp://exodus.desync.com:6969/announce",
+  "udp://tracker.moeking.me:6969/announce",
+  "udp://opentor.org:2710/announce",
+  "udp://tracker.cyberia.is:6969/announce",
+  "udp://tracker3.itzmx.com:6961/announce"
       ];
       try {
         window.globalWebTorrentClient = new window.WebTorrent({
@@ -144,12 +156,17 @@ export default function Root({ children }: PropsWithChildren) {
             announce: window.enhancedTrackers,
             rtcConfig: {
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:global.stun.twilio.com:3478' }
+      { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' },
+          { urls: 'stun:global.stun.twilio.com:3478' },
       ]
     },
-            heartbeat: 10 // Keeps Heroku connection alive
-          }
+            heartbeat: 30 // Keeps Heroku connection alive
+          },
+          webSeeds: true,
         });
         console.log("🌪️ CHAMP INITIALIZED WITH HEROKU TRACKER");
       } catch(e) {

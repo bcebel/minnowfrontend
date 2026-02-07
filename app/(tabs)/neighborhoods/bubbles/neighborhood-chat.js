@@ -824,7 +824,7 @@ export default function NeighborhoodChatScreen() {
       // Ensure we have a size, fallback to 0 if missing (though it shouldn't be)
       const fileSize = asset.size || 0;
       const isLargeVideo =
-        resolvedType === "video" && fileSize > 5 * 1024 * 1024;
+        resolvedType === "video" && fileSize > 10 * 1024 * 1024;
       const canDoP2P =
         typeof window !== "undefined" && !!window.globalWebTorrentClient;
 
