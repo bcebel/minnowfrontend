@@ -516,10 +516,15 @@ export default function NeighborhoodChatScreen() {
       document.body.appendChild(script);
     }
   }, []);
-
+  
   useEffect(() => {
     if (data?.neighborhoodMessages) {
-      setMessages(data.neighborhoodMessages);
+      const cleanMessages = data.neighborhoodMessages
+        .filter((m) => !m.sessionId)
+        // SORT: Ensure oldest is at top, newest is at bottom
+        .sort((a, b) => parseInt(a.createdAt) - parseInt(b.createdAt));
+
+      setMessages(cleanMessages);
     }
   }, [data?.neighborhoodMessages]);
 

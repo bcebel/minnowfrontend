@@ -102,30 +102,60 @@ export default function NeighborhoodLiveStreamRecorder({
       const sessionId = sessionIdRef.current;
       const totalChunks = chunkIndexRef.current;
 
-      // 1. STITCH: Grab everything from the warehouse
+      // 1. STITCH: Gather parts in strict order
       const parts = [];
-      const header = await warehouse.getChunk(sessionId, -1);
-      if (header) parts.push(header);
 
+      // Get the critical Header (-1)
+      const header = await warehouse.getChunk(sessionId, -1);
+      if (header) {
+        parts.push(header);
+      } else {
+        console.warn(
+          "⚠️ Header missing from warehouse, archive might be unplayable",
+        );
+      }
+
+      // Get every recorded chunk
       for (let i = 0; i < totalChunks; i++) {
         const chunk = await warehouse.getChunk(sessionId, i);
         if (chunk) parts.push(chunk);
       }
 
-      // 2. WRAP: Create the "Asset" object that unifiedUpload expects
+      if (parts.length === 0) {
+        Alert.alert("Error", "No data found to archive.");
+        return;
+      }
+
+      // 2. CREATE THE BLOB
+      // Use the specific type the browser expects
       const stitchedBlob = new Blob(parts, { type: "video/mp4" });
-      const mockAsset = {
+
+      // 3. SHIP: Use the unifiedUpload
+      // This function usually handles the IPFS upload and the final GraphQL sendMessage
+      // Ensure you pass it as a single "video" file, NOT as chunks.
+      const fileToUpload = {
         uri: URL.createObjectURL(stitchedBlob),
-        name: `live-archive-${sessionId}.mp4`,
+        name: `archive_${sessionId}.mp4`,
+        type: "video/mp4",
         size: stitchedBlob.size,
       };
 
-      // 3. SHIP: Use the passed-in unifiedUpload from ChatScreen
-      await unifiedUpload(mockAsset, "video", stitchedBlob.size, "video/mp4");
+      console.log("📤 Sending stitched archive to IPFS...", fileToUpload.size);
 
-      // 4. CLEANUP: Clear the warehouse since it's now permanent in the gallery
+      // IMPORTANT: Make sure your unifiedUpload in neighborhood-chat.js
+      // sends this with isChunked: false or simply as a standard video.
+      await unifiedUpload(
+        fileToUpload,
+        "video",
+        stitchedBlob.size,
+        "video/mp4",
+      );
+
+      // 4. CLEANUP
       await warehouse.deleteSession(sessionId);
       Alert.alert("Success", "Stream archived to Gallery!");
+
+      if (onStreamEnd) onStreamEnd();
     } catch (error) {
       console.error("❌ Archive failed:", error);
       Alert.alert("Error", "Could not stitch and ship.");

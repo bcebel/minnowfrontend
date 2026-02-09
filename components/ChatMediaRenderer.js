@@ -15,6 +15,8 @@ import WebTorrentMedia from "./WebTorrentMedia";
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
 export default function ChatMediaRenderer({ message }) {
+
+  
   // 1. Block raw chunks from rendering
   if (!message || message.fileType === "video_chunk") return null;
 
