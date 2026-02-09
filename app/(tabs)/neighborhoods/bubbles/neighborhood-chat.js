@@ -723,7 +723,368 @@ export default function NeighborhoodChatScreen() {
     }
   };
 
+  // Replace your openCamera function with this:
   const openCamera = async () => {
+    if (Platform.OS === "web") {
+      // For web browsers (including macOS)
+      return openCameraWeb();
+    } else {
+      // For mobile (React Native)
+      return openCameraMobile();
+    }
+  };
+
+  // Replace the openCameraWeb function with this enhanced version:
+  const openCameraWeb = async () => {
+    try {
+      // Check if getUserMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        // Fallback to file input for browsers that don't support camera
+        return openCameraFallback();
+      }
+
+      // Create UI for camera selection
+      const container = document.createElement("div");
+      container.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.95);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    `;
+
+      const title = document.createElement("h2");
+      title.textContent = "📸 Camera";
+      title.style.cssText = `
+      color: #00ffff;
+      margin-bottom: 30px;
+      text-align: center;
+    `;
+
+      const modeSelector = document.createElement("div");
+      modeSelector.style.cssText = `
+      display: flex;
+      gap: 20px;
+      margin-bottom: 30px;
+    `;
+
+      const photoModeBtn = document.createElement("button");
+      photoModeBtn.textContent = "📷 Take Photo";
+      photoModeBtn.style.cssText = `
+      padding: 15px 30px;
+      font-size: 16px;
+      background: #00ffff;
+      color: #130720;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-weight: bold;
+    `;
+
+      const videoModeBtn = document.createElement("button");
+      videoModeBtn.textContent = "🎥 Record Video";
+      videoModeBtn.style.cssText = `
+      padding: 15px 30px;
+      font-size: 16px;
+      background: #333;
+      color: white;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-weight: bold;
+    `;
+
+      let currentMode = "photo"; // 'photo' or 'video'
+
+      photoModeBtn.onclick = () => {
+        currentMode = "photo";
+        photoModeBtn.style.background = "#00ffff";
+        photoModeBtn.style.color = "#130720";
+        videoModeBtn.style.background = "#333";
+        videoModeBtn.style.color = "white";
+        startCamera("photo");
+      };
+
+      videoModeBtn.onclick = () => {
+        currentMode = "video";
+        videoModeBtn.style.background = "#00ffff";
+        videoModeBtn.style.color = "#130720";
+        photoModeBtn.style.background = "#333";
+        photoModeBtn.style.color = "white";
+        startCamera("video");
+      };
+
+      modeSelector.appendChild(photoModeBtn);
+      modeSelector.appendChild(videoModeBtn);
+
+      const previewContainer = document.createElement("div");
+      previewContainer.style.cssText = `
+      width: 80%;
+      max-width: 600px;
+      margin-bottom: 20px;
+      position: relative;
+    `;
+
+      const preview = document.createElement("video");
+      preview.style.cssText = `
+      width: 100%;
+      border-radius: 12px;
+      background: #000;
+    `;
+
+      const controlsContainer = document.createElement("div");
+      controlsContainer.style.cssText = `
+      display: flex;
+      gap: 20px;
+      margin-top: 20px;
+    `;
+
+      const captureBtn = document.createElement("button");
+      captureBtn.textContent = "📸 Capture";
+      captureBtn.style.cssText = `
+      padding: 15px 30px;
+      font-size: 16px;
+      background: #00ff00;
+      color: #000;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-weight: bold;
+      display: none;
+    `;
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.textContent = "❌ Return";
+      cancelBtn.style.cssText = `
+      padding: 15px 30px;
+      font-size: 16px;
+      background: #ff3333;
+      color: white;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-weight: bold;
+    `;
+
+      let mediaRecorder = null;
+      let recordedChunks = [];
+      let stream = null;
+      let isRecording = false;
+
+      const startCamera = async (mode) => {
+        try {
+          // Stop any existing stream
+          if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+          }
+
+          // Clear previous preview
+          preview.srcObject = null;
+
+          // Request camera with video constraints
+          const constraints = {
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              facingMode: "environment",
+            },
+            audio: mode === "video", // Include audio for video mode
+          };
+
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          preview.srcObject = stream;
+          preview.muted = true;
+          preview.play();
+
+          captureBtn.style.display = "block";
+
+          if (mode === "video") {
+            captureBtn.textContent = "⏺️ Start Recording";
+            captureBtn.style.background = "#ff3333";
+
+            // Set up media recorder
+            mediaRecorder = new MediaRecorder(stream, {
+              mimeType: "video/webm;codecs=vp9,opus",
+            });
+
+            recordedChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+              if (event.data.size > 0) {
+                recordedChunks.push(event.data);
+              }
+            };
+
+            mediaRecorder.onstop = async () => {
+              const blob = new Blob(recordedChunks, { type: "video/webm" });
+              const fileName = `camera_video_${Date.now()}.webm`;
+              const url = URL.createObjectURL(blob);
+
+              await unifiedUpload(
+                {
+                  uri: url,
+                  name: fileName,
+                  size: blob.size,
+                  type: "video/webm",
+                },
+                "video",
+                blob.size,
+                "video/webm",
+              );
+
+              URL.revokeObjectURL(url);
+            };
+          } else {
+            captureBtn.textContent = "📸 Take Photo";
+            captureBtn.style.background = "#00ff00";
+          }
+        } catch (error) {
+          console.error("Camera start error:", error);
+          Alert.alert(
+            "Camera Error",
+            "Failed to start camera. Please check permissions.",
+          );
+        }
+      };
+
+      captureBtn.onclick = () => {
+        if (currentMode === "photo") {
+          // Take photo
+          const canvas = document.createElement("canvas");
+          canvas.width = preview.videoWidth;
+          canvas.height = preview.videoHeight;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(preview, 0, 0);
+
+          canvas.toBlob(
+            async (blob) => {
+              const fileName = `camera_photo_${Date.now()}.jpg`;
+              const url = URL.createObjectURL(blob);
+
+              await unifiedUpload(
+                {
+                  uri: url,
+                  name: fileName,
+                  size: blob.size,
+                  type: "image/jpeg",
+                },
+                "image",
+                blob.size,
+                "image/jpeg",
+              );
+
+              URL.revokeObjectURL(url);
+            },
+            "image/jpeg",
+            0.9,
+          );
+        } else if (currentMode === "video") {
+          // Record video
+          if (!isRecording) {
+            // Start recording
+            isRecording = true;
+            captureBtn.textContent = "⏹️ Stop Recording";
+            captureBtn.style.background = "#00ff00";
+            recordedChunks = [];
+            mediaRecorder.start();
+          } else {
+            // Stop recording
+            isRecording = false;
+            captureBtn.textContent = "⏺️ Start Recording";
+            captureBtn.style.background = "#ff3333";
+            mediaRecorder.stop();
+          }
+        }
+      };
+
+      cancelBtn.onclick = () => {
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+        }
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          mediaRecorder.stop();
+        }
+        document.body.removeChild(container);
+      };
+
+      controlsContainer.appendChild(captureBtn);
+      controlsContainer.appendChild(cancelBtn);
+
+      previewContainer.appendChild(preview);
+
+      container.appendChild(title);
+      container.appendChild(modeSelector);
+      container.appendChild(previewContainer);
+      container.appendChild(controlsContainer);
+
+      document.body.appendChild(container);
+
+      // Start with photo mode by default
+      startCamera("photo");
+    } catch (error) {
+      console.error("Camera error:", error);
+
+      // Fallback if camera access fails
+      if (
+        error.name === "NotAllowedError" ||
+        error.name === "PermissionDeniedError"
+      ) {
+        Alert.alert(
+          "Camera Access Required",
+          "Please allow camera access in your browser settings, or use the file upload option.",
+          [{ text: "OK" }],
+        );
+      } else {
+        // Use fallback method
+        openCameraFallback();
+      }
+    }
+  };
+
+  const openCameraFallback = () => {
+    // Fallback to file input with camera capture attribute
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*,video/*";
+    input.capture = "environment"; // Prefer back camera
+    input.style.display = "none";
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const type = file.type.startsWith("image/") ? "image" : "video";
+        const uri = URL.createObjectURL(file);
+
+        await unifiedUpload(
+          {
+            uri,
+            name: file.name,
+            file: file,
+            size: file.size,
+            type: file.type,
+          },
+          type,
+          file.size,
+          file.type,
+        );
+
+        URL.revokeObjectURL(uri);
+      }
+    };
+
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => document.body.removeChild(input), 1000);
+  };
+
+  const openCameraMobile = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       Alert.alert("Permission needed", "Camera access required.");
@@ -736,7 +1097,6 @@ export default function NeighborhoodChatScreen() {
     if (!result.canceled) {
       const asset = result.assets[0];
       const type = asset.type === "image" ? "image" : "video";
-
       await unifiedUpload(
         {
           uri: asset.uri,
@@ -960,40 +1320,40 @@ export default function NeighborhoodChatScreen() {
   };
 
   // Simplify the pickFile function
-const pickFile = async () => {
-  const result = await DocumentPicker.getDocumentAsync({
-    type: "*/*",
-    copyToCacheDirectory: true,
-  });
+  const pickFile = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: "*/*",
+      copyToCacheDirectory: true,
+    });
 
-  if (!result.canceled) {
-    let asset = result.assets[0];
-    const fileName = safeFileName(asset);
-    const resolvedType = getFileType(fileName);
+    if (!result.canceled) {
+      let asset = result.assets[0];
+      const fileName = safeFileName(asset);
+      const resolvedType = getFileType(fileName);
 
-    // Handle Image Normalization
-    if (resolvedType === "image") {
-      try {
-        const response = await fetch(asset.uri);
-        const rawBlob = await response.blob();
-        const cleanFile = await normalizeImage(rawBlob, asset.name);
+      // Handle Image Normalization
+      if (resolvedType === "image") {
+        try {
+          const response = await fetch(asset.uri);
+          const rawBlob = await response.blob();
+          const cleanFile = await normalizeImage(rawBlob, asset.name);
 
-        asset = {
-          ...asset,
-          uri: URL.createObjectURL(cleanFile),
-          name: cleanFile.name,
-          mimeType: cleanFile.type,
-          size: cleanFile.size,
-        };
-      } catch (err) {
-        console.error("Image normalization error:", err);
+          asset = {
+            ...asset,
+            uri: URL.createObjectURL(cleanFile),
+            name: cleanFile.name,
+            mimeType: cleanFile.type,
+            size: cleanFile.size,
+          };
+        } catch (err) {
+          console.error("Image normalization error:", err);
+        }
       }
-    }
 
-    // Just use unifiedUpload - it will handle P2P vs IPFS decision
-    await unifiedUpload(asset, resolvedType, asset.size, asset.mimeType);
-  }
-};
+      // Just use unifiedUpload - it will handle P2P vs IPFS decision
+      await unifiedUpload(asset, resolvedType, asset.size, asset.mimeType);
+    }
+  };
 
   const uploadChunkedVideo = async (asset) => {
     try {
