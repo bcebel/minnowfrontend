@@ -1785,6 +1785,8 @@ export default function NeighborhoodChatScreen() {
         >
           <Text style={styles.membersButtonText}>👥</Text>
         </TouchableOpacity>
+      </View>
+      <View style={styles.recorderStrip}>
         <NeighborhoodLiveStreamRecorder
           neighborhoodId={neighborhoodId}
           username={username}
@@ -2350,5 +2352,20 @@ const styles = StyleSheet.create({
   closeAdText: {
     color: "#fff",
     fontSize: 16,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 10,
+    // Ensure this doesn't have a fixed height that's too small
+  },
+  recorderStrip: {
+    width: "100%",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "#130720", // Match your theme
+    borderBottomWidth: 1,
+    borderBottomColor: "#333",
   },
 });
