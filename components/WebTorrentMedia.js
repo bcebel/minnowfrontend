@@ -274,6 +274,14 @@ const styles = StyleSheet.create({
   video: {
     width: "100%",
     height: "100%",
+    // On Web, native controls are part of the element's height.
+    // 'contain' keeps them inside the parent.
+    objectFit: "contain",
+    backgroundColor: "#000",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
     objectFit: "contain",
     backgroundColor: "#000",
   },

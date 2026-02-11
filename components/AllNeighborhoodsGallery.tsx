@@ -16,6 +16,9 @@ import WebTorrentMedia from "../components/WebTorrentMedia";
 import { Image } from "expo-image";
 import AdMessage from "./AdMessage";
 
+const { width, height } = Dimensions.get("window");
+const CARD_WIDTH = width; // Full width for paging
+const MEDIA_SIZE = width - 40; // Square media with some padding
 // Use the working 'images' query instead of 'myImages'
 const GET_NEIGHBORHOOD_GALLERY = gql`
   query GetMyAllNeighborhoodsGallery {
@@ -405,42 +408,48 @@ if (item.isAd) {
 }
 
 const styles = StyleSheet.create({
-  mediaContainer: {
-    padding: 10,
-    width: "100%", // 🎯 Remove the fixed height here
-    backgroundColor: "#000",
-  },
-
-  fixedMediaWrapper: {
-    height: Dimensions.get("window").width * 0.5,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  standardImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 8,
-    backgroundColor: "#1C0A2E",
-  },
-
-  // Update your existing card style to handle the vertical stack better
-  card: {
-    backgroundColor: "#1C0A2E",
-    borderRadius: 12,
-    marginHorizontal: 10,
-    maxHeight: Dimensions.get("window").width * 0.5,
-    maxWidth: Dimensions.get("window").width * 0.5,
-    // Remove fixed height from card if you want it to wrap content,
-    // OR set it large enough to fit media + header + metadata
-    minHeight: 500,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "#222222",
-  },
   container: {
     flex: 1,
     backgroundColor: "#130720",
+  },
+  listContainer: {
+    padding: 0,
+  },
+  card: {
+    width: CARD_WIDTH, // 🎯 Essential for pagingEnabled
+    height: height * 0.7, // Take up a good chunk of vertical space
+    backgroundColor: "#1C0A2E",
+    justifyContent: "center", // Center media vertically in the page
+    alignItems: "center",
+    padding: 20,
+    overflow: "hidden",
+  },
+  mediaContainer: {
+    width: MEDIA_SIZE,
+    height: MEDIA_SIZE, // 🎯 Force the square frame
+    backgroundColor: "#000",
+    borderRadius: 12,
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#333",
+  },
+  // Ensure the internal wrapper also respects the size
+  fixedMediaWrapper: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  standardImage: {
+    width: "100%",
+    height: "100%",
+    // contentFit: "contain" is handled in the component props
+  },
+  magnetContainer: {
+    width: "100%",
+    height: "100%",
   },
   center: {
     flex: 1,
@@ -509,10 +518,6 @@ const styles = StyleSheet.create({
     color: "#FFFF00",
     letterSpacing: 0.5,
   },
-  listContainer: {
-    padding: 0, // Set to 0 or remove padding to avoid clipping
-    paddingBottom: 20, // Keep if you want space below the card
-  },
 
   cardHeader: {
     padding: 15,
@@ -567,12 +572,7 @@ const styles = StyleSheet.create({
     color: "#F5F2FA",
     fontSize: 14,
   },
-  magnetContainer: {
-    width: "100%",
-    borderRadius: 8,
-    overflow: "hidden",
-    minHeight: 200,
-  },
+
   image: {
     width: "100%",
     aspectRatio: 1, // 🎯 Force a square if it's a photo, or 16/9

@@ -8,12 +8,16 @@ import {
   Platform,
   TouchableOpacity,
   Linking,
+  Dimensions,
 } from "react-native";
 import { Image } from "expo-image";
 import { gql, useQuery } from "@apollo/client";
 import { useVideoPlayer, VideoView } from "expo-video";
 import WebTorrentMedia from "../../../../components/WebTorrentMedia"; // Import from your chat
 import AdMessage from "../../../../components/AdMessage"; // New Ad component
+const { width, height } = Dimensions.get("window");
+const SAFE_SQUARE_SIZE = Math.min(width, height);
+
 // GraphQL Query
 const GET_NEIGHBORHOOD_GALLERY = gql`
   query GetNeighborhoodGallery($neighborhoodId: ID!) {
@@ -110,10 +114,9 @@ const SimpleVideoPlayer = ({
     >
       <VideoView
         player={player}
-        style={styles.videoPlayer}
+        style={styles.fullMedia} // 🎯 Force it to fill exactly
+        contentFit="contain" // 🎯 This is the most important prop for expo-video
         showsControls={true}
-        contentFit="contain"
-        allowsExternalPlayback={true}
       />
       {fileName && (
         <Text style={styles.videoCaption} numberOfLines={1}>
@@ -279,41 +282,28 @@ export default function NeighborhoodGallery({
   const media = allMedia;
   const totalCount = galleryData?.totalCount || 0;
 
-  const renderItem = ({ item }: { item: any }) => {
-    if (item.isAd) {
-      return (
-        <View style={styles.galleryAdWrapper}>
-          <AdMessage ad={item} />
-        </View>
-      );
-    }
-    const fileType = getFileType(item.fileName);
+const renderItem = ({ item }) => {
+  if (item.isAd) return <AdMessage ad={item} />;
 
-    return (
-      <View style={styles.card}>
-        <View
-          style={[
-            styles.badge,
-            fileType === "image" ? styles.imageBadge : styles.videoBadge,
-          ]}
-        >
-          <Text style={styles.badgeText}>{fileType.toUpperCase()}</Text>
-        </View>
-
-        <Text style={styles.title}>
-          {item.title || item.fileName || "Untitled"}
-        </Text>
-
+  return (
+    <View style={styles.card}>
+      {/* 1. The Media Frame */}
+      <View style={styles.mediaWrapper}>
         <MediaDisplay item={item} />
-
-        <View style={styles.info}>
-          <Text>👤 {item.user?.username || "Unknown"}</Text>
-          <Text>🏘️ {item.neighborhood?.name || "No neighborhood"}</Text>
-        </View>
       </View>
-    );
-  };
 
+      {/* 2. The Text/Control Footer */}
+      <View style={styles.footerInfo}>
+        <Text style={styles.title} numberOfLines={1}>
+          {item.title || "Untitled Neighborhood Post"}
+        </Text>
+        <Text style={styles.caption}>
+          👤 {item.user?.username || "Neighbor"}
+        </Text>
+      </View>
+    </View>
+  );
+};
   if (media.length === 0) {
     return (
       <View style={styles.container}>
@@ -336,22 +326,99 @@ export default function NeighborhoodGallery({
         data={allMedia}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        // --- ADD THESE ---
-        initialNumToRender={6}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        removeClippedSubviews={Platform.OS !== "web"}
+        pagingEnabled={true}
+        snapToInterval={SAFE_SQUARE_SIZE + 32} // Square size + your vertical margins
+        snapToAlignment="start"
+        decelerationRate="fast"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: (width - SAFE_SQUARE_SIZE) / 2, // Centers the square horizontally
+        }}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  card: {
+    backgroundColor: "#1A1A1A", // Dark theme makes letterboxing (black bars) invisible
+    borderRadius: 16,
+    width: SAFE_SQUARE_SIZE,
+    height: SAFE_SQUARE_SIZE,
+    alignSelf: "center",
+    marginBottom: 20,
+    overflow: "hidden", // Keeps everything inside the rounded corners
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+  // This is the "Frame" the media sits in
+  mediaWrapper: {
+    width: "100%",
+    height: "80%", // 🎯 Leaves 20% at the bottom for controls/text
+    backgroundColor: "#000", 
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+    contentFit: "contain", // 🎯 Ensures no cropping
+  },
+  videoPlayer: {
+    width: "100%",
+    height: "100%",
+    // For expo-video, contentFit is a prop, not a style
+  },
+  // The Safe Zone for text/controls
+  footerInfo: {
+    width: "100%",
+    height: "20%",
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    backgroundColor: "#222",
+  },
+  title: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  caption: {
+    color: "#aaa",
+    fontSize: 12,
+  },
+ 
+  videoContainer: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 8,
+    overflow: "hidden",
+    backgroundColor: "#130720",
+  },
+
+  magnetContainer: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#000", // Black background looks better for full-screen media
   },
+
+  // Move info/title to overlay style
+  info: {
+    position: "absolute",
+    bottom: 40,
+    left: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    padding: 10,
+    borderRadius: 8,
+  },
+
+
   center: {
     flex: 1,
     justifyContent: "center",
@@ -371,17 +438,7 @@ const styles = StyleSheet.create({
   list: {
     paddingBottom: 20,
   },
-  card: {
-    backgroundColor: "white",
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#1C0A2E",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
+
   badge: {
     alignSelf: "flex-start",
     paddingHorizontal: 8,
@@ -400,37 +457,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "bold",
   },
-  title: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 12,
-  },
+
   noMedia: {
     padding: 20,
     backgroundColor: "#eee",
     borderRadius: 8,
     alignItems: "center",
   },
-  image: {
-    width: "100%",
-    height: 200,
-    borderRadius: 8,
-    backgroundColor: "#f0f0f0",
-  },
-  // Video styles from chat
-  videoContainer: {
-    marginBottom: 8,
-    borderRadius: 12,
-    overflow: "hidden",
-    width: "100%",
-    backgroundColor: "#130720",
-  },
-  videoPlayer: {
-    width: "100%",
-    height: undefined,
-    aspectRatio: 16 / 9,
-    backgroundColor: "#130720",
-  },
+
   videoCaption: {
     color: "#F5F2FA",
     fontSize: 14,
@@ -438,11 +472,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     textAlign: "center",
   },
-  magnetContainer: {
-    width: "100%",
-    borderRadius: 8,
-    overflow: "hidden",
-  },
+
   // File container from chat
   fileContainer: {
     flexDirection: "row",
@@ -471,12 +501,7 @@ const styles = StyleSheet.create({
     color: "#00AA00",
     fontSize: 14,
   },
-  info: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-  },
+
   empty: {
     textAlign: "center",
     marginTop: 40,
