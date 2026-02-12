@@ -468,72 +468,113 @@ export default function LivestreamScreen() {
 // --- THE NEW "LIVESTREAM PREVIEW" COMPONENT ---
 function LivestreamPreview({ stream }) {
   const [availableInWarehouse, setAvailableInWarehouse] = useState([]);
+  const [streamStatus, setStreamStatus] = useState("loading"); // 👈 ADD THIS LIN
   const sessionId = stream.sessionId;
 
   // 1. THE SCOUT: Polls for the header/chunk 0 until it finds them
   // This handles the "It just started" race condition
+  // In LivestreamPreview.jsx, update the polling effect:
+
   useEffect(() => {
     let interval;
+    let attemptCount = 0;
+
     const findInitialData = async () => {
+      // First check if stream is expired
+      const isExpired = await warehouse.isStreamExpired(sessionId);
+      if (isExpired) {
+        console.log("⏰ Stream expired");
+        setStreamStatus("expired");
+        clearInterval(interval);
+        return;
+      }
+
       const chunksToGet = [-1, 0];
-      let allFound = true;
+      let foundCount = 0;
 
       for (const idx of chunksToGet) {
-        if (availableInWarehouse.includes(idx)) continue;
+        if (availableInWarehouse.includes(idx)) {
+          foundCount++;
+          continue;
+        }
 
         try {
           const res = await fetch(
             `${API_BASE}/api/live-chunk/${sessionId}/${idx}`,
           );
+
           if (res.ok) {
             const bytes = await res.arrayBuffer();
             await warehouse.saveChunk(sessionId, idx, new Uint8Array(bytes));
             setAvailableInWarehouse((prev) => [...new Set([...prev, idx])]);
-          } else {
-            allFound = false; // Still missing something
+            foundCount++;
+          } else if (res.status === 404) {
+            // Chunk not ready yet
+            console.log(`⏳ Waiting for chunk ${idx}...`);
           }
         } catch (e) {
-          allFound = false;
+          console.log(`Error fetching chunk ${idx}:`, e.message);
         }
       }
 
-      if (allFound) clearInterval(interval);
+      if (foundCount === 2) {
+        console.log(`✅ Stream ${sessionId} ready!`);
+        setStreamStatus("live");
+        clearInterval(interval);
+      }
     };
 
-    interval = setInterval(findInitialData, 3000); // Check every 3 seconds until we get the start of the video
+    // Get initial status
+    warehouse.getStreamStatus(sessionId).then(setStreamStatus);
+
+    // Start polling
+    interval = setInterval(findInitialData, 3000);
     findInitialData();
 
     return () => clearInterval(interval);
   }, [sessionId]);
 
-  // 2. THE SUBSCRIPTION: Listens for any NEW chunks as they happen
-  useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
-    variables: { sessionId },
-    onData: async ({ data }) => {
-      const chunk = data.data?.livestreamChunkAdded;
-      if (!chunk) return;
+  // Add this effect to run the janitor periodically
+  useEffect(() => {
+    // Clean up expired streams every 5 minutes
+    const janitorInterval = setInterval(
+      () => {
+        warehouse.clearOldSessions([sessionId]); // Keep current session
+      },
+      5 * 60 * 1000,
+    );
 
-      // When a new chunk arrives, we go get it immediately
-      try {
-        const res = await fetch(
-          `${API_BASE}/api/live-chunk/${sessionId}/${chunk.chunkIndex}`,
+    return () => clearInterval(janitorInterval);
+  }, [sessionId]);
+
+  // 2. THE SUBSCRIPTION: Listens for any NEW chunks as they happen
+useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
+  variables: { sessionId },
+  onData: async ({ data }) => {
+    const chunk = data.data?.livestreamChunkAdded;
+    if (!chunk) return;
+
+    // When a new chunk arrives, we go get it immediately
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/live-chunk/${sessionId}/${chunk.chunkIndex}`,
+      );
+      if (res.ok) {
+        const bytes = await res.arrayBuffer();
+        await warehouse.saveChunk(
+          sessionId,
+          chunk.chunkIndex,
+          new Uint8Array(bytes),
         );
-        if (res.ok) {
-          const bytes = await res.arrayBuffer();
-          await warehouse.saveChunk(
-            sessionId,
-            chunk.chunkIndex,
-            new Uint8Array(bytes),
-          );
-          setAvailableInWarehouse((prev) => [
-            ...new Set([...prev, chunk.chunkIndex]),
-          ]);
-        }
-      } catch (e) {
-        console.log("Sub fetch fail");
+        setAvailableInWarehouse((prev) => [
+          ...new Set([...prev, chunk.chunkIndex]),
+        ]);
       }
-    },
-  });
+    } catch (e) {
+      console.log("Sub fetch fail");
+    }
+  },
+});
 
   return (
     <View style={styles.streamContainer}>
