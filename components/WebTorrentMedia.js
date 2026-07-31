@@ -250,11 +250,11 @@ export default function WebTorrentMedia({ media, isFocused }) {
         ref={videoRef}
         src={videoSrc}
         style={styles.video}
-        autoPlay
+        
         muted={!isFocused}
         controls
         playsInline
-        loop
+        
       />
       {status !== "streaming" && (
         <View style={styles.overlayStatus}>
