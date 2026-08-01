@@ -411,6 +411,11 @@ export default function NeighborhoodChatScreen() {
   const [messages, setMessages] = useState([]);
   const [showAd, setShowAd] = useState(false);
   const [currentAd, setCurrentAd] = useState(null);
+  const isDesktopWeb =
+    Platform.OS === "web" &&
+    typeof window !== "undefined" &&
+    window.innerWidth >= 768 &&
+    !window.matchMedia("(pointer: coarse)").matches;
 
   const { data: adData, refetch: fetchRandomAd } = useQuery(
     GET_RANDOM_AFFILIATE_LINK,
@@ -1856,7 +1861,7 @@ export default function NeighborhoodChatScreen() {
             <Text style={styles.uploadButtonText}>📎</Text>
           </TouchableOpacity>
 
-          {Platform.OS === "web" && (
+          {isDesktopWeb && (
             <TouchableOpacity style={styles.uploadButton} onPress={openCamera}>
               <Text style={styles.uploadButtonText}>📷</Text>
             </TouchableOpacity>
