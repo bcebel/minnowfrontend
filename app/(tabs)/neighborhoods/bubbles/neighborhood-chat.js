@@ -9,6 +9,7 @@ import React, {
 import {
   View,
   ScrollView,
+  Keyboard,
   Image,
   StyleSheet,
   TouchableOpacity,
@@ -19,6 +20,7 @@ import {
   ActivityIndicator,
   Platform,
 } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -1750,127 +1752,138 @@ export default function NeighborhoodChatScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() =>
-            router.push(
-              `/neighborhoods/bubbles/neighborhood-gallery?neighborhoodId=${neighborhoodId}`,
-            )
-          }
-          style={styles.galleryButton}
-        >
-          <Text style={styles.galleryButtonText}> 🖼 Gallery</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() =>
-            router.push(
-              `/neighborhoods/invite-links?neighborhoodId=${neighborhoodId}`,
-            )
-          }
-          style={styles.galleryButton}
-        >
-          <Text style={styles.galleryButtonText}>📧 Invite</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.roomTitle}>🏘️ {neighborhoodName}</Text>
-        <TouchableOpacity
-          onPress={() =>
-            router.push(
-              `/neighborhood-members?neighborhoodId=${neighborhoodId}`,
-            )
-          }
-          style={styles.membersButton}
-        >
-          <Text style={styles.membersButtonText}>👥</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.recorderStrip}>
-        <NeighborhoodLiveStreamRecorder
-          neighborhoodId={neighborhoodId}
-          username={username}
-          // Pass these working functions from ChatScreen to the Recorder
-          unifiedUpload={unifiedUpload}
-          refetch={refetch}
-          socket={socket}
-        />
-      </View>
-      {!socket && (
-        <View style={styles.connectionWarning}>
-          <Text style={styles.warningText}>Connecting...</Text>
-        </View>
-      )}
-      <ScrollView style={styles.messagesList} ref={scrollViewRef}>
-        {messages
-          .filter(
-            (msg) =>
-              msg.fileType !== "video_chunk" && msg.fileType !== "video_header",
-          )
-          .map((item, index) => {
-            const showAdHere = index % 20 === 0;
-
-            return (
-              <React.Fragment key={item.id}>
-                {renderMessage(item)}
-
-                {showAdHere && adData?.randomAffiliateLink && (
-                  <View style={styles.adContainer}>
-                    <AdMessage
-                      ad={adData.randomAffiliateLink}
-                      onPress={() => handleAdPress(adData.randomAffiliateLink)}
-                    />
-                  </View>
-                )}
-              </React.Fragment>
-            );
-          })}
-      </ScrollView>
-
-      {showAd && currentAd && (
-        <View style={styles.floatingAdContainer}>
-          <AdMessage ad={currentAd} onPress={() => handleAdPress(currentAd)} />
+    <SafeAreaProvider>
+      <View style={styles.container}>
+        <View style={styles.header}>
           <TouchableOpacity
-            style={styles.closeAdButton}
-            onPress={() => setShowAd(false)}
+            onPress={() =>
+              router.push(
+                `/neighborhoods/bubbles/neighborhood-gallery?neighborhoodId=${neighborhoodId}`,
+              )
+            }
+            style={styles.galleryButton}
           >
-            <Text style={styles.closeAdText}>✕</Text>
+            <Text style={styles.galleryButtonText}> 🖼 Gallery</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() =>
+              router.push(
+                `/neighborhoods/invite-links?neighborhoodId=${neighborhoodId}`,
+              )
+            }
+            style={styles.galleryButton}
+          >
+            <Text style={styles.galleryButtonText}>📧 Invite</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.roomTitle}>🏘️ {neighborhoodName}</Text>
+          <TouchableOpacity
+            onPress={() =>
+              router.push(
+                `/neighborhood-members?neighborhoodId=${neighborhoodId}`,
+              )
+            }
+            style={styles.membersButton}
+          >
+            <Text style={styles.membersButtonText}>👥</Text>
           </TouchableOpacity>
         </View>
-      )}
+        <View style={styles.recorderStrip}>
+          <NeighborhoodLiveStreamRecorder
+            neighborhoodId={neighborhoodId}
+            username={username}
+            // Pass these working functions from ChatScreen to the Recorder
+            unifiedUpload={unifiedUpload}
+            refetch={refetch}
+            socket={socket}
+          />
+        </View>
+        {!socket && (
+          <View style={styles.connectionWarning}>
+            <Text style={styles.warningText}>Connecting...</Text>
+          </View>
+        )}
+        <ScrollView style={styles.messagesList} ref={scrollViewRef}>
+          {messages
+            .filter(
+              (msg) =>
+                msg.fileType !== "video_chunk" &&
+                msg.fileType !== "video_header",
+            )
+            .map((item, index) => {
+              const showAdHere = index % 20 === 0;
 
-      <View style={styles.inputContainer}>
-        <TouchableOpacity style={styles.uploadButton} onPress={pickFile}>
-          <Text style={styles.uploadButtonText}>📎</Text>
-        </TouchableOpacity>
+              return (
+                <React.Fragment key={item.id}>
+                  {renderMessage(item)}
 
-        <TouchableOpacity style={styles.uploadButton} onPress={openCamera}>
-          <Text style={styles.uploadButtonText}>📷</Text>
-        </TouchableOpacity>
+                  {showAdHere && adData?.randomAffiliateLink && (
+                    <View style={styles.adContainer}>
+                      <AdMessage
+                        ad={adData.randomAffiliateLink}
+                        onPress={() =>
+                          handleAdPress(adData.randomAffiliateLink)
+                        }
+                      />
+                    </View>
+                  )}
+                </React.Fragment>
+              );
+            })}
+        </ScrollView>
+
+        {showAd && currentAd && (
+          <View style={styles.floatingAdContainer}>
+            <AdMessage
+              ad={currentAd}
+              onPress={() => handleAdPress(currentAd)}
+            />
+            <TouchableOpacity
+              style={styles.closeAdButton}
+              onPress={() => setShowAd(false)}
+            >
+              <Text style={styles.closeAdText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View style={styles.inputContainer}>
+          <TouchableOpacity style={styles.uploadButton} onPress={pickFile}>
+            <Text style={styles.uploadButtonText}>📎</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.uploadButton} onPress={openCamera}>
+            <Text style={styles.uploadButtonText}>📷</Text>
+          </TouchableOpacity>
+        </View>
+        <View>
+          <TextInput
+            ref={messageInputRef}
+            style={[
+              styles.messageInput,
+              !socket && styles.messageInputDisabled,
+            ]}
+            placeholder={socket ? "Type a message..." : "Connecting..."}
+            placeholderTextColor="#888"
+            value={newMessage}
+            onChangeText={setNewMessage}
+            onSubmitEditing={sendMessage}
+            editable={!!socket}
+          />
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              (!newMessage.trim() || !socket) && styles.sendButtonDisabled,
+            ]}
+            onPress={sendMessage}
+            disabled={!newMessage.trim() || !socket}
+          >
+            <Text style={styles.sendButtonText}>Send</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-      <View>
-        <TextInput
-          ref={messageInputRef}
-          style={[styles.messageInput, !socket && styles.messageInputDisabled]}
-          placeholder={socket ? "Type a message..." : "Connecting..."}
-          placeholderTextColor="#888"
-          value={newMessage}
-          onChangeText={setNewMessage}
-          onSubmitEditing={sendMessage}
-          editable={!!socket}
-        />
-        <TouchableOpacity
-          style={[
-            styles.sendButton,
-            (!newMessage.trim() || !socket) && styles.sendButtonDisabled,
-          ]}
-          onPress={sendMessage}
-          disabled={!newMessage.trim() || !socket}
-        >
-          <Text style={styles.sendButtonText}>Send</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    </SafeAreaProvider>
   );
 }
 
