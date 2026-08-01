@@ -1755,7 +1755,7 @@ export default function NeighborhoodChatScreen() {
   };
 
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider style={styles.chatContainer}>
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity
@@ -1893,6 +1893,10 @@ export default function NeighborhoodChatScreen() {
 const styles = StyleSheet.create({
   messageContent: {
     flexShrink: 1,
+  },
+  chatContainer : {
+    flex: 1,
+    backgroundColor: "#130720",
   },
   timestampContainer: {
     flexDirection: "row",
