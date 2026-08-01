@@ -1856,9 +1856,11 @@ export default function NeighborhoodChatScreen() {
             <Text style={styles.uploadButtonText}>📎</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.uploadButton} onPress={openCamera}>
-            <Text style={styles.uploadButtonText}>📷</Text>
-          </TouchableOpacity>
+          {Platform.OS === "web" && (
+            <TouchableOpacity style={styles.uploadButton} onPress={openCamera}>
+              <Text style={styles.uploadButtonText}>📷</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <View>
           <TextInput
