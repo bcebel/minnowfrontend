@@ -1092,6 +1092,7 @@ export default function NeighborhoodChatScreen() {
   };
 
   const openCameraMobile = async () => {
+    Keyboard.dismiss();
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       Alert.alert("Permission needed", "Camera access required.");
@@ -1104,6 +1105,7 @@ export default function NeighborhoodChatScreen() {
     if (!result.canceled) {
       const asset = result.assets[0];
       const type = asset.type === "image" ? "image" : "video";
+      setTimeout(async () => {
       await unifiedUpload(
         {
           uri: asset.uri,
@@ -1113,6 +1115,7 @@ export default function NeighborhoodChatScreen() {
         0,
         "",
       );
+    }, 100);
     }
   };
 
