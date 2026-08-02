@@ -609,7 +609,7 @@ export default function NeighborhoodChatScreen() {
       const cleanMessages = data.neighborhoodMessages
         .filter((m) => !m.sessionId)
         // SORT: Ensure oldest is at top, newest is at bottom
-        .sort((a, b) => parseInt(a.createdAt) - parseInt(b.createdAt));
+        .sort((a, b) => parseInt(b.createdAt) - parseInt(a.createdAt));
 
       setMessages(cleanMessages);
     }
@@ -758,7 +758,7 @@ export default function NeighborhoodChatScreen() {
 
       setMessages((prev) => {
         if (prev.some((m) => m.id === newMsg.id)) return prev;
-        return [...prev, newMsg];
+        return [newMsg, ...prev];
       });
 
       // Refetch after a short delay to ensure media is included
@@ -766,9 +766,6 @@ export default function NeighborhoodChatScreen() {
         refetch();
       }, 500);
 
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 300);
     });
 
     // Add this new event listener for refresh
@@ -1260,12 +1257,10 @@ export default function NeighborhoodChatScreen() {
       },
     };
 
-    setMessages((prev) => [...prev, optimisticMessage]);
+    setMessages((prev) => [optimisticMessage, ...prev]);
     setNewMessage("");
 
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+
 
     try {
       await sendMessageMutation({
