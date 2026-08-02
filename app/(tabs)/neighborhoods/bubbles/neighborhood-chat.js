@@ -965,55 +965,94 @@ export default function NeighborhoodChatScreen() {
         }
       };
 
-      captureBtn.onclick = () => {
-        if (currentMode === "photo") {
-          // Take photo
-          const canvas = document.createElement("canvas");
-          canvas.width = preview.videoWidth;
-          canvas.height = preview.videoHeight;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(preview, 0, 0);
+captureBtn.onclick = () => {
+  if (currentMode === "photo") {
+    // 1. Capture the frame to canvas
+    const canvas = document.createElement("canvas");
+    canvas.width = preview.videoWidth;
+    canvas.height = preview.videoHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(preview, 0, 0);
 
-          canvas.toBlob(
-            async (blob) => {
-              const fileName = `camera_photo_${Date.now()}.jpg`;
-              const url = URL.createObjectURL(blob);
+    // 2. Freeze the video stream visually so the user sees what they took
+    preview.pause();
 
-              await unifiedUpload(
-                {
-                  uri: url,
-                  name: fileName,
-                  size: blob.size,
-                  type: "image/jpeg",
-                },
-                "image",
-                blob.size,
-                "image/jpeg",
-              );
+    canvas.toBlob(
+      (blob) => {
+        // Hide the capture button while reviewing
+        captureBtn.style.display = "none";
 
-              URL.revokeObjectURL(url);
+        // Create a temporary container for Confirm / Retake action buttons
+        const actionContainer = document.createElement("div");
+        actionContainer.style.cssText =
+          "display: flex; gap: 10px; margin-top: 10px; justify-content: center;";
+
+        // RETAKE BUTTON: Unfreezes camera and resets UI
+        const retakeBtn = document.createElement("button");
+        retakeBtn.textContent = "🔄 Retake";
+        retakeBtn.style.cssText =
+          "padding: 8px 16px; background: #444; color: #fff; border: none; border-radius: 6px; cursor: pointer;";
+        retakeBtn.onclick = () => {
+          preview.play(); // Resume live video feed
+          captureBtn.style.display = "inline-block"; // Bring capture button back
+          actionContainer.remove(); // Remove confirmation buttons
+        };
+
+        // SEND BUTTON: Runs the upload logic you already built
+        const sendBtn = document.createElement("button");
+        sendBtn.textContent = "🚀 Send Photo";
+        sendBtn.style.cssText =
+          "padding: 8px 16px; background: #ff7a00; color: #fff; font-weight: bold; border: none; border-radius: 6px; cursor: pointer;";
+        sendBtn.onclick = async () => {
+          sendBtn.disabled = true;
+          sendBtn.textContent = "Uploading...";
+
+          const fileName = `camera_photo_${Date.now()}.jpg`;
+          const url = URL.createObjectURL(blob);
+
+          await unifiedUpload(
+            {
+              uri: url,
+              name: fileName,
+              size: blob.size,
+              type: "image/jpeg",
             },
+            "image",
+            blob.size,
             "image/jpeg",
-            0.9,
           );
-        } else if (currentMode === "video") {
-          // Record video
-          if (!isRecording) {
-            // Start recording
-            isRecording = true;
-            captureBtn.textContent = "⏹️ Stop Recording";
-            captureBtn.style.background = "#00ff00";
-            recordedChunks = [];
-            mediaRecorder.start();
-          } else {
-            // Stop recording
-            isRecording = false;
-            captureBtn.textContent = "⏺️ Start Recording";
-            captureBtn.style.background = "#ff3333";
-            mediaRecorder.stop();
-          }
-        }
-      };
+
+          URL.revokeObjectURL(url);
+
+          // Clean up overlay and close modal/stream if needed
+          actionContainer.remove();
+        };
+
+        actionContainer.appendChild(retakeBtn);
+        actionContainer.appendChild(sendBtn);
+        captureBtn.parentNode.appendChild(actionContainer);
+      },
+      "image/jpeg",
+      0.9,
+    );
+  } else if (currentMode === "video") {
+    // Record video
+    if (!isRecording) {
+      // Start recording
+      isRecording = true;
+      captureBtn.textContent = "⏹️ Stop Recording";
+      captureBtn.style.background = "#00ff00";
+      recordedChunks = [];
+      mediaRecorder.start();
+    } else {
+      // Stop recording
+      isRecording = false;
+      captureBtn.textContent = "⏺️ Start Recording";
+      captureBtn.style.background = "#ff3333";
+      mediaRecorder.stop();
+    }
+  }
+};
 
       cancelBtn.onclick = () => {
         if (stream) {
