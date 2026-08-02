@@ -1759,7 +1759,6 @@ export default function NeighborhoodChatScreen() {
   };
 
   return (
-    <SafeAreaProvider style={styles.chatContainer}>
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity
@@ -1884,7 +1883,6 @@ export default function NeighborhoodChatScreen() {
           </TouchableOpacity>
         </View>
       </View>
-    </SafeAreaProvider>
   );
 }
 
