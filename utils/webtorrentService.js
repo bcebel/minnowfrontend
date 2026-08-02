@@ -1,34 +1,66 @@
-// utils/webtorrentService.js - ENHANCED VERSION
+// utils/webtorrentService.js - ENHANCED & UNIFIED VERSION
+
 class WebTorrentService {
   constructor() {
-    // Keep your existing trackers
-    this.trackers = window.enhancedTrackers || [
-      "wss://tracker-0ad4cca9fd92.herokuapp.com",
-      // ... other trackers
-    ];
+    // Default trackers if window.enhancedTrackers isn't ready yet
+    this.trackers =
+      typeof window !== "undefined" && window.enhancedTrackers
+        ? window.enhancedTrackers
+        : [
+            "wss://tracker-0ad4cca9fd92.herokuapp.com",
+            "wss://tracker.files.fm:7073/announce",
+            "wss://tracker.webtorrent.dev",
+            "wss://tracker.openwebtorrent.com",
+            "wss://tracker.btorrent.xyz",
+          ];
 
-    // Add caching
-    this.downloadCache = new Map(); // Memory cache
-    this.seedingCache = new Map(); // Track what we're seeding
+    // Caching layer
+    this.downloadCache = new Map(); // In-memory cache for active blob URLs
+    this.seedingCache = new Map(); // Track torrents currently being seeded
   }
 
-  // THE CHAMP GATEKEEPER - keep this as is
+  /**
+   * THE CHAMP GATEKEEPER
+   * Polls until the global WebTorrent client from +html.tsx is available.
+   */
   async ensureClient() {
     let attempts = 0;
-    while (!window.globalWebTorrentClient && attempts < 20) {
-      console.log(`⏳ Waiting for Champ (Attempt ${attempts})...`);
+    while (
+      typeof window !== "undefined" &&
+      !window.globalWebTorrentClient &&
+      attempts < 20
+    ) {
+      console.log(`Waiting for Champ (Attempt ${attempts + 1})...`);
       await new Promise((r) => setTimeout(r, 500));
       attempts++;
     }
 
-    if (!window.globalWebTorrentClient) {
+    if (typeof window === "undefined" || !window.globalWebTorrentClient) {
       throw new Error("WebTorrent Champ failed to enter the building.");
     }
 
     return window.globalWebTorrentClient;
   }
 
-  // Cache magnet link results
+  /**
+   * Generates a consistent cache key from a magnet URI or infoHash
+   */
+  getCacheKey(magnetUri) {
+    if (!magnetUri) return "";
+    const match = magnetUri.match(/xt=urn:btih:([^&]+)/i);
+    if (match) {
+      return `magnet_${match[1].toLowerCase()}`;
+    }
+    try {
+      return `magnet_${btoa(magnetUri).replace(/[^a-zA-Z0-9]/g, "")}`;
+    } catch (e) {
+      return `magnet_${magnetUri.slice(0, 32)}`;
+    }
+  }
+
+  /**
+   * Caches magnet result to memory (blob URL) and localStorage (metadata)
+   */
   cacheMagnetResult(magnetUri, result) {
     const cacheKey = this.getCacheKey(magnetUri);
 
@@ -36,10 +68,10 @@ class WebTorrentService {
     this.downloadCache.set(cacheKey, {
       ...result,
       cachedAt: Date.now(),
-      url: result.url, // Keep the blob URL
+      url: result.url,
     });
 
-    // Also store in localStorage for persistence
+    // Store metadata in localStorage for cross-session persistence
     try {
       const cache = JSON.parse(
         localStorage.getItem("webtorrent_cache") || "{}",
@@ -50,7 +82,6 @@ class WebTorrentService {
         size: result.size,
         infoHash: result.infoHash,
         cachedAt: Date.now(),
-        // Don't store blob URL in localStorage (it won't work)
       };
       localStorage.setItem("webtorrent_cache", JSON.stringify(cache));
     } catch (e) {
@@ -58,50 +89,40 @@ class WebTorrentService {
     }
   }
 
-  // Get cached magnet
+  /**
+   * Retrieves fresh cached magnet data (freshness threshold: 1 hour)
+   */
   getCachedMagnet(magnetUri) {
     const cacheKey = this.getCacheKey(magnetUri);
 
-    // Check memory cache first
     if (this.downloadCache.has(cacheKey)) {
       const cached = this.downloadCache.get(cacheKey);
-      // Check if cache is fresh (less than 1 hour old)
+      // Check if cache is less than 1 hour old
       if (Date.now() - cached.cachedAt < 60 * 60 * 1000) {
-        console.log("🎯 Returning cached torrent from memory");
+        console.log("⚡ Returning cached torrent from memory");
         return cached;
       }
       // Cache expired
       this.downloadCache.delete(cacheKey);
     }
-
     return null;
   }
 
-  // Generate cache key from magnet URI
-  getCacheKey(magnetUri) {
-    // Try to extract info hash
-    const match = magnetUri.match(/xt=urn:btih:([^&]+)/i);
-    if (match) {
-      return `magnet_${match[1].toLowerCase()}`;
-    }
-    // Fallback: use the whole URI
-    return `magnet_${btoa(magnetUri).replace(/[^a-zA-Z0-9]/g, "")}`;
-  }
-
-  // ENHANCED seed method with caching
+  /**
+   * Seed data across the P2P network using the primary Heroku tracker
+   */
   async seed(data, options = {}) {
     const client = await this.ensureClient();
-    return new Promise((resolve, reject) => {
-      client.seed(
-        data,
-        {
-          ...options,
-          announce: [this.trackers[0]], // Use your primary tracker
-        },
-        (torrent) => {
-          console.log("🌱 Champ is seeding:", torrent.name);
 
-          // Cache this seeding torrent
+    return new Promise((resolve, reject) => {
+      const seedOptions = {
+        announce: this.trackers,
+        ...options,
+      };
+
+      try {
+        client.seed(data, seedOptions, (torrent) => {
+          console.log("🌱 Champ is seeding:", torrent.name || torrent.infoHash);
           this.seedingCache.set(torrent.infoHash, torrent);
 
           const result = {
@@ -111,22 +132,20 @@ class WebTorrentService {
             name: torrent.name,
             size: torrent.length,
           };
-
           resolve(result);
-        },
-      );
-
-      // Handle seeding errors
-      client.on("error", (err) => {
-        console.error("❌ Seeding error:", err);
+        });
+      } catch (err) {
+        console.error("Seeding error:", err);
         reject(err);
-      });
+      }
     });
   }
 
-  // ENHANCED add method with caching and streaming
+  /**
+   * ENHANCED add method: Handles memory caching, WebSeeding, sequential loading & blob generation
+   */
   async add(magnetUri, options = {}) {
-    // Check cache first
+    // 1. Check memory cache first
     const cached = this.getCachedMagnet(magnetUri);
     if (cached && cached.url) {
       return Promise.resolve({
@@ -137,38 +156,80 @@ class WebTorrentService {
 
     const client = await this.ensureClient();
 
-    // Check if we already have this torrent
+    // 2. Check if the client is already swarming this magnet
     const existing = client.get(magnetUri);
     if (existing) {
-      console.log("♻️ Using existing torrent");
-      return Promise.resolve({
-        torrent: existing,
-        fromExisting: true,
-      });
+      console.log("🔄 Using existing torrent instance");
+      const file =
+        existing.files.find((f) =>
+          f.name.match(/\.(mp4|webm|m4v|jpg|jpeg|png|gif|webp)$/i),
+        ) || existing.files[0];
+
+      if (file) {
+        return new Promise((resolve) => {
+          file.getBlobURL((err, url) => {
+            resolve({
+              torrent: existing,
+              url: err ? null : url,
+              name: existing.name,
+              size: existing.length,
+              infoHash: existing.infoHash,
+              magnetUri: existing.magnetURI,
+              ready: true,
+              fromExisting: true,
+            });
+          });
+        });
+      }
+      return Promise.resolve({ torrent: existing, fromExisting: true });
     }
 
+    // 3. Initiate new swarm
     return new Promise((resolve, reject) => {
-      // Use sequential strategy for better streaming
+      let isResolved = false;
+
       const torrentOptions = {
+        announce: this.trackers,
+        strategy: "sequential", // Essential for video streaming
         ...options,
-        announce: [this.trackers[0]], // Your primary tracker
-        strategy: "sequential", // Better for media streaming
       };
 
-      client.add(magnetUri, torrentOptions, (torrent) => {
-        console.log("✅ Torrent added:", torrent.name);
+      const timeoutId = setTimeout(() => {
+        if (!isResolved) {
+          isResolved = true;
+          reject(new Error("Torrent download timeout (60s)"));
+        }
+      }, 60000);
 
-        // Listen for when torrent is ready
-        torrent.on("ready", () => {
-          console.log("🎯 Torrent ready for playback");
+      try {
+        client.add(magnetUri, torrentOptions, (torrent) => {
+          console.log(
+            "🧲 Torrent added to swarm:",
+            torrent.name || torrent.infoHash,
+          );
 
-          if (torrent.files[0]) {
-            const file = torrent.files[0];
+          const processReadyTorrent = () => {
+            const file =
+              torrent.files.find((f) =>
+                f.name.match(/\.(mp4|webm|m4v|jpg|jpeg|png|gif|webp)$/i),
+              ) || torrent.files[0];
 
-            // Create blob URL for playback
+            if (!file) {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeoutId);
+                reject(new Error("No valid media files in torrent"));
+              }
+              return;
+            }
+
             file.getBlobURL((err, url) => {
               if (err) {
-                reject(err);
+                if (!isResolved) {
+                  isResolved = true;
+                  clearTimeout(timeoutId);
+                  reject(err);
+                }
                 return;
               }
 
@@ -182,70 +243,75 @@ class WebTorrentService {
                 ready: true,
               };
 
-              // Cache the result
               this.cacheMagnetResult(magnetUri, result);
 
-              // Start seeding when download completes
-              torrent.on("done", () => {
-                console.log("🌱 Now seeding (cached):", torrent.name);
-                this.seedingCache.set(torrent.infoHash, torrent);
-              });
-
-              resolve(result);
-            });
-          } else {
-            reject(new Error("No files in torrent"));
-          }
-        });
-
-        torrent.on("error", (err) => {
-          console.error("❌ Torrent error:", err);
-          reject(err);
-        });
-
-        torrent.on("download", () => {
-          const percent = Math.floor(torrent.progress * 100);
-          console.log(`📥 Download progress: ${percent}%`);
-
-          // Early playback - try at 5%
-          if (
-            percent >= 5 &&
-            torrent.files[0] &&
-            !torrent._earlyPlaybackAttempted
-          ) {
-            torrent._earlyPlaybackAttempted = true;
-            const file = torrent.files[0];
-            file.getBlobURL((err, url) => {
-              if (!err && url) {
-                console.log("🎬 Early playback available at 5%");
-                // You could emit an event here for the UI to update
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeoutId);
+                resolve(result);
               }
             });
-          }
-        });
-      });
+          };
 
-      // Timeout after 60 seconds
-      setTimeout(() => {
-        reject(new Error("Torrent download timeout (60s)"));
-      }, 60000);
+          if (torrent.ready) {
+            processReadyTorrent();
+          } else {
+            torrent.once("ready", processReadyTorrent);
+          }
+
+          torrent.on("done", () => {
+            console.log("✅ Torrent complete - now seeding:", torrent.name);
+            this.seedingCache.set(torrent.infoHash, torrent);
+          });
+
+          torrent.on("error", (err) => {
+            console.error("Torrent error:", err);
+            if (!isResolved) {
+              isResolved = true;
+              clearTimeout(timeoutId);
+              reject(err);
+            }
+          });
+
+          torrent.on("download", () => {
+            const percent = Math.floor(torrent.progress * 100);
+
+            // Early buffer check (at 5% download)
+            if (
+              percent >= 5 &&
+              torrent.files[0] &&
+              !torrent._earlyPlaybackAttempted
+            ) {
+              torrent._earlyPlaybackAttempted = true;
+              torrent.files[0].getBlobURL((err, url) => {
+                if (!err && url) {
+                  console.log("🎬 Early playback available at 5%");
+                }
+              });
+            }
+          });
+        });
+      } catch (err) {
+        clearTimeout(timeoutId);
+        reject(err);
+      }
     });
   }
 
-  // Method to cache a magnet link (for when you get one from IPFS upload)
+  /**
+   * Register magnet link metadata from IPFS/Pinata uploads
+   */
   async cacheMagnetLink(magnetUri, metadata = {}) {
     const cacheKey = this.getCacheKey(magnetUri);
-
     const cacheEntry = {
       magnetUri,
       ...metadata,
       cachedAt: Date.now(),
-      source: "ipfs_upload", // Track where this came from
+      source: "ipfs_upload",
     };
 
     this.downloadCache.set(cacheKey, cacheEntry);
 
-    // Also store in localStorage
     try {
       const cache = JSON.parse(
         localStorage.getItem("webtorrent_cache") || "{}",
@@ -255,11 +321,11 @@ class WebTorrentService {
     } catch (e) {
       console.warn("Could not cache magnet to localStorage:", e);
     }
-
-    console.log("💾 Cached magnet link:", cacheKey);
   }
 
-  // Method to pre-warm a magnet link (start downloading in background)
+  /**
+   * Background pre-fetch for feeds
+   */
   async prewarmMagnet(magnetUri) {
     try {
       const result = await this.add(magnetUri);
@@ -271,35 +337,31 @@ class WebTorrentService {
     }
   }
 
-  // Get all cached magnet links
+  /**
+   * Retrieve all cached magnet records
+   */
   getCachedMagnets() {
     const cached = [];
-
-    // From memory cache
     for (const [key, value] of this.downloadCache.entries()) {
-      cached.push({
-        key,
-        ...value,
-      });
+      cached.push({ key, ...value });
     }
-
     return cached;
   }
 
-  // Cleanup - keep your existing but add cache clearing
+  /**
+   * Clean up torrent instances by filter string
+   */
   cleanup(filter = "") {
-    if (!window.globalWebTorrentClient) return;
+    if (typeof window === "undefined" || !window.globalWebTorrentClient) return;
 
-    // Clean torrents
     window.globalWebTorrentClient.torrents.forEach((t) => {
-      if (!filter || t.name.includes(filter)) {
+      if (!filter || t.name?.includes(filter) || t.infoHash?.includes(filter)) {
         t.destroy();
       }
     });
 
-    // Also clear memory cache for the filter
     if (filter) {
-      for (const [key, value] of this.downloadCache.entries()) {
+      for (const [key] of this.downloadCache.entries()) {
         if (key.includes(filter)) {
           this.downloadCache.delete(key);
         }
@@ -307,7 +369,9 @@ class WebTorrentService {
     }
   }
 
-  // New: Clear expired cache
+  /**
+   * Purge expired cache entries beyond a given age in hours (default: 24h)
+   */
   clearExpiredCache(maxAgeHours = 24) {
     const maxAge = maxAgeHours * 60 * 60 * 1000;
     const now = Date.now();
@@ -318,7 +382,6 @@ class WebTorrentService {
       }
     }
 
-    // Also clean localStorage
     try {
       const cache = JSON.parse(
         localStorage.getItem("webtorrent_cache") || "{}",
