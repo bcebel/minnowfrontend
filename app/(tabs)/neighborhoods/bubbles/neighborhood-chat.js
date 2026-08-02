@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  FlatList,
   Linking,
   Text,
   ActivityIndicator,
@@ -516,6 +517,47 @@ export default function NeighborhoodChatScreen() {
   );
 
   const [sendMessageMutation] = useMutation(SEND_NEIGHBORHOOD_MESSAGE);
+  // 1. Build a single list with messages and ads interleaved
+  const feedWithAds = useMemo(() => {
+    const cleanMessages = messages.filter(
+      (msg) =>
+        msg.fileType !== "video_chunk" && msg.fileType !== "video_header",
+    );
+
+    const result = [];
+    cleanMessages.forEach((msg, index) => {
+      // Add the message
+      result.push({
+        type: "message",
+        data: msg,
+        id: msg.id || `msg-${index}`,
+      });
+
+      // Check your exact ad condition
+      if (index % 20 === 0 && adData?.randomAffiliateLink) {
+        result.push({
+          type: "ad",
+          data: adData.randomAffiliateLink,
+          id: `ad-${index}-${adData.randomAffiliateLink.id || index}`,
+        });
+      }
+    });
+
+    return result;
+  }, [messages, adData]);
+
+  // 2. Render callback that handles both row types
+  const renderFeedItem = ({ item }) => {
+    if (item.type === "ad") {
+      return (
+        <View style={styles.adContainer}>
+          <AdMessage ad={item.data} onPress={() => handleAdPress(item.data)} />
+        </View>
+      );
+    }
+
+    return renderMessage(item.data);
+  };
 
   useEffect(() => {
     if (!window.heic2any) {
@@ -527,7 +569,7 @@ export default function NeighborhoodChatScreen() {
       document.body.appendChild(script);
     }
   }, []);
-  
+
   useEffect(() => {
     if (data?.neighborhoodMessages) {
       const cleanMessages = data.neighborhoodMessages
@@ -970,94 +1012,94 @@ export default function NeighborhoodChatScreen() {
         }
       };
 
-captureBtn.onclick = () => {
-  if (currentMode === "photo") {
-    // 1. Capture the frame to canvas
-    const canvas = document.createElement("canvas");
-    canvas.width = preview.videoWidth;
-    canvas.height = preview.videoHeight;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(preview, 0, 0);
+      captureBtn.onclick = () => {
+        if (currentMode === "photo") {
+          // 1. Capture the frame to canvas
+          const canvas = document.createElement("canvas");
+          canvas.width = preview.videoWidth;
+          canvas.height = preview.videoHeight;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(preview, 0, 0);
 
-    // 2. Freeze the video stream visually so the user sees what they took
-    preview.pause();
+          // 2. Freeze the video stream visually so the user sees what they took
+          preview.pause();
 
-    canvas.toBlob(
-      (blob) => {
-        // Hide the capture button while reviewing
-        captureBtn.style.display = "none";
+          canvas.toBlob(
+            (blob) => {
+              // Hide the capture button while reviewing
+              captureBtn.style.display = "none";
 
-        // Create a temporary container for Confirm / Retake action buttons
-        const actionContainer = document.createElement("div");
-        actionContainer.style.cssText =
-          "display: flex; gap: 10px; margin-top: 10px; justify-content: center;";
+              // Create a temporary container for Confirm / Retake action buttons
+              const actionContainer = document.createElement("div");
+              actionContainer.style.cssText =
+                "display: flex; gap: 10px; margin-top: 10px; justify-content: center;";
 
-        // RETAKE BUTTON: Unfreezes camera and resets UI
-        const retakeBtn = document.createElement("button");
-        retakeBtn.textContent = "🔄 Retake";
-        retakeBtn.style.cssText =
-          "padding: 8px 16px; background: #444; color: #fff; border: none; border-radius: 6px; cursor: pointer;";
-        retakeBtn.onclick = () => {
-          preview.play(); // Resume live video feed
-          captureBtn.style.display = "inline-block"; // Bring capture button back
-          actionContainer.remove(); // Remove confirmation buttons
-        };
+              // RETAKE BUTTON: Unfreezes camera and resets UI
+              const retakeBtn = document.createElement("button");
+              retakeBtn.textContent = "🔄 Retake";
+              retakeBtn.style.cssText =
+                "padding: 8px 16px; background: #444; color: #fff; border: none; border-radius: 6px; cursor: pointer;";
+              retakeBtn.onclick = () => {
+                preview.play(); // Resume live video feed
+                captureBtn.style.display = "inline-block"; // Bring capture button back
+                actionContainer.remove(); // Remove confirmation buttons
+              };
 
-        // SEND BUTTON: Runs the upload logic you already built
-        const sendBtn = document.createElement("button");
-        sendBtn.textContent = "🚀 Send Photo";
-        sendBtn.style.cssText =
-          "padding: 8px 16px; background: #ff7a00; color: #fff; font-weight: bold; border: none; border-radius: 6px; cursor: pointer;";
-        sendBtn.onclick = async () => {
-          sendBtn.disabled = true;
-          sendBtn.textContent = "Uploading...";
+              // SEND BUTTON: Runs the upload logic you already built
+              const sendBtn = document.createElement("button");
+              sendBtn.textContent = "🚀 Send Photo";
+              sendBtn.style.cssText =
+                "padding: 8px 16px; background: #ff7a00; color: #fff; font-weight: bold; border: none; border-radius: 6px; cursor: pointer;";
+              sendBtn.onclick = async () => {
+                sendBtn.disabled = true;
+                sendBtn.textContent = "Uploading...";
 
-          const fileName = `camera_photo_${Date.now()}.jpg`;
-          const url = URL.createObjectURL(blob);
+                const fileName = `camera_photo_${Date.now()}.jpg`;
+                const url = URL.createObjectURL(blob);
 
-          await unifiedUpload(
-            {
-              uri: url,
-              name: fileName,
-              size: blob.size,
-              type: "image/jpeg",
+                await unifiedUpload(
+                  {
+                    uri: url,
+                    name: fileName,
+                    size: blob.size,
+                    type: "image/jpeg",
+                  },
+                  "image",
+                  blob.size,
+                  "image/jpeg",
+                );
+
+                URL.revokeObjectURL(url);
+
+                // Clean up overlay and close modal/stream if needed
+                actionContainer.remove();
+              };
+
+              actionContainer.appendChild(retakeBtn);
+              actionContainer.appendChild(sendBtn);
+              captureBtn.parentNode.appendChild(actionContainer);
             },
-            "image",
-            blob.size,
             "image/jpeg",
+            0.9,
           );
-
-          URL.revokeObjectURL(url);
-
-          // Clean up overlay and close modal/stream if needed
-          actionContainer.remove();
-        };
-
-        actionContainer.appendChild(retakeBtn);
-        actionContainer.appendChild(sendBtn);
-        captureBtn.parentNode.appendChild(actionContainer);
-      },
-      "image/jpeg",
-      0.9,
-    );
-  } else if (currentMode === "video") {
-    // Record video
-    if (!isRecording) {
-      // Start recording
-      isRecording = true;
-      captureBtn.textContent = "⏹️ Stop Recording";
-      captureBtn.style.background = "#00ff00";
-      recordedChunks = [];
-      mediaRecorder.start();
-    } else {
-      // Stop recording
-      isRecording = false;
-      captureBtn.textContent = "⏺️ Start Recording";
-      captureBtn.style.background = "#ff3333";
-      mediaRecorder.stop();
-    }
-  }
-};
+        } else if (currentMode === "video") {
+          // Record video
+          if (!isRecording) {
+            // Start recording
+            isRecording = true;
+            captureBtn.textContent = "⏹️ Stop Recording";
+            captureBtn.style.background = "#00ff00";
+            recordedChunks = [];
+            mediaRecorder.start();
+          } else {
+            // Stop recording
+            isRecording = false;
+            captureBtn.textContent = "⏺️ Start Recording";
+            captureBtn.style.background = "#ff3333";
+            mediaRecorder.stop();
+          }
+        }
+      };
 
       cancelBtn.onclick = () => {
         if (stream) {
@@ -1154,16 +1196,17 @@ captureBtn.onclick = () => {
       const asset = result.assets[0];
       const type = asset.type === "image" ? "image" : "video";
       setTimeout(async () => {
-      await unifiedUpload(
-        {
-          uri: asset.uri,
-          name: asset.fileName || asset.uri.split("/").pop() || "camera-media",
-        },
-        type,
-        0,
-        "",
-      );
-    }, 100);
+        await unifiedUpload(
+          {
+            uri: asset.uri,
+            name:
+              asset.fileName || asset.uri.split("/").pop() || "camera-media",
+          },
+          type,
+          0,
+          "",
+        );
+      }, 100);
     }
   };
 
@@ -1784,11 +1827,7 @@ captureBtn.onclick = () => {
         <Text style={styles.errorText}>Error loading chat</Text>
         <Text style={styles.errorDetail}>{error.message}</Text>
         <TouchableOpacity
-          onPress={() =>
-            router.push(
-              `/login`,
-            )
-          }
+          onPress={() => router.push(`/login`)}
           style={styles.retryButton}
         >
           <Text style={styles.retryText}>Log In</Text>
@@ -1803,130 +1842,107 @@ captureBtn.onclick = () => {
   };
 
   return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() =>
-              router.push(
-                `/neighborhoods/bubbles/neighborhood-gallery?neighborhoodId=${neighborhoodId}`,
-              )
-            }
-            style={styles.galleryButton}
-          >
-            <Text style={styles.galleryButtonText}> 🖼 Gallery</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() =>
-              router.push(
-                `/neighborhoods/bubbles/invite-links?neighborhoodId=${neighborhoodId}`,
-              )
-            }
-            style={styles.galleryButton}
-          >
-            <Text style={styles.galleryButtonText}>📧 Invite</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.roomTitle}>🏘️ {neighborhoodName}</Text>
-          <TouchableOpacity
-            onPress={() =>
-              router.push(
-                `/neighborhood-members?neighborhoodId=${neighborhoodId}`,
-              )
-            }
-            style={styles.membersButton}
-          >
-            <Text style={styles.membersButtonText}>👥</Text>
-          </TouchableOpacity>
-        </View>
-        
-   
-        {!socket && (
-          <View style={styles.connectionWarning}>
-            <Text style={styles.warningText}>Connecting...</Text>
-          </View>
-        )}
-        <ScrollView style={styles.messagesList} ref={scrollViewRef}>
-          {messages
-            .filter(
-              (msg) =>
-                msg.fileType !== "video_chunk" &&
-                msg.fileType !== "video_header",
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() =>
+            router.push(
+              `/neighborhoods/bubbles/neighborhood-gallery?neighborhoodId=${neighborhoodId}`,
             )
-            .map((item, index) => {
-              const showAdHere = index % 20 === 0;
+          }
+          style={styles.galleryButton}
+        >
+          <Text style={styles.galleryButtonText}> 🖼 Gallery</Text>
+        </TouchableOpacity>
 
-              return (
-                <React.Fragment key={item.id}>
-                  {renderMessage(item)}
+        <TouchableOpacity
+          onPress={() =>
+            router.push(
+              `/neighborhoods/bubbles/invite-links?neighborhoodId=${neighborhoodId}`,
+            )
+          }
+          style={styles.galleryButton}
+        >
+          <Text style={styles.galleryButtonText}>📧 Invite</Text>
+        </TouchableOpacity>
 
-                  {showAdHere && adData?.randomAffiliateLink && (
-                    <View style={styles.adContainer}>
-                      <AdMessage
-                        ad={adData.randomAffiliateLink}
-                        onPress={() =>
-                          handleAdPress(adData.randomAffiliateLink)
-                        }
-                      />
-                    </View>
-                  )}
-                </React.Fragment>
-              );
-            })}
-        </ScrollView>
-
-        {showAd && currentAd && (
-          <View style={styles.floatingAdContainer}>
-            <AdMessage
-              ad={currentAd}
-              onPress={() => handleAdPress(currentAd)}
-            />
-            <TouchableOpacity
-              style={styles.closeAdButton}
-              onPress={() => setShowAd(false)}
-            >
-              <Text style={styles.closeAdText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={styles.inputContainer}>
-          <TouchableOpacity style={styles.uploadButton} onPress={pickFile}>
-            <Text style={styles.uploadButtonText}>📎</Text>
-          </TouchableOpacity>
-
-          {isDesktopWeb && (
-            <TouchableOpacity style={styles.uploadButton} onPress={openCamera}>
-              <Text style={styles.uploadButtonText}>📷</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        <View>
-          <TextInput
-            ref={messageInputRef}
-            style={[
-              styles.messageInput,
-              !socket && styles.messageInputDisabled,
-            ]}
-            placeholder={socket ? "Type a message..." : "Connecting..."}
-            placeholderTextColor="#888"
-            value={newMessage}
-            onChangeText={setNewMessage}
-            onSubmitEditing={sendMessage}
-            editable={!!socket}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              (!newMessage.trim() || !socket) && styles.sendButtonDisabled,
-            ]}
-            onPress={sendMessage}
-            disabled={!newMessage.trim() || !socket}
-          >
-            <Text style={styles.sendButtonText}>Send</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.roomTitle}>🏘️ {neighborhoodName}</Text>
+        <TouchableOpacity
+          onPress={() =>
+            router.push(
+              `/neighborhood-members?neighborhoodId=${neighborhoodId}`,
+            )
+          }
+          style={styles.membersButton}
+        >
+          <Text style={styles.membersButtonText}>👥</Text>
+        </TouchableOpacity>
       </View>
+
+      {!socket && (
+        <View style={styles.connectionWarning}>
+          <Text style={styles.warningText}>Connecting...</Text>
+        </View>
+      )}
+      <FlatList
+        ref={scrollViewRef}
+        style={styles.messagesList}
+        data={feedWithAds}
+        renderItem={renderFeedItem}
+        keyExtractor={(item) => item.id}
+        // --- Performance Tweak Props ---
+        initialNumToRender={8} // Only mounts the first 8 items on page load
+        maxToRenderPerBatch={10} // Batches subsequent renders while scrolling
+        windowSize={5} // Keeps ~5 screen-heights of items in memory
+        removeClippedSubviews={true} // Unmounts off-screen native views (crucial for videos!)
+      />
+
+      {showAd && currentAd && (
+        <View style={styles.floatingAdContainer}>
+          <AdMessage ad={currentAd} onPress={() => handleAdPress(currentAd)} />
+          <TouchableOpacity
+            style={styles.closeAdButton}
+            onPress={() => setShowAd(false)}
+          >
+            <Text style={styles.closeAdText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <View style={styles.inputContainer}>
+        <TouchableOpacity style={styles.uploadButton} onPress={pickFile}>
+          <Text style={styles.uploadButtonText}>📎</Text>
+        </TouchableOpacity>
+
+        {isDesktopWeb && (
+          <TouchableOpacity style={styles.uploadButton} onPress={openCamera}>
+            <Text style={styles.uploadButtonText}>📷</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      <View>
+        <TextInput
+          ref={messageInputRef}
+          style={[styles.messageInput, !socket && styles.messageInputDisabled]}
+          placeholder={socket ? "Type a message..." : "Connecting..."}
+          placeholderTextColor="#888"
+          value={newMessage}
+          onChangeText={setNewMessage}
+          onSubmitEditing={sendMessage}
+          editable={!!socket}
+        />
+        <TouchableOpacity
+          style={[
+            styles.sendButton,
+            (!newMessage.trim() || !socket) && styles.sendButtonDisabled,
+          ]}
+          onPress={sendMessage}
+          disabled={!newMessage.trim() || !socket}
+        >
+          <Text style={styles.sendButtonText}>Send</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
