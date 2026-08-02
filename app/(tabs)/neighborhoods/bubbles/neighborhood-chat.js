@@ -409,6 +409,50 @@ export default function NeighborhoodChatScreen() {
   const [uploadType, setUploadType] = useState(null);
   const [messageCount, setMessageCount] = useState(0);
   const [messages, setMessages] = useState([]);
+  // State to track item IDs that should be active in P2P swarm
+  const [swarmItemIds, setSwarmItemIds] = useState([]);
+
+  // Viewability callback: Swarms visible items + next 2 buffer items
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (!viewableItems || viewableItems.length === 0) return;
+
+    const idsToSwarm = new Set();
+
+    // Get index of the last visible item
+    const lastVisibleIndex = viewableItems[viewableItems.length - 1].index;
+
+    // Add currently visible items
+    viewableItems.forEach((v) => {
+      if (v.item?.id) idsToSwarm.add(v.item.id);
+    });
+
+    // PRE-BUFFER: Add the NEXT 2 items down the feed to pre-swarm them
+    feedWithAds
+      .slice(lastVisibleIndex + 1, lastVisibleIndex + 3)
+      .forEach((item) => {
+        if (item?.id) idsToSwarm.add(item.id);
+      });
+
+    setSwarmItemIds(Array.from(idsToSwarm));
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 30, // Triggers when 30% of item is in viewport
+  }).current;
+
+  // Pass `shouldSwarm` into your renderMessage helper
+  const renderFeedItem = ({ item }) => {
+    if (item.type === "ad") {
+      return (
+        <View style={styles.adContainer}>
+          <AdMessage ad={item.data} onPress={() => handleAdPress(item.data)} />
+        </View>
+      );
+    }
+
+    const shouldSwarm = swarmItemIds.includes(item.id);
+    return renderMessage(item.data, shouldSwarm);
+  };
   const filteredMessages = useMemo(() => {
     return messages.filter(
       (msg) =>
@@ -547,17 +591,7 @@ export default function NeighborhoodChatScreen() {
   }, [messages, adData]);
 
   // 2. Render callback that handles both row types
-  const renderFeedItem = ({ item }) => {
-    if (item.type === "ad") {
-      return (
-        <View style={styles.adContainer}>
-          <AdMessage ad={item.data} onPress={() => handleAdPress(item.data)} />
-        </View>
-      );
-    }
 
-    return renderMessage(item.data);
-  };
 
   useEffect(() => {
     if (!window.heic2any) {
@@ -1886,15 +1920,12 @@ export default function NeighborhoodChatScreen() {
       )}
       <FlatList
         ref={scrollViewRef}
-        style={styles.messagesList}
         data={feedWithAds}
         renderItem={renderFeedItem}
         keyExtractor={(item) => item.id}
-        // --- Performance Tweak Props ---
-        initialNumToRender={8} // Only mounts the first 8 items on page load
-        maxToRenderPerBatch={10} // Batches subsequent renders while scrolling
-        windowSize={5} // Keeps ~5 screen-heights of items in memory
-        removeClippedSubviews={true} // Unmounts off-screen native views (crucial for videos!)
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        removeClippedSubviews={true}
       />
 
       {showAd && currentAd && (

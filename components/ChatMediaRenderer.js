@@ -14,14 +14,10 @@ import WebTorrentMedia from "./WebTorrentMedia";
 
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
-export default function ChatMediaRenderer({ message }) {
-
-  
-  // 1. Block raw chunks from rendering
+export default function ChatMediaRenderer({ message, isSwarmingEnabled }: { message: any; isSwarmingEnabled?: boolean }) {
   if (!message || message.fileType === "video_chunk") return null;
 
-  const [isDownloadingChunks, setIsDownloadingChunks] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const {
     imageUrl,
@@ -35,94 +31,96 @@ export default function ChatMediaRenderer({ message }) {
     cid,
   } = message;
 
-  // Standardized URL helper to ensure we always have a working gateway link
-  const getPinataUrl = (url) => {
+  const getPinataUrl = (url: string) => {
     if (!url) return null;
     if (url.startsWith("http")) return url;
     if (url.startsWith("Qm") || url.startsWith("baf")) {
       return `https://${PINATA_GATEWAY}/ipfs/${url}`;
     }
-    if (url.includes("/ipfs/")) {
-      return `https://${PINATA_GATEWAY}/ipfs/${url.split("/ipfs/")[1]}`;
-    }
     return url;
   };
 
-  // --- PATH 1: CHUNKED ARCHIVES ---
-  if (fileType === "video_chunked") {
+  const formattedThumbnail = getPinataUrl(thumbnailUrl);
+
+  // --- PATH 2: SWARMABLE MEDIA ---
+// --- PATH 2: SWARMABLE MEDIA ---
+if (magnetLink || cid || ipfsUrl || videoUrl || imageUrl) {
+  const isVideo =
+    fileType === "video" ||
+    videoUrl ||
+    fileName?.match(/\.(mp4|mov|m4v|webm)$/i);
+
+  const mediaForSwarm = {
+    ...message,
+    cid: cid || (imageUrl || videoUrl || ipfsUrl)?.split("/ipfs/")[1],
+    fallbackUrl: getPinataUrl(videoUrl || imageUrl || ipfsUrl),
+    fileName: fileName || (fileType === "image" ? "image.jpg" : "video.mp4"),
+    fileType: fileType || (isVideo ? "video" : "image"),
+  };
+
+  // 1. If it's a video and swarming is DISABLED for this item, render static thumbnail only
+  if (isVideo && !isSwarmingEnabled && !isPlaying) {
     return (
       <TouchableOpacity
-        style={styles.chunkedVideoContainer}
-        disabled={isDownloadingChunks}
+        style={styles.mediaContainer}
+        onPress={() => setIsPlaying(true)}
+        activeOpacity={0.85}
       >
-        {thumbnailUrl ? (
+        {formattedThumbnail ? (
           <Image
-            source={{ uri: thumbnailUrl }}
+            source={{ uri: formattedThumbnail }}
             style={styles.videoThumbnail}
             contentFit="cover"
           />
         ) : (
           <View style={[styles.videoThumbnail, styles.videoPlaceholder]}>
             <Text style={styles.videoIcon}>🎬</Text>
-            <Text style={styles.chunkCount}>
-              {message.totalChunks || 0} parts
-            </Text>
+            <Text style={styles.placeholderLabel}>{fileName || "Video Stream"}</Text>
           </View>
         )}
         <View style={styles.videoOverlay}>
-          {isDownloadingChunks ? (
-            <ActivityIndicator color="#00ffff" />
+          <Text style={styles.playIcon}>▶️</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  // 2. If swarming IS enabled or playing: Keep WebTorrentMedia mounted continuously
+  return (
+    <View style={styles.mediaContainer}>
+      {/* Heavy WebTorrent engine stays mounted in ONE place */}
+      <WebTorrentMedia 
+        media={mediaForSwarm} 
+        isFocused={isPlaying} 
+      />
+
+      {/* Thumbnail overlay sits ON TOP until user taps Play */}
+      {isVideo && !isPlaying && (
+        <TouchableOpacity
+          style={StyleSheet.absoluteFillObject}
+          onPress={() => setIsPlaying(true)}
+          activeOpacity={0.9}
+        >
+          {formattedThumbnail ? (
+            <Image
+              source={{ uri: formattedThumbnail }}
+              style={styles.videoThumbnail}
+              contentFit="cover"
+            />
           ) : (
-            <Text style={styles.playIcon}>▶️</Text>
+            <View style={[styles.videoThumbnail, styles.videoPlaceholder]}>
+              <Text style={styles.videoIcon}>🎬</Text>
+              <Text style={styles.placeholderLabel}>{fileName || "Video Stream"}</Text>
+            </View>
           )}
-        </View>
-      </TouchableOpacity>
-    );
-  }
-
-  // --- PATH 2: SWARMABLE MEDIA (The "Working" Fix) ---
-  // If there is a magnet link OR a CID, we want it in the swarm.
-  if (magnetLink || cid || ipfsUrl || videoUrl || imageUrl) {
-    // We construct the media object to include a "WebSeed" fallback.
-    // This ensures that if the P2P swarm is empty, it pulls from Pinata.
-    const mediaForSwarm = {
-      ...message,
-      cid: cid || (imageUrl || videoUrl || ipfsUrl)?.split("/ipfs/")[1],
-      // Use the IPFS URL as the direct source for WebTorrent's "WebSeed" feature
-      fallbackUrl: getPinataUrl(videoUrl || imageUrl || ipfsUrl),
-      fileName: fileName || (fileType === "image" ? "image.jpg" : "video.mp4"),
-      fileType:
-        fileType ||
-        (imageUrl || ipfsUrl || fileName?.match(/\.(jpg|jpeg|png|gif)$/i)
-          ? "image"
-          : "video"),
-    };
-
-    return (
-      <View style={styles.mediaContainer}>
-        {/* WebTorrentMedia must be updated to use fallbackUrl if P2P fails/is empty */}
-        <WebTorrentMedia media={mediaForSwarm} isFocused={true} />
-      </View>
-    );
-  }
-
-  // --- PATH 3: GENERAL FILES ---
-  if (fileUrl) {
-    return (
-      <TouchableOpacity
-        style={styles.fileContainer}
-        onPress={() => Linking.openURL(getPinataUrl(fileUrl))}
-      >
-        <Text style={styles.fileIcon}>📄</Text>
-        <View style={styles.fileInfo}>
-          <Text style={styles.fileName} numberOfLines={1}>
-            {fileName || "File"}
-          </Text>
-          <Text style={styles.fileSubtext}>Tap to open</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  }
+          <View style={styles.videoOverlay}>
+            <Text style={styles.playIcon}>▶️</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
 
   return null;
 }
