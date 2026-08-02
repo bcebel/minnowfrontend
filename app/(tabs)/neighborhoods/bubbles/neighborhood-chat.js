@@ -397,7 +397,6 @@ export default function NeighborhoodChatScreen() {
   const router = useRouter();
   const neighborhoodId = params.neighborhoodId;
   const client = useApolloClient();
-
   const scrollViewRef = useRef(null);
   const messageInputRef = useRef(null);
   const [deleteMessageMutation] = useMutation(DELETE_NEIGHBORHOOD_MESSAGE);
@@ -409,6 +408,12 @@ export default function NeighborhoodChatScreen() {
   const [uploadType, setUploadType] = useState(null);
   const [messageCount, setMessageCount] = useState(0);
   const [messages, setMessages] = useState([]);
+  const filteredMessages = useMemo(() => {
+    return messages.filter(
+      (msg) =>
+        msg.fileType !== "video_chunk" && msg.fileType !== "video_header",
+    );
+  }, [messages]);
   const [showAd, setShowAd] = useState(false);
   const [currentAd, setCurrentAd] = useState(null);
   const isDesktopWeb =
