@@ -392,6 +392,48 @@ const getMimeTypeFromExtension = (filename) => {
   return mimeTypes[ext] || "application/octet-stream";
 };
 
+const ChatTextInputSection = ({ socket, onSend, messageInputRef }) => {
+  const [newMessage, setNewMessage] = useState("");
+
+  const handleSend = async () => {
+    if (!newMessage.trim() || !socket) return;
+    const messageContent = newMessage;
+    setNewMessage(""); // Clear immediately for snappy UI
+    const success = await onSend(messageContent);
+    if (!success) {
+      setNewMessage(messageContent); // Restore if failed
+    }
+  };
+
+  return (
+    <View>
+      <TextInput
+        ref={messageInputRef}
+        style={[
+          styles.messageInput,
+          !socket && styles.messageInputDisabled,
+        ]}
+        placeholder={socket ? "Type a message..." : "Connecting..."}
+        placeholderTextColor="#888"
+        value={newMessage}
+        onChangeText={setNewMessage}
+        onSubmitEditing={handleSend}
+        editable={!!socket}
+      />
+      <TouchableOpacity
+        style={[
+          styles.sendButton,
+          (!newMessage.trim() || !socket) && styles.sendButtonDisabled,
+        ]}
+        onPress={handleSend}
+        disabled={!newMessage.trim() || !socket}
+      >
+        <Text style={styles.sendButtonText}>Send</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 export default function NeighborhoodChatScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
@@ -403,7 +445,6 @@ export default function NeighborhoodChatScreen() {
   const [deleteMessageMutation] = useMutation(DELETE_NEIGHBORHOOD_MESSAGE);
   const [socket, setSocket] = useState(null);
   const [username, setUsername] = useState("");
-  const [newMessage, setNewMessage] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadType, setUploadType] = useState(null);
@@ -1162,15 +1203,14 @@ captureBtn.onclick = () => {
     }
   };
 
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !socket) return;
+  const sendMessage = async (messageContent) => {
+    if (!messageContent || !messageContent.trim() || !socket) return false;
 
-    const messageContent = newMessage.trim();
-
+    const trimmedContent = messageContent.trim();
     const tempId = `temp-${Date.now()}`;
     const optimisticMessage = {
       id: tempId,
-      content: messageContent,
+      content: trimmedContent,
       createdAt: Date.now().toString(),
       sender: {
         username: username,
@@ -1179,7 +1219,6 @@ captureBtn.onclick = () => {
     };
 
     setMessages((prev) => [...prev, optimisticMessage]);
-    setNewMessage("");
 
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -1188,16 +1227,17 @@ captureBtn.onclick = () => {
     try {
       await sendMessageMutation({
         variables: {
-          content: messageContent,
+          content: trimmedContent,
           neighborhoodId: neighborhoodId,
         },
       });
       console.log("✅ Neighborhood message sent");
+      return true;
     } catch (err) {
       console.error("❌ Send message error:", err);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       Alert.alert("Error", "Failed to send message");
-      setNewMessage(messageContent);
+      return false;
     }
   };
 
@@ -1896,31 +1936,11 @@ captureBtn.onclick = () => {
             </TouchableOpacity>
           )}
         </View>
-        <View>
-          <TextInput
-            ref={messageInputRef}
-            style={[
-              styles.messageInput,
-              !socket && styles.messageInputDisabled,
-            ]}
-            placeholder={socket ? "Type a message..." : "Connecting..."}
-            placeholderTextColor="#888"
-            value={newMessage}
-            onChangeText={setNewMessage}
-            onSubmitEditing={sendMessage}
-            editable={!!socket}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              (!newMessage.trim() || !socket) && styles.sendButtonDisabled,
-            ]}
-            onPress={sendMessage}
-            disabled={!newMessage.trim() || !socket}
-          >
-            <Text style={styles.sendButtonText}>Send</Text>
-          </TouchableOpacity>
-        </View>
+        <ChatTextInputSection
+          socket={socket}
+          onSend={sendMessage}
+          messageInputRef={messageInputRef}
+        />
       </View>
   );
 }
