@@ -414,7 +414,6 @@ export default function NeighborhoodChatScreen() {
   const isDesktopWeb =
     Platform.OS === "web" &&
     typeof window !== "undefined" &&
-    window.innerWidth >= 768 &&
     !window.matchMedia("(pointer: coarse)").matches;
 
   const { data: adData, refetch: fetchRandomAd } = useQuery(
@@ -1777,7 +1776,7 @@ export default function NeighborhoodChatScreen() {
           <TouchableOpacity
             onPress={() =>
               router.push(
-                `/neighborhoods/invite-links?neighborhoodId=${neighborhoodId}`,
+                `/neighborhoods/bubbles/invite-links?neighborhoodId=${neighborhoodId}`,
               )
             }
             style={styles.galleryButton}
@@ -1797,16 +1796,8 @@ export default function NeighborhoodChatScreen() {
             <Text style={styles.membersButtonText}>👥</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.recorderStrip}>
-          <NeighborhoodLiveStreamRecorder
-            neighborhoodId={neighborhoodId}
-            username={username}
-            // Pass these working functions from ChatScreen to the Recorder
-            unifiedUpload={unifiedUpload}
-            refetch={refetch}
-            socket={socket}
-          />
-        </View>
+        
+   
         {!socket && (
           <View style={styles.connectionWarning}>
             <Text style={styles.warningText}>Connecting...</Text>
@@ -1901,7 +1892,7 @@ const styles = StyleSheet.create({
   messageContent: {
     flexShrink: 1,
   },
-  chatContainer : {
+  chatContainer: {
     flex: 1,
     backgroundColor: "#130720",
   },
@@ -2105,12 +2096,14 @@ const styles = StyleSheet.create({
   uploadButton: {
     padding: 12,
     marginRight: 10,
-    backgroundColor: "#333333",
+    backgroundColor: "#000000",
     borderRadius: 25,
+    borderWidth: 2,
+    borderColor: "#FFA500",
     justifyContent: "center",
   },
   uploadButtonText: {
-    fontSize: 18,
+    fontSize: 28,
     color: "#00ffff",
   },
   retryButton: {
