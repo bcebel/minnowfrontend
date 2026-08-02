@@ -413,32 +413,40 @@ export default function NeighborhoodChatScreen() {
   const [swarmItemIds, setSwarmItemIds] = useState([]);
 
   // Viewability callback: Swarms visible items + next 2 buffer items
-  const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    if (!viewableItems || viewableItems.length === 0) return;
+const onViewableItemsChanged = useRef(({ viewableItems }) => {
+  if (!viewableItems || viewableItems.length === 0) return;
 
-    const idsToSwarm = new Set();
+  const idsToSwarm = new Set();
+  const lastVisibleIndex = viewableItems[viewableItems.length - 1].index;
 
-    // Get index of the last visible item
-    const lastVisibleIndex = viewableItems[viewableItems.length - 1].index;
+  // 1. Current visible items
+  viewableItems.forEach((v) => {
+    if (v.item?.id) idsToSwarm.add(v.item.id);
+  });
 
-    // Add currently visible items
-    viewableItems.forEach((v) => {
-      if (v.item?.id) idsToSwarm.add(v.item.id);
+  // 2. Pre-buffer next 2 items down the feed
+  feedWithAds
+    .slice(lastVisibleIndex + 1, lastVisibleIndex + 3)
+    .forEach((item) => {
+      if (item?.id) idsToSwarm.add(item.id);
     });
 
-    // PRE-BUFFER: Add the NEXT 2 items down the feed to pre-swarm them
-    feedWithAds
-      .slice(lastVisibleIndex + 1, lastVisibleIndex + 3)
-      .forEach((item) => {
-        if (item?.id) idsToSwarm.add(item.id);
-      });
+  const newIds = Array.from(idsToSwarm);
 
-    setSwarmItemIds(Array.from(idsToSwarm));
-  }).current;
+  // 3. ONLY update state if the active swarm IDs actually changed
+  setSwarmItemIds((prev) => {
+    const isSame =
+      prev.length === newIds.length &&
+      prev.every((id, idx) => id === newIds[idx]);
 
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 30, // Triggers when 30% of item is in viewport
-  }).current;
+    return isSame ? prev : newIds; // Skips re-render if identical
+  });
+}).current;
+
+const viewabilityConfig = useRef({
+  itemVisiblePercentThreshold: 30,
+  minimumViewTime: 250, // <-- CRITICAL: Item must sit on screen for 250ms before firing
+}).current;
 
   // Pass `shouldSwarm` into your renderMessage helper
   const renderFeedItem = ({ item }) => {
@@ -1918,10 +1926,13 @@ export default function NeighborhoodChatScreen() {
         data={feedWithAds}
         renderItem={renderFeedItem}
         keyExtractor={(item) => item.id}
-        initialNumToRender={5} // Render enough to fill screen initially
-        maxToRenderPerBatch={3} // Process items in small chunks per frame
+        initialNumToRender={7} // Render enough to fill screen initially
+        maxToRenderPerBatch={4} // Process items in small chunks per frame
         windowSize={5} // Keeps ~5 screens above and below mounted (default is 21)
         removeClippedSubviews={false} // SET TO FALSE if items are disappearing/blanking out
+      onViewableItemsChanged={onViewableItemsChanged}
+
+viewabilityConfig={viewabilityConfig}
       />
 
       {showAd && currentAd && (
