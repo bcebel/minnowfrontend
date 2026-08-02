@@ -2140,7 +2140,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   uploadButtonText: {
-    fontSize: 28,
+    fontSize: 18,
     color: "#00ffff",
   },
   retryButton: {
