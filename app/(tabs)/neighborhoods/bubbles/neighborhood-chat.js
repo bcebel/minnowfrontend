@@ -400,10 +400,10 @@ export default function NeighborhoodChatScreen() {
 
   const scrollViewRef = useRef(null);
   const messageInputRef = useRef(null);
+  const newMessageRef = useRef("");
   const [deleteMessageMutation] = useMutation(DELETE_NEIGHBORHOOD_MESSAGE);
   const [socket, setSocket] = useState(null);
   const [username, setUsername] = useState("");
-  const [newMessage, setNewMessage] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadType, setUploadType] = useState(null);
@@ -1163,9 +1163,10 @@ captureBtn.onclick = () => {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !socket) return;
+    const text = newMessageRef.current || "";
+    if (!text.trim() || !socket) return;
 
-    const messageContent = newMessage.trim();
+    const messageContent = text.trim();
 
     const tempId = `temp-${Date.now()}`;
     const optimisticMessage = {
@@ -1179,7 +1180,16 @@ captureBtn.onclick = () => {
     };
 
     setMessages((prev) => [...prev, optimisticMessage]);
-    setNewMessage("");
+
+    newMessageRef.current = "";
+    if (messageInputRef.current) {
+      if (typeof messageInputRef.current.clear === "function") {
+        messageInputRef.current.clear();
+      }
+      if (Platform.OS === "web") {
+        messageInputRef.current.value = "";
+      }
+    }
 
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -1197,7 +1207,15 @@ captureBtn.onclick = () => {
       console.error("❌ Send message error:", err);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       Alert.alert("Error", "Failed to send message");
-      setNewMessage(messageContent);
+      newMessageRef.current = messageContent;
+      if (messageInputRef.current) {
+        if (typeof messageInputRef.current.setNativeProps === "function") {
+          messageInputRef.current.setNativeProps({ text: messageContent });
+        }
+        if (Platform.OS === "web") {
+          messageInputRef.current.value = messageContent;
+        }
+      }
     }
   };
 
@@ -1905,18 +1923,19 @@ captureBtn.onclick = () => {
             ]}
             placeholder={socket ? "Type a message..." : "Connecting..."}
             placeholderTextColor="#888"
-            value={newMessage}
-            onChangeText={setNewMessage}
+            onChangeText={(text) => {
+              newMessageRef.current = text;
+            }}
             onSubmitEditing={sendMessage}
             editable={!!socket}
           />
           <TouchableOpacity
             style={[
               styles.sendButton,
-              (!newMessage.trim() || !socket) && styles.sendButtonDisabled,
+              !socket && styles.sendButtonDisabled,
             ]}
             onPress={sendMessage}
-            disabled={!newMessage.trim() || !socket}
+            disabled={!socket}
           >
             <Text style={styles.sendButtonText}>Send</Text>
           </TouchableOpacity>
