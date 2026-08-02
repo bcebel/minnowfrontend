@@ -1918,9 +1918,10 @@ export default function NeighborhoodChatScreen() {
         data={feedWithAds}
         renderItem={renderFeedItem}
         keyExtractor={(item) => item.id}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        removeClippedSubviews={true}
+        initialNumToRender={5} // Render enough to fill screen initially
+        maxToRenderPerBatch={3} // Process items in small chunks per frame
+        windowSize={5} // Keeps ~5 screens above and below mounted (default is 21)
+        removeClippedSubviews={false} // SET TO FALSE if items are disappearing/blanking out
       />
 
       {showAd && currentAd && (
