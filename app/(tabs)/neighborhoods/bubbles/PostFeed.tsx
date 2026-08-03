@@ -13,15 +13,18 @@ import { GET_POSTS } from "../../../graphql/queries";
 import FeedItem from "../../../../components/FeedItem";
 import PostComposer from "../../PostComposer";
 
-export default function PostFeed({
-  feedType = "universal",
-  neighborhoodId = null,
-  groupId = null,
-}) {
   interface NeighborhoodGalleryProps {
     neighborhoodId: string;
     neighborhoodName?: string;
   }
+
+export default function NeighborhoodGallery({
+  neighborhoodId,
+  neighborhoodName,
+  feedType = "universal",
+  groupId = null,
+}: NeighborhoodGalleryProps) {
+
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { data, loading, error, refetch, fetchMore } = useQuery(GET_POSTS, {

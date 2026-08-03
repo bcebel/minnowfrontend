@@ -1891,7 +1891,16 @@ const viewabilityConfig = useRef({
         >
           <Text style={styles.galleryButtonText}> 🖼 Gallery</Text>
         </TouchableOpacity>
-
+        <TouchableOpacity
+          onPress={() =>
+            router.push(
+              `/neighborhoods/bubbles/PostFeed?neighborhoodId=${neighborhoodId}`,
+            )
+          }
+          style={styles.galleryButton}
+        >
+          <Text style={styles.galleryButtonText}> 🖼 Feed</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={() =>
             router.push(
@@ -1930,9 +1939,8 @@ const viewabilityConfig = useRef({
         maxToRenderPerBatch={4} // Process items in small chunks per frame
         windowSize={5} // Keeps ~5 screens above and below mounted (default is 21)
         removeClippedSubviews={false} // SET TO FALSE if items are disappearing/blanking out
-      onViewableItemsChanged={onViewableItemsChanged}
-
-viewabilityConfig={viewabilityConfig}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
       />
 
       {showAd && currentAd && (
