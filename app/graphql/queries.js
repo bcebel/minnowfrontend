@@ -11,6 +11,80 @@ export const GET_USER_BY_USERNAME = gql`
   }
 `;
 
+export const CREATE_POST = gql`
+  mutation CreatePost($input: CreatePostInput!) {
+    createPost(input: $input) {
+      id
+      content
+      feedType
+      isPinned
+      createdAt
+      author {
+        id
+        username
+        profilePhoto
+      }
+      media {
+        url
+        cid
+        magnetURI
+        mediaType
+      }
+      affiliate {
+        targetUrl
+        bannerUrl
+        title
+        network
+        rawHtml
+        isSponsored
+      }
+    }
+  }
+`;
+
+export const GET_POSTS = gql`
+  query GetPosts(
+    $feedType: String
+    $neighborhoodId: ID
+    $groupId: ID
+    $limit: Int
+    $offset: Int
+  ) {
+    posts(
+      feedType: $feedType
+      neighborhoodId: $neighborhoodId
+      groupId: $groupId
+      limit: $limit
+      offset: $offset
+    ) {
+      id
+      content
+      feedType
+      isPinned
+      createdAt
+      author {
+        id
+        username
+        profilePhoto
+      }
+      media {
+        url
+        cid
+        magnetURI
+        mediaType
+      }
+      affiliate {
+        targetUrl
+        bannerUrl
+        title
+        network
+        rawHtml
+        isSponsored
+      }
+    }
+  }
+`;
+
 // For user profile
 export const GET_USER = gql`
   query GetUser($id: ID!) {
