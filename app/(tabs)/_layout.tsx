@@ -75,13 +75,18 @@ return (
     <Tabs.Screen
       name="PostComposer"
       options={{
-        title: "pc",
-        tabBarIcon: ({ color }) => null,
+        href: null, // THIS IS THE TRICK: It hides the tab button
       }}
     />
 
     <Tabs.Screen
       name="neighborhoods/bubbles/PostFeed"
+      options={{
+        href: null, // THIS IS THE TRICK: It hides the tab button
+      }}
+    />
+    <Tabs.Screen
+      name="neighborhoods/bubbles/neighborhood-postfeed"
       options={{
         href: null, // THIS IS THE TRICK: It hides the tab button
       }}
