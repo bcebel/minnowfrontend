@@ -1,6 +1,40 @@
 import React from "react";
-import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { Image } from "expo-image";
 import AffiliateCard from "./AffiliateCard";
+
+const PINATA_GATEWAY =
+  process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud";
+
+// 🎯 IPFS / Gateway URL Resolver (Same logic as NeighborhoodGallery)
+function resolveMediaUrl(mediaItem) {
+  if (!mediaItem) return null;
+
+  // Handle string URLs or CIDs
+  if (typeof mediaItem === "string") {
+    if (mediaItem.startsWith("http")) {
+      return mediaItem.replace("ipfs.filebase.io", PINATA_GATEWAY);
+    }
+    return `https://${PINATA_GATEWAY}/ipfs/${mediaItem}`;
+  }
+
+  // Handle object structure { url, ipfsUrl, cid }
+  if (mediaItem.ipfsUrl) {
+    return mediaItem.ipfsUrl.replace("ipfs.filebase.io", PINATA_GATEWAY);
+  }
+
+  if (mediaItem.cid) {
+    return `https://${PINATA_GATEWAY}/ipfs/${mediaItem.cid}`;
+  }
+
+  if (mediaItem.url) {
+    return mediaItem.url.startsWith("http")
+      ? mediaItem.url.replace("ipfs.filebase.io", PINATA_GATEWAY)
+      : `https://${PINATA_GATEWAY}/ipfs/${mediaItem.url}`;
+  }
+
+  return null;
+}
 
 // Quick helper to format relative time
 function formatTimeAgo(timestamp) {
@@ -19,18 +53,21 @@ export default function FeedItem({ post, onLike, onComment }) {
 
   const { author, content, createdAt, media, affiliate } = post;
 
-  // Fallback profile avatar generator (or IPFS gateway check)
-  const avatarUri = author?.profilePhoto
-    ? author.profilePhoto.startsWith("http")
-      ? author.profilePhoto
-      : `https://ipfs.io/ipfs/${author.profilePhoto}`
-    : "https://via.placeholder.com/150/1C0A2E/00FFFF?text=U";
+  // Resolve Profile Avatar through Pinata Gateway
+  const avatarUri =
+    resolveMediaUrl(author?.profilePhoto) ||
+    "https://via.placeholder.com/150/1C0A2E/00FFFF?text=U";
 
   return (
     <View style={styles.feedItemContainer}>
       {/* Post Header: Avatar + Username + Timestamp */}
       <View style={styles.header}>
-        <Image source={{ uri: avatarUri }} style={styles.avatar} />
+        <Image
+          source={{ uri: avatarUri }}
+          style={styles.avatar}
+          contentFit="cover"
+          transition={200}
+        />
         <View style={styles.headerTextContainer}>
           <Text style={styles.username}>{author?.username || "Anonymous"}</Text>
           <Text style={styles.timestamp}>{formatTimeAgo(createdAt)}</Text>
@@ -43,14 +80,23 @@ export default function FeedItem({ post, onLike, onComment }) {
       {/* Attached Media (Photo / Video) */}
       {media && media.length > 0 && (
         <View style={styles.mediaContainer}>
-          {media.map((item, index) => (
-            <Image
-              key={item.url || item.cid || index}
-              source={{ uri: item.url }}
-              style={styles.postImage}
-              resizeMode="cover"
-            />
-          ))}
+          {media.map((item, index) => {
+            const mediaUrl = resolveMediaUrl(item);
+            if (!mediaUrl) return null;
+
+            return (
+              <Image
+                key={item.cid || item.url || index}
+                source={{ uri: mediaUrl }}
+                style={styles.postImage}
+                contentFit="cover"
+                transition={300}
+                onError={(err) =>
+                  console.log(`Failed to load post image [${index}]:`, err)
+                }
+              />
+            );
+          })}
         </View>
       )}
 
@@ -123,10 +169,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: "hidden",
     marginVertical: 6,
+    gap: 8, // Spacing if multiple images exist
   },
   postImage: {
     width: "100%",
-    height: 220,
+    height: 240,
     backgroundColor: "#130720",
     borderRadius: 8,
   },
