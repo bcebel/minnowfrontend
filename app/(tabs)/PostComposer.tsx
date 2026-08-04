@@ -26,8 +26,6 @@ export default function PostComposer({
 }: PostComposerProps) {
   const [content, setContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<{ uri: string } | null>(null);
-  const [showAffiliateOption, setShowAffiliateOption] = useState(false);
-  const [affiliateInput, setAffiliateInput] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [createPostMutation] = useMutation(CREATE_POST);
@@ -97,7 +95,6 @@ export default function PostComposer({
                  },
                ]
              : [],
-           affiliate: affiliateInput ? { rawHtml: affiliateInput } : null,
          },
        },
      });
@@ -105,8 +102,7 @@ export default function PostComposer({
      // 3. Reset local form state
      setContent("");
      setSelectedImage(null);
-     setAffiliateInput("");
-     setShowAffiliateOption(false);
+
 
      if (onPostCreated) {
        onPostCreated();
@@ -145,18 +141,7 @@ export default function PostComposer({
         </View>
       )}
 
-      {/* Affiliate Snippet / Link Drawer */}
-      {showAffiliateOption && (
-        <TextInput
-          style={[styles.input, styles.affiliateInput]}
-          placeholder="Paste raw affiliate HTML snippet OR direct affiliate link..."
-          placeholderTextColor="#888"
-          multiline
-          value={affiliateInput}
-          onChangeText={setAffiliateInput}
-        />
-      )}
-
+   
       {/* Controls Bar */}
       <View style={styles.toolbar}>
         <View style={styles.leftTools}>
@@ -164,12 +149,7 @@ export default function PostComposer({
             <Text style={styles.btnText}>📷 Photo/Video</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => setShowAffiliateOption(!showAffiliateOption)}
-          >
-            <Text style={styles.btnText}>🔗 Link</Text>
-          </TouchableOpacity>
+
         </View>
 
         <TouchableOpacity
@@ -206,14 +186,7 @@ const styles = StyleSheet.create({
     minHeight: 60,
     textAlignVertical: "top",
   },
-  affiliateInput: {
-    marginTop: 8,
-    padding: 8,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    borderRadius: 6,
-    fontSize: 13,
-    minHeight: 40,
-  },
+
   previewContainer: {
     position: "relative",
     marginTop: 10,
