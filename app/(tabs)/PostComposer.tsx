@@ -19,100 +19,114 @@ interface PostComposerProps {
   onPostCreated?: () => void;
 }
 
+interface SelectedMedia {
+  uri: string;
+  mediaType: "image" | "video";
+}
+
 export default function PostComposer({
   currentNeighborhoodId,
   currentGroupId,
   onPostCreated,
 }: PostComposerProps) {
   const [content, setContent] = useState("");
-  const [selectedImage, setSelectedImage] = useState<{ uri: string } | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<SelectedMedia | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
 
   const [createPostMutation] = useMutation(CREATE_POST);
 
-  // 1. Pick Media from Device
+  // 1. Pick Media (Detects 'image' vs 'video')
   const pickMedia = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ImagePicker.MediaTypeOptions.All, // Allows both photos & videos
       quality: 0.8,
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setSelectedImage({ uri: result.assets[0].uri });
+      const asset = result.assets[0];
+      const detectedType = asset.type === "video" ? "video" : "image";
+
+      setSelectedMedia({
+        uri: asset.uri,
+        mediaType: detectedType,
+      });
     }
   };
 
-  // 2. Submit Post (Upload to IPFS first -> Fire GraphQL mutation)
- const handleSubmit = async () => {
-   if (!content.trim() && !selectedImage) return;
+  // 2. Submit Post
+  const handleSubmit = async () => {
+    if (!content.trim() && !selectedMedia) return;
 
-   setLoading(true);
-   try {
-     let extractedCid = null;
-     let magnetLink = null;
-     let finalMediaUrl = null;
+    setLoading(true);
+    try {
+      let extractedCid = null;
+      let magnetLink = null;
+      let finalMediaUrl = null;
+      const currentMediaType = selectedMedia?.mediaType || "image";
 
-     // 1. Upload to IPFS if an image was picked
-     if (selectedImage?.uri) {
-       const uri = selectedImage.uri;
+      // Upload local file to IPFS if selected
+      if (selectedMedia?.uri) {
+        const uri = selectedMedia.uri;
 
-       if (uri.startsWith("blob:") || uri.startsWith("file:")) {
-         const uploadResult = await uploadToIPFS(
-           uri,
-           `post_${Date.now()}.jpg`,
-           "image",
-         );
+        if (uri.startsWith("blob:") || uri.startsWith("file:")) {
+          const extension = currentMediaType === "video" ? "mp4" : "jpg";
 
-         // Match your backend's actual response structure:
-         const slice = uploadResult?.slices?.[0];
-         extractedCid = slice?.cid || uploadResult?.cid || null;
-         magnetLink = slice?.magnetLink || uploadResult?.magnetLink || null;
+          const uploadResult = await uploadToIPFS(
+            uri,
+            `post_${Date.now()}.${extension}`,
+            currentMediaType,
+          );
 
-         // Construct permanent URL using IPFS CID
-         if (extractedCid) {
-           finalMediaUrl = `https://ipfs.io/ipfs/${extractedCid}`;
-         }
-       } else {
-         finalMediaUrl = uri;
-       }
-     }
+          // Extract CID and Magnet URI from response
+          const slice = uploadResult?.slices?.[0];
+          extractedCid = slice?.cid || uploadResult?.cid || null;
+          magnetLink = slice?.magnetLink || uploadResult?.magnetLink || null;
 
-     // 2. Wrap variables in `input: { ... }` for GraphQL
-     await createPostMutation({
-       variables: {
-         input: {
-           content,
-           feedType: "universal",
-           neighborhoodId: currentNeighborhoodId,
-           groupId: currentGroupId,
-           media: finalMediaUrl
-             ? [
-                 {
-                   url: finalMediaUrl,
-                   cid: extractedCid,
-                   magnetURI: magnetLink,
-                   mediaType: "image",
-                 },
-               ]
-             : [],
-         },
-       },
-     });
+          if (extractedCid) {
+            finalMediaUrl = `https://ipfs.io/ipfs/${extractedCid}`;
+          }
+        } else {
+          finalMediaUrl = uri;
+        }
+      }
 
-     // 3. Reset local form state
-     setContent("");
-     setSelectedImage(null);
+      // Execute GraphQL Mutation
+      await createPostMutation({
+        variables: {
+          input: {
+            content,
+            feedType: "universal",
+            neighborhoodId: currentNeighborhoodId || null,
+            groupId: currentGroupId || null,
+            media: finalMediaUrl
+              ? [
+                  {
+                    url: finalMediaUrl,
+                    cid: extractedCid,
+                    magnetURI: magnetLink,
+                    mediaType: currentMediaType, // Dynamically set "image" or "video"
+                  },
+                ]
+              : [],
+          },
+        },
+      });
 
+      // Clear local state
+      setContent("");
+      setSelectedMedia(null);
 
-     if (onPostCreated) {
-       onPostCreated();
-     }
-   } catch (error) {
-     console.error("Failed to create post:", error);
-   } finally {
-     setLoading(false);
-   }
- };
+      if (onPostCreated) {
+        onPostCreated();
+      }
+    } catch (error) {
+      console.error("Failed to create post:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -125,40 +139,45 @@ export default function PostComposer({
         onChangeText={setContent}
       />
 
-      {/* Selected Image Preview */}
-      {selectedImage && (
+      {/* Selected Media Preview */}
+      {selectedMedia && (
         <View style={styles.previewContainer}>
-          <Image
-            source={{ uri: selectedImage.uri }}
-            style={styles.previewImage}
-          />
+          {selectedMedia.mediaType === "image" ? (
+            <Image
+              source={{ uri: selectedMedia.uri }}
+              style={styles.previewImage}
+            />
+          ) : (
+            <View style={styles.videoPreviewPlaceholder}>
+              <Text style={styles.videoPreviewText}>🎬 Video Selected</Text>
+              <Text style={styles.videoUriText} numberOfLines={1}>
+                {selectedMedia.uri}
+              </Text>
+            </View>
+          )}
+
           <TouchableOpacity
             style={styles.removeBadge}
-            onPress={() => setSelectedImage(null)}
+            onPress={() => setSelectedMedia(null)}
           >
             <Text style={styles.removeText}>✕</Text>
           </TouchableOpacity>
         </View>
       )}
 
-   
       {/* Controls Bar */}
       <View style={styles.toolbar}>
-        <View style={styles.leftTools}>
-          <TouchableOpacity style={styles.iconBtn} onPress={pickMedia}>
-            <Text style={styles.btnText}>📷 Photo/Video</Text>
-          </TouchableOpacity>
-
-
-        </View>
+        <TouchableOpacity style={styles.iconBtn} onPress={pickMedia}>
+          <Text style={styles.btnText}>📷 Photo/Video</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[
             styles.postBtn,
-            !content.trim() && !selectedImage && styles.postBtnDisabled,
+            !content.trim() && !selectedMedia && styles.postBtnDisabled,
           ]}
           onPress={handleSubmit}
-          disabled={loading || (!content.trim() && !selectedImage)}
+          disabled={loading || (!content.trim() && !selectedMedia)}
         >
           {loading ? (
             <ActivityIndicator color="#130720" size="small" />
@@ -186,7 +205,6 @@ const styles = StyleSheet.create({
     minHeight: 60,
     textAlignVertical: "top",
   },
-
   previewContainer: {
     position: "relative",
     marginTop: 10,
@@ -198,6 +216,27 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 200,
     borderRadius: 8,
+  },
+  videoPreviewPlaceholder: {
+    width: "100%",
+    height: 120,
+    backgroundColor: "rgba(0,255,255,0.08)",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(0,255,255,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 12,
+  },
+  videoPreviewText: {
+    color: "#00FFFF",
+    fontWeight: "bold",
+    fontSize: 15,
+  },
+  videoUriText: {
+    color: "#8A829E",
+    fontSize: 11,
+    marginTop: 4,
   },
   removeBadge: {
     position: "absolute",
@@ -223,10 +262,6 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.08)",
-  },
-  leftTools: {
-    flexDirection: "row",
-    gap: 8,
   },
   iconBtn: {
     paddingVertical: 6,
