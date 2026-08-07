@@ -2,15 +2,14 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Image } from "expo-image";
 import AffiliateCard from "./AffiliateCard";
+import WebTorrentMedia from "./WebTorrentMedia"; // 1. Import WebTorrentMedia
 
 const PINATA_GATEWAY =
   process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud";
 
-// 🎯 IPFS / Gateway URL Resolver (Same logic as NeighborhoodGallery)
 function resolveMediaUrl(mediaItem) {
   if (!mediaItem) return null;
 
-  // Handle string URLs or CIDs
   if (typeof mediaItem === "string") {
     if (mediaItem.startsWith("http")) {
       return mediaItem.replace("ipfs.filebase.io", PINATA_GATEWAY);
@@ -18,7 +17,6 @@ function resolveMediaUrl(mediaItem) {
     return `https://${PINATA_GATEWAY}/ipfs/${mediaItem}`;
   }
 
-  // Handle object structure { url, ipfsUrl, cid }
   if (mediaItem.ipfsUrl) {
     return mediaItem.ipfsUrl.replace("ipfs.filebase.io", PINATA_GATEWAY);
   }
@@ -36,7 +34,6 @@ function resolveMediaUrl(mediaItem) {
   return null;
 }
 
-// Quick helper to format relative time
 function formatTimeAgo(timestamp) {
   if (!timestamp) return "";
   const date = new Date(isNaN(timestamp) ? timestamp : Number(timestamp));
@@ -53,14 +50,13 @@ export default function FeedItem({ post, onLike, onComment }) {
 
   const { author, content, createdAt, media, affiliate } = post;
 
-  // Resolve Profile Avatar through Pinata Gateway
   const avatarUri =
     resolveMediaUrl(author?.profilePhoto) ||
     "https://via.placeholder.com/150/1C0A2E/00FFFF?text=U";
 
   return (
     <View style={styles.feedItemContainer}>
-      {/* Post Header: Avatar + Username + Timestamp */}
+      {/* Post Header */}
       <View style={styles.header}>
         <Image
           source={{ uri: avatarUri }}
@@ -77,33 +73,38 @@ export default function FeedItem({ post, onLike, onComment }) {
       {/* Main Post Content */}
       {content ? <Text style={styles.content}>{content}</Text> : null}
 
-      {/* Attached Media (Photo / Video) */}
+      {/* Attached Media with P2P / WebTorrent fallback */}
       {media && media.length > 0 && (
         <View style={styles.mediaContainer}>
           {media.map((item, index) => {
-            const mediaUrl = resolveMediaUrl(item);
-            if (!mediaUrl) return null;
+            const fallbackUrl = resolveMediaUrl(item);
+
+            // Normalize GraphQL fields to match WebTorrentMedia expectations
+            const normalizedMedia = {
+              cid: item.cid,
+              magnetLink: item.magnetLink || item.magnetURI,
+              fallbackUrl: fallbackUrl,
+              ipfsUrl: fallbackUrl,
+              fileType: item.fileType || item.mediaType || "image",
+              fileName: item.fileName || `media-${item.cid}`,
+            };
 
             return (
-              <Image
+              <View
                 key={item.cid || item.url || index}
-                source={{ uri: mediaUrl }}
-                style={styles.postImage}
-                contentFit="cover"
-                transition={300}
-                onError={(err) =>
-                  console.log(`Failed to load post image [${index}]:`, err)
-                }
-              />
+                style={styles.mediaWrapper}
+              >
+                <WebTorrentMedia media={normalizedMedia} isFocused={true} />
+              </View>
             );
           })}
         </View>
       )}
 
-      {/* Affiliate Link / Banner Card */}
+      {/* Affiliate Link Card */}
       {affiliate && <AffiliateCard affiliate={affiliate} />}
 
-      {/* Post Footer Action Bar */}
+      {/* Action Bar */}
       <View style={styles.actionBar}>
         <TouchableOpacity style={styles.actionBtn} onPress={onLike}>
           <Text style={styles.actionIcon}>⚡</Text>
@@ -116,7 +117,7 @@ export default function FeedItem({ post, onLike, onComment }) {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionBtn}>
-          <Text style={styles.actionIcon}>🔗</Text>
+          <Text style={styles.actionIcon}>↗️</Text>
           <Text style={styles.actionLabel}>Share</Text>
         </TouchableOpacity>
       </View>
@@ -169,13 +170,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: "hidden",
     marginVertical: 6,
-    gap: 8, // Spacing if multiple images exist
+    gap: 8,
   },
-  postImage: {
+  mediaWrapper: {
     width: "100%",
     height: 240,
     backgroundColor: "#130720",
     borderRadius: 8,
+    overflow: "hidden",
   },
   actionBar: {
     flexDirection: "row",

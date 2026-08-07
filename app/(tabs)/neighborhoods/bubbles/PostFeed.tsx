@@ -7,16 +7,17 @@ import {
   StyleSheet,
   RefreshControl,
 } from "react-native";
-import { useLocalSearchParams } from 'expo-router';
 import { useQuery } from "@apollo/client";
 import { GET_POSTS } from "../../../graphql/queries";
 import FeedItem from "../../../../components/FeedItem";
 import PostComposer from "../../PostComposer";
 
-  interface NeighborhoodGalleryProps {
-    neighborhoodId: string;
-    neighborhoodName?: string;
-  }
+interface NeighborhoodGalleryProps {
+  neighborhoodId?: string;
+  neighborhoodName?: string;
+  feedType?: string;
+  groupId?: string | null;
+}
 
 export default function NeighborhoodGallery({
   neighborhoodId,
@@ -24,7 +25,6 @@ export default function NeighborhoodGallery({
   feedType = "universal",
   groupId = null,
 }: NeighborhoodGalleryProps) {
-
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { data, loading, error, refetch, fetchMore } = useQuery(GET_POSTS, {
@@ -91,18 +91,21 @@ export default function NeighborhoodGallery({
   return (
     <FlatList
       data={posts}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => item.id || item._id}
       renderItem={({ item }) => (
         <FeedItem
           post={item}
-          onLike={() => console.log("Boosted post:", item.id)}
-          onComment={() => console.log("Replying to post:", item.id)}
+          onLike={() => console.log("Boosted post:", item.id || item._id)}
+          onComment={() =>
+            console.log("Replying to post:", item.id || item._id)
+          }
         />
       )}
       ListHeaderComponent={
         <PostComposer
           currentNeighborhoodId={neighborhoodId}
           currentGroupId={groupId}
+          onPostCreated={refetch} // Optional: Pass refetch to update stream on post
         />
       }
       ListEmptyComponent={

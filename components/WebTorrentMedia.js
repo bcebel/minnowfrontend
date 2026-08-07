@@ -35,7 +35,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
           setVideoSrc(url);
           setStatus("cached");
           setProgress(100);
-          return;
+          return; 
         }
       } catch (err) {
         console.log("Cache miss:", err.message);
@@ -54,7 +54,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
       }, 6000);
 
       // 3. Initiate P2P Swarming via WebTorrentService
-      if (media.magnetLink) {
+      if (media?.magnetLink) {
         try {
           if (isMountedRef.current) setStatus("connecting_p2p");
 
