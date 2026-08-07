@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -8,8 +8,9 @@ import {
   RefreshControl,
 } from "react-native";
 import { useQuery } from "@apollo/client";
-import { GET_POSTS } from "../../../graphql/queries";
+import { GET_POSTS, GET_RANDOM_AFFILIATE_LINK } from "../../../graphql/queries";
 import FeedItem from "../../../../components/FeedItem";
+import AdMessage from "../../../../components/AdMessage";
 import PostComposer from "../../PostComposer";
 
 interface NeighborhoodGalleryProps {
@@ -27,6 +28,7 @@ export default function NeighborhoodGallery({
 }: NeighborhoodGalleryProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // 1. Fetch posts
   const { data, loading, error, refetch, fetchMore } = useQuery(GET_POSTS, {
     variables: {
       feedType,
@@ -38,7 +40,36 @@ export default function NeighborhoodGallery({
     fetchPolicy: "cache-and-network",
   });
 
+  // 2. Fetch ad data
+  const { data: adData } = useQuery(GET_RANDOM_AFFILIATE_LINK);
+
   const posts = data?.posts || [];
+
+  // 3. Interleave posts and ads
+  const feedWithAds = useMemo(() => {
+    if (!posts.length) return [];
+
+    const result = [];
+    posts.forEach((post, index) => {
+      // Add the regular post
+      result.push({
+        type: "post",
+        data: post,
+        id: post.id || post._id || `post-${index}`,
+      });
+
+      // Insert an ad every 10 posts (skip index 0)
+      if (index > 0 && index % 10 === 0 && adData?.randomAffiliateLink) {
+        result.push({
+          type: "ad",
+          data: adData.randomAffiliateLink,
+          id: `ad-${index}-${adData.randomAffiliateLink.id || index}`,
+        });
+      }
+    });
+
+    return result;
+  }, [posts, adData]);
 
   // Pull-to-refresh handler
   const handleRefresh = async () => {
@@ -58,7 +89,7 @@ export default function NeighborhoodGallery({
 
     fetchMore({
       variables: {
-        offset: posts.length,
+        offset: posts.length, // Uses actual posts length to keep GraphQL pagination accurate
       },
       updateQuery: (prev, { fetchMoreResult }) => {
         if (!fetchMoreResult || !fetchMoreResult.posts.length) return prev;
@@ -90,22 +121,32 @@ export default function NeighborhoodGallery({
 
   return (
     <FlatList
-      data={posts}
-      keyExtractor={(item) => item.id || item._id}
-      renderItem={({ item }) => (
-        <FeedItem
-          post={item}
-          onLike={() => console.log("Boosted post:", item.id || item._id)}
-          onComment={() =>
-            console.log("Replying to post:", item.id || item._id)
-          }
-        />
-      )}
+      data={feedWithAds}
+      keyExtractor={(item) => item.id}
+      renderItem={({ item }) => {
+        // Render Ad Banner
+        if (item.type === "ad") {
+          return <AdMessage ad={item.data} />;
+        }
+
+        // Render Normal Feed Item
+        return (
+          <FeedItem
+            post={item.data}
+            onLike={() =>
+              console.log("Boosted post:", item.data.id || item.data._id)
+            }
+            onComment={() =>
+              console.log("Replying to post:", item.data.id || item.data._id)
+            }
+          />
+        );
+      }}
       ListHeaderComponent={
         <PostComposer
           currentNeighborhoodId={neighborhoodId}
           currentGroupId={groupId}
-          onPostCreated={refetch} // Optional: Pass refetch to update stream on post
+          onPostCreated={refetch}
         />
       }
       ListEmptyComponent={

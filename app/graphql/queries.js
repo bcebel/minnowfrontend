@@ -42,6 +42,19 @@ export const CREATE_POST = gql`
   }
 `;
 
+export const GET_RANDOM_AFFILIATE_LINK = gql`
+  query GetRandomAffiliateLink {
+    randomAffiliateLink {
+      id
+      url
+      title
+      imageUrl
+      description
+      clicks
+    }
+  }
+`;
+
 export const GET_POSTS = gql`
   query GetPosts(
     $feedType: String
