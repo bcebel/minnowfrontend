@@ -30,6 +30,11 @@ export const CREATE_POST = gql`
         magnetURI
         mediaType
       }
+      neighborhood {
+        # ← ADD THIS!
+        id
+        name
+      }
       affiliate {
         targetUrl
         bannerUrl
@@ -56,20 +61,8 @@ export const GET_RANDOM_AFFILIATE_LINK = gql`
 `;
 
 export const GET_POSTS = gql`
-  query GetPosts(
-    $feedType: String
-    $neighborhoodId: ID
-    $groupId: ID
-    $limit: Int
-    $offset: Int
-  ) {
-    posts(
-      feedType: $feedType
-      neighborhoodId: $neighborhoodId
-      groupId: $groupId
-      limit: $limit
-      offset: $offset
-    ) {
+  query GetPosts($neighborhoodId: ID) {
+    posts(neighborhoodId: $neighborhoodId) {
       id
       content
       feedType
@@ -86,13 +79,9 @@ export const GET_POSTS = gql`
         magnetURI
         mediaType
       }
-      affiliate {
-        targetUrl
-        bannerUrl
-        title
-        network
-        rawHtml
-        isSponsored
+      neighborhood {
+        id
+        name
       }
     }
   }

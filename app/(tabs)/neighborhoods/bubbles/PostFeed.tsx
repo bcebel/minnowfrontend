@@ -16,14 +16,12 @@ import PostComposer from "../../PostComposer";
 interface NeighborhoodGalleryProps {
   neighborhoodId?: string;
   neighborhoodName?: string;
-  feedType?: string;
   groupId?: string | null;
 }
 
 export default function NeighborhoodGallery({
   neighborhoodId,
   neighborhoodName,
-  feedType = "universal",
   groupId = null,
 }: NeighborhoodGalleryProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -31,7 +29,6 @@ export default function NeighborhoodGallery({
   // 1. Fetch posts
   const { data, loading, error, refetch, fetchMore } = useQuery(GET_POSTS, {
     variables: {
-      feedType,
       neighborhoodId,
       groupId,
       limit: 10,

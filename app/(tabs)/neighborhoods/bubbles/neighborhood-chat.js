@@ -1894,7 +1894,7 @@ const viewabilityConfig = useRef({
         <TouchableOpacity
           onPress={() =>
             router.push(
-              `/neighborhoods/bubbles/PostFeed?neighborhoodId=${neighborhoodId}`,
+              `/neighborhoods/bubbles/neighborhood-postfeed?neighborhoodId=${neighborhoodId}`,
             )
           }
           style={styles.galleryButton}
