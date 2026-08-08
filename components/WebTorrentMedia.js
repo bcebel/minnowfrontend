@@ -1,3 +1,4 @@
+// WebTorrentMedia.js - Updated with better playback settings
 import React, { useState, useEffect, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { getMedia, saveMedia } from "../components/mediaCache";
@@ -8,6 +9,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const [status, setStatus] = useState("initializing");
   const [progress, setProgress] = useState(0);
   const [peerCount, setPeerCount] = useState(0);
+  const [isReady, setIsReady] = useState(false);
 
   const videoRef = useRef(null);
   const currentUrlRef = useRef(null);
@@ -35,32 +37,33 @@ export default function WebTorrentMedia({ media, isFocused }) {
           setVideoSrc(url);
           setStatus("cached");
           setProgress(100);
-          return; 
+          setIsReady(true);
+          return;
         }
       } catch (err) {
         console.log("Cache miss:", err.message);
       }
 
-      // 2. Set up 6-Second P2P Discovery Window
-      // Direct HTTP will ONLY trigger if P2P hasn't started delivering chunks in 6s
+      // 2. Set up 4-Second P2P Discovery Window (reduced from 6s)
       p2pTimer = setTimeout(() => {
         if (!p2pHitRef.current && isMountedRef.current && fallbackUrl) {
-          console.log(
-            "P2P discovery timed out (6s). Falling back to direct HTTP.",
-          );
+          console.log("P2P timeout (4s). Falling back to HTTP.");
           setVideoSrc(fallbackUrl);
           setStatus("fallback_http");
+          setIsReady(true);
         }
-      }, 6000);
+      }, 4000);
 
-      // 3. Initiate P2P Swarming via WebTorrentService
+      // 3. Initiate P2P Swarming
       if (media?.magnetLink) {
         try {
           if (isMountedRef.current) setStatus("connecting_p2p");
 
           const torrentResult = await webtorrentService.add(media.magnetLink, {
-            // WebSeeding: WebTorrent fetches from Pinata INSIDE the P2P swarm
             urlList: fallbackUrl ? [fallbackUrl] : [],
+            // ✅ Better streaming settings
+            strategy: "sequential", // Download in order for streaming
+            maxWebConns: 4, // More connections = faster
           });
 
           if (!isMountedRef.current) return;
@@ -68,7 +71,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
           activeTorrent = torrentResult.torrent;
 
           if (activeTorrent) {
-            // Monitor peer connectivity and download progress
+            // ✅ More frequent updates for smoother progress
             const updateStats = () => {
               if (!isMountedRef.current) return;
               const numPeers = activeTorrent.numPeers || 0;
@@ -77,18 +80,37 @@ export default function WebTorrentMedia({ media, isFocused }) {
               setPeerCount(numPeers);
               setProgress(pct);
 
-              // If P2P gets any download traction, mark P2P as active
               if (pct > 0 || numPeers > 0) {
                 p2pHitRef.current = true;
                 if (status !== "streaming") setStatus("p2p_swarming");
               }
+
+              // ✅ Auto-start playback at 3% (instead of waiting)
+              if (pct >= 3 && !isReady) {
+                setIsReady(true);
+                if (torrentResult.url) {
+                  setVideoSrc(torrentResult.url);
+                  setStatus("p2p_streaming");
+                }
+              }
             };
 
+            // ✅ Update on every piece download (more granular)
             activeTorrent.on("wire", updateStats);
             activeTorrent.on("download", updateStats);
+            activeTorrent.on("piece", updateStats); // ← New: updates on every piece
+
+            // ✅ Pre-buffer first 10% immediately
+            if (activeTorrent.pieces > 0) {
+              const firstPieces = Math.max(
+                1,
+                Math.floor(activeTorrent.pieces * 0.1),
+              );
+              activeTorrent.select(0, firstPieces - 1);
+            }
           }
 
-          // 4. Stream ready: Hand playable blob URL to video player
+          // 4. Fallback to URL if torrentResult has one
           if (torrentResult.url && isMountedRef.current) {
             p2pHitRef.current = true;
             if (p2pTimer) clearTimeout(p2pTimer);
@@ -102,22 +124,23 @@ export default function WebTorrentMedia({ media, isFocused }) {
             currentUrlRef.current = torrentResult.url;
             setVideoSrc(torrentResult.url);
             setStatus("p2p_streaming");
+            setIsReady(true);
           }
         } catch (err) {
           console.log("P2P Error:", err.message);
-          // If P2P errors explicitly, drop immediately to HTTP
           if (isMountedRef.current && !p2pHitRef.current && fallbackUrl) {
             setVideoSrc(fallbackUrl);
             setStatus("fallback_http");
+            setIsReady(true);
           }
         }
       } else if (fallbackUrl && isMountedRef.current) {
-        // No magnet link present at all
         setVideoSrc(fallbackUrl);
         setStatus("fallback_http");
+        setIsReady(true);
       }
 
-      // 5. Cache response for future opens
+      // 5. Cache in background
       if (fallbackUrl) {
         fetchIPFSForCache(fallbackUrl);
       }
@@ -143,7 +166,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
           saveMedia(media.cid, blob, mimeType, fileName);
         }
       } catch (e) {
-        // Silent catch for background caching
+        // Silent catch
       }
     };
 
@@ -155,19 +178,35 @@ export default function WebTorrentMedia({ media, isFocused }) {
       if (currentUrlRef.current && currentUrlRef.current.startsWith("blob:")) {
         URL.revokeObjectURL(currentUrlRef.current);
       }
+      if (activeTorrent) {
+        activeTorrent.removeAllListeners();
+      }
     };
-  }, [media.magnetLink, media.cid, media.ipfsUrl, media.fallbackUrl]);
+  }, [
+    media.magnetLink,
+    media.cid,
+    media.ipfsUrl,
+    media.fallbackUrl,
+    media.fileName,
+  ]);
 
-  // Loading state (Shows while checking cache or connecting to P2P peers)
-  if (!videoSrc) {
+  // Loading state
+  if (!videoSrc || !isReady) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator color="#00ffff" />
+        <ActivityIndicator color="#00ffff" size="large" />
         <Text style={styles.statusText}>
-          {status === "checking_cache" && "Checking local storage..."}
-          {status === "connecting_p2p" && "Connecting to P2P Swarm..."}
-          {status === "initializing" && "Initializing..."}
+          {status === "checking_cache" && "📦 Loading from cache..."}
+          {status === "connecting_p2p" && "🌐 Connecting to peers..."}
+          {status === "p2p_swarming" && `📡 Swarming (${progress}%)`}
+          {status === "initializing" && "⏳ Initializing..."}
+          {status === "fallback_http" && "🌍 Loading video..."}
         </Text>
+        {status === "p2p_swarming" && progress > 0 && (
+          <View style={styles.progressBarContainer}>
+            <View style={[styles.progressBar, { width: `${progress}%` }]} />
+          </View>
+        )}
       </View>
     );
   }
@@ -190,8 +229,11 @@ export default function WebTorrentMedia({ media, isFocused }) {
         muted={!isFocused}
         controls
         playsInline
+        preload="auto"
+        onLoadedData={() => console.log("🎬 Video loaded and ready")}
+        onError={(e) => console.log("❌ Video error:", e)}
       />
-      {/* Visual Indicator of P2P vs HTTP State */}
+      {/* Status Overlay */}
       <View style={styles.overlayStatus}>
         <ActivityIndicator
           size="small"
@@ -199,10 +241,10 @@ export default function WebTorrentMedia({ media, isFocused }) {
         />
         <Text style={styles.overlayText}>
           {status === "p2p_streaming" &&
-            `P2P Active (${peerCount} peers, ${progress}%)`}
-          {status === "p2p_swarming" && `Swarming P2P (${progress}%)`}
-          {status === "fallback_http" && "HTTP Backup (Pinata)"}
-          {status === "cached" && "Device Cache"}
+            `🚀 P2P (${peerCount} peers, ${progress}%)`}
+          {status === "p2p_swarming" && `🌊 Swarming (${progress}%)`}
+          {status === "fallback_http" && "🌍 HTTP"}
+          {status === "cached" && "💾 Cache"}
         </Text>
       </View>
     </View>
@@ -235,9 +277,21 @@ const styles = StyleSheet.create({
   },
   statusText: {
     color: "#fff",
-    fontSize: 12,
+    fontSize: 14,
     marginTop: 10,
     textAlign: "center",
+  },
+  progressBarContainer: {
+    width: "80%",
+    height: 4,
+    backgroundColor: "#333",
+    borderRadius: 2,
+    marginTop: 12,
+  },
+  progressBar: {
+    height: "100%",
+    backgroundColor: "#00ffff",
+    borderRadius: 2,
   },
   overlayStatus: {
     position: "absolute",
