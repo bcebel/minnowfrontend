@@ -40,7 +40,7 @@ export default function PostComposer({
   // 1. Pick Media (Detects 'image' vs 'video')
   const pickMedia = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All, // Allows both photos & videos
+      mediaTypes: ["images", "videos"],
       quality: 0.8,
     });
 

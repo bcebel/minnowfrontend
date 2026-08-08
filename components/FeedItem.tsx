@@ -77,24 +77,19 @@ export default function FeedItem({ post, onLike, onComment }) {
       {media && media.length > 0 && (
         <View style={styles.mediaContainer}>
           {media.map((item, index) => {
-            const fallbackUrl = resolveMediaUrl(item);
-
-            // Normalize GraphQL fields to match WebTorrentMedia expectations
-            const normalizedMedia = {
+            // ✅ Normalize media data for WebTorrentMedia
+            const mediaData = {
+              id: item.id || item.cid,
               cid: item.cid,
-              magnetLink: item.magnetLink || item.magnetURI,
-              fallbackUrl: fallbackUrl,
-              ipfsUrl: fallbackUrl,
-              fileType: item.fileType || item.mediaType || "image",
-              fileName: item.fileName || `media-${item.cid}`,
+              ipfsUrl: item.url || item.ipfsUrl,
+              magnetLink: item.magnetURI || item.magnetLink,
+              fileType: item.mediaType || "image",
+              fileName: item.fileName || `media-${index}`,
             };
 
             return (
-              <View
-                key={item.cid || item.url || index}
-                style={styles.mediaWrapper}
-              >
-                <WebTorrentMedia media={normalizedMedia} isFocused={true} />
+              <View key={mediaData.id || index} style={styles.mediaWrapper}>
+                <WebTorrentMedia media={mediaData} isFocused={true} />
               </View>
             );
           })}
