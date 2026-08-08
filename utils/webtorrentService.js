@@ -19,6 +19,34 @@ class WebTorrentService {
     this.seedingCache = new Map(); // Track torrents currently being seeded
   }
 
+  // In webtorrentService.js - add this helper method
+
+  /**
+   * Gets a playable blob URL for a torrent file
+   * Handles both full files and sliced videos
+   */
+  async getPlayableUrl(torrent, file) {
+    return new Promise((resolve, reject) => {
+      // Try to get a blob URL directly (works for most videos)
+      file.getBlobURL((err, url) => {
+        if (!err && url) {
+          resolve(url);
+          return;
+        }
+
+        // Fallback: Read file as buffer and create blob
+        file.getBuffer((err, buffer) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          const blob = new Blob([buffer], { type: "video/mp4" });
+          const url = URL.createObjectURL(blob);
+          resolve(url);
+        });
+      });
+    });
+  }
   /**
    * THE CHAMP GATEKEEPER
    * Polls until the global WebTorrent client from +html.tsx is available.

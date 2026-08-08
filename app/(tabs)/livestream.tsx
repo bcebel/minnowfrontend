@@ -40,10 +40,7 @@ const GET_ACTIVE_LIVESTREAMS = gql`
       id
       title
       sessionId
-    }
-    messages {
-      sessionId
-      thumbnailUrl
+      # thumbnailUrl  # ← Add this if your Stream schema has it
     }
   }
 `;
