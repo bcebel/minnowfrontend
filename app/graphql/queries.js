@@ -86,7 +86,6 @@ export const GET_POSTS = gql`
     }
   }
 `;
-
 // For user profile
 export const GET_USER = gql`
   query GetUser($id: ID!) {

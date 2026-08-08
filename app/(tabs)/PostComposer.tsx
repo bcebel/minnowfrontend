@@ -97,7 +97,7 @@ export default function PostComposer({
         variables: {
           input: {
             content,
-            feedType: "universal",
+            feedType: "neighborhood",
             neighborhoodId: currentNeighborhoodId || null,
             groupId: currentGroupId || null,
             media: finalMediaUrl

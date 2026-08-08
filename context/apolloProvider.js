@@ -38,16 +38,31 @@ export function useApolloClient() {
         const token = await AsyncStorage.getItem("token");
         console.log(
           "🔄 Apollo Client: Initializing with token:",
-          token ? "YES" : "NO"
+          token ? "YES" : "NO",
         );
 
+        // apolloProvider.js
+        // apolloProvider.js
         const cache = new InMemoryCache({
           typePolicies: {
             Video: { keyFields: ["cid"] },
             Image: { keyFields: ["cid"] },
+            Post: { keyFields: ["id"] },
+            Query: {
+              fields: {
+                posts: {
+                  // ✅ CRITICAL: Don't merge, just replace
+                  merge(existing, incoming) {
+                    // If there's no incoming, return existing
+                    if (!incoming) return existing;
+                    // Just return incoming - replace everything
+                    return incoming;
+                  },
+                },
+              },
+            },
           },
         });
-
         await persistCache({
           cache,
           storage: AsyncStorage,
@@ -67,7 +82,7 @@ export function useApolloClient() {
             connectionParams: {
               Authorization: `Bearer ${token}`,
             },
-          })
+          }),
         );
 
         const authLink = setContext(async (_, { headers }) => {
@@ -94,7 +109,7 @@ export function useApolloClient() {
             );
           },
           wsLink,
-          authLink.concat(httpLink)
+          authLink.concat(httpLink),
         );
 
         const newClient = new ApolloClient({
