@@ -101,19 +101,37 @@ const handleSubmit = async () => {
           currentMediaType === "video" && blob.size > 10 * 1024 * 1024;
 
         // In PostComposer.tsx - MODIFIED
-        // In PostComposer.tsx - replace the existing isLargeVideo block with this:
+        // In PostComposer.tsx - update the isLargeVideo section
         if (isLargeVideo) {
           try {
-            // 1️⃣ Seed from browser with enhanced service
-            console.log(`🎬 Seeding large video from browser...`);
-            const seedResult = await webtorrentService.seed(blob, {
-              name: fileName,
-            });
+     const response = await fetch(uri);
+     const blob = await response.blob();
 
-            magnetLink = seedResult.magnetUri;
+     // 2. Seed with the blob (same as chat)
+     const browserSeed = await webtorrentService.seed(blob, {
+       name: fileName,
+     });
 
-            // ✅ Store the data for potential re-seeding
-            await webtorrentService.cacheMagnetLink(magnetLink, {
+     const magnetLink = browserSeed.magnetUri;
+
+     // ✅ 3. VERIFY the seed has a file
+     setTimeout(() => {
+       const client = window.globalWebTorrentClient;
+       const torrent = client?.torrents?.find(
+         (t) => t.magnetURI === magnetLink,
+       );
+       if (torrent) {
+         console.log("📁 Post seed files:", torrent.files.length);
+         if (torrent.files.length === 0) {
+           console.error("❌ No files! Re-seeding failed!");
+         } else {
+           console.log("✅ Post seed working!");
+         }
+       }
+     }, 3000);
+
+            // ✅ Store the RAW file data (NOT a blob URL!)
+            await webtorrentService.storeSeedData(magnetLink, blob, {
               fileName: fileName,
               fileType: "video",
               size: blob.size,
@@ -122,7 +140,6 @@ const handleSubmit = async () => {
             console.log(
               `✅ Browser seed active: ${magnetLink.substring(0, 50)}...`,
             );
-
             // 2️⃣ Send metadata to backend (NO FILE)
             console.log(`📤 Sending metadata to backend...`);
             await fetch(`${BACKEND_URL}/api/seed-register`, {

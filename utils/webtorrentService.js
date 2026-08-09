@@ -90,17 +90,24 @@ class WebTorrentService {
    * Caches magnet result to memory (blob URL) and localStorage (metadata)
    */
 
+  // In webtorrentService.js - update cacheMagnetResult
   cacheMagnetResult(magnetUri, result) {
     const cacheKey = this.getCacheKey(magnetUri);
 
-    // Store in memory cache with data
+    // ✅ DON'T cache blob URLs - they're device-specific!
+    // Only cache if it's from a download (has data)
+    if (result.url && result.url.startsWith("blob:")) {
+      console.log("⚠️ Not caching blob URL (device-specific)");
+      return;
+    }
+
+    // Store in memory cache
     this.downloadCache.set(cacheKey, {
       ...result,
       cachedAt: Date.now(),
       url: result.url,
-      data: result.data, // ✅ Store the data for re-seeding
+      data: result.data,
     });
-
     // Store metadata in localStorage
     try {
       const cache = JSON.parse(
@@ -122,17 +129,25 @@ class WebTorrentService {
   /**
    * Retrieves fresh cached magnet data (freshness threshold: 1 hour)
    */
+  // In webtorrentService.js - update getCachedMagnet
   getCachedMagnet(magnetUri) {
     const cacheKey = this.getCacheKey(magnetUri);
 
     if (this.downloadCache.has(cacheKey)) {
       const cached = this.downloadCache.get(cacheKey);
-      // Check if cache is less than 1 hour old
+
+      // ✅ If it's a blob URL, treat it as expired (device-specific)
+      if (cached.url && cached.url.startsWith("blob:")) {
+        console.log("⚠️ Cached blob URL is device-specific, re-downloading");
+        this.downloadCache.delete(cacheKey);
+        return null;
+      }
+
+      // Check if less than 1 hour old
       if (Date.now() - cached.cachedAt < 60 * 60 * 1000) {
         console.log("⚡ Returning cached torrent from memory");
         return cached;
       }
-      // Cache expired
       this.downloadCache.delete(cacheKey);
     }
     return null;
@@ -208,13 +223,14 @@ class WebTorrentService {
   /**
    * ENHANCED add method: Handles memory caching, WebSeeding, sequential loading & blob generation
    */
+  // In webtorrentService.js - update add method
   async add(magnetUri, options = {}) {
     // 1. Check memory cache first
     const cached = this.getCachedMagnet(magnetUri);
 
-    // ✅ If cached, check if it's still valid
-    if (cached && cached.url) {
-      // Check if the blob URL is still valid
+    // ✅ Only use cache for downloads (not seeds)
+    if (cached && cached.url && !cached.url.startsWith("blob:")) {
+      // Check if the URL is still valid
       try {
         const response = await fetch(cached.url, { method: "HEAD" });
         if (response.ok) {
@@ -226,8 +242,7 @@ class WebTorrentService {
           };
         }
       } catch (e) {
-        console.log("⚠️ Cache blob expired, re-seeding...");
-        // Cache is invalid - remove it and re-seed
+        console.log("⚠️ Cache expired, re-downloading...");
         this.downloadCache.delete(this.getCacheKey(magnetUri));
       }
     }
@@ -384,6 +399,20 @@ class WebTorrentService {
     });
   }
 
+  // In webtorrentService.js - add this method
+  async storeSeedData(magnetUri, fileData, metadata = {}) {
+    const cacheKey = this.getCacheKey(magnetUri);
+
+    // ✅ Store the raw file data (NOT a blob URL)
+    this.downloadCache.set(cacheKey, {
+      ...metadata,
+      data: fileData, // This is the actual File/Blob data
+      isSeedData: true,
+      cachedAt: Date.now(),
+      magnetUri: magnetUri,
+    });
+    console.log("💾 Seed data stored for re-seeding");
+  }
   /**
    * Register magnet link metadata from IPFS/Pinata uploads
    */
