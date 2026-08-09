@@ -101,57 +101,115 @@ const handleSubmit = async () => {
           currentMediaType === "video" && blob.size > 10 * 1024 * 1024;
 
         // In PostComposer.tsx - MODIFIED
+        // In PostComposer.tsx - replace the existing isLargeVideo block with this:
         if (isLargeVideo) {
-          // 1️⃣ Seed from browser (frontend)
-          console.log(`🎬 Seeding large video from browser...`);
-          const browserSeed = await webtorrentService.seed(blob, {
-            name: fileName,
-          });
-          const magnetLink = browserSeed.magnetUri;
+          try {
+            // 1️⃣ Seed from browser with enhanced service
+            console.log(`🎬 Seeding large video from browser...`);
+            const seedResult = await webtorrentService.seed(blob, {
+              name: fileName,
+            });
 
-          // 2️⃣ ONLY send metadata to backend (NO FILE)
-          console.log(`📤 Sending metadata to backend...`);
-          await fetch(`${BACKEND_URL}/api/seed-register`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              magnetLink: magnetLink,
-              neighborhoodId: currentNeighborhoodId,
-              content: content,
+            magnetLink = seedResult.magnetUri;
+
+            // ✅ Store the data for potential re-seeding
+            await webtorrentService.cacheMagnetLink(magnetLink, {
               fileName: fileName,
-              fileSize: blob.size,
-              mediaType: "video",
-            }),
-          }).catch(() => {
-            console.log(
-              "⚠️ Backend registration failed, but browser seed is active",
-            );
-          });
+              fileType: "video",
+              size: blob.size,
+            });
 
-          // 3️⃣ Create post with magnet link
-          await createPostMutation({
-            variables: {
-              input: {
-                content,
-                feedType: "neighborhood",
-                neighborhoodId: currentNeighborhoodId,
-                media: [
-                  {
-                    magnetURI: magnetLink,
-                    mediaType: "video",
-                  },
-                ],
-              },
-            },
-            context: {
+            console.log(
+              `✅ Browser seed active: ${magnetLink.substring(0, 50)}...`,
+            );
+
+            // 2️⃣ Send metadata to backend (NO FILE)
+            console.log(`📤 Sending metadata to backend...`);
+            await fetch(`${BACKEND_URL}/api/seed-register`, {
+              method: "POST",
               headers: {
+                "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,
               },
-            },
-          });
+              body: JSON.stringify({
+                magnetLink: magnetLink,
+                neighborhoodId: currentNeighborhoodId,
+                content: content,
+                fileName: fileName,
+                fileSize: blob.size,
+                mediaType: "video",
+              }),
+            }).catch(() => {
+              console.log(
+                "⚠️ Backend registration failed, but browser seed is active",
+              );
+            });
+
+            // 3️⃣ Create post with magnet link
+            await createPostMutation({
+              variables: {
+                input: {
+                  content,
+                  feedType: "neighborhood",
+                  neighborhoodId: currentNeighborhoodId,
+                  media: [
+                    {
+                      magnetURI: magnetLink,
+                      mediaType: "video",
+                    },
+                  ],
+                },
+              },
+              context: {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              },
+            });
+
+            console.log("✅ Post created with P2P seeding");
+          } catch (error) {
+            console.error("❌ P2P seeding failed:", error);
+            // Fallback to IPFS
+            const uploadResult = await uploadToIPFS(
+              uri,
+              fileName ||
+                `post_${Date.now()}.${currentMediaType === "video" ? "mp4" : "jpg"}`,
+              currentMediaType,
+            );
+            const slice = uploadResult?.slices?.[0];
+            extractedCid = slice?.cid || uploadResult?.cid || null;
+            magnetLink = slice?.magnetLink || uploadResult?.magnetLink || null;
+            if (extractedCid) {
+              finalMediaUrl = `https://ipfs.io/ipfs/${extractedCid}`;
+            }
+            // Create post with IPFS fallback
+            await createPostMutation({
+              variables: {
+                input: {
+                  content,
+                  feedType: "neighborhood",
+                  neighborhoodId: currentNeighborhoodId,
+                  groupId: currentGroupId || null,
+                  media: finalMediaUrl
+                    ? [
+                        {
+                          url: finalMediaUrl,
+                          cid: extractedCid,
+                          magnetURI: magnetLink,
+                          mediaType: currentMediaType,
+                        },
+                      ]
+                    : [],
+                },
+              },
+              context: {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              },
+            });
+          }
         } else {
           // ✅ SMALL VIDEO/IMAGE - Upload to IPFS
           const uploadResult = await uploadToIPFS(

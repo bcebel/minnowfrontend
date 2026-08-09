@@ -127,7 +127,10 @@ export default function Root({ children }: PropsWithChildren) {
           href="/favicon-16x16.png"
         />
         {/* 1. Load the library first */}
-        <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+        <script
+          src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"
+          defer
+        ></script>
         <script
           dangerouslySetInnerHTML={{
             __html: `
