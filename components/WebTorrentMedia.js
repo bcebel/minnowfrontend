@@ -10,7 +10,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const [peerCount, setPeerCount] = useState(0);
   const [isReady, setIsReady] = useState(false);
 
-  const videoRef = useRef(null);
+  const videoRef = useRef(null); 
   const currentUrlRef = useRef(null);
   const isMountedRef = useRef(true);
   const p2pHitRef = useRef(false);

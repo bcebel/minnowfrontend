@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
 export const uploadToIPFS = async (fileUri, fileName, type) => {
   const token = await AsyncStorage.getItem("token");
