@@ -22,7 +22,7 @@ export const CREATE_POST = gql`
       author {
         id
         username
-        profilePhoto
+        profilePhoto # ✅ ADD THIS!
       }
       media {
         url
@@ -31,17 +31,8 @@ export const CREATE_POST = gql`
         mediaType
       }
       neighborhood {
-        # ← ADD THIS!
         id
         name
-      }
-      affiliate {
-        targetUrl
-        bannerUrl
-        title
-        network
-        rawHtml
-        isSponsored
       }
     }
   }
@@ -71,7 +62,7 @@ export const GET_POSTS = gql`
       author {
         id
         username
-        profilePhoto
+        profilePhoto # ✅ ADD THIS (like chat)
       }
       media {
         url

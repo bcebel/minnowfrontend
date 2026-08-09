@@ -1,11 +1,32 @@
+// FeedItem.tsx - Updated
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { Image } from "expo-image";
+import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import AffiliateCard from "./AffiliateCard";
-import WebTorrentMedia from "./WebTorrentMedia"; // 1. Import WebTorrentMedia
+import WebTorrentMedia from "./WebTorrentMedia";
 
 const PINATA_GATEWAY =
   process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud";
+
+// ✅ Copy the function from neighborhood-chat
+const getProfilePhotoUrl = (profilePhoto) => {
+  if (!profilePhoto) {
+    return "https://via.placeholder.com/40";
+  }
+
+  if (profilePhoto.startsWith("http")) {
+    return profilePhoto;
+  }
+
+  if (profilePhoto.startsWith("blob:")) {
+    return profilePhoto;
+  }
+
+  if (profilePhoto.startsWith("Qm") || profilePhoto.startsWith("baf")) {
+    return `https://${PINATA_GATEWAY}/ipfs/${profilePhoto}`;
+  }
+
+  return `https://${PINATA_GATEWAY}/ipfs/${profilePhoto}`;
+};
 
 function resolveMediaUrl(mediaItem) {
   if (!mediaItem) return null;
@@ -50,9 +71,8 @@ export default function FeedItem({ post, onLike, onComment }) {
 
   const { author, content, createdAt, media, affiliate } = post;
 
-  const avatarUri =
-    resolveMediaUrl(author?.profilePhoto) ||
-    "https://via.placeholder.com/150/1C0A2E/00FFFF?text=U";
+  // ✅ Use the fixed profile photo function
+  const avatarUri = getProfilePhotoUrl(author?.profilePhoto);
 
   return (
     <View style={styles.feedItemContainer}>
@@ -73,31 +93,32 @@ export default function FeedItem({ post, onLike, onComment }) {
       {/* Main Post Content */}
       {content ? <Text style={styles.content}>{content}</Text> : null}
 
-      {/* Attached Media with P2P / WebTorrent fallback */}
-{media && media.length > 0 && (
-  <View style={styles.mediaContainer}>
-    {media.map((item, index) => {
-      // ✅ Normalize media data for WebTorrentMedia
-      const mediaData = {
-        id: item.id || item.cid,
-        cid: item.cid,
-        ipfsUrl: item.url || item.ipfsUrl,
-        magnetLink: item.magnetURI || item.magnetLink,
-        fileType: item.mediaType || "image",
-        fileName: item.fileName || `media-${index}`,
-      };
+      {/* Attached Media */}
+      {media && media.length > 0 && (
+        <View style={styles.mediaContainer}>
+          {media.map((item, index) => {
+            const fallbackUrl = resolveMediaUrl(item);
 
-      return (
-        <View key={mediaData.id || index} style={styles.mediaWrapper}>
-          <WebTorrentMedia 
-            media={mediaData} 
-            isFocused={true} 
-          />
+            const normalizedMedia = {
+              cid: item.cid,
+              magnetLink: item.magnetLink || item.magnetURI,
+              fallbackUrl: fallbackUrl,
+              ipfsUrl: fallbackUrl,
+              fileType: item.fileType || item.mediaType || "image",
+              fileName: item.fileName || `media-${item.cid}`,
+            };
+
+            return (
+              <View
+                key={item.cid || item.url || index}
+                style={styles.mediaWrapper}
+              >
+                <WebTorrentMedia media={normalizedMedia} isFocused={true} />
+              </View>
+            );
+          })}
         </View>
-      );
-    })}
-  </View>
-)}
+      )}
 
       {/* Affiliate Link Card */}
       {affiliate && <AffiliateCard affiliate={affiliate} />}
@@ -130,7 +151,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#331B58",
+    borderColor: "rgba(255,128,0,0.15)", // 🧡 Orange accent
   },
   header: {
     flexDirection: "row",
@@ -142,21 +163,22 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     backgroundColor: "#130720",
-    borderWidth: 1,
-    borderColor: "#00FFFF",
+    borderWidth: 2,
+    borderColor: "#FF8000", // 🧡 Orange border
   },
   headerTextContainer: {
     marginLeft: 10,
   },
   username: {
-    color: "#FFFFFF",
+    color: "#FF8000", // 🧡 Orange username
     fontSize: 14,
     fontWeight: "700",
   },
   timestamp: {
-    color: "#8A829E",
+    color: "#FF8000", // 🧡 Orange tint
     fontSize: 11,
     marginTop: 1,
+    opacity: 0.7,
   },
   content: {
     color: "#E0D8F0",
@@ -180,7 +202,7 @@ const styles = StyleSheet.create({
   actionBar: {
     flexDirection: "row",
     borderTopWidth: 1,
-    borderTopColor: "#2A1647",
+    borderTopColor: "rgba(255,128,0,0.1)", // 🧡 Orange tint
     marginTop: 10,
     paddingTop: 8,
     justifyContent: "space-around",
@@ -194,6 +216,7 @@ const styles = StyleSheet.create({
   actionIcon: {
     fontSize: 14,
     marginRight: 6,
+    color: "#FF8000", // 🧡 Orange
   },
   actionLabel: {
     color: "#8A829E",
