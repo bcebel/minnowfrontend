@@ -12,7 +12,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useMutation } from "@apollo/client";
 import { CREATE_POST } from "../graphql/queries"; // Adjust path to match your project
 import { uploadToIPFS } from "../utils/uploadHelper"; // Adjust path to match your project
-
+import  webtorrentService from "../../utils/webtorrentService"; // Adjust path to match your project
 interface PostComposerProps {
   currentNeighborhoodId?: string;
   currentGroupId?: string | null;
@@ -56,6 +56,7 @@ export default function PostComposer({
   };
 
   // 2. Submit Post
+  // In PostComposer.tsx - updated handleSubmit
   const handleSubmit = async () => {
     if (!content.trim() && !selectedMedia) return;
 
@@ -72,55 +73,73 @@ export default function PostComposer({
 
         if (uri.startsWith("blob:") || uri.startsWith("file:")) {
           const extension = currentMediaType === "video" ? "mp4" : "jpg";
+          const fileName = `post_${Date.now()}.${extension}`;
 
-          const uploadResult = await uploadToIPFS(
-            uri,
-            `post_${Date.now()}.${extension}`,
-            currentMediaType,
-          );
+          // ✅ NEW: Check if it's a large video
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          const isLargeVideo =
+            currentMediaType === "video" && blob.size > 10 * 1024 * 1024;
 
-          // Extract CID and Magnet URI from response
-          const slice = uploadResult?.slices?.[0];
-          extractedCid = slice?.cid || uploadResult?.cid || null;
-          magnetLink = slice?.magnetLink || uploadResult?.magnetLink || null;
+          if (isLargeVideo) {
+            // ✅ P2P-ONLY: Seed via WebTorrent, skip Pinata
+            console.log(`🎬 Large video (${blob.size} bytes) - P2P only`);
+            const seedResult = await webtorrentService.seed(blob, {
+              name: fileName,
+            });
 
-          if (extractedCid) {
-            finalMediaUrl = `https://ipfs.io/ipfs/${extractedCid}`;
+            magnetLink = seedResult.magnetUri;
+            // No CID, no IPFS URL
+            extractedCid = null;
+            finalMediaUrl = null;
+          } else {
+            // ✅ Normal upload to Pinata (for small videos and images)
+            const uploadResult = await uploadToIPFS(
+              uri,
+              fileName,
+              currentMediaType,
+            );
+
+            const slice = uploadResult?.slices?.[0];
+            extractedCid = slice?.cid || uploadResult?.cid || null;
+            magnetLink = slice?.magnetLink || uploadResult?.magnetLink || null;
+
+            if (extractedCid) {
+              finalMediaUrl = `https://ipfs.io/ipfs/${extractedCid}`;
+            }
           }
         } else {
           finalMediaUrl = uri;
         }
       }
 
-      // Execute GraphQL Mutation
+      // Create the post (same as before)
       await createPostMutation({
         variables: {
           input: {
             content,
             feedType: "neighborhood",
-            neighborhoodId: currentNeighborhoodId || null,
+            neighborhoodId: currentNeighborhoodId,
             groupId: currentGroupId || null,
-            media: finalMediaUrl
-              ? [
-                  {
-                    url: finalMediaUrl,
-                    cid: extractedCid,
-                    magnetURI: magnetLink,
-                    mediaType: currentMediaType, // Dynamically set "image" or "video"
-                  },
-                ]
-              : [],
+            media:
+              finalMediaUrl || magnetLink
+                ? [
+                    {
+                      url: finalMediaUrl,
+                      cid: extractedCid,
+                      magnetURI: magnetLink,
+                      mediaType: currentMediaType,
+                    },
+                  ]
+                : [],
           },
         },
       });
 
-      // Clear local state
+      // Clear state
       setContent("");
       setSelectedMedia(null);
-
-      if (onPostCreated) {
-        onPostCreated();
-      }
+      onPostCreated?.();
     } catch (error) {
       console.error("Failed to create post:", error);
     } finally {

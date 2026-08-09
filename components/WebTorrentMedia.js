@@ -1,4 +1,3 @@
-// WebTorrentMedia.js - Updated with better playback settings
 import React, { useState, useEffect, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { getMedia, saveMedia } from "../components/mediaCache";
@@ -44,7 +43,38 @@ export default function WebTorrentMedia({ media, isFocused }) {
         console.log("Cache miss:", err.message);
       }
 
-      // 2. Set up 4-Second P2P Discovery Window (reduced from 6s)
+      // ✅ NEW: Check if this is a multi-slice video
+      if (media.slices && media.slices.length > 1) {
+        try {
+          setStatus("connecting_slices");
+          console.log(`📦 Loading ${media.slices.length} slices...`);
+
+          const chunks = [];
+          for (const slice of media.slices) {
+            if (!isMountedRef.current) return;
+
+            const result = await webtorrentService.add(slice.magnetLink);
+            const response = await fetch(result.url);
+            const blob = await response.blob();
+            chunks.push(blob);
+          }
+
+          // Combine all chunks into one video
+          const combined = new Blob(chunks, { type: "video/mp4" });
+          const url = URL.createObjectURL(combined);
+          currentUrlRef.current = url;
+          setVideoSrc(url);
+          setStatus("p2p_streaming");
+          setProgress(100);
+          setIsReady(true);
+          return;
+        } catch (err) {
+          console.log("Slice assembly failed:", err.message);
+          // Fall through to normal playback
+        }
+      }
+
+      // 2. Set up 4-Second P2P Discovery Window
       p2pTimer = setTimeout(() => {
         if (!p2pHitRef.current && isMountedRef.current && fallbackUrl) {
           console.log("P2P timeout (4s). Falling back to HTTP.");
@@ -54,16 +84,15 @@ export default function WebTorrentMedia({ media, isFocused }) {
         }
       }, 4000);
 
-      // 3. Initiate P2P Swarming
+      // 3. Initiate P2P Swarming (Single file)
       if (media?.magnetLink) {
         try {
           if (isMountedRef.current) setStatus("connecting_p2p");
 
           const torrentResult = await webtorrentService.add(media.magnetLink, {
             urlList: fallbackUrl ? [fallbackUrl] : [],
-            // ✅ Better streaming settings
-            strategy: "sequential", // Download in order for streaming
-            maxWebConns: 4, // More connections = faster
+            strategy: "sequential",
+            maxWebConns: 4,
           });
 
           if (!isMountedRef.current) return;
@@ -71,7 +100,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
           activeTorrent = torrentResult.torrent;
 
           if (activeTorrent) {
-            // ✅ More frequent updates for smoother progress
             const updateStats = () => {
               if (!isMountedRef.current) return;
               const numPeers = activeTorrent.numPeers || 0;
@@ -85,7 +113,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
                 if (status !== "streaming") setStatus("p2p_swarming");
               }
 
-              // ✅ Auto-start playback at 3% (instead of waiting)
               if (pct >= 3 && !isReady) {
                 setIsReady(true);
                 if (torrentResult.url) {
@@ -95,12 +122,10 @@ export default function WebTorrentMedia({ media, isFocused }) {
               }
             };
 
-            // ✅ Update on every piece download (more granular)
             activeTorrent.on("wire", updateStats);
             activeTorrent.on("download", updateStats);
-            activeTorrent.on("piece", updateStats); // ← New: updates on every piece
+            activeTorrent.on("piece", updateStats);
 
-            // ✅ Pre-buffer first 10% immediately
             if (activeTorrent.pieces > 0) {
               const firstPieces = Math.max(
                 1,
@@ -110,7 +135,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
             }
           }
 
-          // 4. Fallback to URL if torrentResult has one
           if (torrentResult.url && isMountedRef.current) {
             p2pHitRef.current = true;
             if (p2pTimer) clearTimeout(p2pTimer);
@@ -188,6 +212,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
     media.ipfsUrl,
     media.fallbackUrl,
     media.fileName,
+    media.slices,
   ]);
 
   // Loading state
