@@ -1,7 +1,32 @@
+// WebTorrentMedia.js - FIXED
 import React, { useState, useEffect, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { getMedia, saveMedia } from "../components/mediaCache";
 import webtorrentService from "../utils/webtorrentService";
+
+const PINATA_GATEWAY =
+  process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud";
+
+// ✅ Move cache OUTSIDE the component (persists across renders)
+// WebTorrentMedia.js - at the top
+const pinataCache = new Map();
+
+// ✅ Expose for debugging (remove later)
+if (typeof window !== 'undefined') {
+  window.__pinataCache = pinataCache;
+}
+// ✅ Cache helper function
+const getCachedPinataUrl = (cid, fallbackUrl) => {
+  if (pinataCache.has(cid)) {
+    console.log(`💾 Pinata cache hit: ${cid}`);
+    return pinataCache.get(cid);
+  }
+
+  const url = fallbackUrl || `https://${PINATA_GATEWAY}/ipfs/${cid}`;
+  pinataCache.set(cid, url);
+  console.log(`💾 Pinata cached: ${cid}`);
+  return url;
+};
 
 export default function WebTorrentMedia({ media, isFocused }) {
   const [videoSrc, setVideoSrc] = useState(null);
@@ -10,7 +35,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const [peerCount, setPeerCount] = useState(0);
   const [isReady, setIsReady] = useState(false);
 
-  const videoRef = useRef(null); 
+  const videoRef = useRef(null);
   const currentUrlRef = useRef(null);
   const isMountedRef = useRef(true);
   const p2pHitRef = useRef(false);
@@ -43,7 +68,19 @@ export default function WebTorrentMedia({ media, isFocused }) {
         console.log("Cache miss:", err.message);
       }
 
-      // ✅ NEW: Check if this is a multi-slice video
+      // ✅ NEW: Check Pinata cache (in-memory)
+      if (media.cid) {
+        const cachedPinataUrl = getCachedPinataUrl(media.cid, fallbackUrl);
+        if (cachedPinataUrl && isMountedRef.current) {
+          console.log(`💾 Using Pinata cache: ${media.cid}`);
+          setVideoSrc(cachedPinataUrl);
+          setStatus("cached_pinata");
+          setIsReady(true);
+          return;
+        }
+      }
+
+      // ✅ Check if this is a multi-slice video
       if (media.slices && media.slices.length > 1) {
         try {
           setStatus("connecting_slices");
@@ -59,7 +96,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
             chunks.push(blob);
           }
 
-          // Combine all chunks into one video
           const combined = new Blob(chunks, { type: "video/mp4" });
           const url = URL.createObjectURL(combined);
           currentUrlRef.current = url;
@@ -70,21 +106,22 @@ export default function WebTorrentMedia({ media, isFocused }) {
           return;
         } catch (err) {
           console.log("Slice assembly failed:", err.message);
-          // Fall through to normal playback
         }
       }
 
-      // 2. Set up 4-Second P2P Discovery Window
+      // 2. Set up P2P Discovery (10 second timeout)
       p2pTimer = setTimeout(() => {
         if (!p2pHitRef.current && isMountedRef.current && fallbackUrl) {
-          console.log("P2P timeout (4s). Falling back to HTTP.");
-          setVideoSrc(fallbackUrl);
+          console.log("P2P timeout (10s). Falling back to HTTP.");
+          // ✅ Use cache for fallback too
+          const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
+          setVideoSrc(cachedUrl);
           setStatus("fallback_http");
           setIsReady(true);
         }
       }, 10000);
 
-      // 3. Initiate P2P Swarming (Single file)
+      // 3. Initiate P2P Swarming
       if (media?.magnetLink) {
         try {
           if (isMountedRef.current) setStatus("connecting_p2p");
@@ -153,13 +190,15 @@ export default function WebTorrentMedia({ media, isFocused }) {
         } catch (err) {
           console.log("P2P Error:", err.message);
           if (isMountedRef.current && !p2pHitRef.current && fallbackUrl) {
-            setVideoSrc(fallbackUrl);
+            const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
+            setVideoSrc(cachedUrl);
             setStatus("fallback_http");
             setIsReady(true);
           }
         }
       } else if (fallbackUrl && isMountedRef.current) {
-        setVideoSrc(fallbackUrl);
+        const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
+        setVideoSrc(cachedUrl);
         setStatus("fallback_http");
         setIsReady(true);
       }
@@ -222,6 +261,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
         <ActivityIndicator color="#00ffff" size="large" />
         <Text style={styles.statusText}>
           {status === "checking_cache" && "📦 Loading from cache..."}
+          {status === "cached_pinata" && "💾 Pinata cache..."}
           {status === "connecting_p2p" && "🌐 Connecting to peers..."}
           {status === "p2p_swarming" && `📡 Swarming (${progress}%)`}
           {status === "initializing" && "⏳ Initializing..."}
@@ -258,7 +298,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
         onLoadedData={() => console.log("🎬 Video loaded and ready")}
         onError={(e) => console.log("❌ Video error:", e)}
       />
-      {/* Status Overlay */}
       <View style={styles.overlayStatus}>
         <ActivityIndicator
           size="small"
@@ -270,6 +309,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
           {status === "p2p_swarming" && `🌊 Swarming (${progress}%)`}
           {status === "fallback_http" && "🌍 HTTP"}
           {status === "cached" && "💾 Cache"}
+          {status === "cached_pinata" && "💾 Pinata"}
         </Text>
       </View>
     </View>
