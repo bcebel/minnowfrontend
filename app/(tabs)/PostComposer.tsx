@@ -10,9 +10,15 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useMutation } from "@apollo/client";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import { CREATE_POST } from "../graphql/queries"; // Adjust path to match your project
 import { uploadToIPFS } from "../utils/uploadHelper"; // Adjust path to match your project
-import  webtorrentService from "../../utils/webtorrentService"; // Adjust path to match your project
+import  webtorrentService from "../../utils/webtorrentService"; // Adjust path to match 
+// your project
+
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
 interface PostComposerProps {
   currentNeighborhoodId?: string;
   currentGroupId?: string | null;
@@ -35,8 +41,18 @@ export default function PostComposer({
   );
   const [loading, setLoading] = useState(false);
 
-  const [createPostMutation] = useMutation(CREATE_POST);
-
+  // In PostComposer.tsx
+  const [createPostMutation] = useMutation(CREATE_POST, {
+    // ✅ Ensure token is passed on every mutation
+    context: async () => {
+      const token = await AsyncStorage.getItem("token");
+      return {
+        headers: {
+          authorization: token ? `Bearer ${token}` : "",
+        },
+      };
+    },
+  });
   // 1. Pick Media (Detects 'image' vs 'video')
   const pickMedia = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -57,63 +73,134 @@ export default function PostComposer({
 
   // 2. Submit Post
   // In PostComposer.tsx - updated handleSubmit
-  const handleSubmit = async () => {
-    if (!content.trim() && !selectedMedia) return;
+const handleSubmit = async () => {
+  if (!content.trim() && !selectedMedia) return;
 
-    setLoading(true);
-    try {
-      let extractedCid = null;
-      let magnetLink = null;
-      let finalMediaUrl = null;
-      const currentMediaType = selectedMedia?.mediaType || "image";
+  setLoading(true);
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
 
-      // Upload local file to IPFS if selected
-      if (selectedMedia?.uri) {
-        const uri = selectedMedia.uri;
+    let extractedCid = null;
+    let magnetLink = null;
+    let finalMediaUrl = null;
+    const currentMediaType = selectedMedia?.mediaType || "image";
+    const fileName = selectedMedia?.uri
+      ? `post_${Date.now()}.${currentMediaType === "video" ? "mp4" : "jpg"}`
+      : null;
 
-        if (uri.startsWith("blob:") || uri.startsWith("file:")) {
-          const extension = currentMediaType === "video" ? "mp4" : "jpg";
-          const fileName = `post_${Date.now()}.${extension}`;
+    if (selectedMedia?.uri) {
+      const uri = selectedMedia.uri;
 
-          // ✅ NEW: Check if it's a large video
-          const response = await fetch(uri);
-          const blob = await response.blob();
-          const isLargeVideo =
-            currentMediaType === "video" && blob.size > 10 * 1024 * 1024;
+      if (uri.startsWith("blob:") || uri.startsWith("file:")) {
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        const isLargeVideo =
+          currentMediaType === "video" && blob.size > 10 * 1024 * 1024;
 
-          if (isLargeVideo) {
-            // ✅ P2P-ONLY: Seed via WebTorrent, skip Pinata
-            console.log(`🎬 Large video (${blob.size} bytes) - P2P only`);
-            const seedResult = await webtorrentService.seed(blob, {
-              name: fileName,
-            });
+        // In PostComposer.tsx - MODIFIED
+        if (isLargeVideo) {
+          // 1️⃣ Seed from browser (frontend)
+          console.log(`🎬 Seeding large video from browser...`);
+          const browserSeed = await webtorrentService.seed(blob, {
+            name: fileName,
+          });
+          const magnetLink = browserSeed.magnetUri;
 
-            magnetLink = seedResult.magnetUri;
-            // No CID, no IPFS URL
-            extractedCid = null;
-            finalMediaUrl = null;
-          } else {
-            // ✅ Normal upload to Pinata (for small videos and images)
-            const uploadResult = await uploadToIPFS(
-              uri,
-              fileName,
-              currentMediaType,
+          // 2️⃣ ONLY send metadata to backend (NO FILE)
+          console.log(`📤 Sending metadata to backend...`);
+          await fetch(`${BACKEND_URL}/api/seed-register`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              magnetLink: magnetLink,
+              neighborhoodId: currentNeighborhoodId,
+              content: content,
+              fileName: fileName,
+              fileSize: blob.size,
+              mediaType: "video",
+            }),
+          }).catch(() => {
+            console.log(
+              "⚠️ Backend registration failed, but browser seed is active",
             );
+          });
 
-            const slice = uploadResult?.slices?.[0];
-            extractedCid = slice?.cid || uploadResult?.cid || null;
-            magnetLink = slice?.magnetLink || uploadResult?.magnetLink || null;
-
-            if (extractedCid) {
-              finalMediaUrl = `https://ipfs.io/ipfs/${extractedCid}`;
-            }
-          }
+          // 3️⃣ Create post with magnet link
+          await createPostMutation({
+            variables: {
+              input: {
+                content,
+                feedType: "neighborhood",
+                neighborhoodId: currentNeighborhoodId,
+                media: [
+                  {
+                    magnetURI: magnetLink,
+                    mediaType: "video",
+                  },
+                ],
+              },
+            },
+            context: {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          });
         } else {
-          finalMediaUrl = uri;
+          // ✅ SMALL VIDEO/IMAGE - Upload to IPFS
+          const uploadResult = await uploadToIPFS(
+            uri,
+            fileName ||
+              `post_${Date.now()}.${currentMediaType === "video" ? "mp4" : "jpg"}`,
+            currentMediaType,
+          );
+
+          const slice = uploadResult?.slices?.[0];
+          extractedCid = slice?.cid || uploadResult?.cid || null;
+          magnetLink = slice?.magnetLink || uploadResult?.magnetLink || null;
+
+          if (extractedCid) {
+            finalMediaUrl = `https://ipfs.io/ipfs/${extractedCid}`;
+          }
+
+          // ✅ Create post (NO fileName in media)
+          await createPostMutation({
+            variables: {
+              input: {
+                content,
+                feedType: "neighborhood",
+                neighborhoodId: currentNeighborhoodId,
+                groupId: currentGroupId || null,
+                media: finalMediaUrl
+                  ? [
+                      {
+                        url: finalMediaUrl,
+                        cid: extractedCid,
+                        magnetURI: magnetLink,
+                        mediaType: currentMediaType,
+                      },
+                    ]
+                  : [],
+              },
+            },
+            context: {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          });
         }
       }
+    }
 
-      // Create the post (same as before)
+    // No media case
+    if (!selectedMedia) {
       await createPostMutation({
         variables: {
           input: {
@@ -121,31 +208,26 @@ export default function PostComposer({
             feedType: "neighborhood",
             neighborhoodId: currentNeighborhoodId,
             groupId: currentGroupId || null,
-            media:
-              finalMediaUrl || magnetLink
-                ? [
-                    {
-                      url: finalMediaUrl,
-                      cid: extractedCid,
-                      magnetURI: magnetLink,
-                      mediaType: currentMediaType,
-                    },
-                  ]
-                : [],
+            media: [],
+          },
+        },
+        context: {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
         },
       });
-
-      // Clear state
-      setContent("");
-      setSelectedMedia(null);
-      onPostCreated?.();
-    } catch (error) {
-      console.error("Failed to create post:", error);
-    } finally {
-      setLoading(false);
     }
-  };
+
+    setContent("");
+    setSelectedMedia(null);
+    onPostCreated?.();
+  } catch (error) {
+    console.error("❌ Failed to create post:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <View style={styles.container}>

@@ -74,27 +74,30 @@ export default function FeedItem({ post, onLike, onComment }) {
       {content ? <Text style={styles.content}>{content}</Text> : null}
 
       {/* Attached Media with P2P / WebTorrent fallback */}
-      {media && media.length > 0 && (
-        <View style={styles.mediaContainer}>
-          {media.map((item, index) => {
-            // ✅ Normalize media data for WebTorrentMedia
-            const mediaData = {
-              id: item.id || item.cid,
-              cid: item.cid,
-              ipfsUrl: item.url || item.ipfsUrl,
-              magnetLink: item.magnetURI || item.magnetLink,
-              fileType: item.mediaType || "image",
-              fileName: item.fileName || `media-${index}`,
-            };
+{media && media.length > 0 && (
+  <View style={styles.mediaContainer}>
+    {media.map((item, index) => {
+      // ✅ Normalize media data for WebTorrentMedia
+      const mediaData = {
+        id: item.id || item.cid,
+        cid: item.cid,
+        ipfsUrl: item.url || item.ipfsUrl,
+        magnetLink: item.magnetURI || item.magnetLink,
+        fileType: item.mediaType || "image",
+        fileName: item.fileName || `media-${index}`,
+      };
 
-            return (
-              <View key={mediaData.id || index} style={styles.mediaWrapper}>
-                <WebTorrentMedia media={mediaData} isFocused={true} />
-              </View>
-            );
-          })}
+      return (
+        <View key={mediaData.id || index} style={styles.mediaWrapper}>
+          <WebTorrentMedia 
+            media={mediaData} 
+            isFocused={true} 
+          />
         </View>
-      )}
+      );
+    })}
+  </View>
+)}
 
       {/* Affiliate Link Card */}
       {affiliate && <AffiliateCard affiliate={affiliate} />}

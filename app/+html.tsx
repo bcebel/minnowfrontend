@@ -151,23 +151,46 @@ export default function Root({ children }: PropsWithChildren) {
   "udp://tracker3.itzmx.com:6961/announce"
       ];
       try {
-        window.globalWebTorrentClient = new window.WebTorrent({
-          tracker: { 
-            announce: window.enhancedTrackers,
-            rtcConfig: {
+window.globalWebTorrentClient = new window.WebTorrent({
+  tracker: { 
+    announce: window.enhancedTrackers,
+    rtcConfig: {
       iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          { urls: 'stun:stun3.l.google.com:19302' },
-          { urls: 'stun:stun4.l.google.com:19302' },
-          { urls: 'stun:global.stun.twilio.com:3478' },
-      ]
+        // STUN servers (for NAT traversal)
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' },
+           { urls: 'turn:openrelay.metered.ca:80' },
+  { urls: 'turn:openrelay.metered.ca:443' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp' },
+        // TURN servers (fallback for symmetric NAT)
+        { 
+          urls: 'turn:global.turn.twilio.com:3478?transport=udp',
+          username: 'your_twilio_username',
+          credential: 'your_twilio_credential'
+        },
+        { 
+          urls: 'turn:global.turn.twilio.com:3478?transport=tcp',
+          username: 'your_twilio_username',
+          credential: 'your_twilio_credential'
+        },
+          {
+    urls: [
+      'turn:global-turn.metered.ca:80?transport=udp',
+      'turn:global-turn.metered.ca:3478?transport=udp',
+      'turn:global-turn.metered.ca:443?transport=tcp'
+    ],
+    username: 'fe67734f65cabae0c1f0bf61',
+    credential: 'AY3FDMwL9QjEIZ2R'
+  }
+      ],
     },
-            heartbeat: 30 // Keeps Heroku connection alive
-          },
-          webSeeds: true,
-        });
+  },
+  webSeeds: true,
+});
         console.log("🌪️ CHAMP INITIALIZED WITH HEROKU TRACKER");
       } catch(e) {
         console.error("🌪️ CHAMP FAILED:", e);

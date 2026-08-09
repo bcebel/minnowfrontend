@@ -82,7 +82,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
           setStatus("fallback_http");
           setIsReady(true);
         }
-      }, 4000);
+      }, 10000);
 
       // 3. Initiate P2P Swarming (Single file)
       if (media?.magnetLink) {
