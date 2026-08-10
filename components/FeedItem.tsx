@@ -5,6 +5,7 @@ import AffiliateCard from "./AffiliateCard";
 import WebTorrentMedia from "./WebTorrentMedia";
 import { useMutation } from "@apollo/client";
 import { DELETE_POST } from "../app/graphql/queries";
+import CommentSection from "./CommentSection";
 
 
 const PINATA_GATEWAY =
@@ -160,6 +161,12 @@ export default function FeedItem({ post, onLike, onComment, onDelete }) {
           <Text style={styles.actionLabel}>Share</Text>
         </TouchableOpacity>
       </View>
+      <CommentSection
+        postId={post.id}
+        onCommentCountChange={() => {
+          // Optional: update comment count in UI
+        }}
+      />
     </View>
   );
 }

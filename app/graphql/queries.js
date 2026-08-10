@@ -1,7 +1,34 @@
 // graphql/queries.js (frontend only)
 import { gql } from "@apollo/client";
 
+// In your frontend queries.js
+export const GET_COMMENTS = gql`
+  query GetComments($postId: ID!) {
+    comments(postId: $postId) {
+      id
+      content
+      author {
+        username
+        profilePhoto
+      }
+      createdAt
+    }
+  }
+`;
 
+export const ADD_COMMENT = gql`
+  mutation AddComment($postId: ID!, $content: String!) {
+    addComment(postId: $postId, content: $content) {
+      id
+      content
+      author {
+        username
+        profilePhoto
+      }
+      createdAt
+    }
+  }
+`;
 
 export const GET_USER_BY_USERNAME = gql`
   query GetUserByUsername($username: String!) {
