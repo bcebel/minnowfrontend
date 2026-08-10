@@ -3,6 +3,9 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import AffiliateCard from "./AffiliateCard";
 import WebTorrentMedia from "./WebTorrentMedia";
+import { useMutation } from "@apollo/client";
+import { DELETE_POST } from "../app/graphql/queries";
+
 
 const PINATA_GATEWAY =
   process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud";
@@ -66,14 +69,27 @@ function formatTimeAgo(timestamp) {
   return `${Math.floor(diffInSeconds / 86400)}d ago`;
 }
 
-export default function FeedItem({ post, onLike, onComment }) {
+export default function FeedItem({ post, onLike, onComment, onDelete }) {
   if (!post) return null;
 
   const { author, content, createdAt, media, affiliate } = post;
 
   // ✅ Use the fixed profile photo function
   const avatarUri = getProfilePhotoUrl(author?.profilePhoto);
-
+  const [deletePost] = useMutation(DELETE_POST);
+  const handleDelete = async () => {
+    if (confirm("Are you sure you want to delete this post?")) {
+      try {
+        await deletePost({
+          variables: { postId: post.id },
+        });
+        // Refresh the feed
+        onDelete?.();
+      } catch (error) {
+        console.error("Delete failed:", error);
+      }
+    }
+  };
   return (
     <View style={styles.feedItemContainer}>
       {/* Post Header */}
@@ -125,6 +141,10 @@ export default function FeedItem({ post, onLike, onComment }) {
 
       {/* Action Bar */}
       <View style={styles.actionBar}>
+        <TouchableOpacity style={styles.actionBtn} onPress={handleDelete}>
+          <Text style={styles.actionIcon}>🗑️</Text>
+          <Text style={styles.actionLabel}>Delete</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.actionBtn} onPress={onLike}>
           <Text style={styles.actionIcon}>⚡</Text>
           <Text style={styles.actionLabel}>Boost</Text>

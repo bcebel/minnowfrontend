@@ -359,6 +359,12 @@ export const DELETE_INVITE_LINK = gql`
   }
 `;
 
+export const DELETE_POST = gql`
+  mutation DeletePost($postId: ID!) {
+    deletePost(postId: $postId)
+  }
+`;
+
 // graphql/queries.js - Update the query
 export const GET_NEIGHBORHOOD_INVITE_LINKS = gql`
   query NeighborhoodInviteLinks($neighborhoodId: ID!) {

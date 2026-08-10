@@ -62,6 +62,7 @@ export default function NeighborhoodGallery({
           post={item}
           onLike={() => console.log("Like:", item.id)}
           onComment={() => console.log("Comment:", item.id)}
+          onDelete={() => refetch()} // ✅ Refresh after delete
         />
       )}
       ListHeaderComponent={
