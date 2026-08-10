@@ -1,10 +1,10 @@
 // FeedItem.tsx - Updated
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import AffiliateCard from "./AffiliateCard";
 import WebTorrentMedia from "./WebTorrentMedia";
-import { useMutation } from "@apollo/client";
-import { DELETE_POST } from "../app/graphql/queries";
+import { useMutation, useQuery } from "@apollo/client";
+import { DELETE_POST, GET_COMMENTS } from "../app/graphql/queries";
 import CommentSection from "./CommentSection";
 
 
@@ -74,7 +74,19 @@ export default function FeedItem({ post, onLike, onComment, onDelete }) {
   if (!post) return null;
 
   const { author, content, createdAt, media, affiliate } = post;
+  const [commentCount, setCommentCount] = useState(0);
+    const { data } = useQuery(GET_COMMENTS, {
+      variables: { postId: post.id },
+      fetchPolicy: "cache-first",
+    });
+  
 
+  // Update count when data arrives
+  useEffect(() => {
+    if (data?.comments) {
+      setCommentCount(data.comments.length);
+    }
+  }, [data]);
   // ✅ Use the fixed profile photo function
   const avatarUri = getProfilePhotoUrl(author?.profilePhoto);
   const [deletePost] = useMutation(DELETE_POST);
@@ -153,7 +165,7 @@ export default function FeedItem({ post, onLike, onComment, onDelete }) {
 
         <TouchableOpacity style={styles.actionBtn} onPress={onComment}>
           <Text style={styles.actionIcon}>💬</Text>
-          <Text style={styles.actionLabel}>Reply</Text>
+          <Text style={styles.actionLabel}>Reply ({commentCount})</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionBtn}>
@@ -163,9 +175,8 @@ export default function FeedItem({ post, onLike, onComment, onDelete }) {
       </View>
       <CommentSection
         postId={post.id}
-        onCommentCountChange={() => {
-          // Optional: update comment count in UI
-        }}
+        initialCount={commentCount}
+        onCommentCountChange={setCommentCount}
       />
     </View>
   );

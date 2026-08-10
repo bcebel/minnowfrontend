@@ -27,13 +27,17 @@ const getProfilePhotoUrl = (profilePhoto) => {
   return `https://${PINATA_GATEWAY}/ipfs/${profilePhoto}`;
 };
 
-export default function CommentSection({ postId, onCommentCountChange }) {
+export default function CommentSection({
+  postId,
+  initialCount = 0,
+  onCommentCountChange,
+}) {
   const [newComment, setNewComment] = useState("");
+  const [commentCount, setCommentCount] = useState(initialCount);
   const [isExpanded, setIsExpanded] = useState(false);
 
   const { data, loading, refetch } = useQuery(GET_COMMENTS, {
     variables: { postId },
-    skip: !isExpanded,
     fetchPolicy: "cache-and-network",
   });
 
@@ -59,15 +63,24 @@ export default function CommentSection({ postId, onCommentCountChange }) {
 
   const comments = data?.comments || [];
 
+  // When data arrives (after click), update count
+  useEffect(() => {
+    if (data?.comments) {
+      const count = data.comments.length;
+      setCommentCount(count);
+      onCommentCountChange?.(count); // ← Update parent
+    }
+  }, [data]);
+
   return (
     <View style={styles.container}>
       {/* Toggle Comments */}
       <TouchableOpacity
         onPress={() => setIsExpanded(!isExpanded)}
-        style={styles.commentToggle}
+        style={styles.commentToggle}x
       >
         <Text style={styles.commentToggleText}>
-          💬 {comments.length} {comments.length === 1 ? "Comment" : "Comments"}
+          <Text>💬 {commentCount} Comments</Text>{" "}
         </Text>
       </TouchableOpacity>
 
