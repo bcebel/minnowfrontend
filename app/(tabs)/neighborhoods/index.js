@@ -84,7 +84,7 @@ const { loading, error, data, refetch } = useQuery(MY_NEIGHBORHOODS, {
           </TouchableOpacity>
 
           <Link
-            href={`/neighborhoods/bubbles/neighborhood-chat?neighborhoodId=${item.id}`}
+            href={`/neighborhoods/bubbles/neighborhood-postfeed?neighborhoodId=${item.id}`}
             asChild
           >
             <TouchableOpacity style={styles.viewButton}>

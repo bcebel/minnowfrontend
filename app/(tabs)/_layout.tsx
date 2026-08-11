@@ -54,8 +54,7 @@ return (
     <Tabs.Screen
       name="gallery"
       options={{
-        title: "🎬",
-        tabBarIcon: ({ color }) => null,
+        href: null, // THIS IS THE TRICK: It hides the tab button
       }}
     />
     <Tabs.Screen
