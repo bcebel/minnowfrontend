@@ -7,6 +7,7 @@ import {
   useWindowDimensions,
   ActivityIndicator,
   Image,
+  FlatList,
   TouchableOpacity,
 } from "react-native";
 import { gql, useQuery, useSubscription } from "@apollo/client";
@@ -387,21 +388,17 @@ export default function LivestreamScreen() {
   }
 
   return (
-    <View style={[styles.mainWrapper, { height: SCREEN_HEIGHT }]}>
-      <ScrollView
-        pagingEnabled
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        decelerationRate="fast"
-      >
-        {/* PAGE 1: THE SELECTOR & GO LIVE BUTTON */}
-        <View
-          style={[
-            styles.fullPage,
-            { height: SCREEN_HEIGHT, backgroundColor: "#130720" },
-          ]}
-        >
-          {/* Wrap the content in a View that doesn't compete with the ScrollView's paging */}
+  <View style={[styles.mainWrapper, { height: SCREEN_HEIGHT }]}>
+    <FlatList
+      data={streamsData?.streams || []}
+      keyExtractor={(item) => item.id}
+      pagingEnabled
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      decelerationRate="fast"
+      // ✅ Header goes here
+      ListHeaderComponent={
+        <View style={[styles.fullPage, { height: SCREEN_HEIGHT, backgroundColor: "#130720" }]}>
           <View style={{ width: "100%", alignItems: "center", zIndex: 10 }}>
             <Text style={styles.title}>Bubbles</Text>
 
@@ -409,7 +406,6 @@ export default function LivestreamScreen() {
               {hoodsData?.myNeighborhoods?.map((h) => (
                 <TouchableOpacity
                   key={h.id}
-                  // hitSlop gives you 10px of "invisible" padding to make tapping easier
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   style={[
                     styles.item,
@@ -421,7 +417,6 @@ export default function LivestreamScreen() {
                   }}
                   activeOpacity={0.7}
                 >
-                  {/* Ensure the text doesn't block the touch */}
                   <Text
                     pointerEvents="none"
                     style={{ color: "white", fontWeight: "600" }}
@@ -446,25 +441,23 @@ export default function LivestreamScreen() {
             </Text>
           </View>
         </View>
-
-        {/* PAGES 2+: LIVE PREVIEWS (Your New Working Logic) */}
-        {streamsData?.streams && streamsData.streams.length > 0 ? (
-          streamsData.streams.map((s) => (
-            <View
-              key={s.id}
-              style={[styles.fullPage, { height: SCREEN_HEIGHT }]}
-            >
-              <LivestreamPreview stream={s} />
-            </View>
-          ))
-        ) : (
-          <View style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
-            <Text style={styles.noStreamsText}>No active streams nearby</Text>
-          </View>
-        )}
-      </ScrollView>
-    </View>
-  );
+      }
+      // ✅ Render items here
+      renderItem={({ item }) => (
+        <View style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
+          <LivestreamPreview stream={item} />
+        </View>
+      )}
+      // ✅ Empty state
+      ListEmptyComponent={
+        <View style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
+          <Text style={styles.noStreamsText}>No active streams nearby</Text>
+        </View>
+      }
+    />
+  </View>
+);
+  
 }
 
 // --- THE NEW "LIVESTREAM PREVIEW" COMPONENT ---
