@@ -36,11 +36,14 @@ const GET_MY_NEIGHBORHOODS = gql`
 // SIMPLE: Just get streams
 const GET_ACTIVE_LIVESTREAMS = gql`
   query GetActiveLivestreams {
-    streams {
+    streams(
+      status: "live" # ✅ Only get live streams
+    ) {
       id
       title
       sessionId
-      # thumbnailUrl  # ← Add this if your Stream schema has it
+      status
+      createdAt
     }
   }
 `;
@@ -348,7 +351,8 @@ export default function LivestreamScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [selectedHood, setSelectedHood] = useState(null);
 
-  // 1. Get Me, Neighborhoods, and Streams
+  // 1. Get Me, Neighborhoods,
+  // and Streams
   const { data: meData } = useQuery(GET_ME);
   const { data: hoodsData, loading: lHoods } = useQuery(GET_MY_NEIGHBORHOODS);
   const {
@@ -358,7 +362,8 @@ export default function LivestreamScreen() {
   } = useQuery(GET_ACTIVE_LIVESTREAMS, {
     pollInterval: 5000,
   });
-
+ 
+  
   // 2. Handle Recording State
   if (isRecording) {
     return (
@@ -474,10 +479,23 @@ function LivestreamPreview({ stream }) {
 
   useEffect(() => {
     let interval;
+    let isMounted = true;
     let attemptCount = 0;
 
     const findInitialData = async () => {
       // First check if stream is expired
+      const streamAge = Date.now() - new Date(stream.createdAt).getTime();
+      if (streamAge > 2 * 60 * 60 * 1000) {
+        console.log(`⏰ Stream ${sessionId} expired (${streamAge}ms old)`);
+        if (isMounted) {
+          setStreamStatus("expired");
+          // Remove from available streams
+          // You might want to call a parent callback to remove this stream
+        }
+        clearInterval(interval);
+        return;
+      }
+
       const isExpired = await warehouse.isStreamExpired(sessionId);
       if (isExpired) {
         console.log("⏰ Stream expired");
@@ -528,8 +546,11 @@ function LivestreamPreview({ stream }) {
     interval = setInterval(findInitialData, 3000);
     findInitialData();
 
-    return () => clearInterval(interval);
-  }, [sessionId]);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [sessionId, stream.createdAt]);
 
   // Add this effect to run the janitor periodically
   useEffect(() => {
