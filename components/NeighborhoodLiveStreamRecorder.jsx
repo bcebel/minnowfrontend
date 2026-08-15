@@ -259,7 +259,7 @@ export default function NeighborhoodLiveStreamRecorder({
               const formData = new FormData();
               formData.append(
                 "chunk",
-                new Blob([chunkData], { type: 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"' }),
+                new Blob([chunkData], { type: supportedTypeRef.current }),
               );
               formData.append("sessionId", sessionIdRef.current);
               formData.append("chunkIndex", index.toString());
@@ -291,7 +291,7 @@ export default function NeighborhoodLiveStreamRecorder({
               thumbnailUrl: thumbToSend, // Using our successful Base64 ref
               sessionId: sessionIdRef.current,
               chunkIndex: index,
-              mimeType: 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
+              mimeType: supportedTypeRef.current,
             },
           });
 
@@ -328,7 +328,7 @@ export default function NeighborhoodLiveStreamRecorder({
       sessionIdRef.current = streamData.createStream.sessionId;
       // 3. CAMERA & MEDIA RECORDER
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 360, aspectRatio: 16 / 9 },
+        video: { width: 640, height: 360 },
         audio: true,
       });
       streamRef.current = stream;
@@ -349,7 +349,7 @@ export default function NeighborhoodLiveStreamRecorder({
       }
 
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
+        mimeType: supportedTypeRef.current,
       });
       mediaRecorderRef.current = mediaRecorder;
 

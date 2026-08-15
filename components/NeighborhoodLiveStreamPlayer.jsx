@@ -3,7 +3,14 @@
 // KEEP TORRENTS ALIVE AS LONG AS POSSIBLE WITHOUT OVERLOADING THE BROWSER. USE A WAREHOUSE TO CACHE VIDEO CHUNKS LOCALLY. //
 
 import React, { useEffect, useRef, useState } from "react";
-import { View, StyleSheet, Text, TouchableOpacity, Image, ActivityIndicator } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+} from "react-native";
 import { warehouse } from "../components/StreamWearhouse.js";
 import webtorrentService from "../utils/webtorrentService.js";
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -23,7 +30,7 @@ class StreamController {
     this.isProcessing = false;
     this.chunkQueue = new Map();
     this.setupMagnet = null;
-    this.detectedMimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'; // Default Apple-Safe codec
+    this.detectedMimeType = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"'; // Default Apple-Safe codec
     this.CHUNK_DURATION = 8;
 
     // 2. MediaSource Setup
@@ -42,8 +49,7 @@ class StreamController {
     this.video.style.width = "100%";
     this.video.style.height = "100%";
     this.video.style.backgroundColor = "black";
-  
-this.video.poster = "";
+    this.video.poster = "";
     if (window.ManagedMediaSource) {
       this.video.setAttribute("disableRemotePlayback", "true");
     }
@@ -69,45 +75,27 @@ this.video.poster = "";
           }
         }
       } catch (error) {
-     //   this.addLog("⚠️ Could not fetch thumbnail from StreamChunk");
+        //   this.addLog("⚠️ Could not fetch thumbnail from StreamChunk");
       }
       return false;
     };
-
 
     // 4. Unified SourceOpen Handler
     const openEvt = window.ManagedMediaSource
       ? "managedsourceopen"
       : "sourceopen";
     this.ms.addEventListener(openEvt, () => {
-      this.addLog("✅ MediaSource Open");
-        this.video.addEventListener("loadedmetadata", () => {
-          // Check for rotation metadata
-          const rotation = this.video.videoRotation || 0;
-          const w = this.video.videoWidth;
-          const h = this.video.videoHeight;
-
-          // 🔄 If rotated, apply CSS transform
-          if (rotation === 90 || rotation === 270) {
-            this.video.style.transform = `rotate(${rotation}deg)`;
-            this.video.style.transformOrigin = "center center";
-
-            // 📐 Swap width/height for correct display
-            const displayRatio = h / w; // Actually height/width in display
-            this.video.style.aspectRatio = displayRatio;
-          }
-        });
+      //  this.addLog("✅ MediaSource Open");
       this.sweepWarehouse(); // Immediately look for the header once open
     });
 
-    this.objectUrl = URL.createObjectURL(this.ms);
     // 5. THE WATCHDOG (The Hungry Manager)
     // This runs every 2 seconds to bridge gaps or find pre-fetched data
     this.watchdog = setInterval(async () => {
       if (!this.headerLoaded) {
         // Still looking for the start of the stream...
         if (!this.headerLoaded && this.sessionId) {
-        //  this.addLog("📢 Broadcasting: Missing Header (-1).");
+          //  this.addLog("📢 Broadcasting: Missing Header (-1).");
           // This is where you'd emit to your socket
           // window.globalSocket.emit('request_header', { sessionId: this.sessionId });
         }
@@ -118,53 +106,52 @@ this.video.poster = "";
           this.nextIndex,
         );
         if (nextData) {
-   
           this.tick(); // Trigger processing
         }
       }
     }, 2000);
   }
 
-// Add this method to StreamController class
-cleanupResources() {
-  clearInterval(this.watchdog);
-  
-  // Clean up video element
-  if (this.video) {
-    this.video.pause();
-    this.video.src = "";
-    this.video.load();
-    
-    // Remove event listeners
-    this.video.removeAttribute('src');
-    this.video.remove();
+  // Add this method to StreamController class
+  cleanupResources() {
+    clearInterval(this.watchdog);
+
+    // Clean up video element
+    if (this.video) {
+      this.video.pause();
+      this.video.src = "";
+      this.video.load();
+
+      // Remove event listeners
+      this.video.removeAttribute("src");
+      this.video.remove();
+    }
+
+    // Clean up MediaSource
+    if (this.ms && this.ms.readyState === "open") {
+      try {
+        this.ms.endOfStream();
+      } catch (e) {}
+    }
+
+    // Clean up SourceBuffer
+    if (this.sb) {
+      try {
+        this.ms.removeSourceBuffer(this.sb);
+      } catch (e) {}
+    }
+
+    // Revoke object URL
+    if (this.objectUrl) {
+      URL.revokeObjectURL(this.objectUrl);
+    }
+
+    // Clear chunk queue
+    this.chunkQueue.clear();
   }
-  
-  // Clean up MediaSource
-  if (this.ms && this.ms.readyState === 'open') {
-    try {
-      this.ms.endOfStream();
-    } catch (e) {}
-  }
-  
-  // Clean up SourceBuffer
-  if (this.sb) {
-    try {
-      this.ms.removeSourceBuffer(this.sb);
-    } catch (e) {}
-  }
-  
-  // Revoke object URL
-  if (this.objectUrl) {
-    URL.revokeObjectURL(this.objectUrl);
-  }
-  
-  // Clear chunk queue
-  this.chunkQueue.clear();
-}
 
   forceTick() {
-   // this.addLog("⚡ Force Tick triggered");
+    // this.addLog("⚡ Force Tick triggered");
     this.tick();
   }
 
@@ -178,7 +165,7 @@ cleanupResources() {
     }
 
     try {
-   //   this.addLog(`🛠️ Attempting SourceBuffer: ${this.detectedMimeType}`);
+      //   this.addLog(`🛠️ Attempting SourceBuffer: ${this.detectedMimeType}`);
       this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
       this.sb.mode = "sequence";
 
@@ -186,9 +173,9 @@ cleanupResources() {
         this.isProcessing = false;
         this.tick();
       });
-   //   this.addLog("✅ SourceBuffer Created!");
+      //   this.addLog("✅ SourceBuffer Created!");
     } catch (e) {
-    //  this.addLog("❌ SB Error: " + e.message);
+      //  this.addLog("❌ SB Error: " + e.message);
       // FALLBACK: If Safari hates the codec, try the most generic one
       if (
         this.detectedMimeType !== 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'
@@ -200,13 +187,13 @@ cleanupResources() {
   }
 
   async stitchAndShip() {
-   // this.addLog("🧵 Starting Stitch & Ship...");
+    // this.addLog("🧵 Starting Stitch & Ship...");
     const blobParts = [];
 
     // 1. Get the Header
     const header = await warehouse.getChunk(this.sessionId, -1);
     if (!header) {
-    //  this.addLog("❌ Cannot archive: Header missing from warehouse.");
+      //  this.addLog("❌ Cannot archive: Header missing from warehouse.");
       return;
     }
     blobParts.push(header);
@@ -225,7 +212,7 @@ cleanupResources() {
       { type: "video/mp4" },
     );
 
-   // this.addLog("📦 File ready. Sending to Pinata...");
+    // this.addLog("📦 File ready. Sending to Pinata...");
 
     // 4. Return the file so your component can call your IPFS upload function
     return finalFile;
@@ -236,11 +223,11 @@ cleanupResources() {
     const header = await warehouse.getChunk(this.sessionId, -1);
 
     if (header) {
-    //  this.addLog("🎯 Header found in Warehouse");
+      //  this.addLog("🎯 Header found in Warehouse");
 
       // 2. iPhone Safety: Ensure we have a codec string
       if (!this.detectedMimeType) {
-        this.detectedMimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+        this.detectedMimeType = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
       }
 
       this.setupMagnet = "cached";
@@ -268,15 +255,15 @@ cleanupResources() {
       if (c.thumbnailUrl && !this.thumbnailLoaded) {
         this.thumbnailUrl = c.thumbnailUrl;
         this.thumbnailLoaded = true;
-       // this.addLog("🎨 Thumbnail found in chunk data");
+        // this.addLog("🎨 Thumbnail found in chunk data");
       }
       // Handle Header
       if (c.chunkIndex === -1 && !this.headerLoaded) {
         this.setupMagnet = c.magnetLink;
         this.detectedMimeType =
           c.mimeType?.replace(/['"]+/g, '"') ||
-          'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
-       // this.addLog("🎯 Header Found");
+          'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
+        // this.addLog("🎯 Header Found");
         if (this.ms.readyState === "open") this.createSourceBuffer();
       }
       // Handle Data Chunks
@@ -301,12 +288,12 @@ cleanupResources() {
         this.video.currentTime >=
         this.video.buffered.end(this.video.buffered.length - 1)
       ) {
-      //  this.addLog("🥾 Buffer gap detected. Nudging playhead...");
+        //  this.addLog("🥾 Buffer gap detected. Nudging playhead...");
         this.video.currentTime += 0.1;
       }
     }
     if (this.ms.readyState !== "open") {
-    //  this.addLog(`⚠️ Tick Blocked: MediaSource is ${this.ms.readyState}`);
+      //  this.addLog(`⚠️ Tick Blocked: MediaSource is ${this.ms.readyState}`);
       return;
     }
 
@@ -315,29 +302,29 @@ cleanupResources() {
       try {
         // 🔍 PROBE: Ask the iPhone if it actually supports this string
         const support = this.MS.isTypeSupported(this.detectedMimeType);
-       // this.addLog(`🧪 Codec Probe (${this.detectedMimeType}): ${support}`);
+        // this.addLog(`🧪 Codec Probe (${this.detectedMimeType}): ${support}`);
 
         if (!support) {
           // If the iPhone hates the string, try the most common "Apple-Safe" fallback
           this.detectedMimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
-        //  this.addLog("🔄 Switching to Apple-Safe Fallback codec");
+          //  this.addLog("🔄 Switching to Apple-Safe Fallback codec");
         }
 
         this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
         this.sb.mode = "sequence";
-       // this.addLog("🛠️ SourceBuffer Created successfully");
+        // this.addLog("🛠️ SourceBuffer Created successfully");
 
         this.sb.addEventListener("updateend", () => {
           this.isProcessing = false;
           this.tick();
         });
       } catch (e) {
-       // this.addLog("❌ SourceBuffer Fail: " + e.message);
+        // this.addLog("❌ SourceBuffer Fail: " + e.message);
       }
     }
 
     if (!this.sb) {
-     // this.addLog("⚠️ Tick Blocked: No SourceBuffer created yet");
+      // this.addLog("⚠️ Tick Blocked: No SourceBuffer created yet");
       return;
     }
 
@@ -346,7 +333,7 @@ cleanupResources() {
     // 2. Process Header
     if (!this.headerLoaded) {
       const hasHeaderInWarehouse = await warehouse.getChunk(this.sessionId, -1);
-     /* this.addLog(
+      /* this.addLog(
         `🔍 Checking Header: Magnet=${!!this
           .setupMagnet}, Warehouse=${!!hasHeaderInWarehouse}`,
       );*/
@@ -360,14 +347,14 @@ cleanupResources() {
             this.sb.appendBuffer(buf);
             this.headerLoaded = true;
             this.nextIndex = 0;
-          //  this.addLog("✅ Engine Started - Header Appended");
+            //  this.addLog("✅ Engine Started - Header Appended");
             this.video.play().catch(() => {});
           } else {
             this.isProcessing = false;
-         //   this.addLog("❌ Header download returned null");
+            //   this.addLog("❌ Header download returned null");
           }
         } catch (e) {
-        //  this.addLog("❌ Header Error: " + e.message);
+          //  this.addLog("❌ Header Error: " + e.message);
           this.isProcessing = false;
         }
         return;
@@ -397,14 +384,14 @@ cleanupResources() {
         : this.chunkQueue.get(this.nextIndex);
 
       try {
-       // this.addLog(`🔍 Attempting to append Chunk ${this.nextIndex}...`);
+        // this.addLog(`🔍 Attempting to append Chunk ${this.nextIndex}...`);
         const buf = await this.download(magnet, this.nextIndex);
 
         if (buf) {
           // 🛑 SECONDARY SAFETY: Check one last time before appending
           if (!this.sb.updating) {
             this.sb.appendBuffer(buf);
-          //  this.addLog(`🎬 Appended Chunk ${this.nextIndex}`);
+            //  this.addLog(`🎬 Appended Chunk ${this.nextIndex}`);
 
             // 🔓 THE KEY: We only move to nextIndex after 'updateend' fires.
             // You already have a listener for this in createSourceBuffer()
@@ -415,16 +402,16 @@ cleanupResources() {
           }
         } else {
           this.isProcessing = false;
-        //  this.addLog(`⚠️ Download returned empty for Chunk ${this.nextIndex}`);
+          //  this.addLog(`⚠️ Download returned empty for Chunk ${this.nextIndex}`);
         }
       } catch (e) {
-      //  this.addLog(`❌ Chunk ${this.nextIndex} Append Error: ` + e.message);
+        //  this.addLog(`❌ Chunk ${this.nextIndex} Append Error: ` + e.message);
         this.isProcessing = false;
       }
       return;
     } else if (this.headerLoaded) {
       // This log helps us see if the engine is "waiting" for a specific number
-    //  this.addLog(`⏳ Engine idle: Waiting for Chunk ${this.nextIndex}`);
+      //  this.addLog(`⏳ Engine idle: Waiting for Chunk ${this.nextIndex}`);
     }
   }
 
@@ -691,65 +678,64 @@ export default function NeighborhoodLiveStreamPlayer({
   );
 }
 
-
 const styles = StyleSheet.create({
-  container: { 
-    width: "100%", 
-    aspectRatio: 16 / 9, 
+  container: {
+    width: "100%",
+    aspectRatio: 16 / 9,
     backgroundColor: "#111",
-    position: 'relative',
+    position: "relative",
   },
-  videoContainer: { 
-    width: "100%", 
-    height: "100%", 
-    backgroundColor: "#130720" 
+  videoContainer: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#130720",
   },
   button: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: '-50%' }, { translateY: '-50%' }],
-    width: '80%',
-    height: '80%',
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: "-50%" }, { translateY: "-50%" }],
+    width: "80%",
+    height: "80%",
     borderRadius: 10,
-    overflow: 'hidden',
+    overflow: "hidden",
     zIndex: 10,
   },
   buttonBackground: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
+    width: "100%",
+    height: "100%",
+    position: "absolute",
   },
   buttonOverlay: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   buttonWithBackground: {
-    backgroundColor: 'rgba(21, 17, 89, 0.7)', // Semi-transparent overlay on thumbnail
+    backgroundColor: "rgba(21, 17, 89, 0.7)", // Semi-transparent overlay on thumbnail
   },
   buttonWithoutBackground: {
     backgroundColor: "#151159", // Solid color if no thumbnail
   },
-  buttonText: { 
-    color: "white", 
+  buttonText: {
+    color: "white",
     fontWeight: "bold",
     fontSize: 18,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowColor: "rgba(0, 0, 0, 0.8)",
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
     padding: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     borderRadius: 8,
   },
-  logBox: { 
-    padding: 10, 
-    backgroundColor: "#222" 
+  logBox: {
+    padding: 10,
+    backgroundColor: "#222",
   },
-  logText: { 
-    color: "#0f0", 
-    fontSize: 10, 
-    fontFamily: "monospace" 
+  logText: {
+    color: "#0f0",
+    fontSize: 10,
+    fontFamily: "monospace",
   },
 });
