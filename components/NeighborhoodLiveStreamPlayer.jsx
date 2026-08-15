@@ -23,7 +23,7 @@ class StreamController {
     this.isProcessing = false;
     this.chunkQueue = new Map();
     this.setupMagnet = null;
-    this.detectedMimeType = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"'; // Default Apple-Safe codec
+    this.detectedMimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'; // Default Apple-Safe codec
     this.CHUNK_DURATION = 8;
 
     // 2. MediaSource Setup
@@ -42,6 +42,7 @@ class StreamController {
     this.video.style.width = "100%";
     this.video.style.height = "100%";
     this.video.style.backgroundColor = "black";
+  
 this.video.poster = "";
     if (window.ManagedMediaSource) {
       this.video.setAttribute("disableRemotePlayback", "true");
@@ -73,15 +74,33 @@ this.video.poster = "";
       return false;
     };
 
+
     // 4. Unified SourceOpen Handler
     const openEvt = window.ManagedMediaSource
       ? "managedsourceopen"
       : "sourceopen";
     this.ms.addEventListener(openEvt, () => {
-    //  this.addLog("✅ MediaSource Open");
+      this.addLog("✅ MediaSource Open");
+        this.video.addEventListener("loadedmetadata", () => {
+          // Check for rotation metadata
+          const rotation = this.video.videoRotation || 0;
+          const w = this.video.videoWidth;
+          const h = this.video.videoHeight;
+
+          // 🔄 If rotated, apply CSS transform
+          if (rotation === 90 || rotation === 270) {
+            this.video.style.transform = `rotate(${rotation}deg)`;
+            this.video.style.transformOrigin = "center center";
+
+            // 📐 Swap width/height for correct display
+            const displayRatio = h / w; // Actually height/width in display
+            this.video.style.aspectRatio = displayRatio;
+          }
+        });
       this.sweepWarehouse(); // Immediately look for the header once open
     });
 
+    this.objectUrl = URL.createObjectURL(this.ms);
     // 5. THE WATCHDOG (The Hungry Manager)
     // This runs every 2 seconds to bridge gaps or find pre-fetched data
     this.watchdog = setInterval(async () => {
@@ -221,7 +240,7 @@ cleanupResources() {
 
       // 2. iPhone Safety: Ensure we have a codec string
       if (!this.detectedMimeType) {
-        this.detectedMimeType = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
+        this.detectedMimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
       }
 
       this.setupMagnet = "cached";
@@ -256,7 +275,7 @@ cleanupResources() {
         this.setupMagnet = c.magnetLink;
         this.detectedMimeType =
           c.mimeType?.replace(/['"]+/g, '"') ||
-          'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
+          'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
        // this.addLog("🎯 Header Found");
         if (this.ms.readyState === "open") this.createSourceBuffer();
       }
