@@ -91,7 +91,7 @@ export default function NeighborhoodLiveStreamRecorder({
   const chunkQueueRef = useRef([]);
   const isProcessingQueueRef = useRef(false);
   const headerSentRef = useRef(false);
-  const supportedTypeRef = useRef('video/mp4; codecs="avc1.4d401f, mp4a.40.2"');
+  const supportedTypeRef = useRef('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
   const currentThumbnailRef = useRef(null);
   const [sendMessage] = useMutation(SEND_MESSAGE);
   const [createStreamMutation] = useMutation(CREATE_STREAM);
