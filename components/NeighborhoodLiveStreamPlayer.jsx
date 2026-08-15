@@ -30,7 +30,7 @@ class StreamController {
     this.isProcessing = false;
     this.chunkQueue = new Map();
     this.setupMagnet = null;
-    this.detectedMimeType = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"'; // Default Apple-Safe codec
+    this.detectedMimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'; // Default Apple-Safe codec
     this.CHUNK_DURATION = 8;
 
     // 2. MediaSource Setup
@@ -227,7 +227,7 @@ class StreamController {
 
       // 2. iPhone Safety: Ensure we have a codec string
       if (!this.detectedMimeType) {
-        this.detectedMimeType = 'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
+        this.detectedMimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
       }
 
       this.setupMagnet = "cached";
@@ -262,7 +262,7 @@ class StreamController {
         this.setupMagnet = c.magnetLink;
         this.detectedMimeType =
           c.mimeType?.replace(/['"]+/g, '"') ||
-          'video/mp4; codecs="avc1.4d401f, mp4a.40.2"';
+          'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
         // this.addLog("🎯 Header Found");
         if (this.ms.readyState === "open") this.createSourceBuffer();
       }
