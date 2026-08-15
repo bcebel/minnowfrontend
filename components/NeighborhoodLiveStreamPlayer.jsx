@@ -582,7 +582,6 @@ export default function NeighborhoodLiveStreamPlayer({
     autoInitialize();
   }, [sessionId]); // Only depend on sessionId
 
-  // Keep all your existing effects - they'll work once isJoined is true
   // Try to get thumbnail from initial chunks
   useEffect(() => {
     if (initialChunks.length > 0) {
