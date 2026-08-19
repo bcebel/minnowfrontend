@@ -1008,7 +1008,7 @@ const viewabilityConfig = useRef({
 
             // Set up media recorder
             mediaRecorder = new MediaRecorder(stream, {
-              mimeType: "video/webm;codecs=vp9,opus",
+              mimeType: 'video/mp4; codecs="mp4a.40.2, avc1.4d4015"',
             });
 
             recordedChunks = [];

@@ -42,8 +42,7 @@ export class NeighborhoodVideoReassembler {
       try {
         // 🛠️ Dynamic Codec Detection (iOS Safari requires MP4/H264; Chrome accepts WebM/VP8)
         const supportedTypes = [
-          'video/webm; codecs="vp8,opus"',
-          'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
+          'video/mp4; codecs="mp4a.40.2, avc1.4d4015"',
           "video/mp4",
         ];
 

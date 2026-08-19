@@ -74,7 +74,7 @@ export default function LivestreamRecorder({ neighborhoodId, onStreamEnd }) {
       streamRef.current = stream;
 
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "video/webm;codecs=vp8,opus",
+        mimeType:'video/mp4; codecs="mp4a.40.2, avc1.4d4015"',
       });
       mediaRecorderRef.current = mediaRecorder;
       let chunkIndex = 0;

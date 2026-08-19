@@ -30,7 +30,7 @@ class StreamController {
     this.isProcessing = false;
     this.chunkQueue = new Map();
     this.setupMagnet = null;
-    this.detectedMimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'; // Default Apple-Safe codec
+    this.detectedMimeType = 'video/mp4; codecs="mp4a.40.2, avc1.4d4015"'; // Default Apple-Safe codec
     this.CHUNK_DURATION = 8;
 
     // 2. MediaSource Setup
@@ -178,9 +178,9 @@ class StreamController {
       //  this.addLog("❌ SB Error: " + e.message);
       // FALLBACK: If Safari hates the codec, try the most generic one
       if (
-        this.detectedMimeType !== 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'
+        this.detectedMimeType !== 'video/mp4; codecs="mp4a.40.2, avc1.4d4015"'
       ) {
-        this.detectedMimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+        this.detectedMimeType = 'video/mp4; codecs="mp4a.40.2, avc1.4d4015"';
         this.createSourceBuffer();
       }
     }
@@ -227,7 +227,7 @@ class StreamController {
 
       // 2. iPhone Safety: Ensure we have a codec string
       if (!this.detectedMimeType) {
-        this.detectedMimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+        this.detectedMimeType = 'video/mp4; codecs="mp4a.40.2, avc1.4d4015"';
       }
 
       this.setupMagnet = "cached";
@@ -262,8 +262,7 @@ class StreamController {
         this.setupMagnet = c.magnetLink;
         this.detectedMimeType =
           c.mimeType?.replace(/['"]+/g, '"') ||
-          'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
-        // this.addLog("🎯 Header Found");
+          'video/mp4; codecs="mp4a.40.2, avc1.4d4015"';        // this.addLog("🎯 Header Found");
         if (this.ms.readyState === "open") this.createSourceBuffer();
       }
       // Handle Data Chunks
@@ -306,7 +305,7 @@ class StreamController {
 
         if (!support) {
           // If the iPhone hates the string, try the most common "Apple-Safe" fallback
-          this.detectedMimeType = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+          this.detectedMimeType = 'video/mp4; codecs="mp4a.40.2, avc1.4d4015"';
           //  this.addLog("🔄 Switching to Apple-Safe Fallback codec");
         }
 
