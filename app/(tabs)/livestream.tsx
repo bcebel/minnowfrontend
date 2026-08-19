@@ -609,25 +609,21 @@ useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
 
 const styles = StyleSheet.create({
   mainWrapper: { flex: 1, backgroundColor: "#000" },
-  fullPage: { width: "100%", justifyContent: "center", alignItems: "center" },
-  streamContainer: { width: "100%", height: "100%", position: "relative" },
-  infoOverlay: { position: "absolute", top: 60, left: 20, zIndex: 10 },
-  streamTitle: { color: "white", fontSize: 24, fontWeight: "bold" },
-  liveBadge: {
-    backgroundColor: "red",
-    padding: 4,
-    borderRadius: 4,
-    width: 50,
-    marginTop: 5,
+  fullPage: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  liveText: {
+  streamContainer: {
+    width: "100%",
+    height: "100%",
+  },
+  title: {
     color: "white",
-    fontSize: 10,
+    fontSize: 32,
     fontWeight: "bold",
-    textAlign: "center",
   },
-  //touchOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 5 },
-  title: { color: "white", fontSize: 32, fontWeight: "bold" },
   goLive: {
     backgroundColor: "#ff375f",
     padding: 20,
@@ -635,33 +631,25 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   btnText: { color: "white", fontWeight: "bold" },
-  loading: {
-    flex: 1,
-    backgroundColor: "#000",
-    justifyContent: "center",
-    alignItems: "center",
-  },
   picker: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
     paddingHorizontal: 20,
     marginVertical: 20,
-    width: "100%", // Ensure it spans the width to allow wrapping
   },
   item: {
     paddingHorizontal: 15,
     paddingVertical: 10,
     backgroundColor: "#333",
     margin: 8,
-    borderRadius: 25, // Make them look like bubbles
+    borderRadius: 25,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
   },
   selected: {
-    backgroundColor: "#ff375f", // Use the same pink as GO LIVE for high contrast
+    backgroundColor: "#ff375f",
     borderColor: "#ffffff",
     borderWidth: 3,
-    transform: [{ scale: 1.1 }], // Physically pop the bubble out
   },
 });

@@ -21,6 +21,7 @@ const SEND_MESSAGE = gql`
     $sessionId: String
     $chunkIndex: Int
     $totalChunks: Int
+    $rotation: Int
   ) {
     sendMessage(
       content: $content
@@ -37,6 +38,7 @@ const SEND_MESSAGE = gql`
       sessionId: $sessionId
       chunkIndex: $chunkIndex
       totalChunks: $totalChunks
+      rotation: $rotation
     ) {
       id
     }
@@ -84,6 +86,7 @@ export default function NeighborhoodLiveStreamRecorder({
   const [chunkCount, setChunkCount] = useState(0);
 
   // Refs for persistent state across renders
+  const rotationRef = useRef(0);
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
   const sessionIdRef = useRef("");
@@ -292,6 +295,7 @@ export default function NeighborhoodLiveStreamRecorder({
               sessionId: sessionIdRef.current,
               chunkIndex: index,
               mimeType: supportedTypeRef.current,
+              rotation: rotationRef.current,
             },
           });
 
@@ -335,11 +339,14 @@ export default function NeighborhoodLiveStreamRecorder({
 
       try {
         const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        const isLandscape = settings.width > settings.height;
+        rotationRef.current = isLandscape ? 0 : 90; // Default to portrait
+        console.log(`🔄 Detected rotation: ${rotationRef.current}°`);
         const imageCapture = new ImageCapture(videoTrack);
         const bitmap = await imageCapture.grabFrame();
         const canvas = document.createElement("canvas");
-        canvas.width = 320; // Small size is better for DB
-        canvas.height = 180;
+
         const ctx = canvas.getContext("2d");
         ctx.drawImage(bitmap, 0, 0, 320, 180);
         currentThumbnailRef.current = canvas.toDataURL("image/jpeg", 0.7); // 0.7 quality to keep string small
@@ -443,18 +450,9 @@ export default function NeighborhoodLiveStreamRecorder({
 }
 
 const styles = StyleSheet.create({
-  recorderContainer: { padding: 10, width: "100%" },
-  button: { padding: 15, borderRadius: 10, alignItems: "center" },
-  buttonText: { color: "white", fontWeight: "bold", fontSize: 16 },
-  statusText: { color: "white", fontSize: 12, marginTop: 5 },
-  archiveButton: {
-    backgroundColor: "#2ecc71", // Green for success/save
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: 10,
-    borderWidth: 2,
-    borderColor: "#fff",
+  recorderContainer: {
+    padding: 10,
+    width: "100%",
   },
   controlsRow: {
     flexDirection: "row",
@@ -469,8 +467,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   startBtn: { backgroundColor: "#0066cc" },
-  stopBtn: { backgroundColor: "#444" }, // Gray for "just stop"
-  archiveBtn: { backgroundColor: "#2ecc71" }, // Green for "Save"
+  stopBtn: { backgroundColor: "#444" },
+  archiveBtn: { backgroundColor: "#2ecc71" },
+  buttonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
   chunkCountText: {
     color: "#00ffff",
     textAlign: "center",
