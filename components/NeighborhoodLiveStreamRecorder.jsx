@@ -298,7 +298,7 @@ export default function NeighborhoodLiveStreamRecorder({
               rotation: rotationRef.current,
             },
           });
-
+console.log(`📤 Sent rotation: ${rotationRef.current}°`);
           if (!isHeader) setChunkCount((prev) => prev + 1);
           else headerSentRef.current = true;
 
@@ -331,10 +331,48 @@ export default function NeighborhoodLiveStreamRecorder({
         throw new Error("No Session ID");
       sessionIdRef.current = streamData.createStream.sessionId;
       // 3. CAMERA & MEDIA RECORDER
+      // In startStream(), after getting the stream
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 360 },
+        video: { width: 640, height: 640 },
         audio: true,
+        aspectRatio: { ideal: 1 },
       });
+      streamRef.current = stream;
+
+      // ✅ Wait a moment for the video track to stabilize
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Then capture thumbnail
+      try {
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        const isPortrait = settings.height > settings.width;
+        rotationRef.current = isPortrait ? 90 : 0;
+
+        // ✅ Only capture if video is ready
+        if (videoTrack.readyState === "live") {
+          const imageCapture = new ImageCapture(videoTrack);
+          const bitmap = await imageCapture.grabFrame();
+          const canvas = document.createElement("canvas");
+          canvas.width = 320;
+          canvas.height = 180;
+          const ctx = canvas.getContext("2d");
+
+          // ✅ Apply rotation to the thumbnail
+          if (rotationRef.current === 90) {
+            ctx.translate(320, 0);
+            ctx.rotate(Math.PI / 2);
+            ctx.drawImage(bitmap, 0, 0, 180, 320);
+          } else {
+            ctx.drawImage(bitmap, 0, 0, 320, 180);
+          }
+
+          currentThumbnailRef.current = canvas.toDataURL("image/jpeg", 0.7);
+          console.log("📸 Thumbnail captured with rotation!");
+        }
+      } catch (e) {
+        console.warn("Could not capture thumbnail:", e);
+      }
       streamRef.current = stream;
 
       try {

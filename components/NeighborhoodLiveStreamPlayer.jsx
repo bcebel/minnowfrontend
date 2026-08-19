@@ -40,6 +40,15 @@ class StreamController {
 
     // 3. Video Element (iPhone Optimized)
     this.video = document.createElement("video");
+    this.video.addEventListener("loadedmetadata", () => {
+      const rotation = this.video.videoRotation || 0;
+      if (rotation === 90 || rotation === 270) {
+        this.video.style.transform = `rotate(${rotation}deg)`;
+        this.video.style.transformOrigin = "center center";
+        this.video.style.objectFit = "contain";
+        this.addLog(`🔄 Applied rotation from metadata: ${rotation}°`);
+      }
+    });
     this.video.setAttribute("playsinline", "true");
     this.video.setAttribute("webkit-playsinline", "true");
     this.video.disableRemotePlayback = true;
@@ -110,6 +119,13 @@ class StreamController {
         }
       }
     }, 2000);
+  }
+
+  // Add this method
+  async once(element, event) {
+    return new Promise((resolve) => {
+      element.addEventListener(event, resolve, { once: true });
+    });
   }
 
   // Add this method to StreamController class
@@ -252,6 +268,13 @@ class StreamController {
 
   addChunks(chunks) {
     chunks.forEach((c) => {
+      if (c.rotation && c.rotation !== 0) {
+        this.rotation = c.rotation;
+        this.video.style.transform = `rotate(${c.rotation}deg)`;
+        this.video.style.transformOrigin = "center center";
+        this.video.style.objectFit = "contain";
+        this.addLog(`🔄 Applied rotation: ${c.rotation}°`);
+      }
       if (c.thumbnailUrl && !this.thumbnailLoaded) {
         this.thumbnailUrl = c.thumbnailUrl;
         this.thumbnailLoaded = true;
@@ -262,7 +285,7 @@ class StreamController {
         this.setupMagnet = c.magnetLink;
         this.detectedMimeType =
           c.mimeType?.replace(/['"]+/g, '"') ||
-          'video/mp4; codecs="mp4a.40.2, avc1.4d4015"';        // this.addLog("🎯 Header Found");
+          'video/mp4; codecs="mp4a.40.2, avc1.4d4015"'; // this.addLog("🎯 Header Found");
         if (this.ms.readyState === "open") this.createSourceBuffer();
       }
       // Handle Data Chunks
@@ -274,6 +297,9 @@ class StreamController {
   }
 
   async tick() {
+      if (this.ms.readyState !== "open") {
+        await this.once(this.ms, "sourceopen");
+      }
     // 1. Check if the "Gates" are open
     if (this.isProcessing) return; // Silent return is fine here
 
@@ -347,7 +373,14 @@ class StreamController {
             this.headerLoaded = true;
             this.nextIndex = 0;
             //  this.addLog("✅ Engine Started - Header Appended");
-            this.video.play().catch(() => {});
+            const tryPlay = () => {
+              this.video.play().catch(() => {
+                setTimeout(tryPlay, 100);
+              });
+            };
+            tryPlay();
+
+            this.addLog("✅ Engine Started - Header Appended");
           } else {
             this.isProcessing = false;
             //   this.addLog("❌ Header download returned null");
