@@ -36,10 +36,18 @@ class StreamController {
     // 2. MediaSource Setup
     this.MS = window.ManagedMediaSource || window.MediaSource;
     this.ms = new this.MS();
+    
     this.sb = null;
+this.ms.addEventListener("startstreaming", () => {
+  this.addLog("✅ ManagedMediaSource started streaming");
+  this.sweepWarehouse();
+});
+  
 
     // 3. Video Element (iPhone Optimized)
     this.video = document.createElement("video");
+      this.video.disableRemotePlayback = true; // ✅ Set this BEFORE src
+      this.video.src = URL.createObjectURL(this.ms);
     this.video.addEventListener("loadedmetadata", () => {
       const rotation = this.video.videoRotation || 0;
       if (rotation === 90 || rotation === 270) {
@@ -51,7 +59,6 @@ class StreamController {
     });
     this.video.setAttribute("playsinline", "true");
     this.video.setAttribute("webkit-playsinline", "true");
-    this.video.disableRemotePlayback = true;
     this.video.muted = true;
     this.video.autoplay = true;
     this.video.controls = true;
@@ -94,6 +101,7 @@ class StreamController {
       ? "managedsourceopen"
       : "sourceopen";
     this.ms.addEventListener(openEvt, () => {
+       this.addLog(`✅ ${openEvt} fired!`);
       //  this.addLog("✅ MediaSource Open");
       this.sweepWarehouse(); // Immediately look for the header once open
     });
@@ -368,23 +376,26 @@ class StreamController {
         try {
           const magnet = this.setupMagnet || "cached";
           const buf = await this.download(magnet, -1);
-          if (buf) {
-            this.sb.appendBuffer(buf);
-            this.headerLoaded = true;
-            this.nextIndex = 0;
-            //  this.addLog("✅ Engine Started - Header Appended");
-            const tryPlay = () => {
-              this.video.play().catch(() => {
-                setTimeout(tryPlay, 100);
-              });
-            };
-            tryPlay();
+if (buf) {
+  this.sb.appendBuffer(buf);
+  this.headerLoaded = true;
+  this.nextIndex = 0;
 
-            this.addLog("✅ Engine Started - Header Appended");
-          } else {
-            this.isProcessing = false;
-            //   this.addLog("❌ Header download returned null");
-          }
+  // ✅ Retry play with backoff
+  const playWithRetry = (delay = 100) => {
+    this.video.play().catch(() => {
+      if (delay < 5000) {
+        setTimeout(() => playWithRetry(delay * 1.5), delay);
+      }
+    });
+  };
+  playWithRetry();
+
+  this.addLog("✅ Engine Started - Header Appended");
+} else {
+  this.isProcessing = false;
+  //   this.addLog("❌ Header download returned null");
+}
         } catch (e) {
           //  this.addLog("❌ Header Error: " + e.message);
           this.isProcessing = false;
@@ -673,6 +684,8 @@ export default function NeighborhoodLiveStreamPlayer({
 
     if (containerRef.current) {
       containerRef.current.appendChild(controller.video);
+        controller.video.disableRemotePlayback = true;
+        controller.video.setAttribute("disableRemotePlayback", "");
     }
 
     controller.video.src = URL.createObjectURL(controller.ms);
