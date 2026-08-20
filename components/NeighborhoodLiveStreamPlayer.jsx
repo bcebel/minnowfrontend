@@ -79,6 +79,7 @@ class StreamController {
     this.video.style.height = "100%";
     this.video.style.backgroundColor = "black";
     this.video.poster = "";
+    this.wrapper.style.transformOrigin = "center center";
     this.wrapper.appendChild(this.video);
     this.createCustomControls();
     if (window.ManagedMediaSource) {
@@ -156,7 +157,7 @@ class StreamController {
       z-index: 10;
       pointer-events: none;
     `;
-    
+
     const playBtn = document.createElement("button");
     playBtn.textContent = "▶";
     playBtn.style.cssText = `
@@ -178,12 +179,11 @@ class StreamController {
         playBtn.textContent = "▶";
       }
     };
-    
+
     controls.appendChild(playBtn);
     this.wrapper.appendChild(controls);
     this.playBtn = playBtn;
   }
-
 
   // Add this method
   async once(element, event) {
@@ -331,9 +331,15 @@ class StreamController {
   }
 
   addChunks(chunks) {
+    console.log("📦 addChunks called with:", chunks); // ✅ See what's coming in
     chunks.forEach((c) => {
+      if (c.rotation) {
+        console.log(`🔄 Received rotation: ${c.rotation}°`);
+      }
       if (c.rotation && c.rotation !== 0) {
         this.rotation = c.rotation;
+        this.wrapper.style.transform = `rotate(${c.rotation}deg)`;
+        this.wrapper.style.transformOrigin = "center center";
         this.video.style.transform = `rotate(${c.rotation}deg)`;
         this.video.style.transformOrigin = "center center";
         this.video.style.objectFit = "contain";
@@ -651,7 +657,7 @@ export default function NeighborhoodLiveStreamPlayer({
         const controller = new StreamController(
           sessionId,
           addLog,
-          () => { },
+          () => {},
           containerRef.current,
           initialChunks,
         );

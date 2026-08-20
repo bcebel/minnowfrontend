@@ -266,6 +266,7 @@ export default function NeighborhoodLiveStreamRecorder({
               );
               formData.append("sessionId", sessionIdRef.current);
               formData.append("chunkIndex", index.toString());
+              formData.append("rotation", rotationRef.current.toString()); // ✅ Add this!
 
               // We still send the thumb to the backend as a backup,
               // but we don't wait for it to "work" for the player to start

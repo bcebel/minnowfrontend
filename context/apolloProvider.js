@@ -15,6 +15,7 @@ import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
 import { createClient } from "graphql-ws";
 import { getMainDefinition } from "@apollo/client/utilities";
 
+
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
@@ -31,7 +32,7 @@ const WS_URL = BACKEND_URL.replace(/^https?:\/\//, "");
 export function useApolloClient() {
   const [client, setClient] = useState(null);
   const [cacheReady, setCacheReady] = useState(false);
-
+console.log("🔌 [WS] Connecting to:", `wss://${WS_URL}/graphql`);
   useEffect(() => {
     const initializeClient = async () => {
       try {
@@ -77,11 +78,25 @@ export function useApolloClient() {
         });
 
         // WebSocket link for subscriptions
+        // In apolloProvider.js, update the wsLink
         const wsLink = new GraphQLWsLink(
           createClient({
-            url: `wss://${WS_URL}/graphql`, // Or 'ws://' if not using SSL
-            connectionParams: {
-              Authorization: `Bearer ${token}`,
+            url: `wss://${WS_URL}/graphql`,
+            connectionParams: async () => {
+              const token = await AsyncStorage.getItem("token");
+              console.log(
+                "🔌 [WS] Connecting with token:",
+                token ? "YES" : "NO",
+              );
+              return {
+                Authorization: `Bearer ${token}`,
+              };
+            },
+            // ✅ Add these for debugging
+            on: {
+              connected: () => console.log("🔌 [WS] Connected!"),
+              closed: () => console.log("🔌 [WS] Closed"),
+              error: (error) => console.error("🔌 [WS] Error:", error),
             },
           }),
         );

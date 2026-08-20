@@ -72,6 +72,7 @@ const LIVESTREAM_CHUNK_SUBSCRIPTION = gql`
       fileType
       fileSize
       thumbnailUrl
+      rotation
     }
   }
 `;
@@ -210,6 +211,20 @@ function Livestream({ stream }) {
     fetchHeader();
   }, [sessionId]);
 
+  useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
+    variables: { sessionId },
+    onSubscriptionData: ({ subscriptionData }) => {
+      console.log("🔄 Subscription data received:", subscriptionData);
+    },
+    onError: (error) => {
+      console.error("❌ Subscription error:", error);
+    },
+    onComplete: () => {
+      console.log("✅ Subscription complete");
+    },
+    // Add this to see if it's even trying
+    skip: !sessionId,
+  });
   // Subscription
   useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
     variables: { sessionId },
@@ -217,7 +232,14 @@ function Livestream({ stream }) {
       const chunk = data.data?.livestreamChunkAdded;
       if (!chunk || fetchingRef.current.has(chunk.chunkIndex)) return;
       fetchingRef.current.add(chunk.chunkIndex);
+      console.log(
+        `🔄 Received chunk ${chunk.chunkIndex} with rotation: ${chunk.rotation}`,
+      );
 
+      if (chunk.chunkIndex === -1 && chunk.rotation) {
+        console.log(`🎯 Header rotation: ${chunk.rotation}°`);
+        // You could store this in state and pass to player
+      }
       // If this chunk has a thumbnail
       if (chunk.thumbnailUrl && !thumbnailUrl) {
         setThumbnailUrl(chunk.thumbnailUrl);
@@ -363,8 +385,7 @@ export default function LivestreamScreen() {
   } = useQuery(GET_ACTIVE_LIVESTREAMS, {
     pollInterval: 5000,
   });
- 
-  
+
   // 2. Handle Recording State
   if (isRecording) {
     return (
@@ -388,76 +409,82 @@ export default function LivestreamScreen() {
   }
 
   return (
-  <View style={[styles.mainWrapper, { height: SCREEN_HEIGHT }]}>
-    <FlatList
-      data={streamsData?.streams || []}
-      keyExtractor={(item) => item.id}
-      pagingEnabled
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      decelerationRate="fast"
-      // ✅ Header goes here
-      ListHeaderComponent={
-        <View style={[styles.fullPage, { height: SCREEN_HEIGHT, backgroundColor: "#130720" }]}>
-          <View style={{ width: "100%", alignItems: "center", zIndex: 10 }}>
-            <Text style={styles.title}>Bubbles</Text>
+    <View style={[styles.mainWrapper, { height: SCREEN_HEIGHT }]}>
+      <FlatList
+        data={streamsData?.streams || []}
+        keyExtractor={(item) => item.id}
+        pagingEnabled
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        decelerationRate="fast"
+        // ✅ Header goes here
+        ListHeaderComponent={
+          <View
+            style={[
+              styles.fullPage,
+              { height: SCREEN_HEIGHT, backgroundColor: "#130720" },
+            ]}
+          >
+            <View style={{ width: "100%", alignItems: "center", zIndex: 10 }}>
+              <Text style={styles.title}>Bubbles</Text>
 
-            <View style={styles.picker}>
-              {hoodsData?.myNeighborhoods?.map((h) => (
-                <TouchableOpacity
-                  key={h.id}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  style={[
-                    styles.item,
-                    selectedHood === h.id && styles.selected,
-                  ]}
-                  onPress={() => {
-                    console.log("Selected:", h.name);
-                    setSelectedHood(h.id);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    pointerEvents="none"
-                    style={{ color: "white", fontWeight: "600" }}
+              <View style={styles.picker}>
+                {hoodsData?.myNeighborhoods?.map((h) => (
+                  <TouchableOpacity
+                    key={h.id}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={[
+                      styles.item,
+                      selectedHood === h.id && styles.selected,
+                    ]}
+                    onPress={() => {
+                      console.log("Selected:", h.name);
+                      setSelectedHood(h.id);
+                    }}
+                    activeOpacity={0.7}
                   >
-                    {h.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      pointerEvents="none"
+                      style={{ color: "white", fontWeight: "600" }}
+                    >
+                      {h.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.goLive, { zIndex: 20 }]}
+                onPress={() =>
+                  selectedHood ? setIsRecording(true) : alert("Pick a bubble")
+                }
+              >
+                <Text style={styles.btnText}>GO LIVE</Text>
+              </TouchableOpacity>
+
+              <Text
+                style={[styles.loadingText, { marginTop: 40, opacity: 0.6 }]}
+              >
+                Scroll down to watch active streams ↓
+              </Text>
             </View>
-
-            <TouchableOpacity
-              style={[styles.goLive, { zIndex: 20 }]}
-              onPress={() =>
-                selectedHood ? setIsRecording(true) : alert("Pick a bubble")
-              }
-            >
-              <Text style={styles.btnText}>GO LIVE</Text>
-            </TouchableOpacity>
-
-            <Text style={[styles.loadingText, { marginTop: 40, opacity: 0.6 }]}>
-              Scroll down to watch active streams ↓
-            </Text>
           </View>
-        </View>
-      }
-      // ✅ Render items here
-      renderItem={({ item }) => (
-        <View style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
-          <LivestreamPreview stream={item} />
-        </View>
-      )}
-      // ✅ Empty state
-      ListEmptyComponent={
-        <View style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
-          <Text style={styles.noStreamsText}>No active streams nearby</Text>
-        </View>
-      }
-    />
-  </View>
-);
-  
+        }
+        // ✅ Render items here
+        renderItem={({ item }) => (
+          <View style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
+            <LivestreamPreview stream={item} />
+          </View>
+        )}
+        // ✅ Empty state
+        ListEmptyComponent={
+          <View style={[styles.fullPage, { height: SCREEN_HEIGHT }]}>
+            <Text style={styles.noStreamsText}>No active streams nearby</Text>
+          </View>
+        }
+      />
+    </View>
+  );
 }
 
 // --- THE NEW "LIVESTREAM PREVIEW" COMPONENT ---
@@ -559,33 +586,41 @@ function LivestreamPreview({ stream }) {
   }, [sessionId]);
 
   // 2. THE SUBSCRIPTION: Listens for any NEW chunks as they happen
-useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
-  variables: { sessionId },
-  onData: async ({ data }) => {
-    const chunk = data.data?.livestreamChunkAdded;
-    if (!chunk) return;
+  useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
+    variables: { sessionId },
+    onData: async ({ data }) => {
+       console.log(
+         "📡 [LIVESTREAM-PREVIEW] FULL DATA:",
+         JSON.stringify(data, null, 2),
+       );
+      
+      const chunk = data.data?.livestreamChunkAdded;
+      if (!chunk) return;
+  console.log(
+    `🔄 [Preview] Chunk ${chunk.chunkIndex} rotation: ${chunk.rotation}`,
+  );
 
-    // When a new chunk arrives, we go get it immediately
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/live-chunk/${sessionId}/${chunk.chunkIndex}`,
-      );
-      if (res.ok) {
-        const bytes = await res.arrayBuffer();
-        await warehouse.saveChunk(
-          sessionId,
-          chunk.chunkIndex,
-          new Uint8Array(bytes),
+      // When a new chunk arrives, we go get it immediately
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/live-chunk/${sessionId}/${chunk.chunkIndex}`,
         );
-        setAvailableInWarehouse((prev) => [
-          ...new Set([...prev, chunk.chunkIndex]),
-        ]);
+        if (res.ok) {
+          const bytes = await res.arrayBuffer();
+          await warehouse.saveChunk(
+            sessionId,
+            chunk.chunkIndex,
+            new Uint8Array(bytes),
+          );
+          setAvailableInWarehouse((prev) => [
+            ...new Set([...prev, chunk.chunkIndex]),
+          ]);
+        }
+      } catch (e) {
+        console.log("Sub fetch fail");
       }
-    } catch (e) {
-      console.log("Sub fetch fail");
-    }
-  },
-});
+    },
+  });
 
   return (
     <View style={styles.streamContainer}>
