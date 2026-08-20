@@ -17,7 +17,8 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 // --- THE STREAM CONTROLLER (The Engine) ---
 class StreamController {
-  constructor(sessionId, addLog, triggerFetch) {
+  constructor(sessionId, addLog, triggerFetch, container) {
+    this.container = container;
     this.addLog = addLog;
     this.sessionId = sessionId;
     this.triggerFetch = triggerFetch;
@@ -36,18 +37,30 @@ class StreamController {
     // 2. MediaSource Setup
     this.MS = window.ManagedMediaSource || window.MediaSource;
     this.ms = new this.MS();
-    
-    this.sb = null;
-this.ms.addEventListener("startstreaming", () => {
-  this.addLog("✅ ManagedMediaSource started streaming");
-  this.sweepWarehouse();
-});
-  
 
+    this.sb = null;
+    this.ms.addEventListener("startstreaming", () => {
+      this.addLog("✅ ManagedMediaSource started streaming");
+      this.sweepWarehouse();
+    });
+
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = `
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    `;
+    this.wrapper = wrapper;
+    this.container.appendChild(wrapper);
     // 3. Video Element (iPhone Optimized)
     this.video = document.createElement("video");
-      this.video.disableRemotePlayback = true; // ✅ Set this BEFORE src
-      this.video.src = URL.createObjectURL(this.ms);
+    this.video.controls = false; // ✅ No native controls
+    this.video.disableRemotePlayback = true; // ✅ Set this BEFORE src
+    this.video.src = URL.createObjectURL(this.ms);
     this.video.addEventListener("loadedmetadata", () => {
       const rotation = this.video.videoRotation || 0;
       if (rotation === 90 || rotation === 270) {
@@ -66,6 +79,8 @@ this.ms.addEventListener("startstreaming", () => {
     this.video.style.height = "100%";
     this.video.style.backgroundColor = "black";
     this.video.poster = "";
+    this.wrapper.appendChild(this.video);
+    this.createCustomControls();
     if (window.ManagedMediaSource) {
       this.video.setAttribute("disableRemotePlayback", "true");
     }
@@ -101,7 +116,7 @@ this.ms.addEventListener("startstreaming", () => {
       ? "managedsourceopen"
       : "sourceopen";
     this.ms.addEventListener(openEvt, () => {
-       this.addLog(`✅ ${openEvt} fired!`);
+      this.addLog(`✅ ${openEvt} fired!`);
       //  this.addLog("✅ MediaSource Open");
       this.sweepWarehouse(); // Immediately look for the header once open
     });
@@ -128,6 +143,47 @@ this.ms.addEventListener("startstreaming", () => {
       }
     }, 2000);
   }
+
+  createCustomControls() {
+    const controls = document.createElement("div");
+    controls.style.cssText = `
+      position: absolute;
+      bottom: 40px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      z-index: 10;
+      pointer-events: none;
+    `;
+    
+    const playBtn = document.createElement("button");
+    playBtn.textContent = "▶";
+    playBtn.style.cssText = `
+      pointer-events: auto;
+      padding: 12px 24px;
+      background: rgba(255,255,255,0.8);
+      border: none;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+    `;
+    playBtn.onclick = () => {
+      if (this.video.paused) {
+        this.video.play();
+        playBtn.textContent = "⏸";
+      } else {
+        this.video.pause();
+        playBtn.textContent = "▶";
+      }
+    };
+    
+    controls.appendChild(playBtn);
+    this.wrapper.appendChild(controls);
+    this.playBtn = playBtn;
+  }
+
 
   // Add this method
   async once(element, event) {
@@ -305,9 +361,9 @@ this.ms.addEventListener("startstreaming", () => {
   }
 
   async tick() {
-      if (this.ms.readyState !== "open") {
-        await this.once(this.ms, "sourceopen");
-      }
+    if (this.ms.readyState !== "open") {
+      await this.once(this.ms, "sourceopen");
+    }
     // 1. Check if the "Gates" are open
     if (this.isProcessing) return; // Silent return is fine here
 
@@ -376,26 +432,26 @@ this.ms.addEventListener("startstreaming", () => {
         try {
           const magnet = this.setupMagnet || "cached";
           const buf = await this.download(magnet, -1);
-if (buf) {
-  this.sb.appendBuffer(buf);
-  this.headerLoaded = true;
-  this.nextIndex = 0;
+          if (buf) {
+            this.sb.appendBuffer(buf);
+            this.headerLoaded = true;
+            this.nextIndex = 0;
 
-  // ✅ Retry play with backoff
-  const playWithRetry = (delay = 100) => {
-    this.video.play().catch(() => {
-      if (delay < 5000) {
-        setTimeout(() => playWithRetry(delay * 1.5), delay);
-      }
-    });
-  };
-  playWithRetry();
+            // ✅ Retry play with backoff
+            const playWithRetry = (delay = 100) => {
+              this.video.play().catch(() => {
+                if (delay < 5000) {
+                  setTimeout(() => playWithRetry(delay * 1.5), delay);
+                }
+              });
+            };
+            playWithRetry();
 
-  this.addLog("✅ Engine Started - Header Appended");
-} else {
-  this.isProcessing = false;
-  //   this.addLog("❌ Header download returned null");
-}
+            this.addLog("✅ Engine Started - Header Appended");
+          } else {
+            this.isProcessing = false;
+            //   this.addLog("❌ Header download returned null");
+          }
         } catch (e) {
           //  this.addLog("❌ Header Error: " + e.message);
           this.isProcessing = false;
@@ -595,7 +651,8 @@ export default function NeighborhoodLiveStreamPlayer({
         const controller = new StreamController(
           sessionId,
           addLog,
-          () => {},
+          () => { },
+          containerRef.current,
           initialChunks,
         );
 
@@ -684,8 +741,8 @@ export default function NeighborhoodLiveStreamPlayer({
 
     if (containerRef.current) {
       containerRef.current.appendChild(controller.video);
-        controller.video.disableRemotePlayback = true;
-        controller.video.setAttribute("disableRemotePlayback", "");
+      controller.video.disableRemotePlayback = true;
+      controller.video.setAttribute("disableRemotePlayback", "");
     }
 
     controller.video.src = URL.createObjectURL(controller.ms);
