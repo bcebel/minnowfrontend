@@ -333,7 +333,6 @@ class StreamController {
   addChunks(chunks) {
     console.log("📦 addChunks called with:", chunks); // ✅ See what's coming in
     chunks.forEach((c) => {
-  
       if (c.chunkIndex === -1 && c.rotation) {
         this.wrapper.style = `rotate(${c.rotation}deg)`;
         this.wrapper.style.transformOrigin = "center center";
@@ -361,7 +360,10 @@ class StreamController {
     this.tick();
   }
 
+
+
   async tick() {
+
     if (this.ms.readyState !== "open") {
       await this.once(this.ms, "sourceopen");
     }
@@ -437,16 +439,18 @@ class StreamController {
             this.sb.appendBuffer(buf);
             this.headerLoaded = true;
             this.nextIndex = 0;
+            this.addLog("✅ Engine Started - Header Appended");
 
             // ✅ Retry play with backoff
-         const tryPlay = () => {
-           this.video.play().catch(() => {
-             setTimeout(tryPlay, 200);
-           });
-         };
-         tryPlay();
-
-            this.addLog("✅ Engine Started - Header Appended");
+            const tryPlay = (delay = 100) => {
+              this.video.play().catch(() => {
+                if (delay < 5000) {
+                  this.addLog(`⏳ Retry play in ${delay}ms`);
+                  setTimeout(() => tryPlay(delay * 1.5), delay);
+                }
+              });
+            };
+            tryPlay();
           } else {
             this.isProcessing = false;
             //   this.addLog("❌ Header download returned null");
@@ -458,6 +462,7 @@ class StreamController {
         return;
       }
     }
+
     // Check BOTH the queue AND the warehouse
     // STEP 2: Process Sequential Chunks (Index 0, 1, 2...)
     // Check BOTH the queue AND the warehouse for the EXACT next index
