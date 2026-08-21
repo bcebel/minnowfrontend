@@ -15,6 +15,13 @@ import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStrea
 import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
 import { warehouse } from "../../components/StreamWearhouse.js";
 
+const GET_STREAM_ROTATION = gql`
+  query GetStreamRotation($sessionId: String!) {
+    messages(sessionId: $sessionId) {
+      rotation
+    }
+  }
+`;
 // --- QUERIES ---
 const GET_ME = gql`
   query GetMe {
@@ -57,6 +64,7 @@ const GET_LIVESTREAM_CHUNKS = gql`
       chunkIndex
       magnetLink
       fileType
+      rotation
     }
   }
 `;
@@ -114,7 +122,7 @@ async function fetchAllMessagesWithThumbnails() {
     return [];
   }
 }
-
+/*
 // --- LIVESTREAM COMPONENT ---
 function Livestream({ stream }) {
   const [availableInWarehouse, setAvailableInWarehouse] = useState([]);
@@ -355,6 +363,8 @@ function Livestream({ stream }) {
             <NeighborhoodLiveStreamPlayer
               sessionId={sessionId}
               availableInWarehouse={availableInWarehouse}
+                rotation={rotation}
+                
             />
             <TouchableOpacity
               style={styles.backButton}
@@ -368,7 +378,7 @@ function Livestream({ stream }) {
     </View>
   );
 }
-
+*/
 export default function LivestreamScreen() {
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const [isRecording, setIsRecording] = useState(false);
@@ -492,16 +502,42 @@ function LivestreamPreview({ stream }) {
   const [availableInWarehouse, setAvailableInWarehouse] = useState([]);
   const [streamStatus, setStreamStatus] = useState("loading"); // 👈 ADD THIS LIN
   const sessionId = stream.sessionId;
-
+  // 3. THE ROTATION QUERY: Just get rotation directly
+const [rotation, setRotation] = useState(0);
   // 1. THE SCOUT: Polls for the header/chunk 0 until it finds them
   // This handles the "It just started" race condition
   // In LivestreamPreview.jsx, update the polling effect:
 
   useEffect(() => {
+  let isMounted = true;
+  
+  const fetchRotation = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/stream-rotation/${sessionId}`);
+      const data = await res.json();
+      if (isMounted) {
+        setRotation(data.rotation || 0);
+        console.log(`🔄 Rotation: ${data.rotation}°`);
+      }
+    } catch (e) {
+      // silent fail
+    }
+  };
+  
+  fetchRotation();
+  const interval = setInterval(fetchRotation, 2000);
+  return () => {
+    isMounted = false;
+    clearInterval(interval);
+  };
+  }, [sessionId]);
+  
+  useEffect(() => {
     let interval;
     let isMounted = true;
     let attemptCount = 0;
 
+    
     const findInitialData = async () => {
       // First check if stream is expired
       const streamAge = Date.now() - new Date(stream.createdAt).getTime();
@@ -589,16 +625,22 @@ function LivestreamPreview({ stream }) {
   useSubscription(LIVESTREAM_CHUNK_SUBSCRIPTION, {
     variables: { sessionId },
     onData: async ({ data }) => {
-       console.log(
-         "📡 [LIVESTREAM-PREVIEW] FULL DATA:",
-         JSON.stringify(data, null, 2),
-       );
-      
+      console.log(
+        "📡 [LIVESTREAM-PREVIEW] FULL DATA:",
+        JSON.stringify(data, null, 2),
+      );
+
       const chunk = data.data?.livestreamChunkAdded;
       if (!chunk) return;
-  console.log(
-    `🔄 [Preview] Chunk ${chunk.chunkIndex} rotation: ${chunk.rotation}`,
-  );
+         if (chunk.rotation) {
+           setRotation(chunk.rotation);
+           console.log(`🎯 Rotation from subscription: ${chunk.rotation}°`);
+         }
+
+      console.log(
+        `🔄 [Preview] Chunk ${chunk.chunkIndex} rotation: ${chunk.rotation}`,
+      );
+
 
       // When a new chunk arrives, we go get it immediately
       try {
@@ -637,6 +679,7 @@ function LivestreamPreview({ stream }) {
       <NeighborhoodLiveStreamPlayer
         sessionId={sessionId}
         availableInWarehouse={availableInWarehouse}
+        rotation={rotation} // ✅ Just pass the number
       />
     </View>
   );

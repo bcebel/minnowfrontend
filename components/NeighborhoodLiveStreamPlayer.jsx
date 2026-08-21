@@ -333,18 +333,13 @@ class StreamController {
   addChunks(chunks) {
     console.log("📦 addChunks called with:", chunks); // ✅ See what's coming in
     chunks.forEach((c) => {
-      if (c.rotation) {
-        console.log(`🔄 Received rotation: ${c.rotation}°`);
-      }
-      if (c.rotation && c.rotation !== 0) {
-        this.rotation = c.rotation;
-        this.wrapper.style.transform = `rotate(${c.rotation}deg)`;
+  
+      if (c.chunkIndex === -1 && c.rotation) {
+        this.wrapper.style = `rotate(${c.rotation}deg)`;
         this.wrapper.style.transformOrigin = "center center";
-        this.video.style.transform = `rotate(${c.rotation}deg)`;
-        this.video.style.transformOrigin = "center center";
-        this.video.style.objectFit = "contain";
         this.addLog(`🔄 Applied rotation: ${c.rotation}°`);
       }
+
       if (c.thumbnailUrl && !this.thumbnailLoaded) {
         this.thumbnailUrl = c.thumbnailUrl;
         this.thumbnailLoaded = true;
@@ -635,6 +630,7 @@ export default function NeighborhoodLiveStreamPlayer({
   initialChunks = [],
   availableInWarehouse = [],
   onThumbnailLoaded,
+  rotation = 0,
 }) {
   const containerRef = useRef(null);
   const controllerRef = useRef(null);
@@ -770,7 +766,14 @@ export default function NeighborhoodLiveStreamPlayer({
 
   return (
     <View style={styles.container}>
-      <div ref={containerRef} style={styles.videoContainer} />
+      <div
+        ref={containerRef}
+        style={{
+          ...styles.videoContainer,
+          transform: rotation ? `rotate(${rotation}deg)` : "none",
+          transformOrigin: "center center",
+        }}
+      />
 
       {/* Remove the button overlay completely
 
