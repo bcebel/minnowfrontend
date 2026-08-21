@@ -18,6 +18,11 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 // --- THE STREAM CONTROLLER (The Engine) ---
 class StreamController {
   constructor(sessionId, addLog, triggerFetch, container) {
+    this.prefetchQueue = [];
+    this.prefetching = false;
+    this.bufferQueue = [];
+    this.isProcessingQueue = false;
+
     this.container = container;
     this.addLog = addLog;
     this.sessionId = sessionId;
@@ -183,6 +188,49 @@ class StreamController {
     controls.appendChild(playBtn);
     this.wrapper.appendChild(controls);
     this.playBtn = playBtn;
+  }
+
+  processBufferQueue() {
+    if (
+      this.isProcessingQueue ||
+      this.bufferQueue.length === 0 ||
+      this.sb.updating
+    ) {
+      return;
+    }
+
+    this.isProcessingQueue = true;
+    const nextBuffer = this.bufferQueue.shift();
+
+    try {
+      this.sb.appendBuffer(nextBuffer);
+      this.addLog(`📦 Processing queued chunk`);
+    } catch (e) {
+      this.addLog(`❌ Append error: ${e.message}`);
+      this.isProcessingQueue = false;
+    }
+  }
+  
+  async prefetchChunks() {
+    if (this.prefetching) return;
+    this.prefetching = true;
+
+    const nextIndex = this.nextIndex;
+    const maxPrefetch = 5;
+
+    for (let i = nextIndex; i < nextIndex + maxPrefetch; i++) {
+      if (!this.chunkQueue.has(i)) {
+        const chunk = await warehouse.getChunk(this.sessionId, i);
+        if (chunk) {
+          this.chunkQueue.set(i, "cached");
+          this.prefetchQueue.push({ buffer: chunk, chunkIndex: i });
+          this.addLog(`📥 Prefetched chunk ${i}`);
+        }
+      }
+    }
+
+    this.prefetching = false;
+    this.processBufferQueue();
   }
 
   // Add this method
@@ -360,10 +408,7 @@ class StreamController {
     this.tick();
   }
 
-
-
   async tick() {
-
     if (this.ms.readyState !== "open") {
       await this.once(this.ms, "sourceopen");
     }
@@ -408,6 +453,7 @@ class StreamController {
 
         this.sb.addEventListener("updateend", () => {
           this.isProcessing = false;
+          this.processBufferQueue();
           this.tick();
         });
       } catch (e) {
@@ -437,6 +483,8 @@ class StreamController {
           const buf = await this.download(magnet, -1);
           if (buf) {
             this.sb.appendBuffer(buf);
+            this.bufferQueue.push(buf);
+            this.processBufferQueue();
             this.headerLoaded = true;
             this.nextIndex = 0;
             this.addLog("✅ Engine Started - Header Appended");
@@ -493,8 +541,8 @@ class StreamController {
         if (buf) {
           // 🛑 SECONDARY SAFETY: Check one last time before appending
           if (!this.sb.updating) {
-            this.sb.appendBuffer(buf);
-            //  this.addLog(`🎬 Appended Chunk ${this.nextIndex}`);
+            this.bufferQueue.push(buf);
+            this.processBufferQueue(); //  this.addLog(`🎬 Appended Chunk ${this.nextIndex}`);
 
             // 🔓 THE KEY: We only move to nextIndex after 'updateend' fires.
             // You already have a listener for this in createSourceBuffer()
