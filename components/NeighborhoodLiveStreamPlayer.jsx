@@ -439,14 +439,12 @@ class StreamController {
             this.nextIndex = 0;
 
             // ✅ Retry play with backoff
-            const playWithRetry = (delay = 100) => {
-              this.video.play().catch(() => {
-                if (delay < 5000) {
-                  setTimeout(() => playWithRetry(delay * 1.5), delay);
-                }
-              });
-            };
-            playWithRetry();
+         const tryPlay = () => {
+           this.video.play().catch(() => {
+             setTimeout(tryPlay, 200);
+           });
+         };
+         tryPlay();
 
             this.addLog("✅ Engine Started - Header Appended");
           } else {
@@ -764,89 +762,88 @@ export default function NeighborhoodLiveStreamPlayer({
     addLog("✅ Handshake complete. Playing from warehouse.");
   };
 
-  return (
-    <View style={styles.container}>
-      <div
-        ref={containerRef}
-        style={{
-          ...styles.videoContainer,
-          transform: rotation ? `rotate(${rotation}deg)` : "none",
-          transformOrigin: "center center",
-        }}
-      />
+ return (
+   <View style={styles.container}>
+     <div
+       ref={containerRef}
+       style={{
+         ...styles.videoContainer,
+         transform: rotation ? `rotate(${rotation}deg)` : "none",
+         transformOrigin: "center center",
+         width: "100%",
+         height: "100%",
+       }}
+     />
 
-      {/* Remove the button overlay completely
-
-      <View style={styles.logBox}>
-        {logs.map((l, i) => (
-          <Text key={i} style={styles.logText}>
-            {l}
-          </Text>
-        ))}
-      </View>
- */}
-    </View>
-  );
+     {/* Custom Controls - Overlaid on video */}
+     <div style={styles.controlsOverlay}>
+       <button
+         style={styles.controlButton}
+         onClick={() => {
+           if (controllerRef.current) {
+             const video = controllerRef.current.video;
+             if (video.paused) {
+               video.play();
+             } else {
+               video.pause();
+             }
+           }
+         }}
+       >
+         <span style={styles.controlButtonText}>▶</span>
+       </button>
+     </div>
+   </View>
+ );
 }
 
+// In NeighborhoodLiveStreamPlayer.jsx - Updated styles
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    aspectRatio: 16 / 9,
-    backgroundColor: "#111",
+    aspectRatio: 1, // Square for now
+    backgroundColor: "#000",
     position: "relative",
+    overflow: "hidden",
   },
   videoContainer: {
     width: "100%",
     height: "100%",
     backgroundColor: "#130720",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  button: {
+  // Custom controls overlay
+  controlsOverlay: {
     position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: [{ translateX: "-50%" }, { translateY: "-50%" }],
-    width: "80%",
-    height: "80%",
-    borderRadius: 10,
-    overflow: "hidden",
-    zIndex: 10,
-  },
-  buttonBackground: {
-    width: "100%",
-    height: "100%",
-    position: "absolute",
-  },
-  buttonOverlay: {
-    width: "100%",
-    height: "100%",
+    bottom: 30,
+    left: 0,
+    right: 0,
+    display: "flex",
+    flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-  },
-  buttonWithBackground: {
-    backgroundColor: "rgba(21, 17, 89, 0.7)", // Semi-transparent overlay on thumbnail
-  },
-  buttonWithoutBackground: {
-    backgroundColor: "#151159", // Solid color if no thumbnail
-  },
-  buttonText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 18,
-    textShadowColor: "rgba(0, 0, 0, 0.8)",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-    padding: 20,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 8,
-  },
-  logBox: {
+    gap: 20,
     padding: 10,
-    backgroundColor: "#222",
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 30,
+    marginHorizontal: 40,
+    zIndex: 10,
   },
-  logText: {
-    color: "#0f0",
-    fontSize: 10,
-    fontFamily: "monospace",
+  controlButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+  },
+  controlButtonText: {
+    color: "white",
+    fontSize: 20,
+    fontWeight: "bold",
   },
 });

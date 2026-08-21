@@ -503,34 +503,39 @@ function LivestreamPreview({ stream }) {
   const [streamStatus, setStreamStatus] = useState("loading"); // 👈 ADD THIS LIN
   const sessionId = stream.sessionId;
   // 3. THE ROTATION QUERY: Just get rotation directly
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const isiPhone = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const shouldRotate = isSafari || isiPhone;
+  
+
 const [rotation, setRotation] = useState(0);
   // 1. THE SCOUT: Polls for the header/chunk 0 until it finds them
   // This handles the "It just started" race condition
   // In LivestreamPreview.jsx, update the polling effect:
 
-  useEffect(() => {
-  let isMounted = true;
-  
-  const fetchRotation = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/stream-rotation/${sessionId}`);
-      const data = await res.json();
-      if (isMounted) {
-        setRotation(data.rotation || 0);
-        console.log(`🔄 Rotation: ${data.rotation}°`);
-      }
-    } catch (e) {
-      // silent fail
-    }
-  };
-  
-  fetchRotation();
-  const interval = setInterval(fetchRotation, 2000);
-  return () => {
-    isMounted = false;
-    clearInterval(interval);
-  };
-  }, [sessionId]);
+ useEffect(() => {
+   let isMounted = true;
+
+   const fetchRotation = async () => {
+     try {
+       const res = await fetch(`${API_BASE}/api/stream-rotation/${sessionId}`);
+       const data = await res.json();
+       if (isMounted) {
+         setRotation(data.rotation || 0);
+         console.log(`🔄 Rotation from REST: ${data.rotation}°`);
+       }
+     } catch (e) {
+       // silent fail
+     }
+   };
+
+   fetchRotation();
+   const interval = setInterval(fetchRotation, 2000);
+   return () => {
+     isMounted = false;
+     clearInterval(interval);
+   };
+ }, [sessionId]);
   
   useEffect(() => {
     let interval;
@@ -679,7 +684,7 @@ const [rotation, setRotation] = useState(0);
       <NeighborhoodLiveStreamPlayer
         sessionId={sessionId}
         availableInWarehouse={availableInWarehouse}
-        rotation={rotation} // ✅ Just pass the number
+        rotation={shouldRotate ? rotation : 0}
       />
     </View>
   );
