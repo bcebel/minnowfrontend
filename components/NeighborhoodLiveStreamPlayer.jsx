@@ -409,43 +409,72 @@ class StreamController {
   }
 
   async tick() {
-    // 1. Check if we're already processing
-    if (this.isProcessing) return;
-
-    // 2. Check if MediaSource is open
     if (this.ms.readyState !== "open") {
       await this.once(this.ms, "sourceopen");
     }
+    // 1. Check if the "Gates" are open
+    if (this.isProcessing) return; // Silent return is fine here
 
-    // 3. Check if SourceBuffer is busy
-    if (this.sb?.updating) return;
+    if (
+      this.sb &&
+      this.sb.updating === false &&
+      this.video.buffered.length > 0
+    ) {
+      // If the playhead is stuck at the end of the buffer, kick it!
+      if (
+        this.video.currentTime >=
+        this.video.buffered.end(this.video.buffered.length - 1)
+      ) {
+        //  this.addLog("🥾 Buffer gap detected. Nudging playhead...");
+        this.video.currentTime += 0.1;
+      }
+    }
+    if (this.ms.readyState !== "open") {
+      //  this.addLog(`⚠️ Tick Blocked: MediaSource is ${this.ms.readyState}`);
+      return;
+    }
 
-    // 4. Create SourceBuffer if needed
+    // Inside tick()
     if (!this.sb && this.detectedMimeType) {
       try {
+        // 🔍 PROBE: Ask the iPhone if it actually supports this string
         const support = this.MS.isTypeSupported(this.detectedMimeType);
+        // this.addLog(`🧪 Codec Probe (${this.detectedMimeType}): ${support}`);
+
         if (!support) {
+          // If the iPhone hates the string, try the most common "Apple-Safe" fallback
           this.detectedMimeType = 'video/mp4; codecs="mp4a.40.2, avc1.4d4015"';
+          //  this.addLog("🔄 Switching to Apple-Safe Fallback codec");
         }
 
         this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
         this.sb.mode = "sequence";
+        // this.addLog("🛠️ SourceBuffer Created successfully");
 
         this.sb.addEventListener("updateend", () => {
           this.isProcessing = false;
-          this.tick(); // ✅ This triggers the next chunk
+          this.processBufferQueue();
+          this.tick();
         });
       } catch (e) {
         // this.addLog("❌ SourceBuffer Fail: " + e.message);
       }
     }
 
-    if (!this.sb) return;
+    if (!this.sb) {
+      // this.addLog("⚠️ Tick Blocked: No SourceBuffer created yet");
+      return;
+    }
+
     if (this.sb.updating) return;
 
-    // 5. Process Header
+    // 2. Process Header
     if (!this.headerLoaded) {
       const hasHeaderInWarehouse = await warehouse.getChunk(this.sessionId, -1);
+      /* this.addLog(
+        `🔍 Checking Header: Magnet=${!!this
+          .setupMagnet}, Warehouse=${!!hasHeaderInWarehouse}`,
+      );*/
 
       if (this.setupMagnet || hasHeaderInWarehouse) {
         this.isProcessing = true;
@@ -453,33 +482,43 @@ class StreamController {
           const magnet = this.setupMagnet || "cached";
           const buf = await this.download(magnet, -1);
           if (buf) {
-            this.sb.appendBuffer(buf); // ✅ Direct append
+            this.sb.appendBuffer(buf);
+            this.bufferQueue.push(buf);
+            this.processBufferQueue();
             this.headerLoaded = true;
             this.nextIndex = 0;
             this.addLog("✅ Engine Started - Header Appended");
 
-            // ✅ Retry play with backoff
-     const tryPlay = (delay = 100) => {
-       this.video.play().catch(() => {
-         // If play fails, try a tiny seek to "jog" it
-         if (delay < 5000) {
-           this.video.currentTime += 0.1; // ✅ Simulate fast-forward
-           setTimeout(() => tryPlay(delay * 1.5), delay);
-         }
-       });
-     };
-     tryPlay();
+            if (this.video.paused) {
+              this.video.currentTime += 0.1; // Tiny seek
+            }
+
+            this.video.play().catch(() => {
+              // If play fails, retry with small seeks
+              const jogAndPlay = (attempt = 0) => {
+                if (attempt > 10) return;
+                setTimeout(() => {
+                  this.video.currentTime += 0.1;
+                  this.video.play().catch(() => jogAndPlay(attempt + 1));
+                }, 100 * attempt);
+              };
+              jogAndPlay();
+            });
           } else {
             this.isProcessing = false;
+            //   this.addLog("❌ Header download returned null");
           }
         } catch (e) {
+          //  this.addLog("❌ Header Error: " + e.message);
           this.isProcessing = false;
         }
         return;
       }
     }
 
-    // 6. Process Chunks
+    // Check BOTH the queue AND the warehouse
+    // STEP 2: Process Sequential Chunks (Index 0, 1, 2...)
+    // Check BOTH the queue AND the warehouse for the EXACT next index
     const hasInQueue = this.chunkQueue.has(this.nextIndex);
     const hasInWarehouse = await warehouse.getChunk(
       this.sessionId,
@@ -487,29 +526,48 @@ class StreamController {
     );
 
     if (this.headerLoaded && (hasInQueue || hasInWarehouse)) {
-      if (this.sb.updating || this.isProcessing) return;
-
+      // 🚦 STOP! Check if the hardware is still busy with the previous chunk
+      if (this.sb.updating || this.isProcessing) {
+        // If we log this every time, it gets annoying, so we just return silently.
+        // The watchdog or the updateend event will trigger tick() again soon.
+        return;
+      }
       this.isProcessing = true;
+
+      // If it's in the warehouse, we don't need the magnet
       const magnet = hasInWarehouse
         ? "cached"
         : this.chunkQueue.get(this.nextIndex);
 
       try {
+        // this.addLog(`🔍 Attempting to append Chunk ${this.nextIndex}...`);
         const buf = await this.download(magnet, this.nextIndex);
+
         if (buf) {
+          // 🛑 SECONDARY SAFETY: Check one last time before appending
           if (!this.sb.updating) {
-            this.sb.appendBuffer(buf); // ✅ Direct append
+            this.bufferQueue.push(buf);
+            this.processBufferQueue(); //  this.addLog(`🎬 Appended Chunk ${this.nextIndex}`);
+
+            // 🔓 THE KEY: We only move to nextIndex after 'updateend' fires.
+            // You already have a listener for this in createSourceBuffer()
+            // that sets isProcessing = false and calls tick()
             this.nextIndex++;
           } else {
-            this.isProcessing = false;
+            this.isProcessing = false; // Release lock so it can try again
           }
         } else {
           this.isProcessing = false;
+          //  this.addLog(`⚠️ Download returned empty for Chunk ${this.nextIndex}`);
         }
       } catch (e) {
+        //  this.addLog(`❌ Chunk ${this.nextIndex} Append Error: ` + e.message);
         this.isProcessing = false;
       }
       return;
+    } else if (this.headerLoaded) {
+      // This log helps us see if the engine is "waiting" for a specific number
+      //  this.addLog(`⏳ Engine idle: Waiting for Chunk ${this.nextIndex}`);
     }
   }
 
@@ -762,39 +820,39 @@ export default function NeighborhoodLiveStreamPlayer({
     addLog("✅ Handshake complete. Playing from warehouse.");
   };
 
- return (
-   <View style={styles.container}>
-     <div
-       ref={containerRef}
-       style={{
-         ...styles.videoContainer,
-         transform: rotation ? `rotate(${rotation}deg)` : "none",
-         transformOrigin: "center center",
-         width: "100%",
-         height: "100%",
-       }}
-     />
+  return (
+    <View style={styles.container}>
+      <div
+        ref={containerRef}
+        style={{
+          ...styles.videoContainer,
+          transform: rotation ? `rotate(${rotation}deg)` : "none",
+          transformOrigin: "center center",
+          width: "100%",
+          height: "100%",
+        }}
+      />
 
-     {/* Custom Controls - Overlaid on video */}
-     <div style={styles.controlsOverlay}>
-       <button
-         style={styles.controlButton}
-         onClick={() => {
-           if (controllerRef.current) {
-             const video = controllerRef.current.video;
-             if (video.paused) {
-               video.play();
-             } else {
-               video.pause();
-             }
-           }
-         }}
-       >
-         <span style={styles.controlButtonText}>▶</span>
-       </button>
-     </div>
-   </View>
- );
+      {/* Custom Controls - Overlaid on video */}
+      <div style={styles.controlsOverlay}>
+        <button
+          style={styles.controlButton}
+          onClick={() => {
+            if (controllerRef.current) {
+              const video = controllerRef.current.video;
+              if (video.paused) {
+                video.play();
+              } else {
+                video.pause();
+              }
+            }
+          }}
+        >
+          <span style={styles.controlButtonText}>▶</span>
+        </button>
+      </div>
+    </View>
+  );
 }
 
 // In NeighborhoodLiveStreamPlayer.jsx - Updated styles
