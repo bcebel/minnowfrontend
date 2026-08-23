@@ -1,3 +1,5 @@
+
+
 // components/NeighborhoodLiveStreamRecorder.jsx
 import React, { useState, useRef } from "react";
 import { View, TouchableOpacity, Text, Alert, StyleSheet } from "react-native";
@@ -334,7 +336,9 @@ console.log(`📤 Sent rotation: ${rotationRef.current}°`);
       // 3. CAMERA & MEDIA RECORDER
       // In startStream(), after getting the stream
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 640 },
+        //     width: { ideal: 720 },
+        //   height: { ideal: 1280 },
+        video: { width: { ideal: 720 }, height: { ideal: 1280 } },
         audio: true,
         aspectRatio: { ideal: 1 },
       });
@@ -521,3 +525,4 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
+
