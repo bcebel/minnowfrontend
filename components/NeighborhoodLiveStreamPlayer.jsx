@@ -374,9 +374,17 @@ class StreamController {
     console.log("📦 addChunks called with:", chunks); // ✅ See what's coming in
     chunks.forEach((c) => {
       if (c.chunkIndex === -1 && c.rotation) {
-        this.wrapper.style = `rotate(${c.rotation}deg)`;
-        this.wrapper.style.transformOrigin = "center center";
-        this.addLog(`🔄 Applied rotation: ${c.rotation}°`);
+     const rot = c.rotation;
+        this.addLog(`🔄 Applying CSS rotation: ${rot}°`);
+        
+          if (rot === 90 || rot === 270) {
+            // ✅ Rotate the wrapper
+            this.video.style.transform = `rotate(${rot}deg)`;
+            this.video.style.transformOrigin = "center center";
+            this.video.style.objectFit = "contain";
+            this.video.style.width = "100%";
+            this.video.style.height = "100%";
+          }
       }
 
       if (c.thumbnailUrl && !this.thumbnailLoaded) {

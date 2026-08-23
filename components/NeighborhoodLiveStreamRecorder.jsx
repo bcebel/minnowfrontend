@@ -383,9 +383,15 @@ console.log(`📤 Sent rotation: ${rotationRef.current}°`);
       try {
         const videoTrack = stream.getVideoTracks()[0];
         const settings = videoTrack.getSettings();
-        const isLandscape = settings.width > settings.height;
-        rotationRef.current = isLandscape ? 0 : 90; // Default to portrait
-        console.log(`🔄 Detected rotation: ${rotationRef.current}°`);
+      let rotation = 0;
+      if (settings.height > settings.width) {
+        rotation = 90; // Portrait
+      } else if (window.screen?.orientation?.type?.startsWith("portrait")) {
+        rotation = 90;
+      }
+
+      rotationRef.current = rotation;
+      console.log(`🔄 Detected rotation: ${rotation}°`);
         const imageCapture = new ImageCapture(videoTrack);
         const bitmap = await imageCapture.grabFrame();
         const canvas = document.createElement("canvas");
