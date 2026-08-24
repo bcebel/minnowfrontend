@@ -248,7 +248,7 @@ export default function PostComposer({
               </TouchableOpacity>
       <TextInput
         style={styles.input}
-        placeholder="What's happening on your stream?"
+        placeholder="What's poppin"
         placeholderTextColor="#888"
         multiline
         value={content}
@@ -313,17 +313,22 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.1)",
   },
   input: {
-    color: "#FFFFFF",
+    color: "#00FFFF",
     fontSize: 15,
     minHeight: 60,
     textAlignVertical: "top",
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    borderColor: "#00FFFF",
   },
   previewContainer: {
     position: "relative",
     marginTop: 10,
     marginBottom: 10,
-    borderRadius: 8,
+    borderRadius: 15,
     overflow: "hidden",
+    borderColor: "#FF8000",
   },
   previewImage: {
     width: "100%",
