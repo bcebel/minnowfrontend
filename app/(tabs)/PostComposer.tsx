@@ -327,6 +327,16 @@ export default function PostComposer({
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity
+        onPress={() =>
+          router.push(
+            `/neighborhoods/bubbles/invite-links?neighborhoodId=${neighborhoodId}`,
+          )
+        }
+        style={styles.galleryButton}
+      >
+        <Text style={styles.galleryButtonText}>📧 Invite</Text>
+      </TouchableOpacity>
       {/* Composer */}
       <View style={styles.composer}>
         <TextInput
@@ -543,5 +553,9 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 200,
     borderRadius: 8,
+  },
+  galleryButtonText: {
+    fontSize: 16,
+    color: "#00ffff",
   },
 });
