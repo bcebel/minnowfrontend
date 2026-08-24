@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useMutation } from "@apollo/client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -35,6 +36,9 @@ export default function PostComposer({
   currentGroupId,
   onPostCreated,
 }: PostComposerProps) {
+    const params = useLocalSearchParams();
+  const router = useRouter();
+    const neighborhoodId = params.neighborhoodId;
   const [content, setContent] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia | null>(
     null,
@@ -232,6 +236,16 @@ export default function PostComposer({
 
   return (
     <View style={styles.container}>
+            <TouchableOpacity
+                onPress={() =>
+                  router.push(
+                    `/neighborhoods/bubbles/invite-links?neighborhoodId=${neighborhoodId}`,
+                  )
+                }
+                style={styles.galleryButton}
+              >
+                <Text style={styles.galleryButtonText}>📧 Invite</Text>
+              </TouchableOpacity>
       <TextInput
         style={styles.input}
         placeholder="What's happening on your stream?"
@@ -385,5 +399,9 @@ const styles = StyleSheet.create({
     color: "#130720",
     fontWeight: "bold",
     fontSize: 14,
+  },
+  galleryButtonText: {
+    fontSize: 16,
+    color: "#00ffff",
   },
 });

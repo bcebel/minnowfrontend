@@ -94,7 +94,7 @@ export default function JoinViaLinkScreen() {
             text: "Go to Neighborhood",
             onPress: () => {
 router.replace({
-  pathname: "/neighborhoods/bubbles/neighborhood-chat",
+  pathname: "/neighborhoods/bubbles/neighborhood-postfeed",
   params: { neighborhoodId: nId },
 });
             },
@@ -212,8 +212,8 @@ const handleJoin = async () => {
         style={[styles.joinButton, { backgroundColor: '#28a745' }]} // Green for success
         onPress={() => {
           router.push({
-            pathname: "/neighborhoods/bubbles/neighborhood-chat",
-            params: { neighborhoodId: newNeighborhoodId }
+            pathname: "/neighborhoods/bubbles/neighborhood-postfeed",
+            params: { neighborhoodId: newNeighborhoodId },
           });
         }}
       >

@@ -241,9 +241,7 @@ export default function InviteLinksScreen() {
               Expires: {new Date(item.expiresAt).toLocaleDateString()}
             </Text>
           )}
-          <Text style={styles.linkStat}>
-            Created: {new Date(item.createdAt).toLocaleDateString()}
-          </Text>
+ 
         </View>
 
         {item.createdBy && (
@@ -388,14 +386,7 @@ export default function InviteLinksScreen() {
                 placeholder="0"
               />
 
-              <Text style={styles.inputLabel}>Expires In Days (optional)</Text>
-              <TextInput
-                style={styles.textInput}
-                value={expiresInDays}
-                onChangeText={setExpiresInDays}
-                keyboardType="numeric"
-                placeholder="7"
-              />
+   
 
               <Text style={styles.inputLabel}>Role for New Members</Text>
               <View style={styles.roleButtons}>

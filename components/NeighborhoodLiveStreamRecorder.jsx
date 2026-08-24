@@ -101,7 +101,7 @@ export default function NeighborhoodLiveStreamRecorder({
     /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   if (isSafari) {
     // ✅ Force Baseline Profile for all Safari
-    supportedTypeRef.current = 'video/mp4;codecs="avc1.42E01E, mp4a.40.2"';
+    supportedTypeRef.current = 'video/mp4;codecs="mp4a.40.2, avc1.42E01E"';
   }
   const currentThumbnailRef = useRef(null);
   const [sendMessage] = useMutation(SEND_MESSAGE);
