@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// PostComposer.tsx
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,18 +8,57 @@ import {
   Image,
   ActivityIndicator,
   StyleSheet,
+  FlatList,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { useMutation } from "@apollo/client";
+import { useMutation, useQuery, gql } from "@apollo/client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { CREATE_POST } from "../graphql/queries";
 import { uploadToIPFS } from "../utils/uploadHelper";
 import webtorrentService from "../../utils/webtorrentService";
+import AdMessage from "../../components/AdMessage";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
+
+// ✅ Add this query for ads
+const GET_RANDOM_AFFILIATE_LINK = gql`
+  query GetRandomAffiliateLink {
+    randomAffiliateLink {
+      id
+      url
+      title
+      imageUrl
+      description
+      clicks
+    }
+  }
+`;
+
+// ✅ Query for posts
+const GET_FEED_POSTS = gql`
+  query GetFeedPosts($neighborhoodId: ID!) {
+    posts(neighborhoodId: $neighborhoodId) {
+      id
+      content
+      author {
+        id
+        username
+        profilePhoto
+      }
+      media {
+        id
+        url
+        cid
+        magnetURI
+        mediaType
+      }
+      createdAt
+    }
+  }
+`;
 
 interface PostComposerProps {
   currentNeighborhoodId?: string;
@@ -36,14 +76,24 @@ export default function PostComposer({
   currentGroupId,
   onPostCreated,
 }: PostComposerProps) {
-    const params = useLocalSearchParams();
+  const params = useLocalSearchParams();
   const router = useRouter();
-    const neighborhoodId = params.neighborhoodId;
+  const neighborhoodId = params.neighborhoodId || currentNeighborhoodId;
   const [content, setContent] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia | null>(
     null,
   );
   const [loading, setLoading] = useState(false);
+
+  // ✅ Fetch posts for the feed
+  const { data: postsData, refetch: refetchPosts } = useQuery(GET_FEED_POSTS, {
+    variables: { neighborhoodId },
+    skip: !neighborhoodId,
+    pollInterval: 5000,
+  });
+
+  // ✅ Fetch random ad
+  const { data: adData } = useQuery(GET_RANDOM_AFFILIATE_LINK);
 
   const [createPostMutation] = useMutation(CREATE_POST, {
     context: async () => {
@@ -55,6 +105,24 @@ export default function PostComposer({
       };
     },
   });
+
+  // ✅ Inject ads every 5 posts
+  const feedData = useMemo(() => {
+    if (!postsData?.posts) return [];
+
+    const posts = postsData.posts;
+    const ad = adData?.randomAffiliateLink;
+    const result = [];
+
+    posts.forEach((post, index) => {
+      result.push({ ...post, type: "post" });
+      if ((index + 1) % 5 === 0 && ad) {
+        result.push({ ...ad, type: "ad" });
+      }
+    });
+
+    return result;
+  }, [postsData, adData]);
 
   const pickMedia = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -99,7 +167,7 @@ export default function PostComposer({
           const isLargeVideo =
             currentMediaType === "video" && blob.size > 10 * 1024 * 1024;
 
-          // ✅ STEP 1: ALWAYS upload to Pinata first (reliable fallback)
+          // Upload to Pinata
           console.log(`📤 Uploading to Pinata: ${fileName}`);
           const pinataResult = await uploadToIPFS(
             uri,
@@ -117,7 +185,7 @@ export default function PostComposer({
 
           console.log(`✅ Pinata upload complete: ${extractedCid}`);
 
-          // ✅ STEP 2: If large video, ALSO seed via WebTorrent (bonus speed)
+          // If large video, also seed via WebTorrent
           if (isLargeVideo) {
             try {
               console.log(`🎬 Also seeding via P2P for large video...`);
@@ -125,22 +193,18 @@ export default function PostComposer({
                 name: fileName,
               });
               const p2pMagnet = seedResult.magnetUri;
-
-              // ✅ Use P2P magnet as primary, Pinata as fallback
               magnetLink = p2pMagnet;
 
               console.log(
                 `✅ P2P seed active: ${p2pMagnet.substring(0, 50)}...`,
               );
 
-              // Store for re-seeding
               await webtorrentService.storeSeedData(p2pMagnet, blob, {
                 fileName: fileName,
                 fileType: "video",
                 size: blob.size,
               });
 
-              // Register with backend
               await fetch(`${BACKEND_URL}/api/seed-register`, {
                 method: "POST",
                 headers: {
@@ -165,18 +229,15 @@ export default function PostComposer({
                 "⚠️ P2P seeding failed, using Pinata only:",
                 p2pError,
               );
-              // Keep the Pinata magnet we already have
             }
           }
 
-          // ✅ STEP 3: Create post with BOTH Pinata and P2P
           const mediaObject: any = {
-            url: finalMediaUrl, // Pinata fallback (always works)
-            cid: extractedCid, // Pinata CID
+            url: finalMediaUrl,
+            cid: extractedCid,
             mediaType: currentMediaType,
           };
 
-          // ✅ Add P2P magnet if available
           if (magnetLink) {
             mediaObject.magnetURI = magnetLink;
           }
@@ -204,7 +265,6 @@ export default function PostComposer({
         }
       }
 
-      // No media case
       if (!selectedMedia) {
         await createPostMutation({
           variables: {
@@ -226,6 +286,7 @@ export default function PostComposer({
 
       setContent("");
       setSelectedMedia(null);
+      refetchPosts();
       onPostCreated?.();
     } catch (error) {
       console.error("❌ Failed to create post:", error);
@@ -234,81 +295,118 @@ export default function PostComposer({
     }
   };
 
+  const renderFeedItem = ({ item }) => {
+    if (item.type === "ad") {
+      return <AdMessage ad={item} />;
+    }
+
+    // Render post
+    return (
+      <View style={styles.postCard}>
+        <View style={styles.postHeader}>
+          <Text style={styles.postAuthor}>
+            {item.author?.username || "Neighbor"}
+          </Text>
+          <Text style={styles.postTime}>
+            {new Date(item.createdAt).toLocaleTimeString()}
+          </Text>
+        </View>
+        <Text style={styles.postContent}>{item.content}</Text>
+        {item.media && item.media.length > 0 && (
+          <View style={styles.postMedia}>
+            <Image
+              source={{ uri: item.media[0].url }}
+              style={styles.postImage}
+              contentFit="cover"
+            />
+          </View>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
-            <TouchableOpacity
-                onPress={() =>
-                  router.push(
-                    `/neighborhoods/bubbles/invite-links?neighborhoodId=${neighborhoodId}`,
-                  )
-                }
-                style={styles.galleryButton}
-              >
-                <Text style={styles.galleryButtonText}>📧 Invite</Text>
-              </TouchableOpacity>
-      <TextInput
-        style={styles.input}
-        placeholder="What's poppin"
-        placeholderTextColor="#888"
-        multiline
-        value={content}
-        onChangeText={setContent}
-      />
+      {/* Composer */}
+      <View style={styles.composer}>
+        <TextInput
+          style={styles.input}
+          placeholder="What's poppin"
+          placeholderTextColor="#888"
+          multiline
+          value={content}
+          onChangeText={setContent}
+        />
 
-      {selectedMedia && (
-        <View style={styles.previewContainer}>
-          {selectedMedia.mediaType === "image" ? (
-            <Image
-              source={{ uri: selectedMedia.uri }}
-              style={styles.previewImage}
-            />
-          ) : (
-            <View style={styles.videoPreviewPlaceholder}>
-              <Text style={styles.videoPreviewText}>🎬 Video Selected</Text>
-              <Text style={styles.videoUriText} numberOfLines={1}>
-                {selectedMedia.uri}
-              </Text>
-            </View>
-          )}
+        {selectedMedia && (
+          <View style={styles.previewContainer}>
+            {selectedMedia.mediaType === "image" ? (
+              <Image
+                source={{ uri: selectedMedia.uri }}
+                style={styles.previewImage}
+              />
+            ) : (
+              <View style={styles.videoPreviewPlaceholder}>
+                <Text style={styles.videoPreviewText}>🎬 Video Selected</Text>
+                <Text style={styles.videoUriText} numberOfLines={1}>
+                  {selectedMedia.uri}
+                </Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={styles.removeBadge}
+              onPress={() => setSelectedMedia(null)}
+            >
+              <Text style={styles.removeText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View style={styles.toolbar}>
+          <TouchableOpacity style={styles.iconBtn} onPress={pickMedia}>
+            <Text style={styles.btnText}>📷 Photo/Video</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
-            style={styles.removeBadge}
-            onPress={() => setSelectedMedia(null)}
+            style={[
+              styles.postBtn,
+              !content.trim() && !selectedMedia && styles.postBtnDisabled,
+            ]}
+            onPress={handleSubmit}
+            disabled={loading || (!content.trim() && !selectedMedia)}
           >
-            <Text style={styles.removeText}>✕</Text>
+            {loading ? (
+              <ActivityIndicator color="#130720" size="small" />
+            ) : (
+              <Text style={styles.postBtnText}>Post</Text>
+            )}
           </TouchableOpacity>
         </View>
-      )}
-
-      <View style={styles.toolbar}>
-        <TouchableOpacity style={styles.iconBtn} onPress={pickMedia}>
-          <Text style={styles.btnText}>📷 Photo/Video</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.postBtn,
-            !content.trim() && !selectedMedia && styles.postBtnDisabled,
-          ]}
-          onPress={handleSubmit}
-          disabled={loading || (!content.trim() && !selectedMedia)}
-        >
-          {loading ? (
-            <ActivityIndicator color="#130720" size="small" />
-          ) : (
-            <Text style={styles.postBtnText}>Post</Text>
-          )}
-        </TouchableOpacity>
       </View>
+
+      {/* Feed with Ads */}
+      <FlatList
+        data={feedData}
+        keyExtractor={(item, index) => item.id || `item-${index}`}
+        renderItem={renderFeedItem}
+        contentContainerStyle={styles.feed}
+        showsVerticalScrollIndicator={false}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: "#130720",
+  },
+  composer: {
     backgroundColor: "#1A0B2E",
     borderRadius: 12,
     padding: 12,
-    marginBottom: 16,
+    margin: 16,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
   },
@@ -405,8 +503,45 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 14,
   },
-  galleryButtonText: {
-    fontSize: 16,
-    color: "#00ffff",
+  feed: {
+    paddingHorizontal: 16,
+    paddingBottom: 80,
+  },
+  postCard: {
+    backgroundColor: "#1A0B2E",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  postHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  postAuthor: {
+    color: "#00FFFF",
+    fontWeight: "bold",
+    fontSize: 14,
+  },
+  postTime: {
+    color: "#666",
+    fontSize: 12,
+  },
+  postContent: {
+    color: "#F5F2FA",
+    fontSize: 15,
+    marginBottom: 8,
+  },
+  postMedia: {
+    marginTop: 8,
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  postImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 8,
   },
 });

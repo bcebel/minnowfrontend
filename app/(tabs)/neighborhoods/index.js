@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: "#00AA00",
+    color: "#ff8000",
     marginBottom: 20,
   },
   actions: {
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   },
   neighborhoodType: {
     fontSize: 12,
-    color: "#00AA00",
+    color: "#ff8000",
     marginBottom: 8,
   },
   memberBadge: {

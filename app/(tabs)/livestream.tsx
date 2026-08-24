@@ -436,7 +436,7 @@ export default function LivestreamScreen() {
             ]}
           >
             <View style={{ width: "100%", alignItems: "center", zIndex: 10 }}>
-              <Text style={styles.title}>Bubbles</Text>
+              <Text style={styles.title}>Pick a Bubble to Stream To</Text>
 
               <View style={styles.picker}>
                 {hoodsData?.myNeighborhoods?.map((h) => (
@@ -691,7 +691,7 @@ const [rotation, setRotation] = useState(0);
 }
 
 const styles = StyleSheet.create({
-  mainWrapper: { flex: 1, backgroundColor: "#000" },
+  mainWrapper: { flex: 1, backgroundColor: "#130720" },
   fullPage: {
     width: "100%",
     height: "100%",
@@ -720,6 +720,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 20,
     marginVertical: 20,
+    borderColor: "ff8000"
   },
   item: {
     paddingHorizontal: 15,
@@ -728,7 +729,7 @@ const styles = StyleSheet.create({
     margin: 8,
     borderRadius: 25,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: "#00FFFF",
   },
   selected: {
     backgroundColor: "#ff375f",

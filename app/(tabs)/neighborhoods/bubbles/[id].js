@@ -184,7 +184,7 @@ export default function NeighborhoodDetailScreen() {
           style={styles.chatButton}
           onPress={() =>
             router.push(
-              `/bubbles/neighborhood-chat?neighborhoodId=${neighborhood.id}`,
+              `neighborhoods/bubbles/neighborhood-postfeed?neighborhoodId=${neighborhood.id}`,
             )
           }
         >

@@ -46,7 +46,7 @@ export default function HomeScreen() {
         {/* Rest of your content */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity
-            style={[styles.secondaryButton, { borderColor: "#F5F2FA" }]}
+            style={[styles.secondaryButton, { borderColor: "#00FFFF" }]}
             onPress={() => router.push("/login")}
           >
             <Text style={[styles.secondaryButtonText, { color: "#F5F2FA" }]}>
@@ -97,7 +97,16 @@ export default function HomeScreen() {
                 { marginBottom: 15 },
               ]}
             >
-              Community powered p2p media.
+              Community powered p2p media using WebTorrent.
+            </Text>
+            <Text
+              style={[
+                { color: "#F5F2FA" },
+                { fontSize: 24 },
+                { marginBottom: 15 },
+              ]}
+            >
+              Instead of using the big data centers & AI - we rely on each other to broadcast to our own private digital neighborhoods.  
             </Text>
             <Text
               style={[
@@ -146,6 +155,7 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     borderRadius: 20, // Rounded edges
+    borderColor: "#00FFFF",
     position: "relative",
     fontSize: 36,
     fontWeight: "bold",
@@ -233,7 +243,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 48,
     alignItems: "center",
-    borderColor: "#F5F2FA",
+    borderColor: "#00FFFF",
   },
   primaryButtonText: {
     fontSize: 16,
@@ -308,7 +318,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 48,
-    borderColor: "#F5F2FA",
+    borderColor: "#00FFFF",
     alignItems: "center",
     backgroundColor: "#130720",
   },

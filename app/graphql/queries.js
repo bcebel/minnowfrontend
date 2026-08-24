@@ -15,6 +15,36 @@ export const GET_COMMENTS = gql`
     }
   }
 `;
+// In your posts queries file
+const GET_POSTS_WITH_ADS = gql`
+  query GetPostsWithAds($neighborhoodId: ID!) {
+    posts(neighborhoodId: $neighborhoodId) {
+      id
+      content
+      author {
+        id
+        username
+        profilePhoto
+      }
+      media {
+        id
+        url
+        cid
+        magnetURI
+        mediaType
+      }
+      createdAt
+    }
+    randomAffiliateLink {
+      id
+      url
+      title
+      imageUrl
+      description
+      clicks
+    }
+  }
+`;
 
 export const ADD_COMMENT = gql`
   mutation AddComment($postId: ID!, $content: String!) {
