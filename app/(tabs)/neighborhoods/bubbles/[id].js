@@ -1,4 +1,3 @@
-// app/neighborhoods/[id].js
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import {
@@ -12,32 +11,8 @@ import {
 } from "react-native";
 import { useQuery } from "@apollo/client";
 import { GET_NEIGHBORHOOD } from "../../../graphql/queries";
-import WebTorrentPlayer from "../../../../components/WebTorrentPlayer"; // Add this import
+import WebTorrentPlayer from "../../../../components/WebTorrentPlayer";
 
-// ADD THIS FUNCTION - Generates static pages for each neighborhood
-export async function generateStaticParams() {
-  // You'll need to fetch neighborhood IDs from your API
-  // For now, return some sample IDs or fetch from a static list
-  const neighborhoodIds = await getNeighborhoodIds(); // You'll need to implement this
-
-  return neighborhoodIds.map((id) => ({ id }));
-}
-
-// Helper function to get neighborhood IDs (you'll need to implement this)
-async function getNeighborhoodIds() {
-  // Option 1: Hardcode some IDs for testing
-  // return ['photography', 'music', 'art', 'tech'];
-
-  // Option 2: Fetch from your API (if available during build)
-  try {
-    const response = await fetch("https://your-api.com/bubbles/ids");
-    const data = await response.json();
-    return data.ids;
-  } catch (error) {
-    // Fallback to hardcoded IDs
-    return ["photography", "music", "art", "tech"];
-  }
-}
 
 export default function NeighborhoodDetailScreen() {
   const { id } = useLocalSearchParams();

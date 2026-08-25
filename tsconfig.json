@@ -20,5 +20,5 @@
     "app/(tabs)/index.tsx",
     "components/WebTorrentPlayer.js",
     "app/(tabs)/neighborhoods/bubbles/neighborhood-chat.js"
-  ]
+, "app/(tabs)/neighborhoods/staticParams.js"  ]
 }

@@ -130,11 +130,12 @@ export default function FeedItem({ post, onLike, onComment, onDelete }) {
 
             const normalizedMedia = {
               cid: item.cid,
-              magnetLink: item.magnetLink || item.magnetURI,
+              magnetLink: item.magnetLink || item.magnetURI || null,
               fallbackUrl: fallbackUrl,
               ipfsUrl: fallbackUrl,
               fileType: item.fileType || item.mediaType || "image",
               fileName: item.fileName || `media-${item.cid}`,
+              slices: item.slices || null,
             };
 
             return (

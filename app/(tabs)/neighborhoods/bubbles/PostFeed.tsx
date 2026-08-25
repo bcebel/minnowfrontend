@@ -8,23 +8,34 @@ import {
   RefreshControl,
 } from "react-native";
 import { useQuery } from "@apollo/client";
-import { GET_POSTS } from "../../../graphql/queries"; // ✅ Only import GET_POSTS
+import { GET_POSTS } from "../../../graphql/queries";
 import FeedItem from "../../../../components/FeedItem";
 import PostComposer from "../../PostComposer";
-import RandomAd from "../../../../components/RandomAd"; // ✅ Import RandomAd
+import RandomAd from "../../../../components/RandomAd";
 
 export default function PostFeed({
   neighborhoodId,
 }: {
   neighborhoodId: string;
 }) {
+  // ✅ 1. Call ALL hooks FIRST (no if statements before these!)
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // ✅ REMOVED the GET_RANDOM_AFFILIATE_LINK query. RandomAd handles that now.
   const { data, loading, error, refetch } = useQuery(GET_POSTS, {
     variables: { neighborhoodId },
     fetchPolicy: "cache-and-network",
   });
+
+  // ✅ 2. Call useMemo BEFORE any return statements!
+  const feedData = useMemo(() => {
+    if (!data?.posts) return [];
+
+    const result = [];
+    data.posts.forEach((post) => {
+      if (post.title && post.url && post.imageUrl) return;
+      result.push(post);
+    });
+    return result;
+  }, [data]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -32,6 +43,7 @@ export default function PostFeed({
     setIsRefreshing(false);
   };
 
+  // ✅ 3. NOW it is safe to have early returns
   if (loading && !data) {
     return (
       <View style={styles.centerContainer}>
@@ -50,34 +62,16 @@ export default function PostFeed({
     );
   }
 
-  const posts = data?.posts || [];
-
-  // ✅ We only push posts now. The RandomAd component will handle finding its own place.
-  // Since we are using RandomAd, we don't need to inject the ad data here.
-  const feedData = useMemo(() => {
-    const result = [];
-
-    posts.forEach((post) => {
-      // 🛑 Skip raw backend ads (still keep this filter to prevent weird stuff)
-      if (post.title && post.url && post.imageUrl) {
-        return;
-      }
-
-      result.push(post);
-    });
-
-    return result;
-  }, [posts]);
-
+  // ✅ 4. Everything else is safe to use now
   return (
     <FlatList
       data={feedData}
-      keyExtractor={(item, index) =>
-        item.id ? `post-${item.id}` : `item-${index}`
-      }
+      keyExtractor={(item, index) => {
+        if (item.type === "ad") return item.adId || `ad-${index}`;
+        return item.id ? `post-${item.id}` : `item-${index}`;
+      }}
       renderItem={({ item, index }) => {
-        // ✅ Render a RandomAd every 5 posts (because we are no longer injecting it into feedData)
-        if ((index + 1) % 10 === 0) {
+        if ((index + 1) % 5 === 0) {
           return <RandomAd />;
         }
         return (

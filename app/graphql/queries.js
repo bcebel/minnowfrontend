@@ -169,7 +169,6 @@ export const GET_MY_NEIGHBORHOODS = gql`
   }
 `;
 
-
 export const CREATE_NEIGHBORHOOD = gql`
   mutation CreateNeighborhood(
     $name: String!
@@ -183,10 +182,7 @@ export const CREATE_NEIGHBORHOOD = gql`
       type
     }
   }
-
-  
 `;
-
 
 // app/graphql/queries.js - Add this
 export const GET_NEIGHBORHOOD = gql`

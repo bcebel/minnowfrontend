@@ -18,7 +18,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CREATE_POST } from "../graphql/queries";
 import { uploadToIPFS } from "../utils/uploadHelper";
 import webtorrentService from "../../utils/webtorrentService";
-import AdMessage from "../../components/AdMessage";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
