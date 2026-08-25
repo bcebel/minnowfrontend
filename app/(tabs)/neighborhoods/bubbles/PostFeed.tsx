@@ -8,12 +8,10 @@ import {
   RefreshControl,
 } from "react-native";
 import { useQuery } from "@apollo/client";
-import { GET_POSTS, GET_RANDOM_AFFILIATE_LINK } from "../../../graphql/queries";
+import { GET_POSTS } from "../../../graphql/queries"; // ✅ Only import GET_POSTS
 import FeedItem from "../../../../components/FeedItem";
 import PostComposer from "../../PostComposer";
-import AdMessage from "../../../../components/AdMessage";
-import RandomAd from "../../../../components/RandomAd"
-
+import RandomAd from "../../../../components/RandomAd"; // ✅ Import RandomAd
 
 export default function PostFeed({
   neighborhoodId,
@@ -21,12 +19,11 @@ export default function PostFeed({
   neighborhoodId: string;
 }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { data: adData } = useQuery(GET_RANDOM_AFFILIATE_LINK);
 
+  // ✅ REMOVED the GET_RANDOM_AFFILIATE_LINK query. RandomAd handles that now.
   const { data, loading, error, refetch } = useQuery(GET_POSTS, {
     variables: { neighborhoodId },
     fetchPolicy: "cache-and-network",
-    // ✅ NO pollInterval! (Just like the gallery)
   });
 
   const handleRefresh = async () => {
@@ -54,40 +51,33 @@ export default function PostFeed({
   }
 
   const posts = data?.posts || [];
-  const ad = adData?.randomAffiliateLink;
 
-  // ✅ Use useMemo + unique adId, exactly like the Gallery
+  // ✅ We only push posts now. The RandomAd component will handle finding its own place.
+  // Since we are using RandomAd, we don't need to inject the ad data here.
   const feedData = useMemo(() => {
     const result = [];
 
-    posts.forEach((post, index) => {
-      // 🛑 Skip raw backend ads
+    posts.forEach((post) => {
+      // 🛑 Skip raw backend ads (still keep this filter to prevent weird stuff)
       if (post.title && post.url && post.imageUrl) {
         return;
       }
 
       result.push(post);
-
-      // ✅ Inject ad every 5 posts
-      if ((index + 1) % 5 === 0 && ad) {
-        // ✅ Unique adId prevents jumbling
-        result.push({ ...ad, adId: `ad-${index}`, type: "ad" });
-      }
     });
 
     return result;
-  }, [posts, ad]); // ✅ Dependencies are critical
+  }, [posts]);
 
   return (
     <FlatList
       data={feedData}
-      // ✅ Stable keys: posts use their ID, ads use adId
-      keyExtractor={(item, index) => {
-        if (item.type === "ad") return item.adId || `ad-${index}`;
-        return item.id ? `post-${item.id}` : `item-${index}`;
-      }}
-      renderItem={({ item }) => {
-        if (item.type === "ad") {
+      keyExtractor={(item, index) =>
+        item.id ? `post-${item.id}` : `item-${index}`
+      }
+      renderItem={({ item, index }) => {
+        // ✅ Render a RandomAd every 5 posts (because we are no longer injecting it into feedData)
+        if ((index + 1) % 10 === 0) {
           return <RandomAd />;
         }
         return (
