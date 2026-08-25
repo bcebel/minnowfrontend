@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -12,21 +12,21 @@ import { GET_POSTS, GET_RANDOM_AFFILIATE_LINK } from "../../../graphql/queries";
 import FeedItem from "../../../../components/FeedItem";
 import PostComposer from "../../PostComposer";
 import AdMessage from "../../../../components/AdMessage";
+import RandomAd from "../../../../components/RandomAd"
 
 
-export default function NeighborhoodGallery({
+export default function PostFeed({
   neighborhoodId,
 }: {
   neighborhoodId: string;
 }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { data: adData } = useQuery(GET_RANDOM_AFFILIATE_LINK); // Import this query
-  // ✅ SIMPLE QUERY - NO PAGINATION
+  const { data: adData } = useQuery(GET_RANDOM_AFFILIATE_LINK);
+
   const { data, loading, error, refetch } = useQuery(GET_POSTS, {
-    variables: {
-      neighborhoodId,
-    },
-    fetchPolicy: "cache-and-network", // ← No cache issues
+    variables: { neighborhoodId },
+    fetchPolicy: "cache-and-network",
+    // ✅ NO pollInterval! (Just like the gallery)
   });
 
   const handleRefresh = async () => {
@@ -56,53 +56,71 @@ export default function NeighborhoodGallery({
   const posts = data?.posts || [];
   const ad = adData?.randomAffiliateLink;
 
-  const feedData = [];
-  posts.forEach((post, index) => {
-    feedData.push(post);
-    if ((index + 1) % 5 === 0 && ad) {
-      feedData.push({ ...ad, type: "ad" });
-    }
-  });
+  // ✅ Use useMemo + unique adId, exactly like the Gallery
+  const feedData = useMemo(() => {
+    const result = [];
 
-return (
-  <FlatList
-    data={feedData}
-    keyExtractor={(item, index) => item.id || `ad-${index}`}
-    renderItem={({ item }) => {
-      if (item.type === "ad") {
-        return <AdMessage ad={item} />;
+    posts.forEach((post, index) => {
+      // 🛑 Skip raw backend ads
+      if (post.title && post.url && post.imageUrl) {
+        return;
       }
-      return (
-        <FeedItem
-          post={item}
-          onLike={() => console.log("Like:", item.id)}
-          onComment={() => console.log("Comment:", item.id)}
-          onDelete={() => refetch()}
+
+      result.push(post);
+
+      // ✅ Inject ad every 5 posts
+      if ((index + 1) % 5 === 0 && ad) {
+        // ✅ Unique adId prevents jumbling
+        result.push({ ...ad, adId: `ad-${index}`, type: "ad" });
+      }
+    });
+
+    return result;
+  }, [posts, ad]); // ✅ Dependencies are critical
+
+  return (
+    <FlatList
+      data={feedData}
+      // ✅ Stable keys: posts use their ID, ads use adId
+      keyExtractor={(item, index) => {
+        if (item.type === "ad") return item.adId || `ad-${index}`;
+        return item.id ? `post-${item.id}` : `item-${index}`;
+      }}
+      renderItem={({ item }) => {
+        if (item.type === "ad") {
+          return <RandomAd />;
+        }
+        return (
+          <FeedItem
+            post={item}
+            onLike={() => console.log("Like:", item.id)}
+            onComment={() => console.log("Comment:", item.id)}
+            onDelete={() => refetch()}
+          />
+        );
+      }}
+      ListHeaderComponent={
+        <PostComposer
+          currentNeighborhoodId={neighborhoodId}
+          onPostCreated={refetch}
         />
-      );
-    }}
-    ListHeaderComponent={
-      <PostComposer
-        currentNeighborhoodId={neighborhoodId}
-        onPostCreated={refetch}
-      />
-    }
-    ListEmptyComponent={
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No posts yet.</Text>
-        <Text style={styles.emptySubText}>Be the first to post!</Text>
-      </View>
-    }
-    refreshControl={
-      <RefreshControl
-        refreshing={isRefreshing}
-        onRefresh={handleRefresh}
-        tintColor="#00FFFF"
-      />
-    }
-    contentContainerStyle={styles.listContent}
-  />
-);
+      }
+      ListEmptyComponent={
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No posts yet.</Text>
+          <Text style={styles.emptySubText}>Be the first to post!</Text>
+        </View>
+      }
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          tintColor="#00FFFF"
+        />
+      }
+      contentContainerStyle={styles.listContent}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
