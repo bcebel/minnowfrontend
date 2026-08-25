@@ -106,23 +106,7 @@ export default function PostComposer({
     },
   });
 
-  // ✅ Inject ads every 5 posts
-  const feedData = useMemo(() => {
-    if (!postsData?.posts) return [];
 
-    const posts = postsData.posts;
-    const ad = adData?.randomAffiliateLink;
-    const result = [];
-
-    posts.forEach((post, index) => {
-      result.push({ ...post, type: "post" });
-      if ((index + 1) % 5 === 0 && ad) {
-        result.push({ ...ad, type: "ad" });
-      }
-    });
-
-    return result;
-  }, [postsData, adData]);
 
   const pickMedia = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -295,35 +279,7 @@ export default function PostComposer({
     }
   };
 
-  const renderFeedItem = ({ item }) => {
-    if (item.type === "ad") {
-      return <AdMessage ad={item} />;
-    }
 
-    // Render post
-    return (
-      <View style={styles.postCard}>
-        <View style={styles.postHeader}>
-          <Text style={styles.postAuthor}>
-            {item.author?.username || "Neighbor"}
-          </Text>
-          <Text style={styles.postTime}>
-            {new Date(item.createdAt).toLocaleTimeString()}
-          </Text>
-        </View>
-        <Text style={styles.postContent}>{item.content}</Text>
-        {item.media && item.media.length > 0 && (
-          <View style={styles.postMedia}>
-            <Image
-              source={{ uri: item.media[0].url }}
-              style={styles.postImage}
-              contentFit="cover"
-            />
-          </View>
-        )}
-      </View>
-    );
-  };
 
   return (
     <View style={styles.container}>
@@ -395,13 +351,7 @@ export default function PostComposer({
       </View>
 
       {/* Feed with Ads */}
-      <FlatList
-        data={feedData}
-        keyExtractor={(item, index) => item.id || `item-${index}`}
-        renderItem={renderFeedItem}
-        contentContainerStyle={styles.feed}
-        showsVerticalScrollIndicator={false}
-      />
+
     </View>
   );
 }

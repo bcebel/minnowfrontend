@@ -8,9 +8,11 @@ import {
   RefreshControl,
 } from "react-native";
 import { useQuery } from "@apollo/client";
-import { GET_POSTS } from "../../../graphql/queries";
+import { GET_POSTS, GET_RANDOM_AFFILIATE_LINK } from "../../../graphql/queries";
 import FeedItem from "../../../../components/FeedItem";
 import PostComposer from "../../PostComposer";
+import AdMessage from "../../../../components/AdMessage";
+
 
 export default function NeighborhoodGallery({
   neighborhoodId,
@@ -18,7 +20,7 @@ export default function NeighborhoodGallery({
   neighborhoodId: string;
 }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
-
+  const { data: adData } = useQuery(GET_RANDOM_AFFILIATE_LINK); // Import this query
   // ✅ SIMPLE QUERY - NO PAGINATION
   const { data, loading, error, refetch } = useQuery(GET_POSTS, {
     variables: {
@@ -52,41 +54,55 @@ export default function NeighborhoodGallery({
   }
 
   const posts = data?.posts || [];
+  const ad = adData?.randomAffiliateLink;
 
-  return (
-    <FlatList
-      data={posts}
-      keyExtractor={(item) => `post-${item.id}`} // ← UNIQUE KEY
-      renderItem={({ item }) => (
+  const feedData = [];
+  posts.forEach((post, index) => {
+    feedData.push(post);
+    if ((index + 1) % 5 === 0 && ad) {
+      feedData.push({ ...ad, type: "ad" });
+    }
+  });
+
+return (
+  <FlatList
+    data={feedData}
+    keyExtractor={(item, index) => item.id || `ad-${index}`}
+    renderItem={({ item }) => {
+      if (item.type === "ad") {
+        return <AdMessage ad={item} />;
+      }
+      return (
         <FeedItem
           post={item}
           onLike={() => console.log("Like:", item.id)}
           onComment={() => console.log("Comment:", item.id)}
-          onDelete={() => refetch()} // ✅ Refresh after delete
+          onDelete={() => refetch()}
         />
-      )}
-      ListHeaderComponent={
-        <PostComposer
-          currentNeighborhoodId={neighborhoodId}
-          onPostCreated={refetch}
-        />
-      }
-      ListEmptyComponent={
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No posts yet.</Text>
-          <Text style={styles.emptySubText}>Be the first to post!</Text>
-        </View>
-      }
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={handleRefresh}
-          tintColor="#00FFFF"
-        />
-      }
-      contentContainerStyle={styles.listContent}
-    />
-  );
+      );
+    }}
+    ListHeaderComponent={
+      <PostComposer
+        currentNeighborhoodId={neighborhoodId}
+        onPostCreated={refetch}
+      />
+    }
+    ListEmptyComponent={
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No posts yet.</Text>
+        <Text style={styles.emptySubText}>Be the first to post!</Text>
+      </View>
+    }
+    refreshControl={
+      <RefreshControl
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
+        tintColor="#00FFFF"
+      />
+    }
+    contentContainerStyle={styles.listContent}
+  />
+);
 }
 
 const styles = StyleSheet.create({
