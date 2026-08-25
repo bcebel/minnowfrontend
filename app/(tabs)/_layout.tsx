@@ -58,7 +58,7 @@ return (
       }}
     />
     <Tabs.Screen
-      name="staticParams"
+      name="neighborhoods/staticParams"
       options={{
         href: null, // THIS IS THE TRICK: It hides the tab button
       }}
