@@ -58,6 +58,12 @@ return (
       }}
     />
     <Tabs.Screen
+      name="staticParams"
+      options={{
+        href: null, // THIS IS THE TRICK: It hides the tab button
+      }}
+    />
+    <Tabs.Screen
       name="setup"
       options={{
         title: "😀",
