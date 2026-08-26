@@ -1,7 +1,3 @@
-// --- THE  WHOLE POINT OF THIS FILE IS TO PROVIDE A LIVE STREAM PLAYER THAT USES WEBTORRENT TO STREAM VIDEO CHUNKS FROM A P2P NETWORK --- //
-// DONT DEFAULT TO SERVER VIDEO. INSTEAD, USE WEBTORRENT TO PULL VIDEO CHUNKS FROM PEERS. USE SERVER AS FALLBACK ONLY IF NO PEERS HAVE THE DATA READILY AVAILABLE. //
-// KEEP TORRENTS ALIVE AS LONG AS POSSIBLE WITHOUT OVERLOADING THE BROWSER. USE A WAREHOUSE TO CACHE VIDEO CHUNKS LOCALLY. //
-
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -15,7 +11,6 @@ import { warehouse } from "../components/StreamWearhouse.js";
 import webtorrentService from "../utils/webtorrentService.js";
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-// --- THE STREAM CONTROLLER (The Engine) ---
 class StreamController {
   constructor(sessionId, addLog, triggerFetch, container) {
     this.prefetchQueue = [];
@@ -30,16 +25,14 @@ class StreamController {
     this.thumbnailUrl = null;
     this.thumbnailLoaded = false;
 
-    // 1. Core State
     this.nextIndex = 0;
     this.headerLoaded = false;
     this.isProcessing = false;
     this.chunkQueue = new Map();
     this.setupMagnet = null;
-    this.detectedMimeType = 'video/mp4; codecs="mp4a.40.2, avc1.4d4015"'; // Default Apple-Safe codec
+    this.detectedMimeType = 'video/mp4; codecs="mp4a.40.2, avc1.4d4015"';
     this.CHUNK_DURATION = 8;
 
-    // 2. MediaSource Setup
     this.MS = window.ManagedMediaSource || window.MediaSource;
     this.ms = new this.MS();
 
@@ -61,10 +54,10 @@ class StreamController {
     `;
     this.wrapper = wrapper;
     this.container.appendChild(wrapper);
-    // 3. Video Element (iPhone Optimized)
+
     this.video = document.createElement("video");
-    this.video.controls = false; // ✅ No native controls
-    this.video.disableRemotePlayback = true; // ✅ Set this BEFORE src
+    this.video.controls = false;
+    this.video.disableRemotePlayback = true;
     this.video.src = URL.createObjectURL(this.ms);
     this.video.addEventListener("loadedmetadata", () => {
       const rotation = this.video.videoRotation || 0;
@@ -79,20 +72,19 @@ class StreamController {
     this.video.setAttribute("webkit-playsinline", "true");
     this.video.muted = true;
     this.video.autoplay = true;
-    this.video.controls = true;
+    this.video.controls = false;
     this.video.style.width = "100%";
     this.video.style.height = "100%";
     this.video.style.backgroundColor = "black";
     this.video.poster = "";
     this.wrapper.style.transformOrigin = "center center";
     this.wrapper.appendChild(this.video);
-    this.createCustomControls();
+
     if (window.ManagedMediaSource) {
       this.video.setAttribute("disableRemotePlayback", "true");
     }
     this.fetchThumbnailFromStreamChunk = async () => {
       try {
-        // Try to get thumbnail from StreamChunk backend
         const response = await fetch(
           `${BACKEND_URL}/api/stream-chunk/thumbnail/${sessionId}`,
         );
@@ -104,7 +96,6 @@ class StreamController {
             this.thumbnailLoaded = true;
             this.addLog("✅ Thumbnail loaded from StreamChunk");
 
-            // Trigger any callback to update UI
             if (this.onThumbnailLoaded) {
               this.onThumbnailLoaded(this.thumbnailUrl);
             }
@@ -112,101 +103,47 @@ class StreamController {
           }
         }
       } catch (error) {
-        //   this.addLog("⚠️ Could not fetch thumbnail from StreamChunk");
+        // quiet fail
       }
       return false;
     };
 
-    // 4. Unified SourceOpen Handler
     const openEvt = window.ManagedMediaSource
       ? "managedsourceopen"
       : "sourceopen";
     this.ms.addEventListener(openEvt, () => {
       this.addLog(`✅ ${openEvt} fired!`);
-      //  this.addLog("✅ MediaSource Open");
-      this.sweepWarehouse(); // Immediately look for the header once open
+      this.sweepWarehouse();
     });
 
-    // 5. THE WATCHDOG (The Hungry Manager)
-    // This runs every 2 seconds to bridge gaps or find pre-fetched data
     this.watchdog = setInterval(async () => {
       if (!this.headerLoaded) {
-        // Still looking for the start of the stream...
-        if (!this.headerLoaded && this.sessionId) {
-          //  this.addLog("📢 Broadcasting: Missing Header (-1).");
-          // This is where you'd emit to your socket
-          // window.globalSocket.emit('request_header', { sessionId: this.sessionId });
-        }
+        // waiting
       } else if (!this.isProcessing) {
-        // Header is in, let's see if the next chunk is ready in the warehouse
         const nextData = await warehouse.getChunk(
           this.sessionId,
           this.nextIndex,
         );
         if (nextData) {
-          this.tick(); // Trigger processing
+          this.tick();
         }
       }
     }, 2000);
   }
 
-  createCustomControls() {
-    const controls = document.createElement("div");
-    controls.style.cssText = `
-      position: absolute;
-      bottom: 40px;
-      left: 0;
-      right: 0;
-      display: flex;
-      justify-content: center;
-      z-index: 10;
-      pointer-events: none;
-    `;
-
-    const playBtn = document.createElement("button");
-    playBtn.textContent = "▶";
-    playBtn.style.cssText = `
-      pointer-events: auto;
-      padding: 12px 24px;
-      background: rgba(255,255,255,0.8);
-      border: none;
-      border-radius: 8px;
-      font-size: 18px;
-      font-weight: bold;
-      cursor: pointer;
-    `;
-    playBtn.onclick = () => {
-      if (this.video.paused) {
-        this.video.play();
-        playBtn.textContent = "⏸";
-      } else {
-        this.video.pause();
-        playBtn.textContent = "▶";
-      }
-    };
-
-    controls.appendChild(playBtn);
-    this.wrapper.appendChild(controls);
-    this.playBtn = playBtn;
-  }
-
   processBufferQueue() {
-    if (this.bufferQueue.length === 0 || !this.sb || this.sb.updating) {
-      return;
-    }
-
+    if (this.bufferQueue.length === 0 || !this.sb || this.sb.updating) return;
     const nextBuffer = this.bufferQueue.shift();
     try {
       this.sb.appendBuffer(nextBuffer);
     } catch (e) {
-      console.error("❌ Append error:", e);
+      console.error(e);
     }
   }
 
   async prefetchChunks() {
     if (this.prefetching) return;
     this.prefetching = true;
-
     const nextIndex = this.nextIndex;
     const maxPrefetch = 5;
 
@@ -220,83 +157,53 @@ class StreamController {
         }
       }
     }
-
     this.prefetching = false;
     this.processBufferQueue();
   }
 
-  // Add this method
   async once(element, event) {
     return new Promise((resolve) => {
       element.addEventListener(event, resolve, { once: true });
     });
   }
 
-  // Add this method to StreamController class
   cleanupResources() {
     clearInterval(this.watchdog);
-
-    // Clean up video element
     if (this.video) {
       this.video.pause();
       this.video.src = "";
       this.video.load();
-
-      // Remove event listeners
       this.video.removeAttribute("src");
       this.video.remove();
     }
-
-    // Clean up MediaSource
     if (this.ms && this.ms.readyState === "open") {
       try {
         this.ms.endOfStream();
       } catch (e) {}
     }
-
-    // Clean up SourceBuffer
     if (this.sb) {
       try {
         this.ms.removeSourceBuffer(this.sb);
       } catch (e) {}
     }
-
-    // Revoke object URL
-    if (this.objectUrl) {
-      URL.revokeObjectURL(this.objectUrl);
-    }
-
-    // Clear chunk queue
     this.chunkQueue.clear();
   }
 
   forceTick() {
-    // this.addLog("⚡ Force Tick triggered");
     this.tick();
   }
 
   createSourceBuffer() {
-    if (this.sb || !this.detectedMimeType || this.ms.readyState !== "open") {
-      // Log why we aren't creating it
-      if (!this.detectedMimeType) console.log("Waiting for MimeType...");
-      if (this.ms.readyState !== "open")
-        console.log("MediaSource not open yet:", this.ms.readyState);
+    if (this.sb || !this.detectedMimeType || this.ms.readyState !== "open")
       return;
-    }
-
     try {
-      //   this.addLog(`🛠️ Attempting SourceBuffer: ${this.detectedMimeType}`);
       this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
       this.sb.mode = "sequence";
-
       this.sb.addEventListener("updateend", () => {
         this.isProcessing = false;
         this.tick();
       });
-      //   this.addLog("✅ SourceBuffer Created!");
     } catch (e) {
-      //  this.addLog("❌ SB Error: " + e.message);
-      // FALLBACK: If Safari hates the codec, try the most generic one
       if (
         this.detectedMimeType !== 'video/mp4; codecs="mp4a.40.2, avc1.4d4015"'
       ) {
@@ -307,62 +214,29 @@ class StreamController {
   }
 
   async stitchAndShip() {
-    // this.addLog("🧵 Starting Stitch & Ship...");
     const blobParts = [];
-
-    // 1. Get the Header
     const header = await warehouse.getChunk(this.sessionId, -1);
-    if (!header) {
-      //  this.addLog("❌ Cannot archive: Header missing from warehouse.");
-      return;
-    }
+    if (!header) return;
     blobParts.push(header);
 
-    // 2. Loop through all chunks we've seen
-    // (You'll need to keep track of this.maxIndexSeen in your tick function)
     for (let i = 0; i <= this.nextIndex; i++) {
       const chunk = await warehouse.getChunk(this.sessionId, i);
       if (chunk) blobParts.push(chunk);
     }
-
-    // 3. Create the file
-    const finalFile = new File(
-      blobParts,
-      `neighborhood_stream_${this.sessionId}.mp4`,
-      { type: "video/mp4" },
-    );
-
-    // this.addLog("📦 File ready. Sending to Pinata...");
-
-    // 4. Return the file so your component can call your IPFS upload function
-    return finalFile;
+    return new File(blobParts, `neighborhood_stream_${this.sessionId}.mp4`, {
+      type: "video/mp4",
+    });
   }
 
   async sweepWarehouse() {
-    // 1. Check if the header is actually on the disk
     const header = await warehouse.getChunk(this.sessionId, -1);
-
     if (header) {
-      //  this.addLog("🎯 Header found in Warehouse");
-
-      // 2. iPhone Safety: Ensure we have a codec string
       if (!this.detectedMimeType) {
         this.detectedMimeType = 'video/mp4; codecs="mp4a.40.2, avc1.4d4015"';
       }
-
       this.setupMagnet = "cached";
-
-      // 3. If the door is open, build the tray (SourceBuffer)
-      if (this.ms.readyState === "open" && !this.sb) {
-        this.createSourceBuffer();
-      }
-
-      // 4. Kick the engine to start processing the header immediately
+      if (this.ms.readyState === "open" && !this.sb) this.createSourceBuffer();
       this.tick();
-    } else {
-      // If header isn't found, we don't tick yet
-      // The watchdog will call this again in 2 seconds
-      console.log("⌛ Warehouse sweep: Header not found yet.");
     }
   }
 
@@ -371,144 +245,118 @@ class StreamController {
   }
 
   addChunks(chunks) {
-    console.log("📦 addChunks called with:", chunks); // ✅ See what's coming in
     chunks.forEach((c) => {
       if (c.chunkIndex === -1 && c.rotation) {
-     const rot = c.rotation;
+        const rot = c.rotation;
         this.addLog(`🔄 Applying CSS rotation: ${rot}°`);
-        
-          if (rot === 90 || rot === 270) {
-            // ✅ Rotate the wrapper
-            this.video.style.transform = `rotate(${rot}deg)`;
-            this.video.style.transformOrigin = "center center";
-            this.video.style.objectFit = "contain";
-            this.video.style.width = "100%";
-            this.video.style.height = "100%";
-          }
+        if (rot === 90 || rot === 270) {
+          this.video.style.transform = `rotate(${rot}deg)`;
+          this.video.style.transformOrigin = "center center";
+          this.video.style.objectFit = "contain";
+          this.video.style.width = "100%";
+          this.video.style.height = "100%";
+        }
       }
-
       if (c.thumbnailUrl && !this.thumbnailLoaded) {
         this.thumbnailUrl = c.thumbnailUrl;
         this.thumbnailLoaded = true;
-        // this.addLog("🎨 Thumbnail found in chunk data");
       }
-      // Handle Header
       if (c.chunkIndex === -1 && !this.headerLoaded) {
         this.setupMagnet = c.magnetLink;
         this.detectedMimeType =
           c.mimeType?.replace(/['"]+/g, '"') ||
-          'video/mp4; codecs="mp4a.40.2, avc1.4d4015"'; // this.addLog("🎯 Header Found");
+          'video/mp4; codecs="mp4a.40.2, avc1.4d4015"';
         if (this.ms.readyState === "open") this.createSourceBuffer();
       }
-      // Handle Data Chunks
-      if (c.chunkIndex >= 0) {
-        this.chunkQueue.set(c.chunkIndex, c.magnetLink);
-      }
+      if (c.chunkIndex >= 0) this.chunkQueue.set(c.chunkIndex, c.magnetLink);
     });
     this.tick();
   }
 
   async tick() {
-  if (this.isProcessing) return;
+    if (this.isProcessing) return;
+    if (this.ms.readyState !== "open") await this.once(this.ms, "sourceopen");
+    if (this.sb?.updating) return;
 
-  if (this.ms.readyState !== "open") {
-    await this.once(this.ms, "sourceopen");
-  }
-
-  if (this.sb?.updating) return;
-
-  // 1. Create SourceBuffer
-  if (!this.sb && this.detectedMimeType) {
-    try {
-      const support = this.MS.isTypeSupported(this.detectedMimeType);
-      if (!support) {
-        this.detectedMimeType = 'video/mp4; codecs="mp4a.40.2, avc1.4d4015"';
-      }
-
-      this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
-      this.sb.mode = "sequence";
-
-      this.sb.addEventListener("updateend", () => {
-        this.isProcessing = false;
-        this.processBufferQueue(); // Flush queued buffers safely
-        this.tick();
-      });
-    } catch (e) {
-      console.error("❌ SourceBuffer Fail:", e);
-    }
-  }
-
-  if (!this.sb || this.sb.updating) return;
-
-  // 2. Process Header
-  if (!this.headerLoaded) {
-    const hasHeaderInWarehouse = await warehouse.getChunk(this.sessionId, -1);
-
-    if (this.setupMagnet || hasHeaderInWarehouse) {
-      this.isProcessing = true;
+    if (!this.sb && this.detectedMimeType) {
       try {
-        const magnet = this.setupMagnet || "cached";
-        const buf = await this.download(magnet, -1);
-        if (buf) {
-          this.sb.appendBuffer(buf);
-          this.headerLoaded = true;
-          this.nextIndex = 0;
+        this.sb = this.ms.addSourceBuffer(this.detectedMimeType);
+        this.sb.mode = "sequence";
+        this.sb.addEventListener("updateend", () => {
+          this.isProcessing = false;
+          this.processBufferQueue();
+          this.tick();
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
 
-          const tryPlay = (delay = 100) => {
-            this.video.play().catch(() => {
-              if (delay < 5000) {
-                this.video.currentTime += 0.1;
-                setTimeout(() => tryPlay(delay * 1.5), delay);
-              }
-            });
-          };
-          tryPlay();
+    if (!this.sb || this.sb.updating) return;
+
+    if (!this.headerLoaded) {
+      const hasHeaderInWarehouse = await warehouse.getChunk(this.sessionId, -1);
+      if (this.setupMagnet || hasHeaderInWarehouse) {
+        this.isProcessing = true;
+        try {
+          const magnet = this.setupMagnet || "cached";
+          const buf = await this.download(magnet, -1);
+          if (buf) {
+            this.sb.appendBuffer(buf);
+            this.headerLoaded = true;
+            this.nextIndex = 0;
+            const tryPlay = (delay = 100) => {
+              this.video.play().catch(() => {
+                if (delay < 5000) {
+                  this.video.currentTime += 0.1;
+                  setTimeout(() => tryPlay(delay * 1.5), delay);
+                }
+              });
+            };
+            tryPlay();
+          } else {
+            this.isProcessing = false;
+          }
+        } catch (e) {
+          this.isProcessing = false;
+        }
+        return;
+      }
+    }
+
+    const hasInQueue = this.chunkQueue.has(this.nextIndex);
+    const hasInWarehouse = await warehouse.getChunk(
+      this.sessionId,
+      this.nextIndex,
+    );
+
+    if (this.headerLoaded && (hasInQueue || hasInWarehouse)) {
+      this.isProcessing = true;
+      const magnet = hasInWarehouse
+        ? "cached"
+        : this.chunkQueue.get(this.nextIndex);
+      try {
+        const buf = await this.download(magnet, this.nextIndex);
+        if (buf && !this.sb.updating) {
+          this.sb.appendBuffer(buf);
+          this.nextIndex++;
         } else {
           this.isProcessing = false;
         }
       } catch (e) {
         this.isProcessing = false;
       }
-      return;
     }
   }
-
-  // 3. Process Chunks Sequentially
-  const hasInQueue = this.chunkQueue.has(this.nextIndex);
-  const hasInWarehouse = await warehouse.getChunk(this.sessionId, this.nextIndex);
-
-  if (this.headerLoaded && (hasInQueue || hasInWarehouse)) {
-    this.isProcessing = true;
-    const magnet = hasInWarehouse ? "cached" : this.chunkQueue.get(this.nextIndex);
-
-    try {
-      const buf = await this.download(magnet, this.nextIndex);
-      if (buf && !this.sb.updating) {
-        this.sb.appendBuffer(buf);
-        this.nextIndex++;
-      } else {
-        this.isProcessing = false;
-      }
-    } catch (e) {
-      this.isProcessing = false;
-    }
-  }
-}
 
   async download(magnet, index) {
-    // 1. Instant Check: Is it already in our local Warehouse?
     const cached = await warehouse.getChunk(this.sessionId, index);
     if (cached) return cached;
 
-    // 2. Swarm Priority: Try WebTorrent
-    this.addLog(`📡 Swarm search for Chunk ${index}...`);
-
-    const p2pData = await new Promise(async (resolve) => {
+    return new Promise(async (resolve) => {
       let handled = false;
-
       const swarmTimeout = setTimeout(() => {
         if (!handled) {
-          this.addLog(`🛰️ Swarm timeout for ${index}. Switching to Server.`);
           handled = true;
           resolve(null);
         }
@@ -520,9 +368,7 @@ class StreamController {
       }
 
       try {
-        // Use the service instead of ensureWebTorrent
         const client = await webtorrentService.ensureClient();
-
         client.add(
           magnet,
           { announce: ["wss://tracker-0ad4cca9fd92.herokuapp.com"] },
@@ -532,67 +378,18 @@ class StreamController {
                 if (!handled) {
                   handled = true;
                   clearTimeout(swarmTimeout);
-                  this.addLog(`💎 Swarm delivered Chunk ${index}!`);
                   resolve(buf);
                 }
                 client.remove(torrent.infoHash);
               });
             });
-
-            // Fast-fail if the tracker says no one has it
-            torrent.on("warning", (err) => {
-              if (err.message.includes("no peers")) {
-                // We don't resolve null yet, let the 5s timeout handle it
-                // to give DHT a chance, but we log it.
-                this.addLog(`⚠️ Swarm Warning: ${err.message}`);
-              }
-            });
           },
         );
       } catch (e) {
-        this.addLog("❌ WebTorrent Load Failed: " + e.message);
         resolve(null);
       }
     });
-
-    if (p2pData) {
-      this.addLog(`💎 P2P WIN: Saved $ by getting Chunk ${index} from Swarm!`);
-      await warehouse.saveChunk(this.sessionId, index, p2pData);
-      return p2pData;
-    }
-
-    // 3. Server Fallback (Remains the same...)
-    // ... rest of your server fetch code
   }
-
-  // Helper for the WebTorrent attempt
-  tryWebTorrent = (magnet) => {
-    return new Promise((resolve, reject) => {
-      if (!magnet || magnet === "cached") return resolve(null);
-
-      // Set a 5-second timeout for P2P before giving up to server
-      const timeout = setTimeout(() => {
-        resolve(null);
-      }, 5000);
-
-      // Use the service
-      webtorrentService
-        .ensureClient()
-        .then((client) => {
-          client.add(magnet, (torrent) => {
-            torrent.on("done", () => {
-              torrent.files[0].getBuffer((err, buf) => {
-                clearTimeout(timeout);
-                if (err) resolve(null);
-                else resolve(buf);
-                client.remove(torrent.infoHash);
-              });
-            });
-          });
-        })
-        .catch(() => resolve(null));
-    });
-  };
 
   destroy() {
     clearInterval(this.watchdog);
@@ -603,8 +400,7 @@ class StreamController {
     }
   }
 }
-// --- THE REACT COMPONENT ---
-// --- THE REACT COMPONENT ---
+
 export default function NeighborhoodLiveStreamPlayer({
   sessionId,
   initialChunks = [],
@@ -618,14 +414,16 @@ export default function NeighborhoodLiveStreamPlayer({
   const [logs, setLogs] = useState([]);
   const [thumbnail, setThumbnail] = useState(null);
 
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
   const addLog = (msg) => {
     setLogs((prev) => [...prev.slice(-5), msg]);
     console.log(`[Stream] ${msg}`);
   };
 
-  // Replace your existing auto-join effect with this:
   useEffect(() => {
-    // Auto-initialize when we have a sessionId
     const autoInitialize = async () => {
       if (!controllerRef.current && sessionId) {
         addLog("🚀 Auto-initializing player...");
@@ -635,7 +433,6 @@ export default function NeighborhoodLiveStreamPlayer({
           addLog,
           () => {},
           containerRef.current,
-          initialChunks,
         );
 
         controller.onThumbnailLoaded = (thumbnailUrl) => {
@@ -643,14 +440,18 @@ export default function NeighborhoodLiveStreamPlayer({
           if (onThumbnailLoaded) onThumbnailLoaded(thumbnailUrl);
         };
 
-        if (containerRef.current) {
-          containerRef.current.appendChild(controller.video);
-        }
+        const vEl = controller.video;
+        const syncTime = () => setCurrentTime(vEl.currentTime);
+        const syncDuration = () => setDuration(vEl.duration || 0);
+        const syncPlayState = () => setIsPlaying(!vEl.paused);
+
+        vEl.addEventListener("timeupdate", syncTime);
+        vEl.addEventListener("durationchange", syncDuration);
+        vEl.addEventListener("play", syncPlayState);
+        vEl.addEventListener("pause", syncPlayState);
 
         controller.video.src = URL.createObjectURL(controller.ms);
         controllerRef.current = controller;
-
-        // Set isJoined to true so existing effects work
         setIsJoined(true);
 
         if (initialChunks.length > 0) {
@@ -668,9 +469,15 @@ export default function NeighborhoodLiveStreamPlayer({
     };
 
     autoInitialize();
-  }, [sessionId]); // Only depend on sessionId
 
-  // Try to get thumbnail from initial chunks
+    return () => {
+      if (controllerRef.current) {
+        controllerRef.current.cleanupResources();
+        controllerRef.current = null;
+      }
+    };
+  }, [sessionId]);
+
   useEffect(() => {
     if (initialChunks.length > 0) {
       initialChunks.forEach((chunk) => {
@@ -706,85 +513,81 @@ export default function NeighborhoodLiveStreamPlayer({
     }
   }, [isJoined, initialChunks, availableInWarehouse]);
 
-  const handleJoinStream = async () => {
-    addLog("🚀 Join Clicked: Waking up engine...");
-
-    const controller = new StreamController(
-      sessionId,
-      addLog,
-      () => {},
-      initialChunks,
-    );
-
-    controller.onThumbnailLoaded = (thumbnailUrl) => {
-      setThumbnail(thumbnailUrl);
-      if (onThumbnailLoaded) onThumbnailLoaded(thumbnailUrl);
-    };
-
-    if (containerRef.current) {
-      containerRef.current.appendChild(controller.video);
-      controller.video.disableRemotePlayback = true;
-      controller.video.setAttribute("disableRemotePlayback", "");
+  const skipTime = (seconds) => {
+    if (controllerRef.current?.video) {
+      controllerRef.current.video.currentTime += seconds;
     }
-
-    controller.video.src = URL.createObjectURL(controller.ms);
-    controllerRef.current = controller;
-    setIsJoined(true);
-
-    if (initialChunks.length > 0) {
-      initialChunks.forEach((chunk) => {
-        if (chunk.thumbnailUrl && !thumbnail) {
-          setThumbnail(chunk.thumbnailUrl);
-          if (onThumbnailLoaded) onThumbnailLoaded(chunk.thumbnailUrl);
-        }
-      });
-    }
-
-    await controller.sweepWarehouse();
-    addLog("✅ Handshake complete. Playing from warehouse.");
   };
 
- return (
-   <View style={styles.container}>
-     <div
-       ref={containerRef}
-       style={{
-         ...styles.videoContainer,
-         transform: rotation ? `rotate(${rotation}deg)` : "none",
-         transformOrigin: "center center",
-         width: "100%",
-         height: "100%",
-       }}
-     />
+  const togglePlay = () => {
+    if (controllerRef.current?.video) {
+      const video = controllerRef.current.video;
+      if (video.paused) {
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    }
+  };
 
-     {/* Custom Controls - Overlaid on video */}
-     <div style={styles.controlsOverlay}>
-       <button
-         style={styles.controlButton}
-         onClick={() => {
-           if (controllerRef.current) {
-             const video = controllerRef.current.video;
-             if (video.paused) {
-               video.play();
-             } else {
-               video.pause();
-             }
-           }
-         }}
-       >
-         <span style={styles.controlButtonText}>▶</span>
-       </button>
-     </div>
-   </View>
- );
+  const handleScrubChange = (e) => {
+    if (controllerRef.current?.video) {
+      const newTargetTime = parseFloat(e.target.value);
+      controllerRef.current.video.currentTime = newTargetTime;
+      setCurrentTime(newTargetTime);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <div
+        ref={containerRef}
+        style={{
+          ...styles.videoContainer,
+          transform: rotation ? `rotate(${rotation}deg)` : "none",
+          transformOrigin: "center center",
+          width: "100%",
+          height: "100%",
+        }}
+      />
+
+      <div style={styles.controlsOverlay}>
+        <div style={styles.buttonCluster}>
+          <button style={styles.controlButton} onClick={() => skipTime(-10)}>
+            <span style={styles.controlButtonText}>⏪</span>
+          </button>
+
+          <button style={styles.controlButton} onClick={togglePlay}>
+            <span style={styles.controlButtonText}>
+              {isPlaying ? "⏸" : "▶"}
+            </span>
+          </button>
+
+          <button style={styles.controlButton} onClick={() => skipTime(10)}>
+            <span style={styles.controlButtonText}>⏩</span>
+          </button>
+        </div>
+
+        <div style={styles.timelineWrapper}>
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            value={currentTime}
+            onChange={handleScrubChange}
+            style={styles.scrubBarInput}
+          />
+        </div>
+      </div>
+    </View>
+  );
 }
 
-// In NeighborhoodLiveStreamPlayer.jsx - Updated styles
 const styles = StyleSheet.create({
   container: {
-    width: "100%",
-    height: "100%",
-    aspectRatio: 1, // Square for now
+    width: "80%",
+    height: "80%",
+    aspectRatio: 1,
     backgroundColor: "#000",
     position: "relative",
     overflow: "hidden",
@@ -797,22 +600,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  // Custom controls overlay
   controlsOverlay: {
     position: "absolute",
-    bottom: 30,
-    left: 0,
-    right: 0,
+    bottom: 25,
+    left: 20,
+    right: 20,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 12,
+    padding: 15,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    borderRadius: 20,
+    zIndex: 999,
+  },
+  buttonCluster: {
     display: "flex",
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 20,
-    padding: 10,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 30,
-    marginHorizontal: 40,
-    zIndex: 10,
+    gap: 25,
   },
   controlButton: {
     width: 44,
@@ -822,13 +629,23 @@ const styles = StyleSheet.create({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    border: "none",
     cursor: "pointer",
   },
   controlButtonText: {
     color: "white",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
   },
+  timelineWrapper: {
+    width: "100%",
+    paddingHorizontal: 10,
+    display: "flex",
+    alignItems: "center",
+  },
+  scrubBarInput: {
+    width: "100%",
+    cursor: "pointer",
+    accentColor: "#ffffff",
+  },
 });
-
-

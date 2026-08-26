@@ -264,55 +264,62 @@ export default function NeighborhoodLiveStreamRecorder({
           : `c_${index}.mp4`;
 
         // 2. SEED & UPLOAD
-        client.seed(chunkData, { name: fileName }, async (torrent) => {
-          const uploadToBackend = async (retry = 0) => {
-            try {
-              const formData = new FormData();
-              formData.append(
-                "chunk",
-                new Blob([chunkData], { type: supportedTypeRef.current }),
-              );
-              formData.append("sessionId", sessionIdRef.current);
-              formData.append("chunkIndex", index.toString());
-              formData.append("rotation", rotationRef.current.toString()); // ✅ Add this!
+        client.seed(
+          chunkData,
+          {
+            name: fileName,
+            announce: ["wss://tracker-0ad4cca9fd92.herokuapp.com"],
+          },
+          async (torrent) => {
+            const uploadToBackend = async (retry = 0) => {
+              try {
+                const formData = new FormData();
+                formData.append(
+                  "chunk",
+                  new Blob([chunkData], { type: supportedTypeRef.current }),
+                );
+                formData.append("sessionId", sessionIdRef.current);
+                formData.append("chunkIndex", index.toString());
+                formData.append("rotation", rotationRef.current.toString()); // ✅ Add this!
 
-              // We still send the thumb to the backend as a backup,
-              // but we don't wait for it to "work" for the player to start
-              const token = await AsyncStorage.getItem("token");
-              const res = await fetch(`${BACKEND_URL}/api/live-chunk`, {
-                method: "POST",
-                headers: token ? { Authorization: `Bearer ${token}` } : {},
-                body: formData,
-              });
-              return await res.json();
-            } catch (e) {
-              if (isHeader && retry < 2) return uploadToBackend(retry + 1);
-              return null;
-            }
-          };
+                // We still send the thumb to the backend as a backup,
+                // but we don't wait for it to "work" for the player to start
+                const token = await AsyncStorage.getItem("token");
+                const res = await fetch(`${BACKEND_URL}/api/live-chunk`, {
+                  method: "POST",
+                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                  body: formData,
+                });
+                return await res.json();
+              } catch (e) {
+                if (isHeader && retry < 2) return uploadToBackend(retry + 1);
+                return null;
+              }
+            };
 
-          const result = await uploadToBackend();
+            const result = await uploadToBackend();
 
-          // 3. GRAPHQL NOTIFY
-          // This is what the player listens for!
-          await sendMessage({
-            variables: {
-              content: isHeader ? "STREAM_HEADER" : "",
-              neighborhoodId,
-              magnetLink: result?.magnetUri || torrent.magnetURI,
-              thumbnailUrl: thumbToSend, // Using our successful Base64 ref
-              sessionId: sessionIdRef.current,
-              chunkIndex: index,
-              mimeType: supportedTypeRef.current,
-              rotation: rotationRef.current,
-            },
-          });
-console.log(`📤 Sent rotation: ${rotationRef.current}°`);
-          if (!isHeader) setChunkCount((prev) => prev + 1);
-          else headerSentRef.current = true;
+            // 3. GRAPHQL NOTIFY
+            // This is what the player listens for!
+            await sendMessage({
+              variables: {
+                content: isHeader ? "STREAM_HEADER" : "",
+                neighborhoodId,
+                magnetLink: result?.magnetUri || torrent.magnetURI,
+                thumbnailUrl: thumbToSend, // Using our successful Base64 ref
+                sessionId: sessionIdRef.current,
+                chunkIndex: index,
+                mimeType: supportedTypeRef.current,
+                rotation: rotationRef.current,
+              },
+            });
+            console.log(`📤 Sent rotation: ${rotationRef.current}°`);
+            if (!isHeader) setChunkCount((prev) => prev + 1);
+            else headerSentRef.current = true;
 
-          resolve();
-        });
+            resolve();
+          },
+        );
       });
     };
 
