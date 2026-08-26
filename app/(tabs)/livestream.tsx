@@ -419,7 +419,9 @@ export default function LivestreamScreen() {
   }
 
   return (
-    <View style={[styles.mainWrapper, { height: SCREEN_HEIGHT }]}>
+    <View
+      style={[styles.mainWrapper, { height: SCREEN_HEIGHT, paddingBottom: 40 }]}
+    >
       <FlatList
         data={streamsData?.streams || []}
         keyExtractor={(item) => item.id}
