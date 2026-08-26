@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     gap: 12,
     padding: 15,
-    backgroundColor: "rgba(0,0,0,0.75)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     borderRadius: 20,
     marginTop: 8, // ✅ A little gap between video and controls
     zIndex: 1, // ✅ Only used for foreground, not for layout
@@ -619,7 +619,8 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.2)",
+
+    backgroundColor: "rgba(255,255,255,0.5)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
