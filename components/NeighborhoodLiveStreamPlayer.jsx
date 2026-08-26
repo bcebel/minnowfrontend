@@ -783,6 +783,7 @@ export default function NeighborhoodLiveStreamPlayer({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
+    height: "100%",
     aspectRatio: 1, // Square for now
     backgroundColor: "#000",
     position: "relative",
