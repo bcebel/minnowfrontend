@@ -19,8 +19,19 @@ class WebTorrentService {
     this.seedingCache = new Map(); // Track torrents currently being seeded
   }
 
-  // In webtorrentService.js - add this helper method
+  // In webtorrentService.js
+  async destroyCleanup(magnetUri) {
+    const client = await this.ensureClient();
 
+    if (!client) return;
+
+    // Destroy all torrents related to this magnet or infoHash
+    const infoHash = magnetUri.match(/btih:([a-zA-Z0-9]+)/)?.[1];
+    if (client.get(infoHash)) {
+      client.get(infoHash).destroy();
+      console.log("🧹 Cleaned up torrent:", infoHash);
+    }
+  }
   /**
    * Gets a playable blob URL for a torrent file
    * Handles both full files and sliced videos
