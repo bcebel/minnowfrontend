@@ -1,5 +1,5 @@
 // components/AllNeighborhoodsGallery.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -106,7 +106,14 @@ const getFileType = (fileName: string) => {
 
 // Simple media display component
 // Media Display Component - WITH GIF SUPPORT
-const MediaDisplay = ({ item }: { item: any }) => {
+const MediaDisplay = ({
+  item,
+  isFocused,
+}: {
+  item: any;
+  isFocused: boolean;
+}) => {
+
   const fileType = getFileType(item.fileName);
   const isImage = fileType === "image";
   const isVideo = fileType === "video";
@@ -152,7 +159,7 @@ const MediaDisplay = ({ item }: { item: any }) => {
             fileType: fileType,
             isGif: isGif, // Pass GIF info
           }}
-          isFocused={true}
+          isFocused={isFocused}
         />
       </View>
     );
@@ -236,6 +243,22 @@ const MediaDisplay = ({ item }: { item: any }) => {
 };
 
 export default function AllNeighborhoodsGallery() {
+  // ✅ VIEWABILITY CONFIG: Starts downloading only when the card is fully visible
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 80, // Only load if 80% of the card is visible
+    minimumViewTime: 300, // Don't load if you just scrolled past it in <300ms
+  }).current;
+
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    // Update the state so children know if they are focused
+    viewableItems.forEach(({ item, isViewable }) => {
+      if (item && item.id) {
+        // This updates a global "focusedId" so WebTorrentMedia knows if it's active or not
+        setFocusedId(isViewable ? item.id : null);
+      }
+    });
+  }).current;
+    const [focusedId, setFocusedId] = useState(null);
   const { data, loading, error, refetch } = useQuery(GET_NEIGHBORHOOD_GALLERY, {
     fetchPolicy: "cache-and-network",
   });
@@ -300,6 +323,10 @@ export default function AllNeighborhoodsGallery() {
   const renderItem = ({ item }: { item: any }) => {
     const fileType = getFileType(item.fileName);
     const neighborhoodName = item.neighborhood?.name || "Unknown Neighborhood";
+
+    // ✅ PASS THE FOCUSED STATE DOWN!
+    const isFocused = focusedId === item.id;
+
     if (item.isAd) {
       return (
         <View style={[styles.card, styles.adCardCenter]}>
@@ -313,27 +340,14 @@ export default function AllNeighborhoodsGallery() {
         </View>
       );
     }
+
     return (
       <View style={styles.card}>
         <View style={styles.mediaContainer}>
-          <MediaDisplay item={item} />
+          {/* ✅ Pass isFocused to control lazy loading */}
+          <MediaDisplay item={item} isFocused={isFocused} />
         </View>
-
-        <View style={styles.metadata}>
-          <View style={styles.metadataRow}>
-            <Text style={styles.metadataLabel}>By:</Text>
-            <Text style={styles.metadataValue}>
-              {item.user?.username || "Unknown"}
-            </Text>
-          </View>
-
-          <View style={styles.metadataRow}>
-            <Text style={styles.metadataLabel}>Neighborhood:</Text>
-            <Text style={styles.metadataValue}>{neighborhoodName}</Text>
-          </View>
-
-          <View style={styles.metadataRow}></View>
-        </View>
+        ...
       </View>
     );
   };
@@ -396,6 +410,8 @@ export default function AllNeighborhoodsGallery() {
         refreshing={refreshing}
         onRefresh={handleRefresh}
         ListFooterComponent={<View style={styles.footer} />}
+        viewabilityConfig={viewabilityConfig}
+        onViewableItemsChanged={onViewableItemsChanged}
       />
     </View>
   );
