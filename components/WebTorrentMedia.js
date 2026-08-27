@@ -32,6 +32,9 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const [progress, setProgress] = useState(0);
   const [peerCount, setPeerCount] = useState(0);
   const [isReady, setIsReady] = useState(false);
+    const startTimeRef = useRef(Date.now());
+    const lastProgressTimeRef = useRef(Date.now());
+    const lastProgressPctRef = useRef(0);
 
   const videoRef = useRef(null);
   const currentUrlRef = useRef(null);
@@ -129,34 +132,112 @@ export default function WebTorrentMedia({ media, isFocused }) {
           activeTorrent = torrentResult.torrent;
 
           if (activeTorrent) {
-            const updateStats = () => {
-              if (!isMountedRef.current) return;
-              const numPeers = activeTorrent.numPeers || 0;
-              const pct = Math.floor(activeTorrent.progress * 100);
+                    const updateStats = () => {
+                      if (!isMountedRef.current) return;
+                      const numPeers = activeTorrent.numPeers || 0;
+                      const pct = Math.floor(activeTorrent.progress * 100);
 
-              setPeerCount(numPeers);
-              setProgress(pct);
+                      setPeerCount(numPeers);
+                      setProgress(pct);
 
-              if ((pct > 0 || numPeers > 0) && fallbackTimerRef.current) {
-                clearTimeout(fallbackTimerRef.current);
-                fallbackTimerRef.current = null;
-                p2pHitRef.current = true;
-                if (status !== "streaming") setStatus("p2p_swarming");
-              }
+                      // ✅ 1. CLEAR the fallback timer ONLY if we have peers
+                      if (
+                        (pct > 0 || numPeers > 0) &&
+                        fallbackTimerRef.current
+                      ) {
+                        clearTimeout(fallbackTimerRef.current);
+                        fallbackTimerRef.current = null;
+                        p2pHitRef.current = true;
+                      }
 
-              // ✅ ADD THIS LINE RIGHT HERE:
-              if (pct > 0 && !isReady && !stuckTimerRef.current) {
-                setupStuckTimer();
-              }
+                      // ✅ 2. THE "CRAWLER" CHECK: If we're below 100% and haven't gained 10% in the last second, bail.
+                      const currentTime = Date.now();
+                      if (
+                        pct < 100 &&
+                        currentTime - lastProgressTimeRef.current > 1000
+                      ) {
+                        // Only check this if we've been actively downloading
+                        if (pct > 0) {
+                          const progressSinceLastSecond =
+                            pct - lastProgressPctRef.current;
 
-              if (pct >= 3 && !isReady) {
-                setIsReady(true);
-                if (torrentResult.url) {
-                  setVideoSrc(torrentResult.url);
-                  setStatus("p2p_streaming");
-                }
-              }
-            };
+                          // If we gained LESS than 10% in the last second, it's a crawl.
+                          if (progressSinceLastSecond < 10) {
+                            console.log(
+                              "⏰ P2P is crawling too slowly (less than 10%/sec). Forcing HTTP!",
+                            );
+                            const cachedUrl = getCachedPinataUrl(
+                              media.cid,
+                              fallbackUrl,
+                            );
+                            setVideoSrc(cachedUrl);
+                            setStatus("fallback_http");
+                            setIsReady(true);
+
+                            // Kill all timers
+                            if (stuckTimerRef.current) {
+                              clearTimeout(stuckTimerRef.current);
+                              stuckTimerRef.current = null;
+                            }
+                            if (fallbackTimerRef.current) {
+                              clearTimeout(fallbackTimerRef.current);
+                              fallbackTimerRef.current = null;
+                            }
+                            return; // Stop updating stats
+                          }
+                        }
+                      }
+
+                      // ✅ 3. Keep track of last progress time and percentage
+                      lastProgressTimeRef.current = currentTime;
+                      lastProgressPctRef.current = pct;
+
+                      // ✅ 4. THE "TIMES UP" CHECK: If 15 seconds have passed since start, Pinata busts in.
+                      const timeSinceStart = Date.now() - startTimeRef.current;
+                      if (timeSinceStart > 15000 && !isReady) {
+                        console.log(
+                          "⏰ 15-second overall cutoff reached. Forcing HTTP!",
+                        );
+                        const cachedUrl = getCachedPinataUrl(
+                          media.cid,
+                          fallbackUrl,
+                        );
+                        setVideoSrc(cachedUrl);
+                        setStatus("fallback_http");
+                        setIsReady(true);
+
+                        // Kill all timers
+                        if (stuckTimerRef.current) {
+                          clearTimeout(stuckTimerRef.current);
+                          stuckTimerRef.current = null;
+                        }
+                        if (fallbackTimerRef.current) {
+                          clearTimeout(fallbackTimerRef.current);
+                          fallbackTimerRef.current = null;
+                        }
+                        return;
+                      }
+
+                      // ✅ 5. Only kill the stuck timer when we reach 100% (or a usable threshold)
+                      if (pct >= 100 && !isReady) {
+                        setIsReady(true);
+
+                        // Kill all timers
+                        if (stuckTimerRef.current) {
+                          clearTimeout(stuckTimerRef.current);
+                          stuckTimerRef.current = null;
+                        }
+                        if (fallbackTimerRef.current) {
+                          clearTimeout(fallbackTimerRef.current);
+                          fallbackTimerRef.current = null;
+                        }
+
+                        if (torrentResult.url) {
+                          setVideoSrc(torrentResult.url);
+                          setStatus("p2p_streaming");
+                        }
+                      }
+                    };
 
             activeTorrent.on("wire", updateStats);
             activeTorrent.on("download", updateStats);
