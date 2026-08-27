@@ -159,6 +159,29 @@ window.globalWebTorrentClient = new window.WebTorrent({
     announce: window.enhancedTrackers,
     rtcConfig: {
       iceServers: [
+        {
+        urls: "stun:stun.relay.metered.ca:80",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80",
+        username: "fe67734f65cabae0c1f0bf61",
+        credential: "AY3FDMwL9QjEIZ2R",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80?transport=tcp",
+        username: "fe67734f65cabae0c1f0bf61",
+        credential: "AY3FDMwL9QjEIZ2R",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:443",
+        username: "fe67734f65cabae0c1f0bf61",
+        credential: "AY3FDMwL9QjEIZ2R",
+      },
+      {
+        urls: "turns:global.relay.metered.ca:443?transport=tcp",
+        username: "fe67734f65cabae0c1f0bf61",
+        credential: "AY3FDMwL9QjEIZ2R",
+      },
         // STUN servers (for NAT traversal)
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
@@ -172,13 +195,9 @@ window.globalWebTorrentClient = new window.WebTorrent({
         // TURN servers (fallback for symmetric NAT)
         { 
           urls: 'turn:global.turn.twilio.com:3478?transport=udp',
-          username: 'your_twilio_username',
-          credential: 'your_twilio_credential'
         },
         { 
           urls: 'turn:global.turn.twilio.com:3478?transport=tcp',
-          username: 'your_twilio_username',
-          credential: 'your_twilio_credential'
         },
           {
     urls: [
