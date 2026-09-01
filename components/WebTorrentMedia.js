@@ -1,4 +1,4 @@
-// WebTorrentMedia.js - ULTIMATE CACHING VERSION
+// WebTorrentMedia.js - ULTIMATE CACHING VERSION (Background Cache)
 import React, { useState, useEffect, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { getMedia, saveMedia } from "../components/mediaCache";
@@ -51,7 +51,24 @@ export default function WebTorrentMedia({ media, isFocused }) {
     let activeTorrent = null;
     const fallbackUrl = media.ipfsUrl || media.fallbackUrl;
 
-    // Helper to save the blob to cache
+    // ✅ BACKGROUND CACHE DOWNLOAD (Starts immediately, saves even if you scroll away)
+    const startBackgroundCache = () => {
+      if (!fallbackUrl) return;
+      fetch(fallbackUrl)
+        .then((res) => res.blob())
+        .then((blob) => {
+          if (blob && blob.size > 0) {
+            const fileName = media.fileName || `media-${media.cid}`;
+            const mimeType = blob.type || (fileName.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
+            saveMedia(media.cid, blob, mimeType, fileName)
+              .then(() => console.log("💾 Background cache saved:", media.cid))
+              .catch(() => {});
+          }
+        })
+        .catch(() => {});
+    };
+
+    // ✅ Helper to save blob from P2P when it completes
     const saveCachedMedia = (blob, fileName) => {
       if (!blob) return;
       let mimeType = blob.type;
@@ -69,7 +86,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
       try {
         setStatus("checking_cache");
         const cachedData = await getMedia(media.cid);
-
         if (cachedData?.blob && isMountedRef.current) {
           const url = URL.createObjectURL(cachedData.blob);
           currentUrlRef.current = url;
@@ -83,7 +99,10 @@ export default function WebTorrentMedia({ media, isFocused }) {
         console.log("Cache miss:", err.message);
       }
 
-      // 2. Check multi-slice video
+      // 2. Start background cache immediately (so even if you scroll away, it'll be saved)
+      startBackgroundCache();
+
+      // 3. Check multi-slice video
       if (media.slices && media.slices.length > 1) {
         try {
           setStatus("connecting_slices");
@@ -109,7 +128,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
         }
       }
 
-      // 3. GIVE P2P A CHANCE
+      // 4. GIVE P2P A CHANCE
       if (media?.magnetLink) {
         try {
           if (isMountedRef.current) setStatus("connecting_p2p");
@@ -146,7 +165,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
           activeTorrent = torrentResult.torrent;
 
           if (activeTorrent) {
-            // ✅ NEW: Cache the file when torrent is fully done
             activeTorrent.on("done", () => {
               if (isMountedRef.current && activeTorrent.files[0]) {
                 activeTorrent.files[0].getBuffer((err, buffer) => {
@@ -219,12 +237,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
         setVideoSrc(cachedUrl);
         setStatus("fallback_http");
         setIsReady(true);
-
-        // ✅ NEW: Cache the fallback blob
-        fetch(fallbackUrl)
-          .then((res) => res.blob())
-          .then((blob) => saveCachedMedia(blob, media.fileName))
-          .catch(() => {});
       }
     };
 
