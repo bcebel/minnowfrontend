@@ -243,7 +243,7 @@ export default function AllNeighborhoodsGallery() {
         <Text style={styles.headerSubtitle}>{mediaItems.length} items</Text>
       </View>
 
-      <ScrollView
+<ScrollView
         ref={scrollRef}
         horizontal
         pagingEnabled
@@ -252,15 +252,13 @@ export default function AllNeighborhoodsGallery() {
         snapToInterval={CARD_WIDTH}
         decelerationRate="fast"
       >
-        {/* Map over ALL 45 items, but only render the heavy content for the window */}
+        {/* Render ALL items so the scroll width is correct */}
         {mediaItems.map((item, index) => {
-          
           const isInWindow = index >= startIndex && index <= endIndex;
           const neighborhoodName = item.neighborhood?.name || "Unknown Neighborhood";
           const isFocused = Math.abs(index - activeIndex) <= 1;
 
-          // 1. Render a "Dummy" card if it's an ad, or if it's out of the window.
-          // (This preserves the scrolling width without mounting heavy media)
+          // If it's an ad, always render it
           if (item.isAd) {
             return (
               <View key={item.id || `ad-${index}`} style={[styles.card, styles.adCardCenter]}>
@@ -271,12 +269,12 @@ export default function AllNeighborhoodsGallery() {
             );
           }
 
-          // 2. If it's OUT of the window, render a lightweight placeholder to keep the scroll size.
+          // If it's NOT in the window, render a lightweight placeholder
           if (!isInWindow) {
             return (
               <View key={item.id || `placeholder-${index}`} style={styles.card}>
                 <View style={styles.mediaContainer}>
-                  {/* Empty placeholder - no WebTorrent, no Image, no memory hog */}
+                  {/* Empty placeholder - no media, no memory hog */}
                 </View>
                 <View style={styles.metadata}>
                   <Text style={styles.metadataValue}>Loading {index + 1}...</Text>
@@ -285,7 +283,7 @@ export default function AllNeighborhoodsGallery() {
             );
           }
 
-          // 3. If it's INSIDE the window, render the full card with media.
+          // If it IS in the window, render the full card with media
           return (
             <View key={item.id || index} style={styles.card}>
               <View style={styles.mediaContainer}>
