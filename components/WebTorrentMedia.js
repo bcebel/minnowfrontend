@@ -1,4 +1,4 @@
-// WebTorrentMedia.js - FINAL CLEAN VERSION
+ // WebTorrentMedia.js - ULTIMATE FALLBACK VERSION
 import React, { useState, useEffect, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { getMedia, saveMedia } from "../components/mediaCache";
@@ -7,7 +7,7 @@ import webtorrentService from "../utils/webtorrentService";
 const PINATA_GATEWAY =
   process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud";
 
-// ✅ Move cache OUTSIDE the component
+// Move cache OUTSIDE the component
 const pinataCache = new Map();
 
 if (typeof window !== "undefined") {
@@ -37,30 +37,23 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const currentUrlRef = useRef(null);
   const isMountedRef = useRef(true);
   const p2pHitRef = useRef(false);
-  const fallbackTimerRef = useRef(null);
-  const stuckTimerRef = useRef(null);
+
+  // ✅ NEW REFS FOR THE HARD CUTOFFS
+  const overallTimeoutRef = useRef(null); // 15s absolute cutoff
+  const noProgressTimeoutRef = useRef(null); // 5s zero-progress cutoff
 
   useEffect(() => {
+    // ✅ CRITICAL: If NOT focused, don't even start the download.
+    if (!isFocused) {
+      return; 
+    }
+
     isMountedRef.current = true;
     p2pHitRef.current = false;
 
     let activeTorrent = null;
 
     const fallbackUrl = media.ipfsUrl || media.fallbackUrl;
-
-    // ✅ STUCK TIMER: If we start downloading but stall, bail out to Pinata
-    const setupStuckTimer = () => {
-      if (stuckTimerRef.current) clearTimeout(stuckTimerRef.current);
-      stuckTimerRef.current = setTimeout(() => {
-        if (isMountedRef.current && !isReady) {
-          console.log("P2P stuck (15s). Forcing HTTP fallback.");
-          const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
-          setVideoSrc(cachedUrl);
-          setStatus("fallback_http");
-          setIsReady(true);
-        }
-      }, 15000);
-    };
 
     const loadMedia = async () => {
       // 1. Check local device cache (fastest)
@@ -81,9 +74,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
         console.log("Cache miss:", err.message);
       }
 
-      // ✅ SKIP THE PINATA CACHE RETURN! (We are letting P2P try first)
-
-      // ✅ Check if this is a multi-slice video
+      // 2. Check if this is a multi-slice video
       if (media.slices && media.slices.length > 1) {
         try {
           setStatus("connecting_slices");
@@ -112,12 +103,38 @@ export default function WebTorrentMedia({ media, isFocused }) {
         }
       }
 
-      // ✅ GIVE P2P A CHANCE: Start P2P first, THEN set up the fallback timer
+      // 3. GIVE P2P A CHANCE, BUT WITH HARD TIMEOUTS!
       if (media?.magnetLink) {
         try {
           if (isMountedRef.current) setStatus("connecting_p2p");
 
-          // 1. Start the torrent
+          // 🛑 SET THE 15-SECOND ABSOLUTE CUTOFF
+          overallTimeoutRef.current = setTimeout(() => {
+            if (!isReady && isMountedRef.current) {
+              console.log("⏰ 15s overall timeout. Forcing HTTP.");
+              const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
+              setVideoSrc(cachedUrl);
+              setStatus("fallback_http");
+              setIsReady(true);
+              // Clear the other timer
+              if (noProgressTimeoutRef.current) clearTimeout(noProgressTimeoutRef.current);
+            }
+          }, 15000);
+
+          // 🛑 SET THE 5-SECOND NO-PROGRESS CUTOFF
+          noProgressTimeoutRef.current = setTimeout(() => {
+            if (!isReady && progress === 0 && isMountedRef.current) {
+              console.log("🐌 No progress in 5s. Forcing HTTP.");
+              const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
+              setVideoSrc(cachedUrl);
+              setStatus("fallback_http");
+              setIsReady(true);
+              // Clear the overall timer
+              if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
+            }
+          }, 5000);
+
+          // Start the torrent
           const torrentResult = await webtorrentService.add(media.magnetLink, {
             urlList: fallbackUrl ? [fallbackUrl] : [],
             strategy: "sequential",
@@ -137,20 +154,25 @@ export default function WebTorrentMedia({ media, isFocused }) {
               setPeerCount(numPeers);
               setProgress(pct);
 
-              if ((pct > 0 || numPeers > 0) && fallbackTimerRef.current) {
-                clearTimeout(fallbackTimerRef.current);
-                fallbackTimerRef.current = null;
-                p2pHitRef.current = true;
-                if (status !== "streaming") setStatus("p2p_swarming");
+              // ✅ If we got ANY progress, clear the 5s no-progress timer
+              if (pct > 0 && noProgressTimeoutRef.current) {
+                clearTimeout(noProgressTimeoutRef.current);
+                noProgressTimeoutRef.current = null;
               }
 
-              // ✅ ADD THIS LINE RIGHT HERE:
-              if (pct > 0 && !isReady && !stuckTimerRef.current) {
-                setupStuckTimer();
+              // ✅ If we are ready, clear the 15s overall timer
+              if (isReady && overallTimeoutRef.current) {
+                clearTimeout(overallTimeoutRef.current);
+                overallTimeoutRef.current = null;
               }
 
               if (pct >= 3 && !isReady) {
                 setIsReady(true);
+                // Clear overall timer immediately
+                if (overallTimeoutRef.current) {
+                  clearTimeout(overallTimeoutRef.current);
+                  overallTimeoutRef.current = null;
+                }
                 if (torrentResult.url) {
                   setVideoSrc(torrentResult.url);
                   setStatus("p2p_streaming");
@@ -177,25 +199,16 @@ export default function WebTorrentMedia({ media, isFocused }) {
             setStatus("p2p_streaming");
             setIsReady(true);
           }
-
-          // ✅ 2. START THE FALLBACK TIMER NOW (it starts AFTER we try P2P first!)
-          fallbackTimerRef.current = setTimeout(() => {
-            if (!p2pHitRef.current && isMountedRef.current && fallbackUrl) {
-              console.log("P2P timeout (5s). Falling back to HTTP.");
-              const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
-              setVideoSrc(cachedUrl);
-              setStatus("fallback_http");
-              setIsReady(true);
-            }
-          }, 5000);
         } catch (err) {
           console.log("P2P Error:", err.message);
-          if (isMountedRef.current && !p2pHitRef.current && fallbackUrl) {
-            const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
-            setVideoSrc(cachedUrl);
-            setStatus("fallback_http");
-            setIsReady(true);
-          }
+          // If add() fails, instantly fall back to Pinata
+          const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
+          setVideoSrc(cachedUrl);
+          setStatus("fallback_http");
+          setIsReady(true);
+          // Clear timers
+          if (noProgressTimeoutRef.current) clearTimeout(noProgressTimeoutRef.current);
+          if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
         }
       } else if (fallbackUrl && isMountedRef.current) {
         // If NO magnet link exists, use the fallback immediately
@@ -205,7 +218,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
         setIsReady(true);
       }
 
-      // 5. Cache in background
+      // 4. Cache in background
       if (fallbackUrl) {
         fetchIPFSForCache(fallbackUrl);
       }
@@ -239,15 +252,21 @@ export default function WebTorrentMedia({ media, isFocused }) {
 
     return () => {
       isMountedRef.current = false;
-      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
-      if (stuckTimerRef.current) clearTimeout(stuckTimerRef.current);
+
+      // ✅ KILL SWITCH: Clear the new timers
+      if (noProgressTimeoutRef.current) clearTimeout(noProgressTimeoutRef.current);
+      if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
+
+      // ✅ Destroy the torrent to free memory
+      if (activeTorrent) {
+        activeTorrent.destroy();
+        console.log("🧹 Destroyed torrent for non-focused item");
+      }
+
+      // ✅ Revoke blob URL
       if (currentUrlRef.current && currentUrlRef.current.startsWith("blob:")) {
         URL.revokeObjectURL(currentUrlRef.current);
-        currentUrlRef.current = null; // ✅ NEW: clears the reference
-      }
-      if (activeTorrent) {
-        activeTorrent.destroy(); // This kills it for real
-        console.log("🧹 Destroyed torrent for non-focused item");
+        currentUrlRef.current = null;
       }
     };
   }, [
@@ -281,10 +300,12 @@ export default function WebTorrentMedia({ media, isFocused }) {
     );
   }
 
+  // ✅ UPDATED: Includes AVIF, HEIC, HEIF, SVG
   const isImage =
     media.fileType === "image" ||
     media.type === "image" ||
     media.fileName?.match(/\.(jpg|jpeg|png|gif|webp|avif|heic|heif|svg)$/i);
+
   if (isImage) {
     return <img src={videoSrc} style={styles.image} alt="User content" />;
   }
