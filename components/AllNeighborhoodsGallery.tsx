@@ -1,9 +1,10 @@
+
 // components/AllNeighborhoodsGallery.tsx
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   ActivityIndicator,
   StyleSheet,
   TouchableOpacity,
@@ -17,9 +18,9 @@ import { Image } from "expo-image";
 import AdMessage from "./AdMessage";
 
 const { width, height } = Dimensions.get("window");
-const CARD_WIDTH = width; // Full width for paging
-const MEDIA_SIZE = width - 40; // Square media with some padding
-// Use the working 'images' query instead of 'myImages'
+const CARD_WIDTH = width;
+const MEDIA_SIZE = width - 40;
+
 const GET_NEIGHBORHOOD_GALLERY = gql`
   query GetMyAllNeighborhoodsGallery {
     getMyAllNeighborhoodsGallery {
@@ -75,23 +76,16 @@ const GET_RANDOM_AFFILIATE_LINK = gql`
   }
 `;
 
-// Utility function
-// Utility function - UPDATED
 const getFileType = (fileName: string) => {
   if (!fileName) return "unknown";
   fileName = fileName.toLowerCase();
-
   if (
     fileName.endsWith(".mp4") ||
     fileName.endsWith(".mov") ||
     fileName.endsWith(".webm") ||
     fileName.endsWith(".avi") ||
     fileName.endsWith(".mkv")
-  ) {
-    return "video";
-  }
-  
-  // ✅ Image types - Now includes AVIF, HEIC, HEIF, SVG
+  ) return "video";
   if (
     fileName.endsWith(".jpg") ||
     fileName.endsWith(".jpeg") ||
@@ -100,45 +94,23 @@ const getFileType = (fileName: string) => {
     fileName.endsWith(".webp") ||
     fileName.endsWith(".bmp") ||
     fileName.endsWith(".tiff") ||
-    fileName.endsWith(".avif") ||  // ✅ ADDED
-    fileName.endsWith(".heic") ||  // ✅ ADDED
-    fileName.endsWith(".heif") ||  // ✅ ADDED
-    fileName.endsWith(".svg")      // ✅ ADDED
-  ) {
-    return "image";
-  }
+    fileName.endsWith(".avif") ||
+    fileName.endsWith(".heic") ||
+    fileName.endsWith(".heif") ||
+    fileName.endsWith(".svg")
+  ) return "image";
   return "unknown";
 };
-// Simple media display component
-// Media Display Component - WITH GIF SUPPORT
-const MediaDisplay = ({
-  item,
-  isFocused,
-}: {
-  item: any;
-  isFocused: boolean;
-}) => {
 
+const MediaDisplay = ({ item, isFocused }: { item: any; isFocused: boolean }) => {
   const fileType = getFileType(item.fileName);
   const isImage = fileType === "image";
   const isVideo = fileType === "video";
   const isGif = item.fileName?.toLowerCase().endsWith(".gif");
 
-  // Get the display URL
   const getDisplayUrl = () => {
-    if (item.ipfsUrl) {
-      return item.ipfsUrl.replace(
-        "ipfs.filebase.io",
-        process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud",
-      );
-    }
-
-    if (item.cid) {
-      return `https://${
-        process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud"
-      }/ipfs/${item.cid}`;
-    }
-
+    if (item.ipfsUrl) return item.ipfsUrl.replace("ipfs.filebase.io", process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud");
+    if (item.cid) return `https://${process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud"}/ipfs/${item.cid}`;
     return null;
   };
 
@@ -152,47 +124,22 @@ const MediaDisplay = ({
     );
   }
 
-  // 🎯 If it has magnet link → WebTorrentMedia (handles everything)
   if (item.magnetLink && (isImage || isVideo)) {
     return (
       <View style={styles.magnetContainer}>
         <WebTorrentMedia
-          media={{
-            ...item,
-            imageUrl: isImage ? displayUrl : null,
-            videoUrl: isVideo ? displayUrl : null,
-            fileType: fileType,
-            isGif: isGif, // Pass GIF info
-          }}
+          media={{ ...item, imageUrl: isImage ? displayUrl : null, videoUrl: isVideo ? displayUrl : null, fileType: fileType, isGif: isGif }}
           isFocused={isFocused}
         />
       </View>
     );
   }
 
-  // 🎯 If it's a GIF → Use Expo Image with proper GIF support
   if (isGif) {
     return (
-      <TouchableOpacity
-        style={styles.gifContainer}
-        activeOpacity={1}
-        onPress={() => {
-          // Optional: Add fullscreen GIF viewer
-          console.log("GIF tapped:", displayUrl);
-        }}
-      >
-        <Image
-          source={{ uri: displayUrl }}
-          style={styles.image}
-          contentFit="contain"
-          transition={100}
-          // GIF-specific props
-          cachePolicy="memory-disk"
-          recyclingKey={`gif-${item.id}`}
-        />
-        <View style={styles.gifBadge}>
-          <Text style={styles.gifBadgeText}>GIF</Text>
-        </View>
+      <TouchableOpacity style={styles.gifContainer} activeOpacity={1} onPress={() => console.log("GIF tapped:", displayUrl)}>
+        <Image source={{ uri: displayUrl }} style={styles.image} contentFit="contain" transition={100} cachePolicy="memory-disk" recyclingKey={`gif-${item.id}`} />
+        <View style={styles.gifBadge}><Text style={styles.gifBadgeText}>GIF</Text></View>
         <Text style={styles.gifHint}>Tap and hold to save</Text>
       </TouchableOpacity>
     );
@@ -201,109 +148,50 @@ const MediaDisplay = ({
   if (isImage) {
     return (
       <View style={styles.fixedMediaWrapper}>
-        <Image
-          source={{ uri: displayUrl }}
-          // Use a style that doesn't conflict with the webtorrent one
-          style={styles.standardImage}
-          contentFit="contain" // 🎯 Use contain so nothing cuts off
-          transition={300}
-          onError={(e) => console.log("Image failed:", displayUrl, e)}
-        />
+        <Image source={{ uri: displayUrl }} style={styles.standardImage} contentFit="contain" transition={300} onError={(e) => console.log("Image failed:", displayUrl, e)} />
       </View>
     );
   }
 
-  // 🎯 If it's a video → Show a thumbnail with play button
   if (isVideo) {
     return (
-      <TouchableOpacity
-        style={styles.videoContainer}
-        onPress={() => Linking.openURL(displayUrl)}
-      >
-        <View style={styles.videoThumbnail}>
-          <Text style={styles.playIcon}>▶</Text>
-        </View>
+      <TouchableOpacity style={styles.videoContainer} onPress={() => Linking.openURL(displayUrl)}>
+        <View style={styles.videoThumbnail}><Text style={styles.playIcon}>▶</Text></View>
         <Text style={styles.videoLabel}>Tap to play video</Text>
       </TouchableOpacity>
     );
   }
 
-  // 🎯 File download fallback
   return (
-    <TouchableOpacity
-      onPress={() => Linking.openURL(displayUrl)}
-      style={styles.fileContainer}
-    >
+    <TouchableOpacity onPress={() => Linking.openURL(displayUrl)} style={styles.fileContainer}>
       <Text style={styles.fileIcon}>📁</Text>
       <View style={styles.fileInfo}>
-        <Text style={styles.fileName} numberOfLines={1}>
-          {item.fileName || "File"}
-        </Text>
-        <Text style={styles.fileType}>
-          {fileType || "File"} • Tap to download
-        </Text>
+        <Text style={styles.fileName} numberOfLines={1}>{item.fileName || "File"}</Text>
+        <Text style={styles.fileType}>{fileType || "File"} • Tap to download</Text>
       </View>
     </TouchableOpacity>
   );
 };
 
 export default function AllNeighborhoodsGallery() {
-  const [focusedId, setFocusedId] = useState(null);
-  // ✅ VIEWABILITY CONFIG: Starts downloading only when the card is fully visible
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 80, // Only load if 80% of the card is visible
-    minimumViewTime: 300, // Don't load if you just scrolled past it in <300ms
-  }).current;
-
-  const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    // 1. Set the current item as focused
-    let currentId = null;
-    let currentIndex = -1;
-
-    if (viewableItems.length > 0) {
-      const firstVisible = viewableItems[0];
-      currentId = firstVisible.item.id;
-      currentIndex = firstVisible.index;
-    }
-
-    // 2. Set the current item + the NEXT item to be focused
-    const idsToFocus = [currentId];
-    const nextItem = mediaItems[currentIndex + 1];
-    if (nextItem && nextItem.id) {
-      idsToFocus.push(nextItem.id);
-    }
-
-    // 3. Update state
-    setFocusedId(idsToFocus); // Change state to an array or handle logic accordingly
-  }).current;
-        // This updates a global "focusedId" so WebTorren
-    
   const { data, loading, error, refetch } = useQuery(GET_NEIGHBORHOOD_GALLERY, {
     fetchPolicy: "cache-and-network",
   });
   const [refreshing, setRefreshing] = useState(false);
   const { data: adData } = useQuery(GET_RANDOM_AFFILIATE_LINK);
-  // Extract and combine data from the single query result
+  const [activeIndex, setActiveIndex] = useState(0);
+  const scrollRef = useRef(null);
+
   const combinedData = React.useMemo(() => {
     if (!data?.getMyAllNeighborhoodsGallery) return [];
-
     const { videos, images } = data.getMyAllNeighborhoodsGallery;
-    const raw = [...videos, ...images].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
+    const raw = [...videos, ...images].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    // Inject Ads
     const withAds = [];
     raw.forEach((item, index) => {
       withAds.push(item);
-      // Every 5 items, inject a full-screen ad "page"
       if ((index + 1) % 5 === 0 && adData?.randomAffiliateLink) {
-        withAds.push({
-          isAd: true,
-          id: `ad-page-${index}`,
-          ...adData.randomAffiliateLink,
-        });
+        withAds.push({ isAd: true, id: `ad-page-${index}`, ...adData.randomAffiliateLink });
       }
     });
     return withAds;
@@ -315,89 +203,29 @@ export default function AllNeighborhoodsGallery() {
     setRefreshing(false);
   };
 
-  if (loading)
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FF00FF" />
-      </View>
-    );
-  if (error)
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorTitle}>{error.message}</Text>
-      </View>
-    );
+  const handleScrollEnd = (e: any) => {
+    const newIndex = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH);
+    setActiveIndex(newIndex);
+  };
 
-  // ... rest of your rendering logic using combinedData
+  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#FF00FF" /></View>;
+  if (error) return <View style={styles.center}><Text style={styles.errorTitle}>{error.message}</Text></View>;
 
   const mediaItems = combinedData;
   const totalCount = mediaItems.length;
-  const videoCount = mediaItems.filter(
-    (m) => getFileType(m.fileName) === "video",
-  ).length;
-  const imageCount = mediaItems.filter(
-    (m) => getFileType(m.fileName) === "image",
-  ).length;
-
-  const renderItem = ({ item }: { item: any }) => {
-    const fileType = getFileType(item.fileName);
-    const neighborhoodName = item.neighborhood?.name || "Unknown Neighborhood";
-
-    // ✅ PASS THE FOCUSED STATE DOWN!
-    const isFocused = focusedId === item.id;
-
-    if (item.isAd) {
-      return (
-        <View style={[styles.card, styles.adCardCenter]}>
-          <View style={styles.adBadgeOverlay}>
-            <Text style={styles.badgeText}>SPONSORED</Text>
-          </View>
-          <View style={styles.adMessageContainer}>
-            <AdMessage ad={item} />
-          </View>
-          <Text style={styles.adSwipeHint}>Swipe to continue gallery →</Text>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.card}>
-        <View style={styles.mediaContainer}>
-          {/* ✅ Pass isFocused to control lazy loading */}
-          <MediaDisplay item={item} isFocused={isFocused} />
-        </View>
-        ...
-      </View>
-    );
-  };
+  const videoCount = mediaItems.filter((m) => getFileType(m.fileName) === "video").length;
+  const imageCount = mediaItems.filter((m) => getFileType(m.fileName) === "image").length;
 
   if (mediaItems.length === 0) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>All Bubbles</Text>
-          <Text style={styles.headerSubtitle}>
-            Your combined media from all bubbles
-          </Text>
+          <Text style={styles.header <Title}>All Bubbles</Text>
+Scroll          <Text style={styles.headerSubtitleView}>Your combined media from all bubbles</Text>
         </View>
-
         <View style={styles.emptyState}>
           <Text style={styles.emptyIcon}>🖼️</Text>
           <Text style={styles.emptyTitle}>No media found</Text>
-          <Text style={styles.emptySubtitle}>
-            Upload some content or try these queries:
-          </Text>
-          <View style={styles.queryList}>
-            <Text style={styles.queryItem}>
-              • Use 'images' instead of 'myImages'
-            </Text>
-            <Text style={styles.queryItem}>
-              • Check if 'getMyVideos' returns data
-            </Text>
-            <Text style={styles.queryItem}>
-              • Try 'publicImages' or 'publicVideos'
-            </Text>
-          </View>
         </View>
       </View>
     );
@@ -405,377 +233,105 @@ export default function AllNeighborhoodsGallery() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>All Bubbles Gallery</Text>
-        <Text style={styles.headerSubtitle}>
-          {totalCount} items • {videoCount} videos • {imageCount} images
-        </Text>
+        <Text style={styles.headerSubtitle}>{totalCount} items • {videoCount} videos • {imageCount} images</Text>
       </View>
 
-      {/* Gallery List */}
-      <FlatList
-        data={mediaItems}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        horizontal={true}
-        pagingEnabled={true}
-        initialNumToRender={6}
-        maxToRenderPerBatch={10}
-        windowSize={5}
+      {/* VANILLA SCROLLVIEW - No complex virtualization! */}
+     
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.listContainer}
-        removeClippedSubviews={Platform.OS !== "web"}
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
-        ListFooterComponent={<View style={styles.footer} />}
-        viewabilityConfig={viewabilityConfig}
-        onViewableItemsChanged={onViewableItemsChanged}
-      />
+        onMomentumScrollEnd={handleScrollEnd}
+        snapToInterval={CARD_WIDTH}
+        decelerationRate="fast"
+      >
+        {mediaItems.map((item, index) => {
+          const neighborhoodName = item.neighborhood?.name || "Unknown Neighborhood";
+
+          // Preload current + next 2 items, but download only current really
+          const isFocused = Math.abs(index - activeIndex) <= 1;
+
+          if (item.isAd) {
+            return (
+              <View key={item.id || `ad-${index}`} style={[styles.card, styles.adCardCenter]}>
+                <View style={styles.adBadgeOverlay}><Text style={styles.badgeText}>SPONSORED</Text></View>
+                <View style={styles.adMessageContainer}><AdMessage ad={item} /></View>
+                <Text style={styles.adSwipeHint}>Swipe to continue gallery →</Text>
+              </View>
+            );
+          }
+
+          return (
+            <View key={item.id || index} style={styles.card}>
+              <View style={styles.mediaContainer}>
+                {/* Only current + next item actually downloads */}
+                <MediaDisplay item={item} isFocused={isFocused} />
+              </View>
+
+              <View style={styles.metadata}>
+                <View style={styles.metadataRow}>
+                  <Text style={styles.metadataLabel}>By:</Text>
+                  <Text style={styles.metadataValue}>{item.user?.username || "Unknown"}</Text>
+                </View>
+                <View style={styles.metadataRow}>
+                  <Text style={styles.metadataLabel}>Neighborhood:</Text>
+                  <Text style={styles.metadataValue}>{neighborhoodName}</Text>
+                </View>
+                <View style={styles.metadataRow}>
+                  <Text style={styles.metadataLabel}>File Type:</Text>
+                  <Text style={styles.metadataValue}>{getFileType(item.fileName).toUpperCase()}</Text>
+                </View>
+              </View>
+            </View>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
 
+// Styles (same as before, no changes needed)
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#130720",
-  },
-  listContainer: {
-    padding: 0,
-  },
-  card: {
-    width: CARD_WIDTH, // 🎯 Essential for pagingEnabled
-    height: height * 0.7, // Take up a good chunk of vertical space
-    backgroundColor: "#1C0A2E",
-    justifyContent: "center", // Center media vertically in the page
-    alignItems: "center",
-    padding: 20,
-    overflow: "hidden",
-  },
-  mediaContainer: {
-    width: MEDIA_SIZE,
-    height: MEDIA_SIZE, // 🎯 Force the square frame
-    backgroundColor: "#000",
-    borderRadius: 12,
-    overflow: "hidden",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#333",
-  },
-  // Ensure the internal wrapper also respects the size
-  fixedMediaWrapper: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  standardImage: {
-    width: "100%",
-    height: "100%",
-    // contentFit: "contain" is handled in the component props
-  },
-  magnetContainer: {
-    width: "100%",
-    height: "100%",
-  },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-    backgroundColor: "#130720",
-  },
-  loadingText: {
-    marginTop: 15,
-    color: "#00FFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  errorTitle: {
-    fontSize: 22,
-    color: "#FF0000",
-    marginBottom: 10,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  errorDetail: {
-    fontSize: 14,
-    color: "#FFFF00",
-    textAlign: "center",
-    marginBottom: 10,
-    fontFamily: "monospace",
-  },
-  errorHint: {
-    fontSize: 12,
-    color: "#888888",
-    textAlign: "center",
-    marginBottom: 15,
-    fontStyle: "italic",
-  },
-  retryButton: {
-    backgroundColor: "#FF0000",
-    paddingHorizontal: 25,
-    paddingVertical: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: "#F5F2FA",
-  },
-  retryText: {
-    color: "#130720",
-    fontSize: 16,
-    fontWeight: "900",
-    letterSpacing: 1,
-  },
-  header: {
-    padding: 10,
-    paddingBottom: 10,
-    backgroundColor: "#130720",
-    borderBottomWidth: 2,
-    borderBottomColor: "#591155",
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: "900",
-    color: "#F5F2FA",
-    marginBottom: 5,
-    letterSpacing: 1,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "#FFFF00",
-    letterSpacing: 0.5,
-  },
-
-  cardHeader: {
-    padding: 15,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1C0A2E",
-  },
-  titleContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  itemTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#F5F2FA",
-    marginRight: 10,
-  },
-  fileTypeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  videoBadge: {
-    backgroundColor: "#FF0000",
-  },
-  imageBadge: {
-    backgroundColor: "#591155",
-  },
-  badgeText: {
-    color: "#130720",
-    fontSize: 10,
-    fontWeight: "bold",
-    letterSpacing: 1,
-  },
-  description: {
-    fontSize: 14,
-    color: "#CCCCCC",
-    lineHeight: 20,
-  },
-
-  noMedia: {
-    padding: 40,
-    backgroundColor: "#130720",
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  noMediaText: {
-    color: "#F5F2FA",
-    fontSize: 14,
-  },
-
-  image: {
-    width: "100%",
-    aspectRatio: 1, // 🎯 Force a square if it's a photo, or 16/9
-    borderRadius: 8,
-    backgroundColor: "#222222",
-  },
-
-  videoContainer: {
-    width: "100%",
-    height: 250,
-    borderRadius: 8,
-    backgroundColor: "#130720",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#FF0000",
-  },
-  videoThumbnail: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(255, 0, 0, 0.8)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 15,
-  },
-  playIcon: {
-    fontSize: 40,
-    color: "#F5F2FA",
-    marginLeft: 5,
-  },
-  videoLabel: {
-    color: "#F5F2FA",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  fileContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#130720",
-    padding: 20,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#1307200FF",
-  },
-  fileIcon: {
-    fontSize: 36,
-    marginRight: 15,
-    color: "#F5F2FA",
-  },
-  fileInfo: {
-    flex: 1,
-  },
-  fileName: {
-    color: "#F5F2FA",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  fileType: {
-    color: "#00AA00",
-    fontSize: 14,
-  },
-  metadata: {
-    padding: 15,
-    backgroundColor: "#130720",
-    borderTopWidth: 1,
-    borderTopColor: "#130720",
-  },
-  metadataRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  metadataLabel: {
-    fontSize: 14,
-    color: "#888888",
-    width: 120,
-  },
-  metadataValue: {
-    fontSize: 14,
-    color: "#F5F2FA",
-    fontWeight: "bold",
-    flex: 1,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 40,
-  },
-  emptyIcon: {
-    fontSize: 60,
-    marginBottom: 20,
-    color: "#F5F2FA",
-  },
-  emptyTitle: {
-    fontSize: 24,
-    color: "#F5F2FA",
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    color: "#CCCCCC",
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 15,
-  },
-  queryList: {
-    alignItems: "flex-start",
-    paddingHorizontal: 20,
-  },
-  queryItem: {
-    fontSize: 14,
-    color: "#888888",
-    marginBottom: 5,
-  },
-  footer: {
-    height: 50,
-  },
-  adCardCenter: {
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#1C0A2E",
-    borderColor: "#591155", // Purple glow for ads
-  },
-  adBadgeOverlay: {
-    position: "absolute",
-    top: 15,
-    right: 15,
-    backgroundColor: "#FFFF00",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  adMessageContainer: {
-    width: "100%",
-    alignItems: "center",
-    padding: 10,
-  },
-  adSwipeHint: {
-    color: "#888",
-    fontSize: 12,
-    marginTop: 20,
-    fontStyle: "italic",
-  },
-  gifContainer: {
-    position: "relative",
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  gifBadge: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    backgroundColor: "#FF00FF",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    zIndex: 10,
-  },
-  gifBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  gifHint: {
-    color: "#888",
-    fontSize: 12,
-    marginTop: 5,
-    fontStyle: "italic",
-  },
-
-  // Make sure image style works for GIFs too
+  container: { flex: 1, backgroundColor: "#130720" },
+  listContainer: { padding: 0 },
+  card: { width: CARD_WIDTH, height: height * 0.7, backgroundColor: "#1C0A2E", justifyContent: "center", alignItems: "center", padding: 20, overflow: "hidden" },
+  mediaContainer: { width: MEDIA_SIZE, height: MEDIA_SIZE, backgroundColor: "#000", borderRadius: 12, overflow: "hidden", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "#333" },
+  fixedMediaWrapper: { width: "100%", height: "100%", justifyContent: "center", alignItems: "center" },
+  standardImage: { width: "100%", height: "100%" },
+  magnetContainer: { width: "100%", height: "100%" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20, backgroundColor: "#130720" },
+  errorTitle: { fontSize: 22, color: "#FF0000", marginBottom: 10, fontWeight: "bold", textAlign: "center" },
+  header: { padding: 10, paddingBottom: 10, backgroundColor: "#130720", borderBottomWidth: 2, borderBottomColor: "#591155" },
+  headerTitle: { fontSize: 28, fontWeight: "900", color: "#F5F2FA", marginBottom: 5, letterSpacing: 1 },
+  headerSubtitle: { fontSize: 14, color: "#FFFF00", letterSpacing: 0.5 },
+  noMedia: { padding: 40, backgroundColor: "#130720", borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  noMediaText: { color: "#F5F2FA", fontSize: 14 },
+  image: { width: "100%", aspectRatio: 1, borderRadius: 8, backgroundColor: "#222222" },
+  videoContainer: { width: "100%", height: 250, borderRadius: 8, backgroundColor: "#130720", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FF0000" },
+  videoThumbnail: { width: 80, height: 80, borderRadius: 40, backgroundColor: "rgba(255, 0, 0, 0.8)", alignItems: "center", justifyContent: "center", marginBottom: 15 },
+  playIcon: { fontSize: 40, color: "#F5F2FA", marginLeft: 5 },
+  videoLabel: { color: "#F5F2FA", fontSize: 16, fontWeight: "bold" },
+  fileContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "#130720", padding: 20, borderRadius: 8, borderWidth: 2, borderColor: "#1307200FF" },
+  fileIcon: { fontSize: 36, marginRight: 15, color: "#F5F2FA" },
+  fileInfo: { flex: 1 },
+  fileName: { color: "#F5F2FA", fontSize: 16, fontWeight: "bold", marginBottom: 4 },
+  fileType: { color: "#00AA00", fontSize: 14 },
+  metadata: { padding: 15, backgroundColor: "#130720", borderTopWidth: 1, borderTopColor: "#130720" },
+  metadataRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  metadataLabel: { fontSize: 14, color: "#888888", width: 120 },
+  metadataValue: { fontSize: 14, color: "#F5F2FA", fontWeight: "bold", flex: 1 },
+  emptyState: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40 },
+  emptyIcon: { fontSize: 60, marginBottom: 20, color: "#F5F2FA" },
+  emptyTitle: { fontSize: 24, color: "#F5F2FA", fontWeight: "bold", marginBottom: 10 },
+  adCardCenter: { justifyContent: "center", alignItems: "center", backgroundColor: "#1C0A2E", borderColor: "#591155" },
+  adBadgeOverlay: { position: "absolute", top: 15, right: 15, backgroundColor: "#FFFF00", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  adMessageContainer: { width: "100%", alignItems: "center", padding: 10 },
+  adSwipeHint: { color: "#888", fontSize: 12, marginTop: 20, fontStyle: "italic" },
+  gifContainer: { position: "relative", width: "100%", alignItems: "center", marginBottom: 10 },
+  gifBadge: { position: "absolute", top: 10, right: 10, backgroundColor: "#FF100FF", paddingHorizontal: 8, paddingVertical: 3., borderRadius: 4, zIndex: 10 },
+  gifBadgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "bold" },
+  gifHint: { color: "#888", fontSize: 12, marginTop: 5, fontStyle: "italic" },
 });
