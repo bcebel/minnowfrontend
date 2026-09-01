@@ -77,7 +77,7 @@ const GET_RANDOM_AFFILIATE_LINK = gql`
 
 // Utility function
 // Utility function - UPDATED
-const getFileType = (fileName: string) => {
+const const getFileType = (fileName: string) => {
   if (!fileName) return "unknown";
   fileName = fileName.toLowerCase();
 
@@ -90,20 +90,25 @@ const getFileType = (fileName: string) => {
   ) {
     return "video";
   }
+  
+  // ✅ Image types - Now includes AVIF, HEIC, HEIF, SVG
   if (
     fileName.endsWith(".jpg") ||
     fileName.endsWith(".jpeg") ||
     fileName.endsWith(".png") ||
-    fileName.endsWith(".gif") || // Keep GIF as "image" type
+    fileName.endsWith(".gif") ||
     fileName.endsWith(".webp") ||
     fileName.endsWith(".bmp") ||
-    fileName.endsWith(".tiff")
+    fileName.endsWith(".tiff") ||
+    fileName.endsWith(".avif") ||  // ✅ ADDED
+    fileName.endsWith(".heic") ||  // ✅ ADDED
+    fileName.endsWith(".heif") ||  // ✅ ADDED
+    fileName.endsWith(".svg")      // ✅ ADDED
   ) {
-    return "image"; // GIF is still an image type
+    return "image";
   }
   return "unknown";
 };
-
 // Simple media display component
 // Media Display Component - WITH GIF SUPPORT
 const MediaDisplay = ({
