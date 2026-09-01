@@ -181,24 +181,33 @@ export default function AllNeighborhoodsGallery() {
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef(null);
 
-  const combinedData = React.useMemo(() => {
-  if (!data?.getMyAllNeighborhoodsGallery) return [];
-  const { videos, images } = data.getMyAllNeighborhoodsGallery;
+const combinedData = React.useMemo(() => {
+    if (!data?.getMyAllNeighborhoodsGallery) return [];
 
-  // ✅ 1. Flatten the arrays
-  const flattened = [...videos, ...images];
+    const { videos, images } = data.getMyAllNeighborhoodsGallery;
 
-  // ✅ 2. Normalize every timestamp to milliseconds, then sort!
-  const raw = flattened.sort((a, b) => {
-    const timeA = new Date(a.createdAt).getTime();
-    const timeB = new Date(b.createdAt).getTime();
-    
-    // If date parsing fails (NaN), default to 0 so it doesn't break sorting
-    const safeA = isNaN(timeA) ? 0 : timeA;
-    const safeB = isNaN(timeB) ? 0 : timeB;
+    // 1. Flatten the arrays safely
+    const flattened = [...(videos || []), ...(images || [])];
 
-    return safeB - safeA; // Newest first (descending)
-  });
+    // 2. Normalize date OR fallback to Mongo ObjectID timestamp
+    const raw = flattened.sort((a, b) => {
+      // Try to parse createdAt
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+      // If createdAt is missing, use the Mongo ID timestamp
+      const idTimeA = a.id || a._id ? new Date(parseInt((a.id || a._id).substring(0, 8), 16) * 1000).getTime() : 0;
+      const idTimeB = b.id || b._id ? new Date(parseInt((b.id || b._id).substring(0, 8), 16) * 1000).getTime() : 0;
+
+      // Use whichever has a value
+      const finalA = timeA || idTimeA;
+      const finalB = timeB || idTimeB;
+
+      return finalB - finalA; // Newest first
+    });
+
+    // ... rest of your code (ads injection)
+  
     const withAds = [];
     raw.forEach((item, index) => {
       withAds.push(item);
