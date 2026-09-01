@@ -248,27 +248,33 @@ export default function WebTorrentMedia({ media, isFocused }) {
       }
     };
 
-    loadMedia();
-
     return () => {
-      isMountedRef.current = false;
+  isMountedRef.current = false;
 
-      // ✅ KILL SWITCH: Clear the new timers
-      if (noProgressTimeoutRef.current) clearTimeout(noProgressTimeoutRef.current);
-      if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
+  // ✅ KILL TIMERS (Always do this)
+  if (noProgressTimeoutRef.current) clearTimeout(noProgressTimeoutRef.current);
+  if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
 
-      // ✅ Destroy the torrent to free memory
-      if (activeTorrent) {
-        activeTorrent.destroy();
-        console.log("🧹 Destroyed torrent for non-focused item");
-      }
+  // ✅ IF IT'S ALREADY DOWNLOADED AND PLAYING, DON'T DESTROY IT!
+  // Just leave the <video> or <img> element mounted so it stays on screen.
+  if (isReady) {
+    console.log("✅ Content already loaded. Keeping it rendered.");
+    return; // 👈 This skips the destructive cleanup
+  }
 
-      // ✅ Revoke blob URL
-      if (currentUrlRef.current && currentUrlRef.current.startsWith("blob:")) {
-        URL.revokeObjectURL(currentUrlRef.current);
-        currentUrlRef.current = null;
-      }
-    };
+  // ❌ IF IT'S STILL DOWNLOADING, DESTROY THE TORRENT TO SAVE MEMORY
+  if (activeTorrent) {
+    activeTorrent.destroy();
+    console.log("🧹 Destroyed active torrent");
+  }
+
+  // ❌ Revoke blob URL only if we haven't finished
+  if (currentUrlRef.current && currentUrlRef.current.startsWith("blob:")) {
+    URL.revokeObjectURL(currentUrlRef.current);
+    currentUrlRef.current = null;
+  }
+};
+    
   }, [
     isFocused,
     media.magnetLink,
