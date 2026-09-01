@@ -5,7 +5,8 @@ import * as FileSystem from "expo-file-system";
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
-export const uploadToIPFS = async (fileUri, fileName, neighborhoodId, type) => {
+// ✅ FIX: Correct parameter order: (fileUri, fileName, type, neighborhoodId)
+export const uploadToIPFS = async (fileUri, fileName, type, neighborhoodId) => {
   const token = await AsyncStorage.getItem("token");
   if (!token) throw new Error("No authentication token found");
 
@@ -14,15 +15,15 @@ export const uploadToIPFS = async (fileUri, fileName, neighborhoodId, type) => {
     const response = await fetch(fileUri);
     const blob = await response.blob();
 
-    // In PostComposer.tsx -> uploadToIPFS
-formData.append("video", blob, fileName);
-formData.append("title", fileName);
-formData.append("description", `Uploaded ${type} - ${fileName}`);
-if (neighborhoodId) {
+    formData.append("video", blob, fileName);
+    formData.append("title", fileName);
+    formData.append("description", `Uploaded ${type} - ${fileName}`);
+
+    // ✅ FIX: Only append if it actually exists
+    if (neighborhoodId) {
       formData.append("neighborhoodId", neighborhoodId);
     }
-// ✅ ADD THIS LINE RIGHT HERE:
-formData.append("neighborhoodId", neighborhoodId);
+
     const res = await fetch(`${BACKEND_URL}/upload`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
@@ -35,7 +36,7 @@ formData.append("neighborhoodId", neighborhoodId);
     }
 
     const result = await res.json();
-    return result; // Returns { ipfsUrl, magnetLink }
+    return result;
   } else {
     // Native React Native fallback
     const uploadResponse = await FileSystem.uploadAsync(
@@ -48,7 +49,7 @@ formData.append("neighborhoodId", neighborhoodId);
         parameters: {
           title: fileName,
           description: `Uploaded ${type} - ${fileName}`,
-          neighborhoodId: neighborhoodId || "", 
+          neighborhoodId: neighborhoodId || "",
         },
         headers: {
           Authorization: `Bearer ${token}`,
