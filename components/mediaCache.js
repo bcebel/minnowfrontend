@@ -37,10 +37,7 @@ if (isBrowser()) {
       });
     }
 
-    
-    this.dbPromise = this.#initDB();
-    // Remove the permanent Circuit Breaker
-    this.isCacheFull = false; 
+     
   
 
   async saveMedia(cid, blob, mimeType, fileName, isPublic = true) {
