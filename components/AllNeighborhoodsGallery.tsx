@@ -238,8 +238,8 @@ Scroll          <Text style={styles.headerSubtitleView}>Your combined media from
         <Text style={styles.headerSubtitle}>{totalCount} items • {videoCount} videos • {imageCount} images</Text>
       </View>
 
-      {/* VANILLA SCROLLVIEW - No complex virtualization! */}
-     
+    
+     <ScrollView>
         ref={scrollRef}
         horizontal
         pagingEnabled
