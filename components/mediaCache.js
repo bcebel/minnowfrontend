@@ -37,46 +37,44 @@ if (isBrowser()) {
       });
     }
 
-    async saveMedia(cid, blob, mimeType, fileName, isPublic = true) {
-      // If we already know the disk is full, don't even try
-      if (this.isCacheFull || !blob) return false;
+    constructor() {
+    this.dbPromise = this.#initDB();
+    // Remove the permanent Circuit Breaker
+    this.isCacheFull = false; 
+  }
 
-      try {
-        const arrayBuffer = await blob.arrayBuffer();
-        const db = await this.dbPromise;
-        if (!db) return false;
+  async saveMedia(cid, blob, mimeType, fileName, isPublic = true) {
+    if (!blob) return false;
 
-        const tx = db.transaction(STORE_NAME, "readwrite");
-        const store = tx.objectStore(STORE_NAME);
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      const db = await this.dbPromise;
+      if (!db) return false;
 
-        await store.put({
-          cid,
-          data: arrayBuffer,
-          mimeType,
-          fileName,
-          isPublic,
-          lastAccessed: new Date(),
-          storedAt: new Date(),
-        });
-        await tx.done;
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
 
-        console.log(`✅ Saved to Cache: ${cid}`);
-        return true;
-      } catch (error) {
-        // Detect if disk is full
-        if (
-          error.name === "QuotaExceededError" ||
-          error.name === "UnknownError"
-        ) {
-          this.isCacheFull = true;
-          console.error(
-            "🚨 DISK FULL: Disabling cache writes for this session."
-          );
-        }
-        console.error("❌ Save failed:", error.name);
-        return false;
-      }
+      await store.put({
+        cid,
+        data: arrayBuffer,
+        mimeType,
+        fileName,
+        isPublic,
+        lastAccessed: new Date(),
+        storedAt: new Date(),
+      });
+      await tx.done;
+
+      console.log(`✅ Saved to Cache: ${cid}`);
+      return true;
+    } catch (error) {
+      // Just log it, don't permanently disable!
+      console.warn("❌ Save failed (will retry later):", error.name);
+      return false;
     }
+  }
+
+        
 
     async getMedia(cid) {
       try {
