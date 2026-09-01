@@ -52,20 +52,22 @@ export default function WebTorrentMedia({ media, isFocused }) {
     const fallbackUrl = media.ipfsUrl || media.fallbackUrl;
 
     // ✅ BACKGROUND CACHE DOWNLOAD (Starts immediately, saves even if you scroll away)
-    const startBackgroundCache = () => {
+    // ✅ BACKGROUND CACHE DOWNLOAD (Saves even if you scroll away)
+    const startBackgroundCache = async () => {
       if (!fallbackUrl) return;
-      fetch(fallbackUrl)
-        .then((res) => res.blob())
-        .then((blob) => {
-          if (blob && blob.size > 0) {
-            const fileName = media.fileName || `media-${media.cid}`;
-            const mimeType = blob.type || (fileName.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
-            saveMedia(media.cid, blob, mimeType, fileName)
-              .then(() => console.log("💾 Background cache saved:", media.cid))
-              .catch(() => {});
-          }
-        })
-        .catch(() => {});
+      try {
+        const response = await fetch(fallbackUrl);
+        const blob = await response.blob();
+        if (blob && blob.size > 0) {
+          const fileName = media.fileName || `media-${media.cid}`;
+          const mimeType = blob.type || (fileName.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
+          // Await the save so it's ready next time!
+          await saveMedia(media.cid, blob, mimeType, fileName);
+          console.log("💾 Background cache saved:", media.cid);
+        }
+      } catch (e) {
+        // Silent catch
+      }
     };
 
     // ✅ Helper to save blob from P2P when it completes
