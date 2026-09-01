@@ -157,6 +157,7 @@ export default function PostComposer({
             fileName ||
               `post_${Date.now()}.${currentMediaType === "video" ? "mp4" : "jpg"}`,
             currentMediaType,
+            neighborhoodId,
           );
 
           const slice = pinataResult?.slices?.[0];
