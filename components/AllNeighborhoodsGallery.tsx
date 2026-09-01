@@ -77,7 +77,7 @@ const GET_RANDOM_AFFILIATE_LINK = gql`
 
 // Utility function
 // Utility function - UPDATED
-const const getFileType = (fileName: string) => {
+const getFileType = (fileName: string) => {
   if (!fileName) return "unknown";
   fileName = fileName.toLowerCase();
 
@@ -248,6 +248,7 @@ const MediaDisplay = ({
 };
 
 export default function AllNeighborhoodsGallery() {
+  const [focusedId, setFocusedId] = useState(null);
   // ✅ VIEWABILITY CONFIG: Starts downloading only when the card is fully visible
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 80, // Only load if 80% of the card is visible
@@ -263,7 +264,7 @@ export default function AllNeighborhoodsGallery() {
       }
     });
   }).current;
-    const [focusedId, setFocusedId] = useState(null);
+    
   const { data, loading, error, refetch } = useQuery(GET_NEIGHBORHOOD_GALLERY, {
     fetchPolicy: "cache-and-network",
   });
