@@ -14,10 +14,13 @@ export const uploadToIPFS = async (fileUri, fileName, type) => {
     const response = await fetch(fileUri);
     const blob = await response.blob();
 
-    formData.append("video", blob, fileName); // Backend uses "video" as the field name
-    formData.append("title", fileName);
-    formData.append("description", `Uploaded ${type} - ${fileName}`);
+    // In PostComposer.tsx -> uploadToIPFS
+formData.append("video", blob, fileName);
+formData.append("title", fileName);
+formData.append("description", `Uploaded ${type} - ${fileName}`);
 
+// ✅ ADD THIS LINE RIGHT HERE:
+formData.append("neighborhoodId", neighborhoodId);
     const res = await fetch(`${BACKEND_URL}/upload`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
