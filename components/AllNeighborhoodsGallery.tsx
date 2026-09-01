@@ -184,30 +184,37 @@ export default function AllNeighborhoodsGallery() {
 const combinedData = React.useMemo(() => {
     if (!data?.getMyAllNeighborhoodsGallery) return [];
 
+    // 1. Get both videos and images (or maybe it's just pulling posts?)
     const { videos, images } = data.getMyAllNeighborhoodsGallery;
 
-    // 1. Flatten the arrays safely
+    // 2. Flatten them
     const flattened = [...(videos || []), ...(images || [])];
 
-    // 2. Normalize date OR fallback to Mongo ObjectID timestamp
-    const raw = flattened.sort((a, b) => {
-      // Try to parse createdAt
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-
-      // If createdAt is missing, use the Mongo ID timestamp
-      const idTimeA = a.id || a._id ? new Date(parseInt((a.id || a._id).substring(0, 8), 16) * 1000).getTime() : 0;
-      const idTimeB = b.id || b._id ? new Date(parseInt((b.id || b._id).substring(0, 8), 16) * 1000).getTime() : 0;
-
-      // Use whichever has a value
-      const finalA = timeA || idTimeA;
-      const finalB = timeB || idTimeB;
-
-      return finalB - finalA; // Newest first
+    // 3. NORMALIZE: If the media is nested in an array (Post object), extract it!
+    const normalized = flattened.map((item: any) => {
+      // Check if it's a Post object (has media array)
+      if (item.media && item.media.length > 0) {
+        return {
+          ...item, // Spread the post info
+          ...item.media[0], // Spread the media info (cid, url, magnetURI)
+          fileName: item.fileName || item.media[0].fileName || `media-${item.media[0].cid}`,
+          fileType: item.media[0].mediaType === "video" ? "video" : "image",
+          // Make sure we get the neighborhood ID to populate later
+          neighborhoodId: item.neighborhood, 
+        };
+      }
+      // If it's already flat, just return it
+      return item;
     });
 
-    // ... rest of your code (ads injection)
-  
+    // 4. Sort by createdAt (normalized)
+    const raw = normalized.sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    // 5. Inject ads
     const withAds = [];
     raw.forEach((item, index) => {
       withAds.push(item);
