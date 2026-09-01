@@ -7,6 +7,12 @@ import { useMutation, useQuery } from "@apollo/client";
 import { DELETE_POST, GET_COMMENTS } from "../app/graphql/queries";
 import CommentSection from "./CommentSection";
 
+const getFileType = (fileName = "") => {
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  if (["jpg", "jpeg", "png", "gif", "avif", "heic", "heif", "webp", "svg"].includes(ext)) return "image";
+  if (["mp4", "mov", "webm", "avi", "mkv"].includes(ext)) return "video";
+  return "unknown";
+};
 
 const PINATA_GATEWAY =
   process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud";
@@ -133,7 +139,7 @@ export default function FeedItem({ post, onLike, onComment, onDelete }) {
               magnetLink: item.magnetLink || item.magnetURI || null,
               fallbackUrl: fallbackUrl,
               ipfsUrl: fallbackUrl,
-              fileType: item.fileType || item.mediaType || "image",
+              fileType: item.fileType || item.mediaType || getFileType(item.fileName) || "image",
               fileName: item.fileName || `media-${item.cid}`,
               slices: item.slices || null,
             };
