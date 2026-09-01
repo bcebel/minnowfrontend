@@ -256,14 +256,27 @@ export default function AllNeighborhoodsGallery() {
   }).current;
 
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    // Update the state so children know if they are focused
-    viewableItems.forEach(({ item, isViewable }) => {
-      if (item && item.id) {
-        // This updates a global "focusedId" so WebTorrentMedia knows if it's active or not
-        setFocusedId(isViewable ? item.id : null);
-      }
-    });
+    // 1. Set the current item as focused
+    let currentId = null;
+    let currentIndex = -1;
+
+    if (viewableItems.length > 0) {
+      const firstVisible = viewableItems[0];
+      currentId = firstVisible.item.id;
+      currentIndex = firstVisible.index;
+    }
+
+    // 2. Set the current item + the NEXT item to be focused
+    const idsToFocus = [currentId];
+    const nextItem = mediaItems[currentIndex + 1];
+    if (nextItem && nextItem.id) {
+      idsToFocus.push(nextItem.id);
+    }
+
+    // 3. Update state
+    setFocusedId(idsToFocus); // Change state to an array or handle logic accordingly
   }).current;
+        // This updates a global "focusedId" so WebTorren
     
   const { data, loading, error, refetch } = useQuery(GET_NEIGHBORHOOD_GALLERY, {
     fetchPolicy: "cache-and-network",
