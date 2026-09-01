@@ -182,10 +182,23 @@ export default function AllNeighborhoodsGallery() {
   const scrollRef = useRef(null);
 
   const combinedData = React.useMemo(() => {
-    if (!data?.getMyAllNeighborhoodsGallery) return [];
-    const { videos, images } = data.getMyAllNeighborhoodsGallery;
-    const raw = [...videos, ...images].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  if (!data?.getMyAllNeighborhoodsGallery) return [];
+  const { videos, images } = data.getMyAllNeighborhoodsGallery;
 
+  // ✅ 1. Flatten the arrays
+  const flattened = [...videos, ...images];
+
+  // ✅ 2. Normalize every timestamp to milliseconds, then sort!
+  const raw = flattened.sort((a, b) => {
+    const timeA = new Date(a.createdAt).getTime();
+    const timeB = new Date(b.createdAt).getTime();
+    
+    // If date parsing fails (NaN), default to 0 so it doesn't break sorting
+    const safeA = isNaN(timeA) ? 0 : timeA;
+    const safeB = isNaN(timeB) ? 0 : timeB;
+
+    return safeB - safeA; // Newest first (descending)
+  });
     const withAds = [];
     raw.forEach((item, index) => {
       withAds.push(item);
