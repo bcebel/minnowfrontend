@@ -230,14 +230,19 @@ export default function AllNeighborhoodsGallery() {
     );
   }
 
+  const WINDOW = 2; // render current +/- 2 = max 5 items
+  const startIndex = Math.max(0, activeIndex - WINDOW);
+  const endIndex = Math.min(mediaItems.length - 1, activeIndex + WINDOW);
+  const visibleIndices = [];
+  for (let i = startIndex; i <= endIndex; i++) visibleIndices.push(i);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>All Bubbles Gallery</Text>
-        <Text style={styles.headerSubtitle}>{totalCount} items • {videoCount} videos • {imageCount} images</Text>
+ <Text style={styles.headerTitle}>All Bubbles Gallery</Text>
+        <Text style={styles.headerSubtitle}>{mediaItems.length} items</Text>
       </View>
 
-      {/* THE CORRECTED SCROLLVIEW TAG! */}
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -247,9 +252,10 @@ export default function AllNeighborhoodsGallery() {
         snapToInterval={CARD_WIDTH}
         decelerationRate="fast"
       >
-        {mediaItems.map((item, index) => {
+        {visibleIndices.map((index) => {
+          const item = mediaItems[index];
           const neighborhoodName = item.neighborhood?.name || "Unknown Neighborhood";
-          const isFocused = Math.abs(index - activeIndex) <= 1;
+          const isFocused = Math.abs(index - activeIndex) <= 1; // current + next only
 
           if (item.isAd) {
             return (
@@ -275,10 +281,6 @@ export default function AllNeighborhoodsGallery() {
                 <View style={styles.metadataRow}>
                   <Text style={styles.metadataLabel}>Neighborhood:</Text>
                   <Text style={styles.metadataValue}>{neighborhoodName}</Text>
-                </View>
-                <View style={styles.metadataRow}>
-                  <Text style={styles.metadataLabel}>File Type:</Text>
-                  <Text style={styles.metadataValue}>{getFileType(item.fileName).toUpperCase()}</Text>
                 </View>
               </View>
             </View>
