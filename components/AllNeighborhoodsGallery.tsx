@@ -252,11 +252,15 @@ export default function AllNeighborhoodsGallery() {
         snapToInterval={CARD_WIDTH}
         decelerationRate="fast"
       >
-        {visibleIndices.map((index) => {
-          const item = mediaItems[index];
+        {/* Map over ALL 45 items, but only render the heavy content for the window */}
+        {mediaItems.map((item, index) => {
+          
+          const isInWindow = index >= startIndex && index <= endIndex;
           const neighborhoodName = item.neighborhood?.name || "Unknown Neighborhood";
-          const isFocused = Math.abs(index - activeIndex) <= 1; // current + next only
+          const isFocused = Math.abs(index - activeIndex) <= 1;
 
+          // 1. Render a "Dummy" card if it's an ad, or if it's out of the window.
+          // (This preserves the scrolling width without mounting heavy media)
           if (item.isAd) {
             return (
               <View key={item.id || `ad-${index}`} style={[styles.card, styles.adCardCenter]}>
@@ -267,6 +271,21 @@ export default function AllNeighborhoodsGallery() {
             );
           }
 
+          // 2. If it's OUT of the window, render a lightweight placeholder to keep the scroll size.
+          if (!isInWindow) {
+            return (
+              <View key={item.id || `placeholder-${index}`} style={styles.card}>
+                <View style={styles.mediaContainer}>
+                  {/* Empty placeholder - no WebTorrent, no Image, no memory hog */}
+                </View>
+                <View style={styles.metadata}>
+                  <Text style={styles.metadataValue}>Loading {index + 1}...</Text>
+                </View>
+              </View>
+            );
+          }
+
+          // 3. If it's INSIDE the window, render the full card with media.
           return (
             <View key={item.id || index} style={styles.card}>
               <View style={styles.mediaContainer}>
