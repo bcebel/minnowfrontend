@@ -202,9 +202,12 @@ export default function AllNeighborhoodsGallery() {
     setRefreshing(false);
   };
 
-  const handleScrollEnd = (e: any) => {
+  // Add this new function
+  const handleScroll = (e: any) => {
     const newIndex = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH);
-    setActiveIndex(newIndex);
+    if (newIndex !== activeIndex) {
+      setActiveIndex(newIndex);
+    }
   };
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#FF00FF" /></View>;
@@ -243,22 +246,22 @@ export default function AllNeighborhoodsGallery() {
         <Text style={styles.headerSubtitle}>{mediaItems.length} items</Text>
       </View>
 
-<ScrollView
+      <ScrollView
         ref={scrollRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={handleScrollEnd}
+        onScroll={handleScroll} // ✅ Use onScroll for web reliability
+        scrollEventThrottle={16} // ✅ Essential for web
         snapToInterval={CARD_WIDTH}
         decelerationRate="fast"
       >
-        {/* Render ALL items so the scroll width is correct */}
+        {/* ✅ MAP OVER ALL 45 ITEMS so the scroll width is correct */}
         {mediaItems.map((item, index) => {
           const isInWindow = index >= startIndex && index <= endIndex;
           const neighborhoodName = item.neighborhood?.name || "Unknown Neighborhood";
           const isFocused = Math.abs(index - activeIndex) <= 1;
 
-          // If it's an ad, always render it
           if (item.isAd) {
             return (
               <View key={item.id || `ad-${index}`} style={[styles.card, styles.adCardCenter]}>
@@ -269,13 +272,11 @@ export default function AllNeighborhoodsGallery() {
             );
           }
 
-          // If it's NOT in the window, render a lightweight placeholder
+          // If it's OUT of the window, render a lightweight empty placeholder
           if (!isInWindow) {
             return (
               <View key={item.id || `placeholder-${index}`} style={styles.card}>
-                <View style={styles.mediaContainer}>
-                  {/* Empty placeholder - no media, no memory hog */}
-                </View>
+                <View style={styles.mediaContainer} />
                 <View style={styles.metadata}>
                   <Text style={styles.metadataValue}>Loading {index + 1}...</Text>
                 </View>
@@ -283,7 +284,7 @@ export default function AllNeighborhoodsGallery() {
             );
           }
 
-          // If it IS in the window, render the full card with media
+          // If it IS in the window, render the full card
           return (
             <View key={item.id || index} style={styles.card}>
               <View style={styles.mediaContainer}>
@@ -304,6 +305,8 @@ export default function AllNeighborhoodsGallery() {
           );
         })}
       </ScrollView>
+
+
     </View>
   );
 }
