@@ -1,4 +1,4 @@
-// WebTorrentMedia.js - ULTIMATE FALLBACK VERSION (FIXED)
+// WebTorrentMedia.js - ULTIMATE CACHING VERSION
 import React, { useState, useEffect, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { getMedia, saveMedia } from "../components/mediaCache";
@@ -36,22 +36,33 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const currentUrlRef = useRef(null);
   const isMountedRef = useRef(true);
   const p2pHitRef = useRef(false);
-  const progressRef = useRef(0); // ⬅️ FIX: Used to avoid stale closures
+  const progressRef = useRef(0);
 
-  // Timers
   const overallTimeoutRef = useRef(null);
   const noProgressTimeoutRef = useRef(null);
 
   useEffect(() => {
-    // ✅ CRITICAL: If NOT focused, don't even start the download.
     if (!isFocused) return;
 
     isMountedRef.current = true;
     p2pHitRef.current = false;
-    progressRef.current = 0; // Reset progress ref
+    progressRef.current = 0;
 
     let activeTorrent = null;
     const fallbackUrl = media.ipfsUrl || media.fallbackUrl;
+
+    // Helper to save the blob to cache
+    const saveCachedMedia = (blob, fileName) => {
+      if (!blob) return;
+      let mimeType = blob.type;
+      if (!mimeType) {
+        const ext = (fileName || "").split(".").pop().toLowerCase();
+        mimeType = ext === "mp4" ? "video/mp4" : "image/jpeg";
+      }
+      saveMedia(media.cid, blob, mimeType, fileName || `media-${media.cid}`)
+        .then(() => console.log("💾 Saved to cache:", media.cid))
+        .catch(() => {});
+    };
 
     const loadMedia = async () => {
       // 1. Check local device cache (fastest)
@@ -91,18 +102,18 @@ export default function WebTorrentMedia({ media, isFocused }) {
           setStatus("p2p_streaming");
           setProgress(100);
           setIsReady(true);
+          saveCachedMedia(combined, media.fileName);
           return;
         } catch (err) {
           console.log("Slice assembly failed:", err.message);
         }
       }
 
-      // 3. GIVE P2P A CHANCE, BUT WITH HARD TIMEOUTS!
+      // 3. GIVE P2P A CHANCE
       if (media?.magnetLink) {
         try {
           if (isMountedRef.current) setStatus("connecting_p2p");
 
-          // 🛑 SET THE 15-SECOND ABSOLUTE CUTOFF
           overallTimeoutRef.current = setTimeout(() => {
             if (!isReady && isMountedRef.current) {
               console.log("⏰ 15s overall timeout. Forcing HTTP.");
@@ -114,7 +125,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
             }
           }, 15000);
 
-          // 🛑 SET THE 5-SECOND NO-PROGRESS CUTOFF (using ref to avoid stale closure)
           noProgressTimeoutRef.current = setTimeout(() => {
             if (!isReady && progressRef.current === 0 && isMountedRef.current) {
               console.log("🐌 No progress in 5s. Forcing HTTP.");
@@ -126,7 +136,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
             }
           }, 5000);
 
-          // Start the torrent
           const torrentResult = await webtorrentService.add(media.magnetLink, {
             urlList: fallbackUrl ? [fallbackUrl] : [],
             strategy: "sequential",
@@ -137,24 +146,31 @@ export default function WebTorrentMedia({ media, isFocused }) {
           activeTorrent = torrentResult.torrent;
 
           if (activeTorrent) {
+            // ✅ NEW: Cache the file when torrent is fully done
+            activeTorrent.on("done", () => {
+              if (isMountedRef.current && activeTorrent.files[0]) {
+                activeTorrent.files[0].getBuffer((err, buffer) => {
+                  if (!err && buffer) {
+                    const blob = new Blob([buffer]);
+                    saveCachedMedia(blob, media.fileName);
+                  }
+                });
+              }
+            });
+
             const updateStats = () => {
               if (!isMountedRef.current) return;
               const numPeers = activeTorrent.numPeers || 0;
               const pct = Math.floor(activeTorrent.progress * 100);
-
-              // Update ref for accurate timer checks
               progressRef.current = pct;
 
               setPeerCount(numPeers);
               setProgress(pct);
 
-              // ✅ If we got ANY progress, clear the 5s no-progress timer
               if (pct > 0 && noProgressTimeoutRef.current) {
                 clearTimeout(noProgressTimeoutRef.current);
                 noProgressTimeoutRef.current = null;
               }
-
-              // ✅ If we are ready, clear the 15s overall timer
               if (isReady && overallTimeoutRef.current) {
                 clearTimeout(overallTimeoutRef.current);
                 overallTimeoutRef.current = null;
@@ -203,29 +219,12 @@ export default function WebTorrentMedia({ media, isFocused }) {
         setVideoSrc(cachedUrl);
         setStatus("fallback_http");
         setIsReady(true);
-      }
 
-      // 4. Cache in background
-      if (fallbackUrl) {
-        fetchIPFSForCache(fallbackUrl);
-      }
-    };
-
-    const fetchIPFSForCache = async (url) => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (response.ok && isMountedRef.current) {
-          const blob = await response.blob();
-          const fileName = media.fileName || `media-${media.cid}`;
-          const mimeType = blob.type || (fileName.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
-          saveMedia(media.cid, blob, mimeType, fileName);
-        }
-      } catch (e) {
-        // Silent catch
+        // ✅ NEW: Cache the fallback blob
+        fetch(fallbackUrl)
+          .then((res) => res.blob())
+          .then((blob) => saveCachedMedia(blob, media.fileName))
+          .catch(() => {});
       }
     };
 
@@ -233,23 +232,16 @@ export default function WebTorrentMedia({ media, isFocused }) {
 
     return () => {
       isMountedRef.current = false;
-
-      // ✅ KILL TIMERS
       if (noProgressTimeoutRef.current) clearTimeout(noProgressTimeoutRef.current);
       if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
 
-      // ✅ IF IT'S ALREADY DOWNLOADED, KEEP IT MOUNTED (Memory optimization)
-      if (isReady) {
-        console.log("✅ Content already loaded. Keeping it rendered.");
-        return;
-      }
+      // If already ready, don't destroy; keeps it mounted for instant access
+      if (isReady) return;
 
-      // ❌ IF STILL LOADING, DESTROY TO SAVE MEMORY
+      // If still loading, kill the torrent to save memory
       if (activeTorrent) {
         activeTorrent.destroy();
-        console.log("🧹 Destroyed active torrent");
       }
-
       if (currentUrlRef.current && currentUrlRef.current.startsWith("blob:")) {
         URL.revokeObjectURL(currentUrlRef.current);
         currentUrlRef.current = null;
@@ -265,12 +257,8 @@ export default function WebTorrentMedia({ media, isFocused }) {
     media.slices,
   ]);
 
-  // ✅ THE FIX: If it's NOT focused, return null instead of showing a wheel!
-  if (!isFocused) {
-    return null;
-  }
+  if (!isFocused) return null;
 
-  // Loading state
   if (!videoSrc || !isReady) {
     return (
       <View style={styles.loader}>
