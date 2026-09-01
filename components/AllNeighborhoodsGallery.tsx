@@ -1,4 +1,3 @@
-
 // components/AllNeighborhoodsGallery.tsx
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -220,8 +219,8 @@ export default function AllNeighborhoodsGallery() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.header <Title}>All Bubbles</Text>
-Scroll          <Text style={styles.headerSubtitleView}>Your combined media from all bubbles</Text>
+          <Text style={styles.headerTitle}>All Bubbles</Text>
+          <Text style={styles.headerSubtitle}>Your combined media from all bubbles</Text>
         </View>
         <View style={styles.emptyState}>
           <Text style={styles.emptyIcon}>🖼️</Text>
@@ -238,8 +237,8 @@ Scroll          <Text style={styles.headerSubtitleView}>Your combined media from
         <Text style={styles.headerSubtitle}>{totalCount} items • {videoCount} videos • {imageCount} images</Text>
       </View>
 
-    
-     <ScrollView>
+      {/* THE CORRECTED SCROLLVIEW TAG! */}
+      <ScrollView
         ref={scrollRef}
         horizontal
         pagingEnabled
@@ -250,8 +249,6 @@ Scroll          <Text style={styles.headerSubtitleView}>Your combined media from
       >
         {mediaItems.map((item, index) => {
           const neighborhoodName = item.neighborhood?.name || "Unknown Neighborhood";
-
-          // Preload current + next 2 items, but download only current really
           const isFocused = Math.abs(index - activeIndex) <= 1;
 
           if (item.isAd) {
@@ -267,7 +264,6 @@ Scroll          <Text style={styles.headerSubtitleView}>Your combined media from
           return (
             <View key={item.id || index} style={styles.card}>
               <View style={styles.mediaContainer}>
-                {/* Only current + next item actually downloads */}
                 <MediaDisplay item={item} isFocused={isFocused} />
               </View>
 
@@ -293,7 +289,6 @@ Scroll          <Text style={styles.headerSubtitleView}>Your combined media from
   );
 }
 
-// Styles (same as before, no changes needed)
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#130720" },
   listContainer: { padding: 0 },
@@ -314,7 +309,7 @@ const styles = StyleSheet.create({
   videoThumbnail: { width: 80, height: 80, borderRadius: 40, backgroundColor: "rgba(255, 0, 0, 0.8)", alignItems: "center", justifyContent: "center", marginBottom: 15 },
   playIcon: { fontSize: 40, color: "#F5F2FA", marginLeft: 5 },
   videoLabel: { color: "#F5F2FA", fontSize: 16, fontWeight: "bold" },
-  fileContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "#130720", padding: 20, borderRadius: 8, borderWidth: 2, borderColor: "#1307200FF" },
+  fileContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "#130720", padding: 20, borderRadius: 8, borderWidth: 2, borderColor: "#130720" },
   fileIcon: { fontSize: 36, marginRight: 15, color: "#F5F2FA" },
   fileInfo: { flex: 1 },
   fileName: { color: "#F5F2FA", fontSize: 16, fontWeight: "bold", marginBottom: 4 },
@@ -331,7 +326,7 @@ const styles = StyleSheet.create({
   adMessageContainer: { width: "100%", alignItems: "center", padding: 10 },
   adSwipeHint: { color: "#888", fontSize: 12, marginTop: 20, fontStyle: "italic" },
   gifContainer: { position: "relative", width: "100%", alignItems: "center", marginBottom: 10 },
-  gifBadge: { position: "absolute", top: 10, right: 10, backgroundColor: "#FF100FF", paddingHorizontal: 8, paddingVertical: 3., borderRadius: 4, zIndex: 10 },
+  gifBadge: { position: "absolute", top: 10, right: 10, backgroundColor: "#FF10FF", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, zIndex: 10 },
   gifBadgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "bold" },
   gifHint: { color: "#888", fontSize: 12, marginTop: 5, fontStyle: "italic" },
 });
