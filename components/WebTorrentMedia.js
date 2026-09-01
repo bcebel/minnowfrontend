@@ -1,4 +1,4 @@
- // WebTorrentMedia.js - ULTIMATE FALLBACK VERSION
+// WebTorrentMedia.js - ULTIMATE FALLBACK VERSION (FIXED)
 import React, { useState, useEffect, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { getMedia, saveMedia } from "../components/mediaCache";
@@ -19,7 +19,6 @@ const getCachedPinataUrl = (cid, fallbackUrl) => {
     console.log(`💾 Pinata cache hit: ${cid}`);
     return pinataCache.get(cid);
   }
-
   const url = fallbackUrl || `https://${PINATA_GATEWAY}/ipfs/${cid}`;
   pinataCache.set(cid, url);
   console.log(`💾 Pinata cached: ${cid}`);
@@ -37,22 +36,21 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const currentUrlRef = useRef(null);
   const isMountedRef = useRef(true);
   const p2pHitRef = useRef(false);
+  const progressRef = useRef(0); // ⬅️ FIX: Used to avoid stale closures
 
-  // ✅ NEW REFS FOR THE HARD CUTOFFS
-  const overallTimeoutRef = useRef(null); // 15s absolute cutoff
-  const noProgressTimeoutRef = useRef(null); // 5s zero-progress cutoff
+  // Timers
+  const overallTimeoutRef = useRef(null);
+  const noProgressTimeoutRef = useRef(null);
 
   useEffect(() => {
     // ✅ CRITICAL: If NOT focused, don't even start the download.
-    if (!isFocused) {
-      return; 
-    }
+    if (!isFocused) return;
 
     isMountedRef.current = true;
     p2pHitRef.current = false;
+    progressRef.current = 0; // Reset progress ref
 
     let activeTorrent = null;
-
     const fallbackUrl = media.ipfsUrl || media.fallbackUrl;
 
     const loadMedia = async () => {
@@ -74,22 +72,18 @@ export default function WebTorrentMedia({ media, isFocused }) {
         console.log("Cache miss:", err.message);
       }
 
-      // 2. Check if this is a multi-slice video
+      // 2. Check multi-slice video
       if (media.slices && media.slices.length > 1) {
         try {
           setStatus("connecting_slices");
-          console.log(`📦 Loading ${media.slices.length} slices...`);
-
           const chunks = [];
           for (const slice of media.slices) {
             if (!isMountedRef.current) return;
-
             const result = await webtorrentService.add(slice.magnetLink);
             const response = await fetch(result.url);
             const blob = await response.blob();
             chunks.push(blob);
           }
-
           const combined = new Blob(chunks, { type: "video/mp4" });
           const url = URL.createObjectURL(combined);
           currentUrlRef.current = url;
@@ -116,20 +110,18 @@ export default function WebTorrentMedia({ media, isFocused }) {
               setVideoSrc(cachedUrl);
               setStatus("fallback_http");
               setIsReady(true);
-              // Clear the other timer
               if (noProgressTimeoutRef.current) clearTimeout(noProgressTimeoutRef.current);
             }
           }, 15000);
 
-          // 🛑 SET THE 5-SECOND NO-PROGRESS CUTOFF
+          // 🛑 SET THE 5-SECOND NO-PROGRESS CUTOFF (using ref to avoid stale closure)
           noProgressTimeoutRef.current = setTimeout(() => {
-            if (!isReady && progress === 0 && isMountedRef.current) {
+            if (!isReady && progressRef.current === 0 && isMountedRef.current) {
               console.log("🐌 No progress in 5s. Forcing HTTP.");
               const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
               setVideoSrc(cachedUrl);
               setStatus("fallback_http");
               setIsReady(true);
-              // Clear the overall timer
               if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
             }
           }, 5000);
@@ -142,7 +134,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
           });
 
           if (!isMountedRef.current) return;
-
           activeTorrent = torrentResult.torrent;
 
           if (activeTorrent) {
@@ -150,6 +141,9 @@ export default function WebTorrentMedia({ media, isFocused }) {
               if (!isMountedRef.current) return;
               const numPeers = activeTorrent.numPeers || 0;
               const pct = Math.floor(activeTorrent.progress * 100);
+
+              // Update ref for accurate timer checks
+              progressRef.current = pct;
 
               setPeerCount(numPeers);
               setProgress(pct);
@@ -168,7 +162,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
 
               if (pct >= 3 && !isReady) {
                 setIsReady(true);
-                // Clear overall timer immediately
                 if (overallTimeoutRef.current) {
                   clearTimeout(overallTimeoutRef.current);
                   overallTimeoutRef.current = null;
@@ -185,10 +178,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
             activeTorrent.on("piece", updateStats);
 
             if (activeTorrent.pieces > 0) {
-              const firstPieces = Math.max(
-                1,
-                Math.floor(activeTorrent.pieces * 0.1),
-              );
+              const firstPieces = Math.max(1, Math.floor(activeTorrent.pieces * 0.1));
               activeTorrent.select(0, firstPieces - 1);
             }
           }
@@ -201,17 +191,14 @@ export default function WebTorrentMedia({ media, isFocused }) {
           }
         } catch (err) {
           console.log("P2P Error:", err.message);
-          // If add() fails, instantly fall back to Pinata
           const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
           setVideoSrc(cachedUrl);
           setStatus("fallback_http");
           setIsReady(true);
-          // Clear timers
           if (noProgressTimeoutRef.current) clearTimeout(noProgressTimeoutRef.current);
           if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
         }
       } else if (fallbackUrl && isMountedRef.current) {
-        // If NO magnet link exists, use the fallback immediately
         const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
         setVideoSrc(cachedUrl);
         setStatus("fallback_http");
@@ -234,13 +221,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
         if (response.ok && isMountedRef.current) {
           const blob = await response.blob();
           const fileName = media.fileName || `media-${media.cid}`;
-          const mimeType =
-            blob.type ||
-            (fileName.endsWith(".mp4")
-              ? "video/mp4"
-              : fileName.endsWith(".png")
-                ? "image/png"
-                : "image/jpeg");
+          const mimeType = blob.type || (fileName.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
           saveMedia(media.cid, blob, mimeType, fileName);
         }
       } catch (e) {
@@ -248,33 +229,32 @@ export default function WebTorrentMedia({ media, isFocused }) {
       }
     };
 
+    loadMedia();
+
     return () => {
-  isMountedRef.current = false;
+      isMountedRef.current = false;
 
-  // ✅ KILL TIMERS (Always do this)
-  if (noProgressTimeoutRef.current) clearTimeout(noProgressTimeoutRef.current);
-  if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
+      // ✅ KILL TIMERS
+      if (noProgressTimeoutRef.current) clearTimeout(noProgressTimeoutRef.current);
+      if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
 
-  // ✅ IF IT'S ALREADY DOWNLOADED AND PLAYING, DON'T DESTROY IT!
-  // Just leave the <video> or <img> element mounted so it stays on screen.
-  if (isReady) {
-    console.log("✅ Content already loaded. Keeping it rendered.");
-    return; // 👈 This skips the destructive cleanup
-  }
+      // ✅ IF IT'S ALREADY DOWNLOADED, KEEP IT MOUNTED (Memory optimization)
+      if (isReady) {
+        console.log("✅ Content already loaded. Keeping it rendered.");
+        return;
+      }
 
-  // ❌ IF IT'S STILL DOWNLOADING, DESTROY THE TORRENT TO SAVE MEMORY
-  if (activeTorrent) {
-    activeTorrent.destroy();
-    console.log("🧹 Destroyed active torrent");
-  }
+      // ❌ IF STILL LOADING, DESTROY TO SAVE MEMORY
+      if (activeTorrent) {
+        activeTorrent.destroy();
+        console.log("🧹 Destroyed active torrent");
+      }
 
-  // ❌ Revoke blob URL only if we haven't finished
-  if (currentUrlRef.current && currentUrlRef.current.startsWith("blob:")) {
-    URL.revokeObjectURL(currentUrlRef.current);
-    currentUrlRef.current = null;
-  }
-};
-    
+      if (currentUrlRef.current && currentUrlRef.current.startsWith("blob:")) {
+        URL.revokeObjectURL(currentUrlRef.current);
+        currentUrlRef.current = null;
+      }
+    };
   }, [
     isFocused,
     media.magnetLink,
@@ -284,6 +264,11 @@ export default function WebTorrentMedia({ media, isFocused }) {
     media.fileName,
     media.slices,
   ]);
+
+  // ✅ THE FIX: If it's NOT focused, return null instead of showing a wheel!
+  if (!isFocused) {
+    return null;
+  }
 
   // Loading state
   if (!videoSrc || !isReady) {
@@ -306,7 +291,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
     );
   }
 
-  // ✅ UPDATED: Includes AVIF, HEIC, HEIF, SVG
   const isImage =
     media.fileType === "image" ||
     media.type === "image" ||
@@ -330,13 +314,9 @@ export default function WebTorrentMedia({ media, isFocused }) {
         onError={(e) => console.log("❌ Video error:", e)}
       />
       <View style={styles.overlayStatus}>
-        <ActivityIndicator
-          size="small"
-          color={status.startsWith("p2p") ? "#00ff00" : "#00ffff"}
-        />
+        <ActivityIndicator size="small" color={status.startsWith("p2p") ? "#00ff00" : "#00ffff"} />
         <Text style={styles.overlayText}>
-          {status === "p2p_streaming" &&
-            `🚀 P2P (${peerCount} peers, ${progress}%)`}
+          {status === "p2p_streaming" && `🚀 P2P (${peerCount} peers, ${progress}%)`}
           {status === "p2p_swarming" && `🌊 Swarming (${progress}%)`}
           {status === "fallback_http" && "🌍 HTTP"}
           {status === "cached" && "💾 Cache"}
@@ -347,62 +327,13 @@ export default function WebTorrentMedia({ media, isFocused }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    width: "100%",
-    height: "100%",
-    position: "relative",
-    backgroundColor: "#000",
-  },
-  video: {
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-  },
-  loader: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: 200,
-    backgroundColor: "#111",
-  },
-  statusText: {
-    color: "#fff",
-    fontSize: 14,
-    marginTop: 10,
-    textAlign: "center",
-  },
-  progressBarContainer: {
-    width: "80%",
-    height: 4,
-    backgroundColor: "#333",
-    borderRadius: 2,
-    marginTop: 12,
-  },
-  progressBar: {
-    height: "100%",
-    backgroundColor: "#00ffff",
-    borderRadius: 2,
-  },
-  overlayStatus: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    backgroundColor: "rgba(0,0,0,0.75)",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 5,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  overlayText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "bold",
-  },
+  container: { width: "100%", height: "100%", position: "relative", backgroundColor: "#000" },
+  video: { width: "100%", height: "100%", objectFit: "contain" },
+  image: { width: "100%", height: "100%", objectFit: "contain" },
+  loader: { flex: 1, justifyContent: "center", alignItems: "center", minHeight: 200, backgroundColor: "#111" },
+  statusText: { color: "#fff", fontSize: 14, marginTop: 10, textAlign: "center" },
+  progressBarContainer: { width: "80%", height: 4, backgroundColor: "#333", borderRadius: 2, marginTop: 12 },
+  progressBar: { height: "100%", backgroundColor: "#00ffff", borderRadius: 2 },
+  overlayStatus: { position: "absolute", top: 10, right: 10, backgroundColor: "rgba(0,0,0,0.75)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 5, flexDirection: "row", alignItems: "center", gap: 6 },
+  overlayText: { color: "#fff", fontSize: 10, fontWeight: "bold" },
 });
