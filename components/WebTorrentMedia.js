@@ -284,8 +284,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const isImage =
     media.fileType === "image" ||
     media.type === "image" ||
-    media.fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-
+    media.fileName?.match(/\.(jpg|jpeg|png|gif|webp|avif|heic|heif|svg)$/i);
   if (isImage) {
     return <img src={videoSrc} style={styles.image} alt="User content" />;
   }
