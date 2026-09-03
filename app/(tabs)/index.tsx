@@ -8,6 +8,7 @@ import {
   View,
   ImageBackground,
 } from "react-native";
+import { BlurView } from 'expo-blur';
 import { useRouter } from "expo-router";
 import { themes } from "../theme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -43,8 +44,11 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Rest of your content */}
+        
+
+
         <View style={styles.actionsContainer}>
+<BlurView intensity={50} tint="light" style={styles.bubbleGlass}>
           <TouchableOpacity
             style={[styles.secondaryButton, { borderColor: "#00FFFF" }]}
             onPress={() => router.push("/login")}
@@ -53,6 +57,7 @@ export default function HomeScreen() {
               Sign In
             </Text>
           </TouchableOpacity>
+</BlurView>
           <TouchableOpacity
             onPress={handleLogout}
             style={[styles.logoutButton, { backgroundColor: "#591155" }]}
@@ -325,6 +330,19 @@ const styles = StyleSheet.create({
   logoutButtonText: {
     fontSize: 18,
     fontWeight: "bold",
+  },
+bubbleGlass: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)', // Semi-transparent background
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 20,
+    
+    // Web only (React Native Web supports this)
+    boxShadow: 'inset 1px 1px 1px 0px rgba(255, 255, 255, 0.6), inset -1px -1px 2px 0px rgba(0, 0, 0, 0.2), 0 12px 32px 0 rgba(0, 0, 0, 0.15)',
+    
+    // Web only (Safari needs the prefix)
+    backdropFilter: 'blur(16px) saturate(190%) brightness(1.1)',
+    WebkitBackdropFilter: 'blur(16px) saturate(190%) brightness(1.1)',
   },
   // ... rest of your styles
 });
