@@ -47,14 +47,14 @@ return (
     <Tabs.Screen
       name="neighborhoods/index"
       options={{
-        title: "🫧🫧",
+        title: "🫧",
         tabBarIcon: ({ color }) => null,
       }}
     />
     <Tabs.Screen
       name="gallery"
       options={{
-        title: "g",
+        title: "🖼️",
         tabBarIcon: ({ color }) => null,
       }}
     />
