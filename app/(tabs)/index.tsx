@@ -88,7 +88,7 @@ export default function HomeScreen() {
                 { fontSize: 24 },
               ]}
             >
-              Welcome to Bubblebase.
+              Welcome to BubbleBased.
             </Text>
             <Text
               style={[
@@ -106,7 +106,7 @@ export default function HomeScreen() {
                 { marginBottom: 15 },
               ]}
             >
-              Community powered p2p media using WebTorrent.
+              Community powered
             </Text>
             <Text
               style={[
@@ -115,7 +115,7 @@ export default function HomeScreen() {
                 { marginBottom: 15 },
               ]}
             >
-              Instead of using the big data centers & AI - we rely on each other to broadcast to our own private digital neighborhoods.  
+            Our own private digital neighborhoods.  
             </Text>
             <Text
               style={[
@@ -124,7 +124,7 @@ export default function HomeScreen() {
                 { marginBottom: 15 },
               ]}
             >
-              Users run free affiliate ads.
+              Yoy can run free affiliate platform ads.
             </Text>
             <Text style={[{ color: "#F5F2FA" }, { fontSize: 24 }]}>
               Decentralized social media for the people.
