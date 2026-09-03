@@ -323,13 +323,12 @@ const styles = StyleSheet.create({
   },
 
   logoutButton: {
-    borderWidth: 2,
+    borderWidth: 0.5,
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 48,
-    borderColor: "#00FFFF",
+    borderColor: "#000000",
     alignItems: "center",
-    backgroundColor: "#130720",
   },
   logoutButtonText: {
     fontSize: 18,
