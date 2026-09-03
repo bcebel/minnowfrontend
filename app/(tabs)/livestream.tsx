@@ -384,12 +384,10 @@ function Livestream({ stream }) {
 }
 */
 export default function LivestreamScreen() {
-const router = useRouter();
-  
+  const router = useRouter(); // ✅ Now this works perfectly
+
   // ✅ Get the token from your context
   const { token } = React.useContext(AuthContext); 
-  // OR, if you made a useAuth hook:
-  // const { token } = useAuth();
 
   // 🚨 The Guard: If there is no token, show the preview
   // (This runs BEFORE any useQuery calls, so Apollo never fires)
@@ -403,6 +401,7 @@ const router = useRouter();
       />
     );
   }
+// ... rest of your code remains exactly the same
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const [isRecording, setIsRecording] = useState(false);
   const [selectedHood, setSelectedHood] = useState(null);
