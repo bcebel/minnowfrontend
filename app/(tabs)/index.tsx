@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   secondaryButton: {
-    borderWidth: 2,
+    borderWidth: 0.5,
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 48,
