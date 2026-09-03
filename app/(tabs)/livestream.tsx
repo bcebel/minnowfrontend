@@ -385,6 +385,7 @@ function Livestream({ stream }) {
 }
 */
 export default function LivestreamScreen() {
+const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
 
