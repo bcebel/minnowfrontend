@@ -105,14 +105,6 @@ export default function HomeScreen() {
                 { fontSize: 24 },
                 { marginBottom: 15 },
               ]}
-            >Community powered
-            </Text>
-            <Text
-              style={[
-                { color: "#F5F2FA" },
-                { fontSize: 24 },
-                { marginBottom: 15 },
-              ]}
             >
             Our own private digital neighborhoods.  
             </Text>
