@@ -335,7 +335,7 @@ bubbleGlass: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)', // Semi-transparent background
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 20,
+    borderRadius: 48,
     
     // Web only (React Native Web supports this)
     boxShadow: 'inset 1px 1px 1px 0px rgba(255, 255, 255, 0.6), inset -1px -1px 2px 0px rgba(0, 0, 0, 0.2), 0 12px 32px 0 rgba(0, 0, 0, 0.15)',
