@@ -48,7 +48,7 @@ export default function HomeScreen() {
 
 
         <View style={styles.actionsContainer}>
-<BlurView intensity={50} tint="light" style={styles.bubbleGlass}>
+<BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
           <TouchableOpacity
             style={[styles.secondaryButton, { borderColor: "#00FFFF" }]}
             onPress={() => router.push("/login")}
