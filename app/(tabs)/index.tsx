@@ -50,10 +50,10 @@ export default function HomeScreen() {
         <View style={styles.actionsContainer}>
 <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
           <TouchableOpacity
-            style={[styles.secondaryButton, { borderColor: "#000000" }]}
+            style={styles.secondaryButton}
             onPress={() => router.push("/login")}
           >
-            <Text style={[styles.secondaryButtonText, { color: "#F5F2FA" }]}>
+            <Text style={[styles.secondaryButtonText, { color: "#FFFFFF" }]}>
               Sign In
             </Text>
           </TouchableOpacity>
@@ -61,19 +61,19 @@ export default function HomeScreen() {
 <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
           <TouchableOpacity
             onPress={handleLogout}
-            style={[styles.logoutButton, { backgroundColor: "rgba 89, 17, 85, 0.3"}]}
+            style={[styles.logoutButton, { backgroundColor: "rgba 89, 17, 85, 0.5"}]}
           >
-            <Text style={[styles.logoutButtonText, { color: "#F5F2FA" }]}>
+            <Text style={[styles.logoutButtonText, { color: "#FFFFFF" }]}>
               Logout
             </Text>
           </TouchableOpacity>
 </BlurView>
 <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
           <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: "rgba 21, 17, 89, 0.3" }]}
+            style={[styles.primaryButton, { backgroundColor: "rgba 21, 17, 89, 0.5" }]}
             onPress={() => router.push("/register")}
           >
-            <Text style={[styles.primaryButtonText, { color: "#F5F2FA" }]}>
+            <Text style={[styles.primaryButtonText, { color: "#FFFFFF" }]}>
               New User? Join the Bubble
             </Text>
           </TouchableOpacity>
@@ -247,24 +247,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   primaryButton: {
-    borderWidth: 0.5,
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 48,
     alignItems: "center",
-    borderColor: "#000000",
   },
   primaryButtonText: {
     fontSize: 16,
     fontWeight: "bold",
   },
   secondaryButton: {
-    borderWidth: 0.5,
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 48,
-    alignItems: "center",
-    backgroundColor: "rgba 57, 17, 89, 0.3",
+    alignItems: "center", 
+    backgroundColor: "rgba 57, 17, 89, 0.5",
   },
   secondaryButtonText: {
     fontSize: 18,
@@ -323,11 +320,9 @@ const styles = StyleSheet.create({
   },
 
   logoutButton: {
-    borderWidth: 0.5,
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 48,
-    borderColor: "#000000",
     alignItems: "center",
   },
   logoutButtonText: {
