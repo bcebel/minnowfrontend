@@ -10,6 +10,8 @@ import {
   FlatList,
   TouchableOpacity,
 } from "react-native";
+import TabPreview from "../../components/LandingPreview";
+import { useAuth } from '../../contexts/AuthProvider';
 import { gql, useQuery, useSubscription } from "@apollo/client";
 import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer";
 import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
@@ -380,6 +382,19 @@ function Livestream({ stream }) {
 }
 */
 export default function LivestreamScreen() {
+const { isAuthenticated } = useAuth();
+
+  // 🚨 If not logged in, show the tour for THIS tab
+  if (!isAuthenticated) {
+    return (
+      <TabPreview
+        icon="📡"
+        title="P2P Livestreams"
+        description="Stream to your community without buffering. Your content is served by the swarm, not a central server."
+        onSignUp={() => router.push('/login')} // Or whatever your login route is
+      />
+    );
+  }
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const [isRecording, setIsRecording] = useState(false);
   const [selectedHood, setSelectedHood] = useState(null);
