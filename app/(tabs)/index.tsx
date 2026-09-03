@@ -105,8 +105,7 @@ export default function HomeScreen() {
                 { fontSize: 24 },
                 { marginBottom: 15 },
               ]}
-            >
-              Community powered
+            >Community powered
             </Text>
             <Text
               style={[
