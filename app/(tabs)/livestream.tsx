@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import TabPreview from "../../components/LandingPreview";
-import { useAuth } from '../../contexts/AuthProvider';
+import { useAuth } from "../../contexts/AuthProvider";
 import { gql, useQuery, useSubscription } from "@apollo/client";
 import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer";
 import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
