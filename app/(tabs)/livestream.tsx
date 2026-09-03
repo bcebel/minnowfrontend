@@ -384,8 +384,9 @@ function Livestream({ stream }) {
   );
 }
 */
+
 export default function LivestreamScreen() {
-const router = useRouter();
+  const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -398,6 +399,25 @@ const router = useRouter();
     checkLogin();
   }, []);
 
+  // ---------------------------------------------------------
+  // MOVE ALL HOOKS HERE! (BEFORE any early returns)
+  // ---------------------------------------------------------
+  const { height: SCREEN_HEIGHT } = useWindowDimensions();
+  const [isRecording, setIsRecording] = useState(false);
+  const [selectedHood, setSelectedHood] = useState(null);
+
+  // Add skip: !isLoggedIn so they don't fire until logged in!
+  const { data: meData } = useQuery(GET_ME, { skip: !isLoggedIn });
+  const { data: hoodsData, loading: lHoods } = useQuery(GET_MY_NEIGHBORHOODS, { skip: !isLoggedIn });
+  const {
+    data: streamsData,
+    loading: lStreams,
+    refetch,
+  } = useQuery(GET_ACTIVE_LIVESTREAMS, { skip: !isLoggedIn, pollInterval: 5000 });
+
+  // ---------------------------------------------------------
+  // NOW IT'S SAFE TO DO EARLY RETURNS
+  // ---------------------------------------------------------
   if (loading) return <ActivityIndicator />;
 
   if (!isLoggedIn) {
@@ -409,22 +429,6 @@ const router = useRouter();
       </View>
     );
   }
-// ... rest of your code remains exactly the same
-  const { height: SCREEN_HEIGHT } = useWindowDimensions();
-  const [isRecording, setIsRecording] = useState(false);
-  const [selectedHood, setSelectedHood] = useState(null);
-
-  // 1. Get Me, Neighborhoods,
-  // and Streams
-  const { data: meData } = useQuery(GET_ME);
-  const { data: hoodsData, loading: lHoods } = useQuery(GET_MY_NEIGHBORHOODS);
-  const {
-    data: streamsData,
-    loading: lStreams,
-    refetch,
-  } = useQuery(GET_ACTIVE_LIVESTREAMS, {
-    pollInterval: 5000,
-  });
 
   // 2. Handle Recording State
   if (isRecording) {
