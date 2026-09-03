@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 48,
     alignItems: "center",
-    backgroundColor: "#391159",
+    backgroundColor: "rgba 57, 17, 89, 0.3",
   },
   secondaryButtonText: {
     fontSize: 18,
