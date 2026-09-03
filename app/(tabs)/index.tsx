@@ -123,10 +123,10 @@ export default function HomeScreen() {
                 { marginBottom: 15 },
               ]}
             >
-              Yoy can run free affiliate platform ads.
+              
             </Text>
             <Text style={[{ color: "#F5F2FA" }, { fontSize: 24 }]}>
-              Decentralized social media for the people.
+          
             </Text>
           </View>
         </View>
