@@ -10,6 +10,7 @@ import {
   FlatList,
   TouchableOpacity,
 } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useRouter } from "expo-router"
 import TabPreview from "../../components/LandingPreview";
@@ -384,21 +385,27 @@ function Livestream({ stream }) {
 }
 */
 export default function LivestreamScreen() {
-  const router = useRouter(); // ✅ Now this works perfectly
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // ✅ Get the token from your context
-  const { token } = React.useContext(AuthContext); 
+  useEffect(() => {
+    const checkLogin = async () => {
+      const token = await AsyncStorage.getItem('token');
+      setIsLoggedIn(!!token);
+      setLoading(false);
+    };
+    checkLogin();
+  }, []);
 
-  // 🚨 The Guard: If there is no token, show the preview
-  // (This runs BEFORE any useQuery calls, so Apollo never fires)
-  if (!token) {
+  if (loading) return <ActivityIndicator />;
+
+  if (!isLoggedIn) {
     return (
-      <TabPreview
-        icon="📡"
-        title="P2P Livestreams"
-        description="Stream to your community without buffering. Your content is served by the swarm, not a central server."
-        onSignUp={() => router.push('/login')}
-      />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: '#fff', fontSize: 18 }}>
+          Log in to see Livestreams
+        </Text>
+      </View>
     );
   }
 // ... rest of your code remains exactly the same
