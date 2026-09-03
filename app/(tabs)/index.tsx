@@ -58,22 +58,26 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
 </BlurView>
+<BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
           <TouchableOpacity
             onPress={handleLogout}
-            style={[styles.logoutButton, { backgroundColor: "#591155" }]}
+            style={[styles.logoutButton, { backgroundColor: "rgba 89, 17, 85, 0.3"}]}
           >
             <Text style={[styles.logoutButtonText, { color: "#F5F2FA" }]}>
               Logout
             </Text>
           </TouchableOpacity>
+</BlurView>
+<BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
           <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: "#151159" }]}
+            style={[styles.primaryButton, { backgroundColor: "rgba 21, 17, 89, 0.3" }]}
             onPress={() => router.push("/register")}
           >
             <Text style={[styles.primaryButtonText, { color: "#F5F2FA" }]}>
               New User? Join the Bubble
             </Text>
           </TouchableOpacity>
+</BlurView>
         </View>
         <View style={styles.features}>
           <View style={styles.featureItem}>
@@ -243,12 +247,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   primaryButton: {
-    borderWidth: 2,
+    borderWidth: 0.5,
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 48,
     alignItems: "center",
-    borderColor: "#00FFFF",
+    borderColor: "#000000",
   },
   primaryButtonText: {
     fontSize: 16,
