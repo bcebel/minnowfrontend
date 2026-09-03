@@ -13,7 +13,7 @@ import {
 
 import { useRouter } from "expo-router"
 import TabPreview from "../../components/LandingPreview";
-import { AuthContext } from "../../context/authProvider";
+import AuthContext from "../../context/authProvider";
 import { gql, useQuery, useSubscription } from "@apollo/client";
 import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer";
 import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
