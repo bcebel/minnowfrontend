@@ -40,7 +40,7 @@ export default function HomeScreen() {
       >
         <View style={styles.heroOverlay}>
           <Text style={[styles.heroTitle, { color: "#F5F2FA" }]}>
-            bubblebase.app
+            BubbleBased.com
           </Text>
         </View>
 
