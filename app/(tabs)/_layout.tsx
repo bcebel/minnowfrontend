@@ -164,7 +164,7 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   bubbleGlass: {
     // The "bubble" look
-    backgroundColor: 'rgba(255, 0, 129, 0.3)',
+    backgroundColor: 'rgba(255, 0, 129, 0.1)',
     borderWidth: 1,
     borderColor: 'rgba(255, 0, 129, 0.3)',
     borderRadius: 48, // Fully round
