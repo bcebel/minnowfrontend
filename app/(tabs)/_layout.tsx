@@ -8,88 +8,88 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from 'expo-blur';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-    const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
 
-return (
-  <Tabs
-    screenOptions={{
-      headerShown: false,
-      tabBarStyle: {
-        // ✅ Make it transparent so the BlurView shows through
-        backgroundColor: 'transparent',
-        position: 'absolute', // Optional: Makes it float over content
-        height: Platform.OS === "ios" ? 80 + insets.bottom : 80,
-        paddingBottom: Platform.OS === "ios" ? insets.bottom : 0,
-        paddingTop: 0,
-        borderTopWidth: 0, // Remove default line
-      },
-      // ✅ THE MAGIC: Render the BlurView as the background
-      tabBarBackground: () => (
-        <BlurView
-          intensity={60}
-          tint="dark"
-          style={StyleSheet.absoluteFill}
-        />
-      ),
-      tabBarLabelStyle: {
-        fontSize: 36,
-        fontWeight: "500",
-        marginTop: -30,
-        color: "#ff0000",
-        includeFontPadding: false,
-        lineHeight: 40,
-      },
-      tabBarItemStyle: {
-        minHeight: 0,
-        paddingVertical: 0,
-        justifyContent: "center",
-        alignItems: "center",
-      },
-    }}
-  >
-    <Tabs.Screen
-      name="index"
-      options={{
-    title: "👋",
-tabBarIcon: ({ color }) => null,
-      }}
-    />
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        // ✅ Hide the default label text
+        tabBarShowLabel: false,
 
-    <Tabs.Screen
-      name="neighborhoods/index"
-      options={{
-        title: "🫧",
-        tabBarIcon: ({ color }) => null,
+        // ✅ Liquid Glass Background
+        tabBarBackground: () => (
+          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+        ),
+
+        // ✅ Transparent tab bar so blur shows
+        tabBarStyle: {
+          backgroundColor: 'transparent',
+          position: 'absolute',
+          height: Platform.OS === "ios" ? 80 + insets.bottom : 80,
+          paddingBottom: Platform.OS === "ios" ? insets.bottom : 0,
+          paddingTop: 0,
+          borderTopWidth: 0,
+        },
+
+        // Remove the old label style (not needed)
+        tabBarItemStyle: {
+          justifyContent: "center",
+          alignItems: "center",
+        },
       }}
-    />
-    <Tabs.Screen
-      name="gallery"
-      options={{
-        title: "🖼️",
-        tabBarIcon: ({ color }) => null,
-      }}
-    />
-    <Tabs.Screen
-      name="neighborhoods/staticParams"
-      options={{
-        href: null, // THIS IS THE TRICK: It hides the tab button
-      }}
-    />
-    <Tabs.Screen
-      name="setup"
-      options={{
-        title: "😀",
-        tabBarIcon: ({ color }) => null,
-      }}
-    />
-    <Tabs.Screen
-      name="livestream"
-      options={{
-        title: "📺",
-        tabBarIcon: ({ color }) => null,
-      }}
-    />
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          // ✅ Custom icon bubble
+          tabBarIcon: () => (
+            <View style={styles.bubbleGlass}>
+              <Text style={styles.iconText}>👋</Text>
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="neighborhoods/index"
+        options={{
+          tabBarIcon: () => (
+            <View style={styles.bubbleGlass}>
+              <Text style={styles.iconText}>🫧</Text>
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="gallery"
+        options={{
+          tabBarIcon: () => (
+            <View style={styles.bubbleGlass}>
+              <Text style={styles.iconText}>🖼️</Text>
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="setup"
+        options={{
+          tabBarIcon: () => (
+            <View style={styles.bubbleGlass}>
+              <Text style={styles.iconText}>😀</Text>
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="livestream"
+        options={{
+          tabBarIcon: () => (
+            <View style={styles.bubbleGlass}>
+              <Text style={styles.iconText}>📺</Text>
+            </View>
+          ),
+        }}
+      />
     <Tabs.Screen
       name="PostComposer"
       options={{
