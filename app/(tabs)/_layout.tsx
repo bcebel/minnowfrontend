@@ -29,7 +29,7 @@ return (
         <BlurView
           intensity={60}
           tint="dark"
-          style={styles.bubbleGlass}
+          style={StyleSheet.absoluteFill}
         />
       ),
       tabBarLabelStyle: {
