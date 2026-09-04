@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   },
   neighborhoodType: {
     fontSize: 12,
-    color: "rgba(255, 0, 129, 0.1)",
+    color: "rgba(255, 0, 129, 1)",
     marginBottom: 8,
   },
   memberBadge: {
