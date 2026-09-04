@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 bubbleGlass: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)', // Semi-transparent background
+    backgroundColor: 'rgba(0, 0, 0, 0.1)', // Semi-transparent background
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 48,
