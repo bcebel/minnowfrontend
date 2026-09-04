@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';#
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from "expo-router"
 import TabPreview from "../../components/LandingPreview";
 import { AuthContext } from "../../context/authProvider";
