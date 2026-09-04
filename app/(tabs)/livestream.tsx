@@ -430,22 +430,22 @@ export default function LivestreamScreen() {
   end={{ x: 1, y: 0 }}>
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: '#fff', fontSize: 18 }}>
-          Log in to see Livestreams
+          Livestreams
         </Text>
       </View>
      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: '#fff', fontSize: 18 }}>
-          Log in to see Livestreams
+          Stream to your bubble!  
         </Text>
       </View>
      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: '#fff', fontSize: 18 }}>
-          Log in to see Livestreams
+          Livestreams use webtorrent, a peer to peer technology 
         </Text>
       </View>
      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: '#fff', fontSize: 18 }}>
-          Log in to see Livestreams
+          The more viewers there are the better it works!
         </Text>
       </View>
 </LinearGradient>
