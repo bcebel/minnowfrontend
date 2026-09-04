@@ -441,9 +441,11 @@ export default function LivestreamScreen() {
       </View>
      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: '#fff', fontSize: 18 }}>
-          Livestreams use webtorrent, a peer to peer technology 
-       
-          The more viewers there are the better it works!
+          Livestreams use webtorrent 
+          </Text>
+      </View>
+     <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          The more viewers there are the better!
         </Text>
       </View>
 </View>
