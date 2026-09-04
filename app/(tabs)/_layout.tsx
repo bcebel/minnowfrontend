@@ -14,14 +14,24 @@ export default function TabLayout() {
 return (
   <Tabs
     screenOptions={{
-      headerShown: false, // Hide headers since tabs show location
+      headerShown: false,
       tabBarStyle: {
-        // Apply safe area to bottom
+        // ✅ Make it transparent so the BlurView shows through
+        backgroundColor: 'transparent',
+        position: 'absolute', // Optional: Makes it float over content
         height: Platform.OS === "ios" ? 80 + insets.bottom : 80,
         paddingBottom: Platform.OS === "ios" ? insets.bottom : 0,
         paddingTop: 0,
-        backgroundColor: "#1C0A2E",
+        borderTopWidth: 0, // Remove default line
       },
+      // ✅ THE MAGIC: Render the BlurView as the background
+      tabBarBackground: () => (
+        <BlurView
+          intensity={60}
+          tint="dark"
+          style={StyleSheet.absoluteFill}
+        />
+      ),
       tabBarLabelStyle: {
         fontSize: 36,
         fontWeight: "500",
@@ -36,9 +46,8 @@ return (
         justifyContent: "center",
         alignItems: "center",
       },
-
     }}
-  ><BlurView intensity={50} tint="dark">
+  >
     <Tabs.Screen
       name="index"
       options={{
@@ -46,7 +55,7 @@ return (
         tabBarIcon: ({ color }) => null,
       }}
     />
-</BlurView>
+
     <Tabs.Screen
       name="neighborhoods/index"
       options={{
