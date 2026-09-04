@@ -779,7 +779,4 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff",
     borderWidth: 3,
   },
-preview: {
-background: linear-gradient(90deg, rgba(255, 0, 129, 0) 0%, rgba(255, 0, 129, 0.5) 50%, rgba(255, 0, 129, 1) 100%);
-},
 });
