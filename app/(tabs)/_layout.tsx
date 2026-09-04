@@ -29,7 +29,7 @@ return (
         <BlurView
           intensity={60}
           tint="dark"
-          style={StyleSheet.absoluteFill}
+          style={styles.bubbleGlass}
         />
       ),
       tabBarLabelStyle: {
@@ -155,7 +155,7 @@ return (
 );
 }
 
-const styles = ({
+const styles = StyleSheet.create ({
 bubbleGlass: {
     backgroundColor: 'rgba(255, 0, 129, 0.3)', // Semi-transparent background
     borderWidth: 1,
