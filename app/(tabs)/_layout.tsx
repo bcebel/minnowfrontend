@@ -51,12 +51,8 @@ return (
     <Tabs.Screen
       name="index"
       options={{
-    
-tabBarIcon: () => (
-  <View style={styles.bubbleGlass}>
-    <Text style={{ fontSize: 23 }}>👋</Text>
-  </View>
-),
+    title"👋",
+tabBarIcon: ({ color }) => null,
       }}
     />
 
