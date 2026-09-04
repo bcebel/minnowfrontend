@@ -38,7 +38,7 @@ return (
       },
 
     }}
-  ><BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
+  ><BlurView intensity={50} tint="dark">
     <Tabs.Screen
       name="index"
       options={{
