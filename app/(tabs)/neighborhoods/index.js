@@ -141,6 +141,7 @@ const { loading, error, data, refetch } = useQuery(MY_NEIGHBORHOODS, {
           renderItem={renderItem}
           refreshing={loading}
           onRefresh={refetch}
+          contentContainerStyle={styles.listContent}
         />
       )}
     </View>
@@ -275,5 +276,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     marginBottom: 20,
+  },
+  listContent: {
+    paddingBottom: 120, // Adjust this until it clears your tab bar
+    flexGrow: 1, // Ensures empty states center properly
   },
 });
