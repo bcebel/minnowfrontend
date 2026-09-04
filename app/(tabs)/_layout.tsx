@@ -58,7 +58,7 @@ bubbleGlass: {
         tabBarIcon: ({ color }) => null,
       }}
     />
-</Blurview>
+</BlurView>
     <Tabs.Screen
       name="neighborhoods/index"
       options={{
