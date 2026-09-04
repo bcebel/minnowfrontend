@@ -425,7 +425,8 @@ export default function LivestreamScreen() {
     return (
 
 <View>
-   <ImageBackground
+   
+  <ImageBackground
         source={require("@/assets/images/bbl.jpg")}
         style={styles.heroBubble}
         resizeMode="cover"
