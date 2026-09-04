@@ -51,7 +51,7 @@ return (
     <Tabs.Screen
       name="index"
       options={{
-    title"👋",
+    title: "👋",
 tabBarIcon: ({ color }) => null,
       }}
     />
