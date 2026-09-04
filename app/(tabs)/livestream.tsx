@@ -801,4 +801,9 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff",
     borderWidth: 3,
   },
+heroBubble: {
+    width: "100%",
+    height: "100%",
+    position: "absolute",
+  },
 });
