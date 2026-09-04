@@ -423,13 +423,13 @@ export default function LivestreamScreen() {
 
   if (!isLoggedIn) {
     return (
-<LinearGradient
-  // The colors array corresponds to: Start (0%), Middle (50%), End (100%)
-  colors={['rgba(255, 0, 129, 0)', 'rgba(255, 0, 129, 0.5)', 'rgba(255, 0, 129, 1)']}
-  // Direction: Left to Right
-  start={{ x: 0, y: 0 }}
-  end={{ x: 1, y: 0 }}>
+
 <View>
+   <ImageBackground
+        source={require("@/assets/images/bbl.jpg")}
+        style={styles.heroBubble}
+        resizeMode="cover"
+      />
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: '#fff', fontSize: 18 }}>
           Livestreams
@@ -456,7 +456,6 @@ export default function LivestreamScreen() {
         </Text>
       </View>
 </View>
-</LinearGradient>
     );
   }
 
