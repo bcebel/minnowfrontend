@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#333",
     paddingHorizontal: 15,
     paddingVertical: 12,
-    borderRadius: 6,
+    borderRadius: 48,
     alignItems: "center",
   },
   browseButtonText: {
