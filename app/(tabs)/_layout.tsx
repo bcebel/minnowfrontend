@@ -159,19 +159,19 @@ tabBarIcon: () => (
 );
 }
 
-const styles = StyleSheet.create ({
-bubbleGlass: {
-    backgroundColor: 'rgba(255, 0, 129, 0.3)', // Semi-transparent background
+const styles = StyleSheet.create({
+  bubbleGlass: {
+    // Dark purple tinted glass (matches your theme)
+    backgroundColor: 'rgba(28, 10, 46, 0.5)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 0, 129, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 48,
     
-    // Web only (React Native Web supports this)
+    // Web only (React Native Web supports this - keeps it crisp)
     boxShadow: 'inset 1px 1px 1px 0px rgba(255, 255, 255, 0.6), inset -1px -1px 2px 0px rgba(0, 0, 0, 0.2), 0 12px 32px 0 rgba(0, 0, 0, 0.15)',
     
     // Web only (Safari needs the prefix)
     backdropFilter: 'blur(16px) saturate(190%) brightness(1.1)',
     WebkitBackdropFilter: 'blur(16px) saturate(190%) brightness(1.1)',
   },
-
 });
