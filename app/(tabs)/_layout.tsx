@@ -50,7 +50,7 @@ bubbleGlass: {
     WebkitBackdropFilter: 'blur(16px) saturate(190%) brightness(1.1)',
   },
     }}
-  >
+  ><BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
     <Tabs.Screen
       name="index"
       options={{
@@ -58,6 +58,7 @@ bubbleGlass: {
         tabBarIcon: ({ color }) => null,
       }}
     />
+</Blurview>
     <Tabs.Screen
       name="neighborhoods/index"
       options={{
