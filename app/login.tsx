@@ -82,7 +82,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Sign In</Text>
-      <Text style={styles.subtitle}>Enter your neighborhood</Text>
+      <Text style={styles.subtitle}>Enter your bubble</Text>
 
       <View style={styles.form}>
         <View style={styles.inputContainer}>
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: "#00AA00",
+    color: "#ff0081",
     textAlign: "center",
     marginBottom: 40,
     opacity: 0.8,
