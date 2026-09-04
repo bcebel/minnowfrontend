@@ -52,7 +52,11 @@ return (
       name="index"
       options={{
         title: "👋",
-        tabBarIcon: ({ color }) => null,
+tabBarIcon: () => (
+  <View style={styles.bubbleGlass}>
+    <Text style={{ fontSize: 22 }}>👋</Text>
+  </View>
+),
       }}
     />
 
