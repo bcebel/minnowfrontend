@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   viewButton: {
-    backgroundColor: "rgba(255, 0, 129, .7)",
+    backgroundColor: "#F5F2FA",
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 48,
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   viewButtonText: {
-    color: "#00ffff",
+    color: "#151159",
     fontWeight: "bold",
   },
   leaveButton: {
