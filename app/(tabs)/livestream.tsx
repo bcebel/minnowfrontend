@@ -422,7 +422,7 @@ export default function LivestreamScreen() {
 
   if (!isLoggedIn) {
     return (
-      <View style={{ styles.preview, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={[styles.preview, {flex: 1, justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={{ color: '#fff', fontSize: 18 }}>
           Log in to see Livestreams
         </Text>
