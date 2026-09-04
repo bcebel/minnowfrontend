@@ -118,7 +118,7 @@ export default function HomeScreen() {
               
             </Text>
             <Text style={[{ color: "#F5F2FA" }, { fontSize: 24 }]}>
-          Bubbles are invitation ONLY.  Only join bubbles you want to be in.  Only invite the people you want to your bubbles.  Make as many bubbles as you want about about whatever you want.  
+          Bubbles are by invitation only. You can make and join as many bubbles as you want!     
             </Text>
           </View>
         </View>
