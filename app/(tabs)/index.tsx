@@ -120,6 +120,9 @@ export default function HomeScreen() {
             <Text style={[{ color: "#F5F2FA" }, { fontSize: 24 },  { marginBottom: 20 },]}>
           Bubbles are by invitation only. You can make and join as many bubbles as you want!     
             </Text>
+       <Text style={[{ color: "#F5F2FA" }, { fontSize: 24 },  { marginBottom: 20 },]}>
+          Check out the tabs for more info!     
+            </Text>
           </View>
         </View>
       </ScrollView>
