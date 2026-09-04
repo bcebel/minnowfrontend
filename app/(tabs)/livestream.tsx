@@ -451,6 +451,12 @@ export default function LivestreamScreen() {
           The more viewers there are the better!
         </Text>
       </View>
+<Image
+        source={require("@/assets/images/IMG_3597.jpeg")}
+        style={styles.heroBubble}
+        resizeMode="cover"
+      />
+
  <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
  <Text style={{ color: '#fff', fontSize: 18 }}>
           Log in to try it!
