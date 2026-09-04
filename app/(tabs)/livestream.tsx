@@ -452,9 +452,8 @@ export default function LivestreamScreen() {
         </Text>
       </View>
 <Image
-        source={require("@/assets/images/IMG_3597.jpeg")}
-        style={styles.heroBubble}
-        resizeMode="cover"
+        source={require("@/assets/images/IMG_3597.jpeg");
+    
       />
 
  <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
