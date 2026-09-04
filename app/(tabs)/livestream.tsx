@@ -773,7 +773,6 @@ const styles = StyleSheet.create({
     borderWidth: 3,
   },
 preview: {
-background: RGBA(255, 0, 129, 0.1);
 background: linear-gradient(90deg, rgba(255, 0, 129, 0) 0%, rgba(255, 0, 129, 0.5) 50%, rgba(255, 0, 129, 1) 100%);
 },
 });
