@@ -321,9 +321,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 bubbleGlass: {
-    backgroundColor: 'rgba(0, 0, 0, 0.3)', // Semi-transparent background
+    backgroundColor: 'rgba(255, 0, 129, 0.3)', // Semi-transparent background
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 0, 129, 0.3)',
     borderRadius: 48,
     
     // Web only (React Native Web supports this)
