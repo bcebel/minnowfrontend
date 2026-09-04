@@ -422,7 +422,7 @@ export default function LivestreamScreen() {
 
   if (!isLoggedIn) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ styles.preview, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: '#fff', fontSize: 18 }}>
           Log in to see Livestreams
         </Text>
@@ -772,4 +772,8 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff",
     borderWidth: 3,
   },
+preview: {
+background: RGBA(255, 0, 129, 0.1);
+background: linear-gradient(90deg, rgba(255, 0, 129, 0) 0%, rgba(255, 0, 129, 0.5) 50%, rgba(255, 0, 129, 1) 100%);
+},
 });
