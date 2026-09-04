@@ -97,7 +97,7 @@ export default function HomeScreen() {
                 { fontSize: 24 },
               ]}
             >
-              It’s a big club and you're in it.
+              It’s a big club and you're not only in it, you RUN it.
             </Text>
             <Text
               style={[
