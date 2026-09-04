@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { LinearGradient } from 'expo-linear-gradient';#
 import { useRouter } from "expo-router"
 import TabPreview from "../../components/LandingPreview";
 import { AuthContext } from "../../context/authProvider";
@@ -422,11 +422,18 @@ export default function LivestreamScreen() {
 
   if (!isLoggedIn) {
     return (
-      <View style={[styles.preview, {flex: 1, justifyContent: 'center', alignItems: 'center' }]}>
+<LinearGradient
+  // The colors array corresponds to: Start (0%), Middle (50%), End (100%)
+  colors={['rgba(255, 0, 129, 0)', 'rgba(255, 0, 129, 0.5)', 'rgba(255, 0, 129, 1)']}
+  // Direction: Left to Right
+  start={{ x: 0, y: 0 }}
+  end={{ x: 1, y: 0 }}>
+      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: '#fff', fontSize: 18 }}>
           Log in to see Livestreams
         </Text>
       </View>
+</LinearGradient>
     );
   }
 
