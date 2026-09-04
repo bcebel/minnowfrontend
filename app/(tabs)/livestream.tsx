@@ -445,6 +445,7 @@ export default function LivestreamScreen() {
           </Text>
       </View>
      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+ <Text style={{ color: '#fff', fontSize: 18 }}>
           The more viewers there are the better!
         </Text>
       </View>
