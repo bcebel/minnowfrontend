@@ -97,7 +97,7 @@ export default function HomeScreen() {
                 { fontSize: 24 },
               ]}
             >
-              It’s a big club and you're not only in it, you RUN it.
+              It’s a big club and you run it.
             </Text>
             <Text
               style={[
@@ -118,7 +118,7 @@ export default function HomeScreen() {
               
             </Text>
             <Text style={[{ color: "#F5F2FA" }, { fontSize: 24 }]}>
-          
+          Bubbles are invitation ONLY.  Only join bubbles you want to be in.
             </Text>
           </View>
         </View>
