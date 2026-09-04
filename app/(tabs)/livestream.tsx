@@ -428,6 +428,7 @@ export default function LivestreamScreen() {
   // Direction: Left to Right
   start={{ x: 0, y: 0 }}
   end={{ x: 1, y: 0 }}>
+<View>
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: '#fff', fontSize: 18 }}>
           Livestreams
@@ -445,6 +446,7 @@ export default function LivestreamScreen() {
           The more viewers there are the better it works!
         </Text>
       </View>
+</View>
 </LinearGradient>
     );
   }
