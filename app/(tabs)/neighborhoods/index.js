@@ -71,7 +71,7 @@ const { loading, error, data, refetch } = useQuery(MY_NEIGHBORHOODS, {
         <Text style={styles.neighborhoodName}>{item.name}</Text>
         <Text style={styles.neighborhoodType}>
           {item.type} • {item.members?.length || 0} members
-          <Text style={styles.memberBadge}> • ✅ You are a member</Text>
+      
         </Text>
         <Text style={styles.neighborhoodDescription}>{item.description}</Text>
 
