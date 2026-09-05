@@ -55,7 +55,7 @@ export default function SetupScreen() {
        
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
-            <Text style={styles.loginButtonText}>Log in to setup</Text>
+            <Text style={styles.loginButtonText}>Log in</Text>
           </TouchableOpacity>
         </View>
       </View>
