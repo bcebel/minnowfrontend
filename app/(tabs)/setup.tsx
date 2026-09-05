@@ -43,12 +43,17 @@ export default function SetupScreen() {
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#fff', fontSize: 18 }}>
-            Set up your bio and earn from your community!
+            Set up your bio!
           </Text>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#fff', fontSize: 18 }}>
             Paste your affiliate links
+          </Text>
+        </View>
+<View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: '#fff', fontSize: 18 }}>
+            Earn from your community!
           </Text>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
