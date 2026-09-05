@@ -40,12 +40,12 @@ export default function GalleryScreen() {
         />
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#fff', fontSize: 18 }}>
-            Bubbles' Gallery
+            Bubble Gallery
           </Text>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#fff', fontSize: 18 }}>
-            See photos & videos shared in your neighborhoods
+          Photos & videos shared in your bubbles
           </Text>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -55,7 +55,7 @@ export default function GalleryScreen() {
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#fff', fontSize: 18 }}>
-            The more viewers, the faster it loads!
+            The more viewers, the better!
           </Text>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
