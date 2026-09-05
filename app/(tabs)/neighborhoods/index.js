@@ -117,7 +117,7 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
-            <Text style={styles.loginButtonText}>Log in to view</Text>
+            <Text style={styles.loginButtonText}>Log in</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     width: '80%',
     alignItems: 'center',
     marginTop: 5,
-    marginBottom: 80,
+    marginBottom: 85,
   },
   loginButtonText: {
     color: '#130720',
