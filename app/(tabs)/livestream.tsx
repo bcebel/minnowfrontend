@@ -452,12 +452,12 @@ export default function LivestreamScreen() {
         </Text>
       </View>
 
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
+            <Text style={styles.loginButtonText}>Log in</Text>
+          </TouchableOpacity>
+        </View>
 
- <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
- <Text style={{ color: '#fff', fontSize: 18 }}>
-          Log in to try it!
-        </Text>
-      </View>
 </View>
     );
   }
