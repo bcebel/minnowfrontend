@@ -41,11 +41,7 @@ export default function SetupScreen() {
             Profile & Setup
           </Text>
         </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: '#fff', fontSize: 18 }}>
-            Set up your bio!
-          </Text>
-        </View>
+        
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#fff', fontSize: 18 }}>
             Paste your affiliate links
