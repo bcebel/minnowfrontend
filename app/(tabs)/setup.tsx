@@ -56,11 +56,7 @@ export default function SetupScreen() {
             Earn from your community!
           </Text>
         </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: '#fff', fontSize: 18 }}>
-            Control your profile
-          </Text>
-        </View>
+       
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
             <Text style={styles.loginButtonText}>Log in to setup</Text>
