@@ -39,6 +39,11 @@ export default function GalleryScreen() {
           resizeMode="cover"
         />
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+ <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
+            <Text style={styles.loginButtonText}>Log in to view</Text>
+          </TouchableOpacity>
+        </View>
           <Text style={{ color: '#fff', fontSize: 18 }}>
             Bubble Gallery
           </Text>
@@ -53,16 +58,8 @@ export default function GalleryScreen() {
             Powered by WebTorrent
           </Text>
         </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: '#fff', fontSize: 18 }}>
-            The more viewers, the better!
-          </Text>
-        </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
-            <Text style={styles.loginButtonText}>Log in to view</Text>
-          </TouchableOpacity>
-        </View>
+     
+       
       </View>
     );
   }
