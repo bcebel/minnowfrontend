@@ -89,7 +89,7 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
   // 🚨 Logged out: Show the preview
   if (!isLoggedIn) {
     return (
-      <View style={styles.container}>
+      <View style={flex:1}>
         <ImageBackground
           source={require("@/assets/images/bbl.jpg")}
           style={styles.heroBubble}
