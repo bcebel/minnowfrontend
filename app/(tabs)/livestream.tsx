@@ -428,7 +428,7 @@ export default function LivestreamScreen() {
    
   <ImageBackground
         source={require("@/assets/images/bbl.jpg")}
-        style={styles.heroBubble}
+        style={styles.container}
         resizeMode="cover"
       />
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -808,5 +808,8 @@ heroBubble: {
     width: "100%",
     height: "100%",
     position: "absolute",
+  },
+container: {
+    flex: 1,
   },
 });
