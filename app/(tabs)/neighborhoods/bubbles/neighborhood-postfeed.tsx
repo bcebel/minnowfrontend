@@ -51,7 +51,7 @@ export default function NeighborhoodGalleryScreen() {
         <View style={{ flex: 1, justifyContentText: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#fff', fontSize: 18 }}>
             Context-based privacy
-          </>
+          </Text>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#fff', fontSize: 18 }}>
