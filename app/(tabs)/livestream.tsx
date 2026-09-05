@@ -812,4 +812,13 @@ heroBubble: {
 container: {
     flex: 1,
   },
+loginButton: {
+    backgroundColor: '#00FFFF',
+    padding: 15,
+    borderRadius: 30,
+    width: '80%',
+    alignItems: 'center',
+    marginTop: 5,
+marginBottom: 85,
+  },
 });
