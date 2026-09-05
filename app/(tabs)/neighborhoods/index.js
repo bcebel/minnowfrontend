@@ -51,6 +51,38 @@ export default function NeighborhoodsScreen() {
 
   // ... rest of your handlers (join/leave) ...
 
+const handleJoinNeighborhood = async (neighborhoodId) => {
+    try {
+      await joinNeighborhood({
+        variables: { neighborhoodId },
+        refetchQueries: [{ query: MY_NEIGHBORHOODS }],
+      });
+      alert("✅ Joined neighborhood!");
+    } catch (err) {
+      if (err.message.includes("already a member")) {
+        alert("✅ You are already a member of this neighborhood!");
+      } else if (err.message.includes("personal neighborhoods")) {
+        alert("🔒 This is a personal neighborhood - cannot join");
+      } else {
+        alert(`Join failed: ${err.message}`);
+      }
+    }
+  };
+
+  const handleLeaveNeighborhood = async (neighborhoodId) => {
+    try {
+      await leaveNeighborhood({
+        variables: { neighborhoodId },
+        refetchQueries: [{ query: MY_NEIGHBORHOODS }],
+      });
+      alert("👋 Left neighborhood");
+    } catch (err) {
+      alert(`Leave failed: ${err.message}`);
+    }
+  };
+
+  
+
   // 🚨 Loading state (only after login check)
   if (loading) return <ActivityIndicator size="large" style={styles.loading} />;
 
