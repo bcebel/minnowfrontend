@@ -431,11 +431,7 @@ export default function LivestreamScreen() {
         style={styles.heroBubble}
         resizeMode="cover"
       />
-      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: '#fff', fontSize: 18 }}>
-          Livestreams
-        </Text>
-      </View>
+
      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: '#fff', fontSize: 18 }}>
           Stream to your bubble!  
@@ -820,5 +816,10 @@ loginButton: {
     alignItems: 'center',
     marginTop: 5,
 marginBottom: 85,
+  },
+loginButtonText: {
+    color: '#130720',
+    fontWeight: 'bold',
+    fontSize: 18,
   },
 });
