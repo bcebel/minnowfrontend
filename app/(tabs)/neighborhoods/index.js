@@ -1,5 +1,5 @@
 // app/neighborhoods/index.js
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   FlatList,
@@ -8,9 +8,11 @@ import {
   StyleSheet,
   View,
   ActivityIndicator,
+  ImageBackground,
 } from "react-native";
 import { useQuery, useMutation } from "@apollo/client";
 import { Link } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   GET_NEIGHBORHOODS,
   MY_NEIGHBORHOODS,
@@ -21,102 +23,87 @@ import {
 export default function NeighborhoodsScreen() {
   const router = useRouter();
 
-  // Use MY_NEIGHBORHOODS query instead of GET_NEIGHBORHOODS
-const { loading, error, data, refetch } = useQuery(MY_NEIGHBORHOODS, {
-  fetchPolicy: "cache-and-network", // Check cache first, but always update from server
-  nextFetchPolicy: "network-only", // Future calls go straight to server
-});
+  // ✅ Login state
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkLogin = async () => {
+      const token = await AsyncStorage.getItem('token');
+      setIsLoggedIn(!!token);
+      setLoading(false);
+    };
+    checkLogin();
+  }, []);
+
+  // ✅ Queries (skipped until logged in)
+  const { loading: loadingNeighborhoods, error, data, refetch } = useQuery(
+    MY_NEIGHBORHOODS,
+    {
+      skip: !isLoggedIn,
+      fetchPolicy: "cache-and-network",
+      nextFetchPolicy: "network-only",
+    }
+  );
 
   const [joinNeighborhood] = useMutation(JOIN_NEIGHBORHOOD);
   const [leaveNeighborhood] = useMutation(LEAVE_NEIGHBORHOOD);
 
-  const handleJoinNeighborhood = async (neighborhoodId) => {
-    try {
-      await joinNeighborhood({
-        variables: { neighborhoodId },
-        refetchQueries: [{ query: MY_NEIGHBORHOODS }],
-      });
-      alert("✅ Joined neighborhood!");
-    } catch (err) {
-      if (err.message.includes("already a member")) {
-        alert("✅ You are already a member of this neighborhood!");
-      } else if (err.message.includes("personal neighborhoods")) {
-        alert("🔒 This is a personal neighborhood - cannot join");
-      } else {
-        alert(`Join failed: ${err.message}`);
-      }
-    }
-  };
+  // ... rest of your handlers (join/leave) ...
 
-  const handleLeaveNeighborhood = async (neighborhoodId) => {
-    try {
-      await leaveNeighborhood({
-        variables: { neighborhoodId },
-        refetchQueries: [{ query: MY_NEIGHBORHOODS }],
-      });
-      alert("👋 Left neighborhood");
-    } catch (err) {
-      alert(`Leave failed: ${err.message}`);
-    }
-  };
-
+  // 🚨 Loading state (only after login check)
   if (loading) return <ActivityIndicator size="large" style={styles.loading} />;
+
+  // 🚨 Logged out: Show the preview
+  if (!isLoggedIn) {
+    return (
+      <View style={styles.container}>
+        <ImageBackground
+          source={require("@/assets/images/bbl.jpg")}
+          style={styles.heroBubble}
+          resizeMode="cover"
+        />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: '#fff', fontSize: 18 }}>
+            My Bubbles
+          </Text>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: '#fff', fontSize: 18 }}>
+            Join private neighborhoods
+          </Text>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: '#fff', fontSize: 18 }}>
+            Context-based privacy
+          </Text>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: '#fff', fontSize: 18 }}>
+            P2P powered
+          </Text>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
+            <Text style={styles.loginButtonText}>Log in to view</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // 🚨 Query error state
   if (error) return <Text style={styles.error}>Error: {error.message}</Text>;
 
   const neighborhoods = data?.myNeighborhoods || [];
 
   const renderItem = ({ item }) => {
-    return (
-      <View style={styles.neighborhoodItem}>
-        <Text style={styles.neighborhoodName}>{item.name}</Text>
-        <Text style={styles.neighborhoodType}>
-          {item.type} • {item.members?.length || 0} members
-      
-        </Text>
-        <Text style={styles.neighborhoodDescription}>{item.description}</Text>
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.leaveButton}
-            onPress={() => handleLeaveNeighborhood(item.id)}
-          >
-            <Text style={styles.leaveButtonText}>Leave</Text>
-          </TouchableOpacity>
-
-          <Link
-            href={`/neighborhoods/bubbles/neighborhood-postfeed?neighborhoodId=${item.id}`}
-            asChild
-          >
-            <TouchableOpacity style={styles.viewButton}>
-              <Text style={styles.viewButtonText}>View</Text>
-            </TouchableOpacity>
-          </Link>
-        </View>
-      </View>
-    );
+    // ... (keep your renderItem code unchanged)
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>🏘️ My Bubbles</Text>
-
-      <View style={styles.actions}>
- 
-
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => router.push(`/neighborhoods/bubbles/create`)}
-        >
-          <Text style={styles.createButtonText}>
-            ➕ Create New Bubble
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.subtitle}>
-        {neighborhoods.length} bubble(s) you're a member of
-      </Text>
-
+      {/* ... (keep your header, actions, and list code) ... */}
       {neighborhoods.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>
@@ -139,7 +126,7 @@ const { loading, error, data, refetch } = useQuery(MY_NEIGHBORHOODS, {
           data={neighborhoods}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          refreshing={loading}
+          refreshing={loadingNeighborhoods}
           onRefresh={refetch}
           contentContainerStyle={styles.listContent}
         />
@@ -148,7 +135,27 @@ const { loading, error, data, refetch } = useQuery(MY_NEIGHBORHOODS, {
   );
 }
 
+
+
 const styles = StyleSheet.create({
+  heroBubble: {
+    width: "100%",
+    height: "100%",
+    position: "absolute",
+  },
+  loginButton: {
+    backgroundColor: '#00FFFF',
+    padding: 15,
+    borderRadius: 30,
+    width: '80%',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  loginButtonText: {
+    color: '#130720',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
   container: {
     flex: 1,
     padding: 20,
