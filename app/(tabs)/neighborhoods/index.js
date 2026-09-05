@@ -95,14 +95,10 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
           style={styles.heroBubble}
           resizeMode="cover"
         />
+  
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#fff', fontSize: 18 }}>
-            My Bubbles
-          </Text>
-        </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: '#fff', fontSize: 18 }}>
-            Join private neighborhoods
+            Make and Join Bubbles
           </Text>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
