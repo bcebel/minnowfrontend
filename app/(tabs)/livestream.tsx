@@ -424,11 +424,11 @@ export default function LivestreamScreen() {
   if (!isLoggedIn) {
     return (
 
-<View>
+<View style={styles.container}>
    
   <ImageBackground
         source={require("@/assets/images/bbl.jpg")}
-        style={styles.container}
+        style={styles.heroBubble}
         resizeMode="cover"
       />
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
