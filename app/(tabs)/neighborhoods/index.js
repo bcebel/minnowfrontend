@@ -129,13 +129,57 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
 
   const neighborhoods = data?.myNeighborhoods || [];
 
-  const renderItem = ({ item }) => {
-    // ... (keep your renderItem code unchanged)
+ const renderItem = ({ item }) => {
+    return (
+      <View style={styles.neighborhoodItem}>
+        <Text style={styles.neighborhoodName}>{item.name}</Text>
+        <Text style={styles.neighborhoodType}>
+          {item.type} • {item.members?.length || 0} members
+      
+        </Text>
+        <Text style={styles.neighborhoodDescription}>{item.description}</Text>
+
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.leaveButton}
+            onPress={() => handleLeaveNeighborhood(item.id)}
+          >
+            <Text style={styles.leaveButtonText}>Leave</Text>
+          </TouchableOpacity>
+
+          <Link
+            href={`/neighborhoods/bubbles/neighborhood-postfeed?neighborhoodId=${item.id}`}
+            asChild
+          >
+            <TouchableOpacity style={styles.viewButton}>
+              <Text style={styles.viewButtonText}>View</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
+      </View>
+    );
   };
 
   return (
     <View style={styles.container}>
-      {/* ... (keep your header, actions, and list code) ... */}
+            <Text style={styles.header}>🏘️ My Bubbles</Text>
+
+      <View style={styles.actions}>
+ 
+
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={() => router.push(`/neighborhoods/bubbles/create`)}
+        >
+          <Text style={styles.createButtonText}>
+            ➕ Create New Bubble
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.subtitle}>
+        {neighborhoods.length} bubble(s) you're a member of
+      </Text>
       {neighborhoods.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>
