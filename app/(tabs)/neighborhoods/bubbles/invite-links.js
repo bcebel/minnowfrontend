@@ -226,7 +226,7 @@ export default function InviteLinksScreen() {
         </View>
 
         <Text style={styles.linkUrl} numberOfLines={1} selectable={true}>
-          {item.url || `https://bubblebase.app/join/${item.code}`}
+          {item.url || `https://bubblebased.com/join/${item.code}`}
         </Text>
 
         <Text style={styles.linkCode}>Code: {item.code}</Text>
@@ -241,7 +241,6 @@ export default function InviteLinksScreen() {
               Expires: {new Date(item.expiresAt).toLocaleDateString()}
             </Text>
           )}
- 
         </View>
 
         {item.createdBy && (
@@ -255,7 +254,7 @@ export default function InviteLinksScreen() {
             style={styles.actionButton}
             onPress={() =>
               handleCopyLink(
-                item.url || `https://bubblebase.app/join/${item.code}`,
+                item.url || `https://bubblebased.com/join/${item.code}`,
               )
             }
           >
@@ -266,7 +265,7 @@ export default function InviteLinksScreen() {
             style={styles.actionButton}
             onPress={() =>
               handleShareLink(
-                item.url || `https://bubblebase.app/join/${item.code}`,
+                item.url || `https://bubblebased.com/join/${item.code}`,
                 item.name,
               )
             }
@@ -385,8 +384,6 @@ export default function InviteLinksScreen() {
                 keyboardType="numeric"
                 placeholder="0"
               />
-
-   
 
               <Text style={styles.inputLabel}>Role for New Members</Text>
               <View style={styles.roleButtons}>

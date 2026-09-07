@@ -5,9 +5,9 @@ import VerificationText from "../components/verification";
 export default function Root({ children }: PropsWithChildren) {
   const title = "BubbleBase - Digital Neighborhoods, Not Just Feeds";
   const description =
-    "Join bubblebase.app - a private social network where you control your privacy, earn from your content, and connect in digital neighborhoods. Bubbly & based.";
-  const url = "https://bubblebase.app";
-  const image = "https://bubblebase.app/og-image.jpg";
+    "Join bubblebased.com - a private social network where you control your privacy, earn from your content, and connect in digital neighborhoods. Bubbly & based.";
+  const url = "https://bubblebased.com";
+  const image = "https://bubblebased.com/og-image.jpg";
 
   return (
     <html lang="en">
@@ -86,7 +86,7 @@ export default function Root({ children }: PropsWithChildren) {
               "@type": "Organization",
               name: "BubbleBase",
               url: url,
-              logo: "https://bubblebase.app/logo.png",
+              logo: "https://bubblebased.com/logo.png",
               description: description,
               sameAs: [
                 "https://twitter.com/bubblebase",
