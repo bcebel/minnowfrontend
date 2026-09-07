@@ -349,10 +349,7 @@ export default function AllNeighborhoodsGallery() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>All Bubbles Gallery</Text>
-        <Text style={styles.headerSubtitle}>{mediaItems.length} items</Text>
-      </View>
+
 
       <ScrollView
         ref={scrollRef}
@@ -404,6 +401,18 @@ export default function AllNeighborhoodsGallery() {
 
           return (
             <View key={item.id || index} style={styles.card}>
+              <View style={styles.metadata}>
+                <View style={styles.metadataRow}>
+                  <Text style={styles.metadataLabel}>By:</Text>
+                  <Text style={styles.metadataValue}>
+                    {item.user?.username || "Unknown"}
+                  </Text>
+                </View>
+                <View style={styles.metadataRow}>
+                  <Text style={styles.metadataLabel}>Bubble:</Text>
+                  <Text style={styles.metadataValue}>{neighborhoodName}</Text>
+                </View>
+              </View>
               <View
                 style={[
                   styles.mediaContainer,
@@ -415,19 +424,6 @@ export default function AllNeighborhoodsGallery() {
                   isFocused={isFocused}
                   onMediaAspectChange={setMediaAspect}
                 />
-              </View>
-
-              <View style={styles.metadata}>
-                <View style={styles.metadataRow}>
-                  <Text style={styles.metadataLabel}>By:</Text>
-                  <Text style={styles.metadataValue}>
-                    {item.user?.username || "Unknown"}
-                  </Text>
-                </View>
-                <View style={styles.metadataRow}>
-                  <Text style={styles.metadataLabel}>Neighborhood:</Text>
-                  <Text style={styles.metadataValue}>{neighborhoodName}</Text>
-                </View>
               </View>
             </View>
           );
@@ -450,7 +446,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   mediaContainer: {
-    width: "auto",
+    width: "100%",
     height: "100%",
     backgroundColor: "#000",
     borderRadius: 12,
@@ -551,13 +547,16 @@ const styles = StyleSheet.create({
   },
   fileType: { color: "#00AA00", fontSize: 14 },
   metadata: {
-    padding: 15,
-    backgroundColor: "#130720",
+    backgroundColor: " rgba(19, 7, 32, .5)",
     borderTopWidth: 1,
     borderTopColor: "#130720",
+    position: "absolute", // You don't actually have to type this, it's the default!
+    top: 5, // Pushes the box 10 units DOWN from its original spot
+    left: 10,
+    zIndex: 4,
   },
   metadataRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  metadataLabel: { fontSize: 14, color: "#888888", width: 120 },
+  metadataLabel: { fontSize: 12, color: "#fafafa", width: 60 },
   metadataValue: {
     fontSize: 14,
     color: "#F5F2FA",
