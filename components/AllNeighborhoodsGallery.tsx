@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   listContainer: { padding: 0 },
   card: {
     width: CARD_WIDTH,
-    height: height * 0.7,
+    height: height,
     backgroundColor: "#1C0A2E",
     justifyContent: "center",
     alignItems: "center",
@@ -450,8 +450,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   mediaContainer: {
-    width: "100%",
-    height: "auto",
+    width: "auto",
+    height: "100%",
     backgroundColor: "#000",
     borderRadius: 12,
     overflow: "hidden",
