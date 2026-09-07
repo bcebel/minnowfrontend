@@ -439,7 +439,6 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     height: height,
-    backgroundColor: "#1C0A2E",
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -448,13 +447,10 @@ const styles = StyleSheet.create({
   mediaContainer: {
     width: "100%",
     height: "100%",
-    backgroundColor: "#000",
     borderRadius: 12,
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#333",
   },
   fixedMediaWrapper: {
     width: "100%",
@@ -469,7 +465,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-    backgroundColor: "#130720",
   },
   errorTitle: {
     fontSize: 22,
@@ -547,12 +542,9 @@ const styles = StyleSheet.create({
   },
   fileType: { color: "#00AA00", fontSize: 14 },
   metadata: {
-    backgroundColor: " rgba(19, 7, 32, .5)",
-    borderTopWidth: 1,
-    borderTopColor: "#130720",
     position: "absolute", // You don't actually have to type this, it's the default!
-    top: 5, // Pushes the box 10 units DOWN from its original spot
-    left: 10,
+    bottom:100, // Pushes the box 10 units DOWN from its original spot
+    left: 27,
     zIndex: 4,
   },
   metadataRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
@@ -585,7 +577,7 @@ const styles = StyleSheet.create({
   adBadgeOverlay: {
     position: "absolute",
     top: 15,
-    right: 15,
+    right: 25,
     backgroundColor: "#FFFF00",
     paddingHorizontal: 8,
     paddingVertical: 2,

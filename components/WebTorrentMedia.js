@@ -276,7 +276,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
   if (!videoSrc || !isReady) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator color="#00ffff" size="large" />
+        <ActivityIndicator color="#a5b0b0" size="large" />
         <Text style={styles.statusText}>
           {status === "checking_cache" && "📦 Loading from cache..."}
           {status === "connecting_p2p" && "🌐 Connecting to peers..."}
@@ -316,7 +316,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
         onError={(e) => console.log("❌ Video error:", e)}
       />
       <View style={styles.overlayStatus}>
-        <ActivityIndicator size="small" color={status.startsWith("p2p") ? "#00ff00" : "#00ffff"} />
+
         <Text style={styles.overlayText}>
           {status === "p2p_streaming" && `🚀 P2P (${peerCount} peers, ${progress}%)`}
           {status === "p2p_swarming" && `🌊 Swarming (${progress}%)`}
@@ -329,13 +329,45 @@ export default function WebTorrentMedia({ media, isFocused }) {
 }
 
 const styles = StyleSheet.create({
-  container: { width: "100%", height: "100%", position: "relative", backgroundColor: "#000" },
+  container: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+    backgroundColor: "#000",
+  },
   video: { width: "100%", height: "100%", objectFit: "contain" },
   image: { width: "100%", height: "100%", objectFit: "contain" },
-  loader: { flex: 1, justifyContent: "center", alignItems: "center", minHeight: 200, backgroundColor: "#111" },
-  statusText: { color: "#fff", fontSize: 14, marginTop: 10, textAlign: "center" },
-  progressBarContainer: { width: "80%", height: 4, backgroundColor: "#333", borderRadius: 2, marginTop: 12 },
+  loader: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: 200,
+    backgroundColor: "#111",
+  },
+  statusText: {
+    color: "#fff",
+    fontSize: 14,
+    marginTop: 10,
+    textAlign: "center",
+  },
+  progressBarContainer: {
+    width: "80%",
+    height: 4,
+    backgroundColor: "#333",
+    borderRadius: 2,
+    marginTop: 12,
+  },
   progressBar: { height: "100%", backgroundColor: "#00ffff", borderRadius: 2 },
-  overlayStatus: { position: "absolute", top: 10, right: 10, backgroundColor: "rgba(0,0,0,0.75)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 5, flexDirection: "row", alignItems: "center", gap: 6 },
-  overlayText: { color: "#fff", fontSize: 10, fontWeight: "bold" },
+  overlayStatus: {
+    position: "absolute",
+    bottom: 90,
+    right: 15,
+
+  },
+  overlayText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
+
+  },
 });
