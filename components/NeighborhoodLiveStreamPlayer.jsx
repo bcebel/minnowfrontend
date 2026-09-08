@@ -525,8 +525,8 @@ export default function NeighborhoodLiveStreamPlayer({
         ref={containerRef}
         style={{
           ...styles.videoContainer,
-          transform: rotation ? `rotate(${rotation}deg)` : "none",
-          transformOrigin: "center center",
+     //     transform: rotation ? `rotate(${rotation}deg)` : "none",
+     //     transformOrigin: "center center",
           width: "100%",
           height: "100%",
         }}
@@ -581,12 +581,11 @@ const styles = StyleSheet.create({
     height: "100%",
     position: "relative",
     display: "flex",
-    flexDirection: "column", // ✅ Inline stacking
-    alignItems: "center",
+    // ✅ JUST CENTER IT:
     justifyContent: "center",
+    alignItems: "center",
     backgroundColor: "#000",
     overflow: "hidden",
-    paddingBottom: 100, 
   },
   videoContainer: {
     flex: 1, // ✅ Takes up 90% of the space
