@@ -1,5 +1,6 @@
+// app/neighborhoods/[id].js
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,10 +10,18 @@ import {
   FlatList,
   ActivityIndicator,
 } from "react-native";
-import { useQuery } from "@apollo/client";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useQuery, gql } from "@apollo/client";
 import { GET_NEIGHBORHOOD } from "../../../graphql/queries";
-import WebTorrentPlayer from "../../../../components/WebTorrentPlayer";
 
+const GET_CURRENT_USER = gql`
+  query GetMe {
+    me {
+      id
+      username
+    }
+  }
+`;
 
 export default function NeighborhoodDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -20,6 +29,13 @@ export default function NeighborhoodDetailScreen() {
   const { loading, error, data } = useQuery(GET_NEIGHBORHOOD, {
     variables: { id },
   });
+
+  const { data: userData } = useQuery(GET_CURRENT_USER);
+  const [username, setUsername] = useState("");
+
+  useEffect(() => {
+    AsyncStorage.getItem("username").then((saved) => setUsername(saved || ""));
+  }, []);
 
   if (loading) return <ActivityIndicator size="large" style={styles.loading} />;
   if (error) return <Text style={styles.error}>Error: {error.message}</Text>;
@@ -34,42 +50,19 @@ export default function NeighborhoodDetailScreen() {
     );
   }
 
-  // ADD THIS - Sample neighborhood content for P2P seeding
-  const neighborhoodContent = {
-    photography: [
-      {
-        fileName: "Photography Tips Tutorial.mp4",
-        magnetLink: "magnet:?xt=urn:btih:...",
-        cid: "...",
-      },
-      {
-        fileName: "Sunset Composition Guide.mov",
-        magnetLink: "magnet:?xt=urn:btih:...",
-        cid: "...",
-      },
-    ],
-    music: [
-      {
-        fileName: "Guitar Basics Lesson.mp4",
-        magnetLink: "magnet:?xt=urn:btih:...",
-        cid: "...",
-      },
-    ],
-    art: [
-      {
-        fileName: "Digital Painting Techniques.mp4",
-        magnetLink: "magnet:?xt=urn:btih:...",
-        cid: "...",
-      },
-    ],
-    tech: [
-      {
-        fileName: "Web Development Workshop.mov",
-        magnetLink: "magnet:?xt=urn:btih:...",
-        cid: "...",
-      },
-    ],
-  };
+  // ✅ Check if current user can invite (Owner or Moderator)
+  const canInvite = (() => {
+    if (!neighborhood || !username) return false;
+
+    const isOwner = neighborhood.owner?.username === username;
+    const member = neighborhood.members?.find(
+      (m) => m.user?.username === username,
+    );
+    const isModerator =
+      member?.role === "moderator" || member?.role === "admin";
+
+    return isOwner || isModerator;
+  })();
 
   const renderMember = ({ item }) => (
     <TouchableOpacity
@@ -87,14 +80,6 @@ export default function NeighborhoodDetailScreen() {
           {item.user.username}
           {item.role === "owner" && " 👑"}
         </Text>
-        {/* Show bio if it exists */}
-        {item.user.bio ? (
-          <Text style={styles.memberBio} numberOfLines={2}>
-            {item.user.bio}
-          </Text>
-        ) : (
-          <Text style={styles.noBio}>No bio yet</Text>
-        )}
         <Text style={styles.memberRole}>
           {item.role} • Joined {new Date(item.joinedAt).toLocaleDateString()}
         </Text>
@@ -119,31 +104,74 @@ export default function NeighborhoodDetailScreen() {
         </View>
       </View>
 
-      {/* ADD THIS SECTION - Neighborhood P2P Content */}
-      <View style={styles.p2pSection}>
-        <Text style={styles.sectionTitle}>🌐 P2P Shared Content</Text>
-        <Text style={styles.p2pDescription}>
-          This neighborhood page actively seeds content to the P2P network
-        </Text>
+      {/* ✅ BUBBLE HUB MENU */}
+      <View style={styles.hubMenu}>
+        <Text style={styles.sectionTitle}>🫧 Enter the Bubble</Text>
 
-        {(neighborhoodContent[id] || []).map((video, index) => (
-          <WebTorrentPlayer key={index} video={video} />
-        ))}
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={styles.hubButton}
+            onPress={() =>
+              router.push(
+                `/neighborhoods/bubbles/neighborhood-postfeed?neighborhoodId=${neighborhood.id}`,
+              )
+            }
+          >
+            <Text style={styles.hubButtonText}>📝 Posts</Text>
+          </TouchableOpacity>
 
-        {(neighborhoodContent[id] || []).length === 0 && (
-          <Text style={styles.noContent}>
-            No P2P content yet for this neighborhood
-          </Text>
+          <TouchableOpacity
+            style={styles.hubButton}
+            onPress={() =>
+              router.push(
+                `/neighborhoods/bubbles/neighborhood-chat?neighborhoodId=${neighborhood.id}`,
+              )
+            }
+          >
+            <Text style={styles.hubButtonText}>💬 Chat</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={styles.hubButton}
+            onPress={() =>
+              router.push(
+                `/neighborhoods/bubbles/neighborhood-gallery?neighborhoodId=${neighborhood.id}`,
+              )
+            }
+          >
+            <Text style={styles.hubButtonText}>🖼️ Gallery</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.hubButton}
+            onPress={() =>
+              router.push(
+                `/neighborhoods/bubbles/neighborhood-members?neighborhoodId=${neighborhood.id}`,
+              )
+            }
+          >
+            <Text style={styles.hubButtonText}>👥 Members</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ✅ Invite ONLY if user has permission */}
+        {canInvite && (
+          <TouchableOpacity
+            style={styles.hubButton}
+            onPress={() =>
+              router.push(
+                `/neighborhoods/bubbles/invite-links?neighborhoodId=${neighborhood.id}`,
+              )
+            }
+          >
+            <Text style={styles.hubButtonText}>📧 Invite</Text>
+          </TouchableOpacity>
         )}
       </View>
 
-      {neighborhood.rules ? (
-        <View style={styles.rulesSection}>
-          <Text style={styles.sectionTitle}>📜 Community Rules</Text>
-          <Text style={styles.rules}>{neighborhood.rules}</Text>
-        </View>
-      ) : null}
-
+      {/* Members Section */}
       <View style={styles.membersSection}>
         <Text style={styles.sectionTitle}>👥 Members</Text>
         <FlatList
@@ -155,17 +183,6 @@ export default function NeighborhoodDetailScreen() {
       </View>
 
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.chatButton}
-          onPress={() =>
-            router.push(
-              `neighborhoods/bubbles/neighborhood-postfeed?neighborhoodId=${neighborhood.id}`,
-            )
-          }
-        >
-          <Text style={styles.chatButtonText}>💬 Open Chat</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
@@ -219,35 +236,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#00AA00",
   },
-  // ADD THESE NEW STYLES
-  p2pSection: {
-    backgroundColor: "#111",
+  // ✅ BUBBLE HUB STYLES
+  hubMenu: {
+    backgroundColor: "#1C0A2E",
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: "#00AA00",
-  },
-  p2pDescription: {
-    fontSize: 14,
-    color: "#CCC",
-    marginBottom: 10,
-    lineHeight: 18,
-  },
-  noContent: {
-    fontSize: 14,
-    color: "#666",
-    fontStyle: "italic",
-    textAlign: "center",
-    padding: 20,
-  },
-  rulesSection: {
-    backgroundColor: "#111",
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#333",
+    borderColor: "#00ffff",
   },
   sectionTitle: {
     fontSize: 18,
@@ -255,11 +251,26 @@ const styles = StyleSheet.create({
     color: "#00ffff",
     marginBottom: 10,
   },
-  rules: {
-    fontSize: 14,
-    color: "#CCC",
-    lineHeight: 20,
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 10,
   },
+  hubButton: {
+    flex: 1,
+    backgroundColor: "#00ffff",
+    paddingVertical: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    marginBottom: 5,
+  },
+  hubButtonText: {
+    color: "#130720",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  // ✅ MEMBERS SECTION
   membersSection: {
     flex: 1,
   },
@@ -299,17 +310,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     gap: 10,
   },
-  chatButton: {
-    backgroundColor: "#00ffff",
-    padding: 15,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  chatButtonText: {
-    color: "#130720",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
   backButton: {
     backgroundColor: "#333",
     padding: 15,
@@ -319,17 +319,5 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: "#00ffff",
     fontWeight: "bold",
-  },
-  memberBio: {
-    fontSize: 14,
-    color: "#CCC",
-    marginBottom: 4,
-    lineHeight: 18,
-  },
-  noBio: {
-    fontSize: 12,
-    color: "#666",
-    fontStyle: "italic",
-    marginBottom: 4,
   },
 });

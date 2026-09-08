@@ -143,31 +143,15 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
           </TouchableOpacity>
 
           <Link
-            href={`/neighborhoods/bubbles/neighborhood-postfeed?neighborhoodId=${item.id}`}
+            href={`/neighborhoods/bubbles/${item.id}`}
             asChild
           >
             <TouchableOpacity style={styles.viewButton}>
-              <Text style={styles.viewButtonText}>Posts</Text>
+              <Text style={styles.viewButtonText}>Enter Bubble</Text>
             </TouchableOpacity>
           </Link>
 
-          <Link
-            href={`/neighborhoods/bubbles/neighborhood-chat?neighborhoodId=${item.id}`}
-            asChild
-          >
-            <TouchableOpacity style={styles.viewButton}>
-              <Text style={styles.viewButtonText}>Chat</Text>
-            </TouchableOpacity>
-          </Link>
-
-          <Link
-            href={`/neighborhoods/bubbles/neighborhood-gallery?neighborhoodId=${item.id}`}
-            asChild
-          >
-            <TouchableOpacity style={styles.viewButton}>
-              <Text style={styles.viewButtonText}>Gallery</Text>
-            </TouchableOpacity>
-          </Link>
+         
         </View>
       </View>
     );
