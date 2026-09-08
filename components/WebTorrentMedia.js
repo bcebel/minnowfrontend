@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { getMedia, saveMedia } from "../components/mediaCache";
 import webtorrentService from "../utils/webtorrentService";
+import { Image } from "expo-image"
 
 const PINATA_GATEWAY =
   process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud";
@@ -308,9 +309,16 @@ export default function WebTorrentMedia({ media, isFocused }) {
     media.type === "image" ||
     media.fileName?.match(/\.(jpg|jpeg|png|gif|webp|avif|heic|heif|svg)$/i);
 
-  if (isImage) {
-    return <img src={videoSrc} style={styles.image} alt="User content" />;
-  }
+if (isImage) {
+  return (
+    <Image
+      source={{ uri: videoSrc }}
+      style={styles.image}
+      contentFit="contain"
+      transition={100}
+    />
+  );
+}
 
   return (
     <View style={styles.container}>

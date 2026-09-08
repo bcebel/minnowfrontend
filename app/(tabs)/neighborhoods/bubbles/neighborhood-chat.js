@@ -644,7 +644,7 @@ export default function NeighborhoodChatScreen() {
       const uniqueKey = message.id || `temp-${Date.now()}-${index}`;
       return (
         <View key={uniqueKey} style={styles.messageContainer}>
-          {" "}
+    
           <Image
             source={{ uri: profilePhoto }}
             style={styles.profileImage}
@@ -762,12 +762,14 @@ export default function NeighborhoodChatScreen() {
 
   const initializeSocket = (token) => {
     console.log("🔌 Initializing neighborhood socket...");
-
-    const newSocket = io(BACKEND_URL, {
-      auth: { token },
-      path: "/socket.io-chat/",
-      transports: ["websocket"],
-    });
+    const WS_URL = BACKEND_URL.replace(/^https?:\/\//, "wss://");
+    
+ 
+  const newSocket = io(WS_URL, {
+    auth: { token },
+    path: "/socket.io-chat/",
+    transports: ["websocket", "polling"], // Use websocket first, fallback to polling
+  });
 
     newSocket.on("connect", () => {
       console.log("✅ Neighborhood socket connected");
