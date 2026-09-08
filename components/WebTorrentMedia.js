@@ -60,7 +60,9 @@ export default function WebTorrentMedia({ media, isFocused }) {
         const blob = await response.blob();
         if (blob && blob.size > 0) {
           const fileName = media.fileName || `media-${media.cid}`;
-          const mimeType = blob.type || (fileName.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
+          const mimeType =
+            blob.type ||
+            (fileName.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
           // Await the save so it's ready next time!
           await saveMedia(media.cid, blob, mimeType, fileName);
           console.log("💾 Background cache saved:", media.cid);
@@ -142,7 +144,8 @@ export default function WebTorrentMedia({ media, isFocused }) {
               setVideoSrc(cachedUrl);
               setStatus("fallback_http");
               setIsReady(true);
-              if (noProgressTimeoutRef.current) clearTimeout(noProgressTimeoutRef.current);
+              if (noProgressTimeoutRef.current)
+                clearTimeout(noProgressTimeoutRef.current);
             }
           }, 15000);
 
@@ -153,7 +156,8 @@ export default function WebTorrentMedia({ media, isFocused }) {
               setVideoSrc(cachedUrl);
               setStatus("fallback_http");
               setIsReady(true);
-              if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
+              if (overallTimeoutRef.current)
+                clearTimeout(overallTimeoutRef.current);
             }
           }, 5000);
 
@@ -214,7 +218,10 @@ export default function WebTorrentMedia({ media, isFocused }) {
             activeTorrent.on("piece", updateStats);
 
             if (activeTorrent.pieces > 0) {
-              const firstPieces = Math.max(1, Math.floor(activeTorrent.pieces * 0.1));
+              const firstPieces = Math.max(
+                1,
+                Math.floor(activeTorrent.pieces * 0.1),
+              );
               activeTorrent.select(0, firstPieces - 1);
             }
           }
@@ -231,8 +238,10 @@ export default function WebTorrentMedia({ media, isFocused }) {
           setVideoSrc(cachedUrl);
           setStatus("fallback_http");
           setIsReady(true);
-          if (noProgressTimeoutRef.current) clearTimeout(noProgressTimeoutRef.current);
-          if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
+          if (noProgressTimeoutRef.current)
+            clearTimeout(noProgressTimeoutRef.current);
+          if (overallTimeoutRef.current)
+            clearTimeout(overallTimeoutRef.current);
         }
       } else if (fallbackUrl && isMountedRef.current) {
         const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
@@ -246,7 +255,8 @@ export default function WebTorrentMedia({ media, isFocused }) {
 
     return () => {
       isMountedRef.current = false;
-      if (noProgressTimeoutRef.current) clearTimeout(noProgressTimeoutRef.current);
+      if (noProgressTimeoutRef.current)
+        clearTimeout(noProgressTimeoutRef.current);
       if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
 
       // If already ready, don't destroy; keeps it mounted for instant access
@@ -270,8 +280,6 @@ export default function WebTorrentMedia({ media, isFocused }) {
     media.fileName,
     media.slices,
   ]);
-
-  
 
   if (!isFocused) return null;
 
@@ -310,7 +318,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
         ref={videoRef}
         src={videoSrc}
         style={styles.video}
-        muted={!isFocused}
+        muted={true}
         controls
         playsInline
         autoPlay
@@ -365,12 +373,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 90,
     right: 15,
-
   },
   overlayText: {
     color: "#fff",
     fontSize: 10,
     fontWeight: "bold",
-
   },
 });

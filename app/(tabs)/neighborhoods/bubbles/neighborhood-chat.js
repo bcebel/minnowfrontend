@@ -417,50 +417,49 @@ export default function NeighborhoodChatScreen() {
   const [swarmItemIds, setSwarmItemIds] = useState([]);
 
   // Viewability callback: Swarms visible items + next 2 buffer items
-const onViewableItemsChanged = useRef(({ viewableItems }) => {
-  if (!viewableItems || viewableItems.length === 0) return;
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (!viewableItems || viewableItems.length === 0) return;
 
-  const idsToSwarm = new Set();
-  const lastVisibleIndex = viewableItems[viewableItems.length - 1].index;
+    const idsToSwarm = new Set();
+    const lastVisibleIndex = viewableItems[viewableItems.length - 1].index;
 
-  // 1. Current visible items
-  viewableItems.forEach((v) => {
-    if (v.item?.id) idsToSwarm.add(v.item.id);
-  });
-
-  // 2. Pre-buffer next 2 items down the feed
-  feedWithAds
-    .slice(lastVisibleIndex + 1, lastVisibleIndex + 3)
-    .forEach((item) => {
-      if (item?.id) idsToSwarm.add(item.id);
+    // 1. Current visible items
+    viewableItems.forEach((v) => {
+      if (v.item?.id) idsToSwarm.add(v.item.id);
     });
 
-  const newIds = Array.from(idsToSwarm);
+    // 2. Pre-buffer next 2 items down the feed
+    feedWithAds
+      .slice(lastVisibleIndex + 1, lastVisibleIndex + 3)
+      .forEach((item) => {
+        if (item?.id) idsToSwarm.add(item.id);
+      });
 
-  // 3. ONLY update state if the active swarm IDs actually changed
-  setSwarmItemIds((prev) => {
-    const isSame =
-      prev.length === newIds.length &&
-      prev.every((id, idx) => id === newIds[idx]);
+    const newIds = Array.from(idsToSwarm);
 
-    return isSame ? prev : newIds; // Skips re-render if identical
-  });
-}).current;
+    // 3. ONLY update state if the active swarm IDs actually changed
+    setSwarmItemIds((prev) => {
+      const isSame =
+        prev.length === newIds.length &&
+        prev.every((id, idx) => id === newIds[idx]);
 
-const viewabilityConfig = useRef({
-  itemVisiblePercentThreshold: 30,
-  minimumViewTime: 250, // <-- CRITICAL: Item must sit on screen for 250ms before firing
-}).current;
+      return isSame ? prev : newIds; // Skips re-render if identical
+    });
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 30,
+    minimumViewTime: 250, // <-- CRITICAL: Item must sit on screen for 250ms before firing
+  }).current;
 
   // Pass `shouldSwarm` into your renderMessage helper
-const renderFeedItem = ({ item, index }) => {
-  if (item.type === "ad") {
-    return <AdMessage ad={item.data} />;
-  }
-  
-  return renderMessage(item.data, index);
-};
+  const renderFeedItem = ({ item, index }) => {
+    if (item.type === "ad") {
+      return <AdMessage ad={item.data} />;
+    }
 
+    return renderMessage(item.data, index);
+  };
 
   const filteredMessages = useMemo(() => {
     return messages.filter(
@@ -602,7 +601,6 @@ const renderFeedItem = ({ item, index }) => {
 
   // 2. Render callback that handles both row types
 
-
   useEffect(() => {
     if (!window.heic2any) {
       console.log("💉 Injecting heic2any script...");
@@ -614,15 +612,15 @@ const renderFeedItem = ({ item, index }) => {
     }
   }, []);
 
-useEffect(() => {
-  if (data?.neighborhoodMessages) {
-    const cleanMessages = data.neighborhoodMessages
-      .filter((m) => !m.sessionId)
-      .sort((a, b) => parseInt(a.createdAt) - parseInt(b.createdAt)); // OLDEST FIRST!
+  useEffect(() => {
+    if (data?.neighborhoodMessages) {
+      const cleanMessages = data.neighborhoodMessages
+        .filter((m) => !m.sessionId)
+        .sort((a, b) => parseInt(a.createdAt) - parseInt(b.createdAt)); // OLDEST FIRST!
 
-    setMessages(cleanMessages);
-  }
-}, [data?.neighborhoodMessages]);
+      setMessages(cleanMessages);
+    }
+  }, [data?.neighborhoodMessages]);
 
   const isNeighborhoodAdmin = useMemo(() => {
     if (!username || !neighborhoodData?.neighborhood) return false;
@@ -643,7 +641,7 @@ useEffect(() => {
       const senderUsername = message.sender?.username || "Unknown";
       const profilePhoto = getProfilePhotoUrl(message.sender?.profilePhoto);
       const timestamp = formatTimestamp(message.createdAt);
-    const uniqueKey = message.id || `temp-${Date.now()}-${index}`;
+      const uniqueKey = message.id || `temp-${Date.now()}-${index}`;
       return (
         <View key={uniqueKey} style={styles.messageContainer}>
           {" "}
@@ -712,7 +710,6 @@ useEffect(() => {
     fetchRandomAd();
   }, []);
 
-  
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -776,31 +773,32 @@ useEffect(() => {
       console.log("✅ Neighborhood socket connected");
       refetch(); // Initial fetch
       setSocket(newSocket);
-  newSocket.emit("join-room", `neighborhood-${neighborhoodId}`);    });
+      newSocket.emit("join-room", `neighborhood-${neighborhoodId}`);
+    });
 
     newSocket.on("connect_error", (err) => {
       console.error("❌ Neighborhood socket connection error:", err);
     });
 
-newSocket.on("message", async (newMsg) => {
-  console.log("📨 New message via socket:", newMsg.content);
+    newSocket.on("message", async (newMsg) => {
+      console.log("📨 New message via socket:", newMsg.content);
 
-  // 1. Add the new message to the bottom immediately (optimistic)
-  setMessages((prev) => {
-    if (prev.some((m) => m.id === newMsg.id)) return prev;
-    return [...prev, newMsg]; // ADD TO BOTTOM
-  });
+      // 1. Add the new message to the bottom immediately (optimistic)
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === newMsg.id)) return prev;
+        return [...prev, newMsg]; // ADD TO BOTTOM
+      });
 
-  // 2. Scroll to bottom
-  setTimeout(() => {
-    scrollViewRef.current?.scrollToEnd({ animated: true });
-  }, 100);
+      // 2. Scroll to bottom
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
 
-  // 3. Refetch to get the full list
-  setTimeout(() => {
-    refetch();
-  }, 500);
-});
+      // 3. Refetch to get the full list
+      setTimeout(() => {
+        refetch();
+      }, 500);
+    });
 
     // Add this new event listener for refresh
     newSocket.on("refresh-messages", async () => {
@@ -1296,8 +1294,6 @@ newSocket.on("message", async (newMsg) => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
     setNewMessage("");
-
-
 
     try {
       await sendMessageMutation({

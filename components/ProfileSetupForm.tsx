@@ -374,7 +374,7 @@ export default function ProfileSetupScreen() {
       </View>
 
       <View style={styles.formSection}>
-        <Text style={styles.sectionTitle}>Update Profile Settings</Text>        <TouchableOpacity
+        <Text style={styles.sectionTitle}>Update Profile Settings</Text><TouchableOpacity
           style={styles.uploadButton}
           onPress={pickImage}
           disabled={uploading}
