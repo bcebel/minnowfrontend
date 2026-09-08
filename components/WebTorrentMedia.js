@@ -271,6 +271,8 @@ export default function WebTorrentMedia({ media, isFocused }) {
     media.slices,
   ]);
 
+  
+
   if (!isFocused) return null;
 
   if (!videoSrc || !isReady) {
@@ -311,14 +313,15 @@ export default function WebTorrentMedia({ media, isFocused }) {
         muted={!isFocused}
         controls
         playsInline
+        autoPlay
         preload="auto"
         onLoadedData={() => console.log("🎬 Video loaded and ready")}
         onError={(e) => console.log("❌ Video error:", e)}
       />
       <View style={styles.overlayStatus}>
-
         <Text style={styles.overlayText}>
-          {status === "p2p_streaming" && `🚀 P2P (${peerCount} peers, ${progress}%)`}
+          {status === "p2p_streaming" &&
+            `🚀 P2P (${peerCount} peers, ${progress}%)`}
           {status === "p2p_swarming" && `🌊 Swarming (${progress}%)`}
           {status === "fallback_http" && "🌍 HTTP"}
           {status === "cached" && "💾 Cache"}

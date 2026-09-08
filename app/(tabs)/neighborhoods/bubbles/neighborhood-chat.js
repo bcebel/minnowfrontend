@@ -33,6 +33,7 @@ import * as FileSystem from "expo-file-system";
 import { useVideoPlayer, VideoView } from "expo-video";
 import AdMessage from "../../../../components/AdMessage";
 import ChatMediaRenderer from "../../../../components/ChatMediaRenderer";
+import WebTorrentMedia from "@/components/WebTorrentMedia";
 import NeighborhoodLiveStreamRecorder from "@/components/NeighborhoodLiveStreamRecorder";
 import webtorrentService from "../../../../utils/webtorrentService";
 import heic2any from "heic2any";
@@ -104,9 +105,12 @@ const SimpleVideoPlayer = ({ url, fileName, isTorrent = false }) => {
       <VideoView
         player={player}
         style={styles.videoPlayer}
-        showsControls={true}
         contentFit="contain"
         allowsExternalPlayback={true}
+        // ✅ THE KEY: Set `nativeControls` to FALSE so you have full control
+        nativeControls={false}
+        // ✅ This uses the player object directly
+        onLoad={() => player.play()}
       />
       {fileName && (
         <Text style={styles.videoCaption} numberOfLines={1}>
@@ -449,18 +453,15 @@ const viewabilityConfig = useRef({
 }).current;
 
   // Pass `shouldSwarm` into your renderMessage helper
-  const renderFeedItem = ({ item }) => {
-    if (item.type === "ad") {
-      return (
-        <View style={styles.adContainer}>
-          <AdMessage ad={item.data} onPress={() => handleAdPress(item.data)} />
-        </View>
-      );
-    }
+const renderFeedItem = ({ item, index }) => {
+  if (item.type === "ad") {
+    return <AdMessage ad={item.data} />;
+  }
+  
+  return renderMessage(item.data, index);
+};
 
-    const shouldSwarm = swarmItemIds.includes(item.id);
-    return renderMessage(item.data, shouldSwarm);
-  };
+
   const filteredMessages = useMemo(() => {
     return messages.filter(
       (msg) =>
@@ -564,6 +565,7 @@ const viewabilityConfig = useRef({
     {
       variables: { neighborhoodId },
       fetchPolicy: "cache-and-network",
+      pollInterval: 2000,
       skip: !isAuthenticated || !neighborhoodId,
     },
   );
@@ -612,16 +614,15 @@ const viewabilityConfig = useRef({
     }
   }, []);
 
-  useEffect(() => {
-    if (data?.neighborhoodMessages) {
-      const cleanMessages = data.neighborhoodMessages
-        .filter((m) => !m.sessionId)
-        // SORT: Ensure oldest is at top, newest is at bottom
-        .sort((a, b) => parseInt(b.createdAt) - parseInt(a.createdAt));
+useEffect(() => {
+  if (data?.neighborhoodMessages) {
+    const cleanMessages = data.neighborhoodMessages
+      .filter((m) => !m.sessionId)
+      .sort((a, b) => parseInt(a.createdAt) - parseInt(b.createdAt)); // OLDEST FIRST!
 
-      setMessages(cleanMessages);
-    }
-  }, [data?.neighborhoodMessages]);
+    setMessages(cleanMessages);
+  }
+}, [data?.neighborhoodMessages]);
 
   const isNeighborhoodAdmin = useMemo(() => {
     if (!username || !neighborhoodData?.neighborhood) return false;
@@ -642,9 +643,10 @@ const viewabilityConfig = useRef({
       const senderUsername = message.sender?.username || "Unknown";
       const profilePhoto = getProfilePhotoUrl(message.sender?.profilePhoto);
       const timestamp = formatTimestamp(message.createdAt);
-
+    const uniqueKey = message.id || `temp-${Date.now()}-${index}`;
       return (
-        <View key={message.id} style={styles.messageContainer}>
+        <View key={uniqueKey} style={styles.messageContainer}>
+          {" "}
           <Image
             source={{ uri: profilePhoto }}
             style={styles.profileImage}
@@ -662,11 +664,30 @@ const viewabilityConfig = useRef({
               <Text style={styles.messageText}>{message.content}</Text>
             )}
 
-            {/* This will now properly render media */}
-            {(message.imageUrl ||
-              message.videoUrl ||
-              message.fileUrl ||
-              message.magnetLink) && <ChatMediaRenderer message={message} />}
+            {(message.imageUrl || message.videoUrl || message.magnetLink) && (
+              <View
+                style={{ marginTop: 8, borderRadius: 12, overflow: "hidden" }}
+              >
+                <WebTorrentMedia
+                  media={{
+                    cid:
+                      message.cid ||
+                      message.ipfsUrl?.split("/ipfs/")[1] ||
+                      `unique-${message.id}`,
+                    magnetLink: message.magnetLink,
+                    fallbackUrl:
+                      message.imageUrl || message.videoUrl || message.ipfsUrl,
+                    fileName:
+                      message.fileName ||
+                      (message.imageUrl ? "image.jpg" : "video.mp4"),
+                    fileType:
+                      message.fileType ||
+                      (message.imageUrl ? "image" : "video"),
+                  }}
+                  isFocused={true} // Auto-play when visible
+                />
+              </View>
+            )}
 
             {message.content && message.content.startsWith("Shared: ") && (
               <Text style={styles.sharedLabel}>{message.content}</Text>
@@ -691,6 +712,7 @@ const viewabilityConfig = useRef({
     fetchRandomAd();
   }, []);
 
+  
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -747,34 +769,38 @@ const viewabilityConfig = useRef({
     const newSocket = io(BACKEND_URL, {
       auth: { token },
       path: "/socket.io-chat/",
-      transports: ["polling"],
+      transports: ["websocket"],
     });
 
     newSocket.on("connect", () => {
       console.log("✅ Neighborhood socket connected");
       refetch(); // Initial fetch
       setSocket(newSocket);
-      newSocket.emit("join-neighborhood", neighborhoodId);
-    });
+  newSocket.emit("join-room", `neighborhood-${neighborhoodId}`);    });
 
     newSocket.on("connect_error", (err) => {
       console.error("❌ Neighborhood socket connection error:", err);
     });
 
-    newSocket.on("message", async (newMsg) => {
-      console.log("📨 New message via socket:", newMsg.content);
+newSocket.on("message", async (newMsg) => {
+  console.log("📨 New message via socket:", newMsg.content);
 
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === newMsg.id)) return prev;
-        return [newMsg, ...prev];
-      });
+  // 1. Add the new message to the bottom immediately (optimistic)
+  setMessages((prev) => {
+    if (prev.some((m) => m.id === newMsg.id)) return prev;
+    return [...prev, newMsg]; // ADD TO BOTTOM
+  });
 
-      // Refetch after a short delay to ensure media is included
-      setTimeout(() => {
-        refetch();
-      }, 500);
+  // 2. Scroll to bottom
+  setTimeout(() => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  }, 100);
 
-    });
+  // 3. Refetch to get the full list
+  setTimeout(() => {
+    refetch();
+  }, 500);
+});
 
     // Add this new event listener for refresh
     newSocket.on("refresh-messages", async () => {
@@ -1265,7 +1291,10 @@ const viewabilityConfig = useRef({
       },
     };
 
-    setMessages((prev) => [optimisticMessage, ...prev]);
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
     setNewMessage("");
 
 
@@ -1930,18 +1959,21 @@ const viewabilityConfig = useRef({
           <Text style={styles.warningText}>Connecting...</Text>
         </View>
       )}
-      <FlatList
+      <ScrollView
         ref={scrollViewRef}
-        data={feedWithAds}
-        renderItem={renderFeedItem}
-        keyExtractor={(item) => item.id}
-        initialNumToRender={7} // Render enough to fill screen initially
-        maxToRenderPerBatch={4} // Process items in small chunks per frame
-        windowSize={5} // Keeps ~5 screens above and below mounted (default is 21)
-        removeClippedSubviews={false} // SET TO FALSE if items are disappearing/blanking out
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-      />
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() =>
+          scrollViewRef.current?.scrollToEnd({ animated: false })
+        }
+      >
+        {feedWithAds.map((item, index) => (
+          <View key={item.id ? `${item.id}-${index}` : `msg-${index}`}>
+            {renderFeedItem({ item, index })}
+          </View>
+        ))}
+      </ScrollView>
 
       {showAd && currentAd && (
         <View style={styles.floatingAdContainer}>
@@ -2024,7 +2056,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#130720",
-    marginBottom: "100px",
+    paddingBottom: 100,
   },
   centerContainer: {
     flex: 1,
