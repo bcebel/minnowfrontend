@@ -1,4 +1,3 @@
-// components/AllNeighborhoodsGallery.tsx
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -20,7 +19,8 @@ const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = width;
 const MEDIA_SIZE = width - 40;
 
-const GET_NEIGHBORHOOD_GALLERY = gql`
+// Use the ALL query for everything!
+const GET_ALL_GALLERY = gql`
   query GetMyAllNeighborhoodsGallery {
     getMyAllNeighborhoodsGallery {
       videos {
@@ -37,6 +37,7 @@ const GET_NEIGHBORHOOD_GALLERY = gql`
           profilePhoto
         }
         neighborhood {
+          id
           name
         }
       }
@@ -54,6 +55,97 @@ const GET_NEIGHBORHOOD_GALLERY = gql`
           profilePhoto
         }
         neighborhood {
+          id
+          name
+        }
+      }
+      totalCount
+    }
+  }
+`;
+
+// ✅ 1. Query for SPECIFIC neighborhood (when you have an ID)
+const GET_NEIGHBORHOOD_GALLERY = gql`
+  query GetNeighborhoodGallery {
+    getMyAllNeighborhoodsGallery {
+      videos {
+        id
+        title
+        cid
+        description
+        fileName
+        ipfsUrl
+        magnetLink
+        createdAt
+        user {
+          username
+          profilePhoto
+        }
+        neighborhood {
+          id
+          name
+        }
+      }
+      images {
+        id
+        title
+        description
+        fileName
+        cid
+        ipfsUrl
+        magnetLink
+        createdAt
+        user {
+          username
+          profilePhoto
+        }
+        neighborhood {
+          id
+          name
+        }
+      }
+      totalCount
+    }
+  }
+`;
+
+// ✅ 2. Query for ALL neighborhoods (when you have NO ID)
+const GET_MY_ALL_NEIGHBORHOODS_GALLERY = gql`
+  query GetMyAllNeighborhoodsGallery {
+    getMyAllNeighborhoodsGallery {
+      videos {
+        id
+        title
+        cid
+        description
+        fileName
+        ipfsUrl
+        magnetLink
+        createdAt
+        user {
+          username
+          profilePhoto
+        }
+        neighborhood {
+          id
+          name
+        }
+      }
+      images {
+        id
+        title
+        description
+        fileName
+        cid
+        ipfsUrl
+        magnetLink
+        createdAt
+        user {
+          username
+          profilePhoto
+        }
+        neighborhood {
+          id
           name
         }
       }
@@ -237,57 +329,79 @@ const MediaDisplay = ({
   );
 };
 
-export default function AllNeighborhoodsGallery() {
-  const { data, loading, error, refetch } = useQuery(GET_NEIGHBORHOOD_GALLERY, {
-    fetchPolicy: "cache-and-network",
-  });
+export default function AllNeighborhoodsGallery({
+  neighborhoodId,
+}: {
+  neighborhoodId?: string;
+}) {
+  // ✅ 3. USE THE RIGHT QUERY!
+  const query = neighborhoodId
+    ? GET_NEIGHBORHOOD_GALLERY
+    : GET_MY_ALL_NEIGHBORHOODS_GALLERY;
+  const variables = neighborhoodId ? { neighborhoodId } : {};
+
+const { data, loading, error, refetch } = useQuery(GET_ALL_GALLERY, {
+  fetchPolicy: "cache-and-network",
+});
+
   const [refreshing, setRefreshing] = useState(false);
   const { data: adData } = useQuery(GET_RANDOM_AFFILIATE_LINK);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [mediaAspect, setMediaAspect] = useState(1); // ✅ MOVED STATE HERE
+  const [mediaAspect, setMediaAspect] = useState(1);
   const scrollRef = useRef(null);
 
-  const combinedData = React.useMemo(() => {
-    if (!data?.getMyAllNeighborhoodsGallery) return [];
+const combinedData = React.useMemo(() => {
+  if (!data?.getMyAllNeighborhoodsGallery) return [];
 
-    const { videos, images } = data.getMyAllNeighborhoodsGallery;
-    const flattened = [...(videos || []), ...(images || [])];
+  const { videos, images } = data.getMyAllNeighborhoodsGallery;
+  let flattened = [...(videos || []), ...(images || [])];
 
-    const normalized = flattened.map((item: any) => {
-      if (item.media && item.media.length > 0) {
-        return {
-          ...item,
-          ...item.media[0],
-          fileName:
-            item.fileName ||
-            item.media[0].fileName ||
-            `media-${item.media[0].cid}`,
-          fileType: item.media[0].mediaType === "video" ? "video" : "image",
-          neighborhoodId: item.neighborhood,
-        };
-      }
-      return item;
-    });
+  // ✅ THE CORRECT FILTER:
+  if (neighborhoodId) {
+    flattened = flattened.filter(
+      (item) =>
+        item.neighborhood?.id === neighborhoodId ||
+        item.neighborhood?._id === neighborhoodId ||
+        item.neighborhood === neighborhoodId,
+    );
+  }
 
-    const raw = normalized.sort((a, b) => {
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return timeB - timeA;
-    });
+  // Normalize, sort, inject ads... (rest of your logic)
+  const normalized = flattened.map((item: any) => {
+    if (item.media && item.media.length > 0) {
+      return {
+        ...item,
+        ...item.media[0],
+        fileName:
+          item.fileName ||
+          item.media[0].fileName ||
+          `media-${item.media[0].cid}`,
+        fileType: item.media[0].mediaType === "video" ? "video" : "image",
+        neighborhoodId: item.neighborhood,
+      };
+    }
+    return item;
+  });
 
-    const withAds = [];
-    raw.forEach((item, index) => {
-      withAds.push(item);
-      if ((index + 1) % 5 === 0 && adData?.randomAffiliateLink) {
-        withAds.push({
-          isAd: true,
-          id: `ad-page-${index}`,
-          ...adData.randomAffiliateLink,
-        });
-      }
-    });
-    return withAds;
-  }, [data, adData]);
+  const raw = normalized.sort((a, b) => {
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return timeB - timeA;
+  });
+
+  const withAds = [];
+  raw.forEach((item, index) => {
+    withAds.push(item);
+    if ((index + 1) % 5 === 0 && adData?.randomAffiliateLink) {
+      withAds.push({
+        isAd: true,
+        id: `ad-page-${index}`,
+        ...adData.randomAffiliateLink,
+      });
+    }
+  });
+  return withAds;
+}, [data, adData, neighborhoodId]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -349,8 +463,6 @@ export default function AllNeighborhoodsGallery() {
 
   return (
     <View style={styles.container}>
-
-
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -367,12 +479,11 @@ export default function AllNeighborhoodsGallery() {
             item.neighborhood?.name || "Unknown Neighborhood";
           const isFocused = Math.abs(index - activeIndex) <= 1;
 
+          const uniqueKey = `${item.id}-${index}`;
+
           if (item.isAd) {
             return (
-              <View
-                key={item.id || `ad-${index}`}
-                style={[styles.card, styles.adCardCenter]}
-              >
+              <View key={uniqueKey} style={[styles.card, styles.adCardCenter]}>
                 <View style={styles.adBadgeOverlay}>
                   <Text style={styles.badgeText}>SPONSORED</Text>
                 </View>
@@ -388,7 +499,7 @@ export default function AllNeighborhoodsGallery() {
 
           if (!isInWindow) {
             return (
-              <View key={item.id || `placeholder-${index}`} style={styles.card}>
+              <View key={uniqueKey} style={styles.card}>
                 <View style={styles.mediaContainer} />
                 <View style={styles.metadata}>
                   <Text style={styles.metadataValue}>
@@ -400,7 +511,7 @@ export default function AllNeighborhoodsGallery() {
           }
 
           return (
-            <View key={item.id || index} style={styles.card}>
+            <View key={uniqueKey} style={styles.card}>
               <View style={styles.metadata}>
                 <View style={styles.metadataRow}>
                   <Text style={styles.metadataLabel}>By:</Text>
@@ -414,10 +525,7 @@ export default function AllNeighborhoodsGallery() {
                 </View>
               </View>
               <View
-                style={[
-                  styles.mediaContainer,
-                  { aspectRatio: mediaAspect }, // ✅ PASS IT HERE AS INLINE STYLE
-                ]}
+                style={[styles.mediaContainer, { aspectRatio: mediaAspect }]}
               >
                 <MediaDisplay
                   item={item}
@@ -542,8 +650,8 @@ const styles = StyleSheet.create({
   },
   fileType: { color: "#00AA00", fontSize: 14 },
   metadata: {
-    position: "absolute", // You don't actually have to type this, it's the default!
-    bottom:100, // Pushes the box 10 units DOWN from its original spot
+    position: "absolute",
+    bottom: 100,
     left: 27,
     zIndex: 4,
   },
