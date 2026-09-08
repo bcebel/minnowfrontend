@@ -131,7 +131,6 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
         <Text style={styles.neighborhoodName}>{item.name}</Text>
         <Text style={styles.neighborhoodType}>
           {item.type} • {item.members?.length || 0} members
-      
         </Text>
         <Text style={styles.neighborhoodDescription}>{item.description}</Text>
 
@@ -148,7 +147,25 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
             asChild
           >
             <TouchableOpacity style={styles.viewButton}>
-              <Text style={styles.viewButtonText}>View</Text>
+              <Text style={styles.viewButtonText}>Posts</Text>
+            </TouchableOpacity>
+          </Link>
+
+          <Link
+            href={`/neighborhoods/bubbles/neighborhood-chat?neighborhoodId=${item.id}`}
+            asChild
+          >
+            <TouchableOpacity style={styles.viewButton}>
+              <Text style={styles.viewButtonText}>Chat</Text>
+            </TouchableOpacity>
+          </Link>
+
+          <Link
+            href={`/neighborhoods/bubbles/neighborhood-gallery?neighborhoodId=${item.id}`}
+            asChild
+          >
+            <TouchableOpacity style={styles.viewButton}>
+              <Text style={styles.viewButtonText}>Gallery</Text>
             </TouchableOpacity>
           </Link>
         </View>
