@@ -21,6 +21,14 @@ import { Platform } from "react-native";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  if (typeof window !== "undefined") {
+    window.dataLayer = window.dataLayer || [];
+    window.gtag =
+      window.gtag ||
+      function () {
+        window.dataLayer.push(arguments);
+      };
+  }
   const pathname = usePathname();
 
 useEffect(() => {
