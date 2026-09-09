@@ -36,7 +36,7 @@ import ChatMediaRenderer from "../../../../components/ChatMediaRenderer";
 import WebTorrentMedia from "@/components/WebTorrentMedia";
 import NeighborhoodLiveStreamRecorder from "@/components/NeighborhoodLiveStreamRecorder";
 import webtorrentService from "../../../../utils/webtorrentService";
-import heic2any from "heic2any";
+//import heic2any from "heic2any";
 import convert from "heic-convert/browser";
 const myTracker = "wss://tracker-0ad4cca9fd92.herokuapp.com";
 // Helper function to create optimistic message
@@ -346,20 +346,32 @@ const normalizeImage = async (blob, fileName) => {
   const extension = fileName.split(".").pop().toLowerCase();
 
   if (extension === "heic" || extension === "heif") {
-    console.log("🛠 Actual conversion: HEIC to JPEG...");
+    // Web: Use window.heic2any
+    if (Platform.OS === "web" && window.heic2any) {
+      try {
+        const conversion = await window.heic2any({
+          blob: blob,
+          toType: "image/jpeg",
+          quality: 0.8,
+        });
+        const url = URL.createObjectURL(conversion);
+        return new File([conversion], `${fileName}.jpg`, {
+          type: "image/jpeg",
+        });
+      } catch (err) {
+        console.error("heic2any failed on web:", err);
+      }
+    }
+
+    // Native: Use heic-convert
     try {
       const buffer = await blob.arrayBuffer();
-
-      // ✅ FIX: Explicitly convert to Uint8Array.
-      // The library's 'isHeic' check is crashing because it can't iterate a raw ArrayBuffer.
       const uint8View = new Uint8Array(buffer);
-
       const outputBuffer = await convert({
-        buffer: uint8View, // Pass the view, not the raw buffer
+        buffer: uint8View,
         format: "JPEG",
         quality: 0.8,
       });
-
       const newFileName = fileName.replace(/\.(heic|heif)$/i, ".jpg");
       return new File([outputBuffer], newFileName, { type: "image/jpeg" });
     } catch (err) {

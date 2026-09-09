@@ -21,14 +21,15 @@ import { Platform } from "react-native";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  if (typeof window !== "undefined") {
-    window.dataLayer = window.dataLayer || [];
-    window.gtag =
-      window.gtag ||
-      function () {
-        window.dataLayer.push(arguments);
-      };
-  }
+if (typeof window !== "undefined") {
+  // ✅ Cast to any to bypass the undefined check
+  (window as any).dataLayer = (window as any).dataLayer || [];
+  (window as any).gtag =
+    (window as any).gtag ||
+    function () {
+      (window as any).dataLayer.push(arguments);
+    };
+}
   const pathname = usePathname();
 
 useEffect(() => {
@@ -95,8 +96,6 @@ if (Platform.OS === "web" && typeof window !== "undefined") {
 
           <StatusBar
             style={isDark ? "light" : "dark"}
-            backgroundColor={isDark ? "#1C0A2E" : "#FFFFFF"}
-            translucent={Platform.OS === "android"}
           />
           <Stack
             screenOptions={{

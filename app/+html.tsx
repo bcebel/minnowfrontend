@@ -168,7 +168,8 @@ export default function Root({ children }: PropsWithChildren) {
   "udp://tracker3.itzmx.com:6961/announce"
       ];
       try {
-window.globalWebTorrentClient = new window.WebTorrent({
+if (typeof window !== 'undefined' && window.WebTorrent) {
+  window.globalWebTorrentClient = new window.WebTorrent({
   tracker: { 
     announce: window.enhancedTrackers,
     rtcConfig: {
@@ -227,6 +228,7 @@ window.globalWebTorrentClient = new window.WebTorrent({
   },
   webSeeds: true,
 });
+          }
         console.log("🌪️ CHAMP INITIALIZED WITH HEROKU TRACKER");
       } catch(e) {
         console.error("🌪️ CHAMP FAILED:", e);
@@ -243,16 +245,13 @@ window.globalWebTorrentClient = new window.WebTorrent({
         <link rel="canonical" href={url} />
         <meta
           name="impact-site-verification"
-          value="6430b649-d08d-495d-8ef7-5f05702bf594"
+          content="6430b649-d08d-495d-8ef7-5f05702bf594"
         />
       </head>
 
       <body>
         {children}
-        <script
-          src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"
-          strategy="lazyOnload"
-        ></script>
+        <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
       </body>
     </html>
   );
