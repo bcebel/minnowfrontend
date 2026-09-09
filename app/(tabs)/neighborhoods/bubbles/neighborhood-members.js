@@ -9,9 +9,11 @@ import {
   Alert,
   Image,
   RefreshControl,
+  Modal,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { gql, useQuery, useMutation } from "@apollo/client";
+import { BlurView } from "expo-blur";
 
 // GraphQL Queries
 const GET_NEIGHBORHOOD_DETAILS = gql`
@@ -92,6 +94,7 @@ export default function NeighborhoodMembersScreen() {
   const neighborhoodId = params.neighborhoodId;
 
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
 
   const { data, loading, error, refetch } = useQuery(GET_NEIGHBORHOOD_DETAILS, {
     variables: { id: neighborhoodId },
@@ -145,13 +148,13 @@ export default function NeighborhoodMembersScreen() {
             }
           },
         },
-      ]
+      ],
     );
   };
 
   const neighborhood = data?.neighborhood;
   const pendingRequests = neighborhood?.joinRequests?.filter(
-    (request) => request.status === "pending"
+    (request) => request.status === "pending",
   );
   const members = neighborhood?.members || [];
 
@@ -230,7 +233,11 @@ export default function NeighborhoodMembersScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Members ({members.length})</Text>
           {members.map((member) => (
-            <View key={member.user.id} style={styles.memberCard}>
+            <TouchableOpacity
+              key={member.user.id}
+              style={styles.memberCard}
+              onPress={() => setSelectedMember(member)}
+            >
               <Image
                 source={{ uri: member.user.profilePhoto }}
                 style={styles.avatar}
@@ -256,10 +263,44 @@ export default function NeighborhoodMembersScreen() {
                   <Text style={styles.removeButtonText}>×</Text>
                 </TouchableOpacity>
               )}
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
+
+      {/* Member Profile Modal */}
+      {selectedMember && (
+        <Modal visible={true} transparent animationType="slide">
+          <View style={styles.modalContainer}>
+            <BlurView intensity={50} tint="dark" style={styles.modalContent}>
+              <Image
+                source={{ uri: selectedMember.user.profilePhoto }}
+                style={styles.modalAvatar}
+              />
+              <Text style={styles.modalName}>
+                {selectedMember.user.username}
+              </Text>
+              <Text style={styles.modalRole}>{selectedMember.role}</Text>
+
+              <TouchableOpacity
+                style={styles.modalMessageButton}
+                onPress={() => {
+                  Alert.alert("Coming Soon", "Direct messages coming soon!");
+                }}
+              >
+                <Text style={styles.modalMessageText}>💬 Message</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setSelectedMember(null)}
+              >
+                <Text style={styles.modalCloseText}>Close</Text>
+              </TouchableOpacity>
+            </BlurView>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -396,6 +437,63 @@ const styles = StyleSheet.create({
     color: "#F5F2FA",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.7)",
+  },
+  modalContent: {
+    width: 300,
+    borderRadius: 20,
+    padding: 30,
+    alignItems: "center",
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(0, 255, 255, 0.3)",
+  },
+  modalAvatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 15,
+  },
+  modalName: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#00ffff",
+    marginBottom: 5,
+  },
+  modalRole: {
+    fontSize: 16,
+    color: "#ff8000",
+    marginBottom: 20,
+  },
+  modalMessageButton: {
+    backgroundColor: "#00ffff",
+    padding: 15,
+    borderRadius: 20,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  modalMessageText: {
+    color: "#130720",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  modalCloseButton: {
+    backgroundColor: "#333",
+    padding: 10,
+    borderRadius: 20,
+    width: "100%",
+    alignItems: "center",
+  },
+  modalCloseText: {
+    color: "#fff",
+    fontSize: 14,
   },
   retryButton: {
     backgroundColor: "#00ffff",
