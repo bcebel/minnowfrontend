@@ -5,74 +5,63 @@ import {
 } from "expo-router/react-navigation";
 import { useFonts } from "expo-font";
 import { Stack, usePathname } from "expo-router";
-
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
 import { ApolloProviderWrapper } from "../context/apolloProvider";
 import { useColorScheme } from "@/hooks/useColorScheme";
-// Add these imports
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { Platform } from "react-native";
+import { Platform, View } from "react-native";
 
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-if (typeof window !== "undefined") {
-  // ✅ Cast to any to bypass the undefined check
-  (window as any).dataLayer = (window as any).dataLayer || [];
-  (window as any).gtag =
-    (window as any).gtag ||
-    function () {
-      (window as any).dataLayer.push(arguments);
-    };
-}
+  if (typeof window !== "undefined") {
+    (window as any).dataLayer = (window as any).dataLayer || [];
+    (window as any).gtag =
+      (window as any).gtag ||
+      function () {
+        (window as any).dataLayer.push(arguments);
+      };
+  }
   const pathname = usePathname();
 
-useEffect(() => {
-  if (typeof window !== "undefined" && window.gtag) {
-    window.gtag("config", "G-2D7BEHDVXW", {
-      page_path: pathname,
-    });
-  }
-}, [pathname]);
-
-if (Platform.OS === "web" && typeof window !== "undefined") {
-  // 1. Check if the library is already there
-  const initChamp = () => {
-    if (window.WebTorrent && !window.globalWebTorrentClient) {
-      try {
-        window.globalWebTorrentClient = new window.WebTorrent({
-          tracker: {
-            announce: [
-              "wss://tracker-0ad4cca9fd92.herokuapp.com",
-            ],
-          },
-        });
-        console.log("🌪️ CHAMP INITIALIZED IN LAYOUT");
-      } catch (e) {
-        console.error("🌪️ CHAMP FAILED TO START:", e);
-      }
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.gtag) {
+      window.gtag("config", "G-2D7BEHDVXW", {
+        page_path: pathname,
+      });
     }
-  };
+  }, [pathname]);
 
-  // 2. Load the library if it's missing
-  if (!window.WebTorrent) {
-    const script = document.createElement("script");
-    script.src =
-      "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
-    script.onload = initChamp;
-    document.head.appendChild(script);
-  } else {
-    initChamp();
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    const initChamp = () => {
+      if (window.WebTorrent && !window.globalWebTorrentClient) {
+        try {
+          window.globalWebTorrentClient = new window.WebTorrent({
+            tracker: { announce: ["wss://tracker-0ad4cca9fd92.herokuapp.com"] },
+          });
+          console.log("🌪️ CHAMP INITIALIZED IN LAYOUT");
+        } catch (e) {
+          console.error("🌪️ CHAMP FAILED TO START:", e);
+        }
+      }
+    };
+
+    if (!window.WebTorrent) {
+      const script = document.createElement("script");
+      script.src =
+        "https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js";
+      script.onload = initChamp;
+      document.head.appendChild(script);
+    } else {
+      initChamp();
+    }
   }
-}
 
   const colorScheme = useColorScheme();
-    const isDark = colorScheme === "dark";
+  const isDark = colorScheme === "dark";
   const [loaded] = useFonts({
     Montserrat: require("../assets/fonts/Montserrat-Medium.ttf"),
   });
@@ -93,27 +82,37 @@ if (Platform.OS === "web" && typeof window !== "undefined") {
         <ThemeProvider
           value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
         >
+          {/* ✅ Add semantic roles for the web */}
+          <View role="banner" style={{ flex: 0 }}>
+            <StatusBar style={isDark ? "light" : "dark"} />
+          </View>
 
-          <StatusBar
-            style={isDark ? "light" : "dark"}
-          />
-          <Stack
-            screenOptions={{
-              contentStyle: {
-                backgroundColor: colorScheme === "dark" ? "#1C0A2E" : "#FFFFFF",
-              },
-            }}
-          >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="login" options={{ title: "Login" }} />
-            <Stack.Screen name="register" options={{ title: "Register" }} />
-            <Stack.Screen
-              name="privacy"
-              options={{ title: "Privacy Policy" }}
-            />
-            <Stack.Screen name="tos" options={{ title: "Terms of Service" }} />
-            <Stack.Screen name="+not-found" options={{ title: "Not Found" }} />
-          </Stack>
+          <View role="main" style={{ flex: 1 }}>
+            <Stack
+              screenOptions={{
+                contentStyle: {
+                  backgroundColor:
+                    colorScheme === "dark" ? "#1C0A2E" : "#FFFFFF",
+                },
+              }}
+            >
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="login" options={{ title: "Login" }} />
+              <Stack.Screen name="register" options={{ title: "Register" }} />
+              <Stack.Screen
+                name="privacy"
+                options={{ title: "Privacy Policy" }}
+              />
+              <Stack.Screen
+                name="tos"
+                options={{ title: "Terms of Service" }}
+              />
+              <Stack.Screen
+                name="+not-found"
+                options={{ title: "Not Found" }}
+              />
+            </Stack>
+          </View>
         </ThemeProvider>
       </ApolloProviderWrapper>
     </SafeAreaProvider>
