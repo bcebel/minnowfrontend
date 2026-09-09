@@ -10,12 +10,23 @@ import {
   Image,
   RefreshControl,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { gql, useQuery, useMutation } from "@apollo/client";
 import { BlurView } from "expo-blur";
 
 // GraphQL Queries
+const CREATE_DIRECT_MESSAGE_BUBBLE = gql`
+  mutation CreateDirectMessageBubble($userId: ID!) {
+    createDirectMessageBubble(userId: $userId) {
+      id
+      name
+    }
+  }
+`;
+
 const GET_NEIGHBORHOOD_DETAILS = gql`
   query GetNeighborhoodDetails($id: ID!) {
     neighborhood(id: $id) {
@@ -89,10 +100,11 @@ const REMOVE_MEMBER = gql`
 `;
 
 export default function NeighborhoodMembersScreen() {
+
   const params = useLocalSearchParams();
   const router = useRouter();
   const neighborhoodId = params.neighborhoodId;
-
+const [createDirectMessageBubble] = useMutation(CREATE_DIRECT_MESSAGE_BUBBLE);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
 
@@ -271,6 +283,10 @@ export default function NeighborhoodMembersScreen() {
       {/* Member Profile Modal */}
       {selectedMember && (
         <Modal visible={true} transparent animationType="slide">
+            <KeyboardAvoidingView
+    style={{ flex: 1 }}
+    behavior={Platform.OS === "ios" ? "padding" : undefined}
+  >
           <View style={styles.modalContainer}>
             <BlurView intensity={50} tint="dark" style={styles.modalContent}>
               <Image
@@ -283,12 +299,22 @@ export default function NeighborhoodMembersScreen() {
               <Text style={styles.modalRole}>{selectedMember.role}</Text>
 
               <TouchableOpacity
-                style={styles.modalMessageButton}
-                onPress={() => {
-                  Alert.alert("Coming Soon", "Direct messages coming soon!");
+                onPress={async () => {
+                  try {
+                    const { data } = await createDirectMessageBubble({
+                      variables: { userId: selectedMember.user.id },
+                    });
+                    if (data?.createDirectMessageBubble?.id) {
+                      router.push(
+                        `/neighborhoods/bubbles/neighborhood-chat?neighborhoodId=${data.createDirectMessageBubble.id}`,
+                      );
+                    }
+                  } catch (err) {
+                    Alert.alert("Error", "Could not create direct message");
+                  }
                 }}
               >
-                <Text style={styles.modalMessageText}>💬 Message</Text>
+                <Text>💬 Message</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -298,7 +324,8 @@ export default function NeighborhoodMembersScreen() {
                 <Text style={styles.modalCloseText}>Close</Text>
               </TouchableOpacity>
             </BlurView>
-          </View>
+            </View>
+            </KeyboardAvoidingView>
         </Modal>
       )}
     </View>
