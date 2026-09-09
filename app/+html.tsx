@@ -19,6 +19,20 @@ export default function Root({ children }: PropsWithChildren) {
         />
         <ScrollViewStyleReset />
         <title>{title}</title>
+        <script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-2D7BEHDVXW"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-2D7BEHDVXW');
+    `,
+          }}
+        />
         <meta name="title" content={title} />
         <meta name="description" content={description} />
         <meta

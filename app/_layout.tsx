@@ -4,7 +4,8 @@ import {
   ThemeProvider,
 } from "expo-router/react-navigation";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, usePathname } from "expo-router";
+
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
@@ -20,6 +21,16 @@ import { Platform } from "react-native";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const pathname = usePathname();
+
+useEffect(() => {
+  if (typeof window !== "undefined" && window.gtag) {
+    window.gtag("config", "G-2D7BEHDVXW", {
+      page_path: pathname,
+    });
+  }
+}, [pathname]);
+
 if (Platform.OS === "web" && typeof window !== "undefined") {
   // 1. Check if the library is already there
   const initChamp = () => {
