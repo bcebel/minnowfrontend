@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   },
   bubbleHeader: {
     width: "100%",
-    height: 250,
+    height: 100,
   },
   gradientOverlay: {
     flex: 1,
@@ -252,11 +252,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#fff",
     textAlign: "center",
-    paddingVertical: 16,
+    paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 48,
     alignItems: "center",
     backgroundColor: "rgba 57, 17, 89, 0.5",
-    padding: "50px",
+    padding: "10px",
   },
 });
