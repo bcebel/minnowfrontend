@@ -153,7 +153,7 @@ export default function NeighborhoodDetailScreen() {
           <TouchableOpacity
             onPress={() =>
               router.push(
-                `/neighborhood-members?neighborhoodId=${neighborhood.id}`,
+                `/neighborhoods/bubbles/neighborhood-members?neighborhoodId=${neighborhood.id}`,
               )
             }
           >
