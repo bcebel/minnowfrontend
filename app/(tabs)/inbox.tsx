@@ -16,9 +16,20 @@ const GET_INBOX = gql`
   }
 `;
 
+const GET_ME = gql`
+  query GetMe {
+    me {
+      username
+    }
+  }
+`;
+
 export default function InboxScreen() {
   const router = useRouter();
-  const { data, loading, error } = useQuery(GET_INBOX);
+const { data, loading, error } = useQuery(GET_INBOX, {
+  fetchPolicy: "network-only", // ✅ ALWAYS fetch fresh data!
+});  const { data: meData } = useQuery(GET_ME);
+  const myUsername = meData?.me?.username;
 
   if (loading) return <Text>Loading...</Text>;
   if (error) return <Text>Error: {error.message}</Text>;
@@ -31,49 +42,41 @@ export default function InboxScreen() {
         📩 Inbox
       </Text>
 
-      {/* ✅ Add a "New Message" button */}
-      <TouchableOpacity
-        style={{
-          backgroundColor: "#00ffff",
-          padding: 15,
-          borderRadius: 20,
-          marginBottom: 20,
-        }}
-        onPress={() => router.push("/friends")}
-      >
-        <Text
-          style={{ color: "#130720", fontWeight: "bold", textAlign: "center" }}
-        >
-          New Message
-        </Text>
-      </TouchableOpacity>
-
       <FlatList
         data={inboxBubbles}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View
-            style={{
-              padding: 15,
-              backgroundColor: "#1C0A2E",
-              borderRadius: 8,
-              marginBottom: 10,
-            }}
-          >
-            <Text style={{ color: "#fff", fontWeight: "bold" }}>
-              {item.name}
-            </Text>
-            <TouchableOpacity
-              onPress={() =>
-                router.push(
-                  `/neighborhoods/bubbles/neighborhood-chat?neighborhoodId=${item.id}`,
-                )
-              }
+        renderItem={({ item }) => {
+          // ✅ Find the OTHER user's username
+          const otherUser = item.members.find(
+            (member) => member.user.username !== myUsername,
+          );
+
+          return (
+            <View
+              style={{
+                padding: 15,
+                backgroundColor: "#1C0A2E",
+                borderRadius: 8,
+                marginBottom: 10,
+              }}
             >
-              <Text style={{ color: "#00ffff" }}>Open Chat</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+              {/* ✅ Show the OTHER user's username */}
+              <Text style={{ color: "#fff", fontWeight: "bold" }}>
+                {otherUser?.user?.username || "Direct Message"}
+              </Text>
+
+              <TouchableOpacity
+                onPress={() =>
+                  router.push(
+                    `/neighborhoods/bubbles/neighborhood-chat?neighborhoodId=${item.id}`,
+                  )
+                }
+              >
+                <Text style={{ color: "#00ffff" }}>Open Chat</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }}
       />
     </View>
   );
