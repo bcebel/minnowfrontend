@@ -13,6 +13,10 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, gql } from "@apollo/client";
 import { GET_NEIGHBORHOOD } from "../../../graphql/queries";
+import { ImageBackground } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
+
 
 const GET_CURRENT_USER = gql`
   query GetMe {
@@ -87,108 +91,88 @@ export default function NeighborhoodDetailScreen() {
     </TouchableOpacity>
   );
 
+  // Inside your BubbleHub return:
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{neighborhood.name}</Text>
-        <Text style={styles.type}>{neighborhood.type} neighborhood</Text>
-        <Text style={styles.description}>{neighborhood.description}</Text>
+      <ImageBackground
+        source={require("@/assets/images/bbl.jpg")}
+        style={styles.bubbleHeader}
+        resizeMode="cover"
+      >
+        {/* Liquid Glass overlay */}
+        <LinearGradient
+          colors={["rgba(0,0,0,0.7)", "rgba(0,0,0,0.2)"]}
+          style={styles.gradientOverlay}
+        >
+          <View style={styles.headerContent}>
+            <Text style={styles.bubbleName}>{neighborhood.name}</Text>
+            <Text style={styles.bubbleDescription}>
+              {neighborhood.description}
+            </Text>
+          </View>
+        </LinearGradient>
+      </ImageBackground>
 
-        <View style={styles.stats}>
-          <Text style={styles.stat}>
-            👥 {neighborhood.members?.length || 0} members
-          </Text>
-          <Text style={styles.stat}>
-            🗓️ Created {new Date(neighborhood.createdAt).toLocaleDateString()}
-          </Text>
-        </View>
-      </View>
-
-      {/* ✅ BUBBLE HUB MENU */}
-      <View style={styles.hubMenu}>
-        <Text style={styles.sectionTitle}>🫧 Enter the Bubble</Text>
-
-        <View style={styles.buttonRow}>
+      {/* 🌟 THE MENU */}
+      <View style={styles.menu}>
+        <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
           <TouchableOpacity
-            style={styles.hubButton}
             onPress={() =>
               router.push(
                 `/neighborhoods/bubbles/neighborhood-postfeed?neighborhoodId=${neighborhood.id}`,
               )
             }
           >
-            <Text style={styles.hubButtonText}>📝 Posts</Text>
+            <Text style={styles.button}>📝 Posts</Text>
           </TouchableOpacity>
+        </BlurView>
 
+        <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
           <TouchableOpacity
-            style={styles.hubButton}
             onPress={() =>
               router.push(
                 `/neighborhoods/bubbles/neighborhood-chat?neighborhoodId=${neighborhood.id}`,
               )
             }
           >
-            <Text style={styles.hubButtonText}>💬 Chat</Text>
+            <Text style={styles.button}>💬 Chat</Text>
           </TouchableOpacity>
-        </View>
-
-        <View style={styles.buttonRow}>
+        </BlurView>
+        <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
           <TouchableOpacity
-            style={styles.hubButton}
             onPress={() =>
               router.push(
                 `/neighborhoods/bubbles/neighborhood-gallery?neighborhoodId=${neighborhood.id}`,
               )
             }
           >
-            <Text style={styles.hubButtonText}>🖼️ Gallery</Text>
+            <Text style={styles.button}>🖼️ Gallery</Text>
           </TouchableOpacity>
-
+        </BlurView>
+        <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
           <TouchableOpacity
-            style={styles.hubButton}
             onPress={() =>
               router.push(
-                `/neighborhoods/bubbles/neighborhood-members?neighborhoodId=${neighborhood.id}`,
+                `/neighborhood-members?neighborhoodId=${neighborhood.id}`,
               )
             }
           >
-            <Text style={styles.hubButtonText}>👥 Members</Text>
+            <Text style={styles.button}>👥 Members</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* ✅ Invite ONLY if user has permission */}
+        </BlurView>
         {canInvite && (
-          <TouchableOpacity
-            style={styles.hubButton}
-            onPress={() =>
-              router.push(
-                `/neighborhoods/bubbles/invite-links?neighborhoodId=${neighborhood.id}`,
-              )
-            }
-          >
-            <Text style={styles.hubButtonText}>📧 Invite</Text>
-          </TouchableOpacity>
+          <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
+            <TouchableOpacity
+              onPress={() =>
+                router.push(
+                  `/neighborhoods/bubbles/invite-links?neighborhoodId=${neighborhood.id}`,
+                )
+              }
+            >
+              <Text style={styles.button}>📧 Invite</Text>
+            </TouchableOpacity>
+          </BlurView>
         )}
-      </View>
-
-      {/* Members Section */}
-      <View style={styles.membersSection}>
-        <Text style={styles.sectionTitle}>👥 Members</Text>
-        <FlatList
-          data={neighborhood.members}
-          keyExtractor={(item) => item.user.username}
-          renderItem={renderMember}
-          style={styles.membersList}
-        />
-      </View>
-
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backButtonText}>← Back to List</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -198,126 +182,81 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#130720",
+    paddingBottom: 20,
+  },
+  bubbleHeader: {
+    width: "100%",
+    height: 250,
+  },
+  gradientOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
     padding: 20,
   },
-  loading: {
-    marginTop: 50,
+  headerContent: {
+    alignItems: "center",
   },
-  error: {
-    color: "#151159",
+  bubbleName: {
+    fontSize: 32,
+    fontWeight: "900",
+    color: "#fff",
+    textShadowColor: "rgba(0,0,0,0.8)",
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 5,
+  },
+  bubbleDescription: {
+    fontSize: 16,
+    color: "#ddd",
     textAlign: "center",
-    marginTop: 20,
+    marginTop: 5,
+    textShadowColor: "rgba(0,0,0,0.8)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#00ffff",
-    marginBottom: 8,
-  },
-  type: {
-    fontSize: 16,
-    color: "#00AA00",
-    marginBottom: 12,
-  },
-  description: {
-    fontSize: 16,
-    color: "#CCC",
-    marginBottom: 16,
-    lineHeight: 22,
-  },
-  stats: {
-    flexDirection: "row",
+  menu: {
+    flex: 1,
+    padding: 20,
     gap: 15,
   },
-  stat: {
-    fontSize: 14,
-    color: "#00AA00",
-  },
-  // ✅ BUBBLE HUB STYLES
-  hubMenu: {
+  menuItem: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
     backgroundColor: "#1C0A2E",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 20,
+    padding: 20,
+    borderRadius: 48,
+    textAlign: "center",
     borderWidth: 1,
     borderColor: "#00ffff",
   },
-  sectionTitle: {
-    fontSize: 18,
+  bubbleGlass: {
+    fontSize: 20,
     fontWeight: "bold",
-    color: "#00ffff",
-    marginBottom: 10,
-  },
-  buttonRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-    marginBottom: 10,
-  },
-  hubButton: {
-    flex: 1,
-    backgroundColor: "#00ffff",
-    paddingVertical: 15,
-    borderRadius: 8,
-    alignItems: "center",
-    marginBottom: 5,
-  },
-  hubButtonText: {
-    color: "#130720",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  // ✅ MEMBERS SECTION
-  membersSection: {
-    flex: 1,
-  },
-  membersList: {
-    flex: 1,
-  },
-  memberItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    backgroundColor: "#111",
-    borderRadius: 8,
-    marginBottom: 8,
+    color: "#fff",
+    textAlign: "center",
+    backgroundColor: "rgba(177, 0, 255, 0.3)", // Semi-transparent background
     borderWidth: 1,
-    borderColor: "#333",
+    borderColor: "rgba(177, 0, 255, 0.3)",
+    borderRadius: 48,
+
+    // Web only (React Native Web supports this)
+    boxShadow:
+      "inset 1px 1px 1px 0px rgba(255, 255, 255, 0.6), inset -1px -1px 2px 0px rgba(0, 0, 0, 0.2), 0 12px 32px 0 rgba(0, 0, 0, 0.15)",
+
+    // Web only (Safari needs the prefix)
+    backdropFilter: "blur(16px) saturate(190%) brightness(1.1)",
+    WebkitBackdropFilter: "blur(16px) saturate(190%) brightness(1.1)",
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-  memberInfo: {
-    flex: 1,
-  },
-  memberName: {
-    fontSize: 16,
+  button: {
+    fontSize: 20,
     fontWeight: "bold",
-    color: "#00ffff",
-    marginBottom: 4,
-  },
-  memberRole: {
-    fontSize: 12,
-    color: "#00AA00",
-  },
-  actions: {
-    marginTop: 20,
-    gap: 10,
-  },
-  backButton: {
-    backgroundColor: "#333",
-    padding: 15,
-    borderRadius: 8,
+    color: "#fff",
+    textAlign: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 48,
     alignItems: "center",
-  },
-  backButtonText: {
-    color: "#00ffff",
-    fontWeight: "bold",
+    backgroundColor: "rgba 57, 17, 89, 0.5",
+    padding: "50px",
   },
 });
