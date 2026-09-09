@@ -33,8 +33,11 @@ export default function Root({ children }: PropsWithChildren) {
     `,
           }}
         />
-        <meta name="title" content={title} />
-        <meta name="description" content={description} />
+        <title>bubbleBASED - 🫧 Digital Neighborhoods, Not Just Feeds</title>
+        <meta
+          name="description"
+          content="BubbleBase is a private social network where you join digital neighborhoods (Bubbles), share photos and videos via P2P, and control exactly who sees your content. Earn from affiliate links and connect with communities."
+        />
         <meta
           name="keywords"
           content="social network, privacy, digital neighborhoods, affiliate marketing, community, bubblebase"

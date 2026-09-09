@@ -39,45 +39,52 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroOverlay}>
-          <Text style={[styles.heroTitle, { color: "#F5F2FA" }]}>
-            BubbleBased.com
+          <Text
+            style={[styles.heroTitle, { color: "#F5F2FA" }]}
+            role="heading"
+            aria-level={1}
+          >
+            bubbleBASED
           </Text>
         </View>
 
-        
-
-
         <View style={styles.actionsContainer}>
-<BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => router.push("/login")}
-          >
-            <Text style={[styles.secondaryButtonText, { color: "#FFFFFF" }]}>
-              Sign In
-            </Text>
-          </TouchableOpacity>
-</BlurView>
-<BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
-          <TouchableOpacity
-            onPress={handleLogout}
-            style={[styles.logoutButton, { backgroundColor: "rgba 89, 17, 85, 0.5"}]}
-          >
-            <Text style={[styles.logoutButtonText, { color: "#FFFFFF" }]}>
-              Logout
-            </Text>
-          </TouchableOpacity>
-</BlurView>
-<BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: "rgba 21, 17, 89, 0.5" }]}
-            onPress={() => router.push("/register")}
-          >
-            <Text style={[styles.primaryButtonText, { color: "#FFFFFF" }]}>
-              New User? Join the Bubble
-            </Text>
-          </TouchableOpacity>
-</BlurView>
+          <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => router.push("/login")}
+            >
+              <Text style={[styles.secondaryButtonText, { color: "#FFFFFF" }]}>
+                Sign In
+              </Text>
+            </TouchableOpacity>
+          </BlurView>
+          <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
+            <TouchableOpacity
+              onPress={handleLogout}
+              style={[
+                styles.logoutButton,
+                { backgroundColor: "rgba 89, 17, 85, 0.5" },
+              ]}
+            >
+              <Text style={[styles.logoutButtonText, { color: "#FFFFFF" }]}>
+                Logout
+              </Text>
+            </TouchableOpacity>
+          </BlurView>
+          <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
+            <TouchableOpacity
+              style={[
+                styles.primaryButton,
+                { backgroundColor: "rgba 21, 17, 89, 0.5" },
+              ]}
+              onPress={() => router.push("/register")}
+            >
+              <Text style={[styles.primaryButtonText, { color: "#FFFFFF" }]}>
+                New User? Join the Bubble
+              </Text>
+            </TouchableOpacity>
+          </BlurView>
         </View>
         <View style={styles.features}>
           <View style={styles.featureItem}>
@@ -87,6 +94,8 @@ export default function HomeScreen() {
                 { marginBottom: 15 },
                 { fontSize: 24 },
               ]}
+              role="heading"
+              aria-level={2}
             >
               Welcome to BubbleBased.
             </Text>
@@ -96,6 +105,8 @@ export default function HomeScreen() {
                 { marginBottom: 15 },
                 { fontSize: 24 },
               ]}
+              role="heading"
+              aria-level={3}
             >
               It’s a big club and you run it.
             </Text>
@@ -106,7 +117,7 @@ export default function HomeScreen() {
                 { marginBottom: 15 },
               ]}
             >
-            Our own private digital neighborhoods.  
+              Our own private digital neighborhoods.
             </Text>
             <Text
               style={[
@@ -114,14 +125,25 @@ export default function HomeScreen() {
                 { fontSize: 24 },
                 { marginBottom: 15 },
               ]}
+            ></Text>
+            <Text
+              style={[
+                { color: "#F5F2FA" },
+                { fontSize: 24 },
+                { marginBottom: 20 },
+              ]}
             >
-              
+              Bubbles are by invitation only. You can make and join as many
+              bubbles as you want!
             </Text>
-            <Text style={[{ color: "#F5F2FA" }, { fontSize: 24 },  { marginBottom: 20 },]}>
-          Bubbles are by invitation only. You can make and join as many bubbles as you want!     
-            </Text>
-       <Text style={[{ color: "#F5F2FA" }, { fontSize: 24 },  { marginBottom: 20 },]}>
-          Check out the tabs for more info!     
+            <Text
+              style={[
+                { color: "#F5F2FA" },
+                { fontSize: 24 },
+                { marginBottom: 20 },
+              ]}
+            >
+              Check out the tabs for more info!
             </Text>
           </View>
         </View>
