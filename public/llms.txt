@@ -6,6 +6,7 @@ bubbleBASED is a private social network where you control your privacy, earn fro
 
 - [Home](https://bubblebased.com/)
 - [Bubbles](https://bubblebased.com/neighborhoods)
+- [Livestream](https://bubblebased.com/livestream)
 - [Login](https://bubblebased.com/login)
 - [Privacy Policy](https://bubblebased.com/privacy)
 - [Terms of Service](https://bubblebased.com/tos)
