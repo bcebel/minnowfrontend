@@ -1,0 +1,11 @@
+# bubbleBASED
+
+bubbleBASED is a private social network where you control your privacy, earn from your content, and connect in digital neighborhoods. Our platform uses peer-to-peer (P2P) technology for fast, community-powered media sharing.  It's 🫧 Based.  
+
+## Main Pages
+
+- [Home](https://bubblebased.com/)
+- [Bubbles](https://bubblebased.com/neighborhoods)
+- [Login](https://bubblebased.com/login)
+- [Privacy Policy](https://bubblebased.com/privacy)
+- [Terms of Service](https://bubblebased.com/tos)

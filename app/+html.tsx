@@ -13,12 +13,12 @@ export default function Root({ children }: PropsWithChildren) {
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
+        <title>bubbleBASED - 🫧 Digital Neighborhoods, Not Just Feeds</title>
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
         />
         <ScrollViewStyleReset />
-        <title>{title}</title>
         <script
           async
           src="https://www.googletagmanager.com/gtag/js?id=G-2D7BEHDVXW"
