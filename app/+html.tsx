@@ -3,7 +3,7 @@ import { type PropsWithChildren } from "react";
 import VerificationText from "../components/verification";
 
 export default function Root({ children }: PropsWithChildren) {
-  const title = "BubbleBase - Digital Neighborhoods, Not Just Feeds";
+  const title = "BubbleBased - Digital Neighborhoods, Not Just Feeds";
   const description =
     "Join bubblebased.com - a private social network where you control your privacy, earn from your content, and connect in digital neighborhoods. Bubbly & based.";
   const url = "https://bubblebased.com";
@@ -33,7 +33,7 @@ export default function Root({ children }: PropsWithChildren) {
     `,
           }}
         />
-        <title>bubbleBASED - 🫧 Digital Neighborhoods, Not Just Feeds</title>
+      
         <meta
           name="description"
           content="BubbleBase is a private social network where you join digital neighborhoods (Bubbles), share photos and videos via P2P, and control exactly who sees your content. Earn from affiliate links and connect with communities."
@@ -47,22 +47,16 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content={url} />
-        <meta property="og:title" content={title} />
         <meta property="og:description" content={description} />
         <meta property="og:image" content={image} />
-        <meta property="og:site_name" content="BubbleBase" />
+        <meta property="og:site_name" content="BubbleBased" />
         <meta property="og:locale" content="en_US" />
         <meta
           name="root.txt"
           content="lvnAxw0UhYgjF3kq4GKccyigEEVkHXkKTHntmIXRGvJ9aIHkiVw4Kg=="
         />
         {/* Twitter */}
-        <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:url" content={url} />
-        <meta property="twitter:title" content={title} />
-        <meta property="twitter:description" content={description} />
-        <meta property="twitter:image" content={image} />
-        <meta property="twitter:creator" content="@bubblebase" />
+        <meta property="twitter:creator" content="@bubbleBASED_" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -101,12 +95,12 @@ export default function Root({ children }: PropsWithChildren) {
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "Organization",
-              name: "BubbleBase",
+              name: "BubbleBased",
               url: url,
               logo: "https://bubblebased.com/logo.png",
               description: description,
               sameAs: [
-                "https://twitter.com/bubblebase",
+                "https://twitter.com/bubbleBASED_",
                 "https://instagram.com/bubblebase",
               ],
               address: {
