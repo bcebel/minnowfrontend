@@ -36,16 +36,6 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="inbox"
-        options={{
-          tabBarIcon: () => (
-            <View style={styles.bubbleGlass} role="heading" aria-level={1}>
-              <Text style={styles.iconText}>📩</Text>
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="index"
         options={{
           tabBarIcon: () => (
@@ -55,6 +45,7 @@ export default function TabLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="neighborhoods/index"
         options={{
@@ -65,6 +56,7 @@ export default function TabLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="gallery"
         options={{
@@ -76,21 +68,31 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="setup"
-        options={{
-          tabBarIcon: () => (
-            <View style={styles.bubbleGlass} role="heading" aria-level={1}>
-              <Text style={styles.iconText}>😀</Text>
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="livestream"
         options={{
           tabBarIcon: () => (
             <View style={styles.bubbleGlass} role="heading" aria-level={1}>
               <Text style={styles.iconText}>📺</Text>
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="inbox"
+        options={{
+          tabBarIcon: () => (
+            <View style={styles.bubbleGlass} role="heading" aria-level={1}>
+              <Text style={styles.iconText}>📩</Text>
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="setup"
+        options={{
+          tabBarIcon: () => (
+            <View style={styles.bubbleGlass} role="heading" aria-level={1}>
+              <Text style={styles.iconText}>😀</Text>
             </View>
           ),
         }}

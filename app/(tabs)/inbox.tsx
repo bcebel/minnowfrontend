@@ -26,9 +26,8 @@ const GET_ME = gql`
 
 export default function InboxScreen() {
   const router = useRouter();
-const { data, loading, error } = useQuery(GET_INBOX, {
-  fetchPolicy: "network-only", // ✅ ALWAYS fetch fresh data!
-});  const { data: meData } = useQuery(GET_ME);
+  const { data, loading, error } = useQuery(GET_INBOX);
+  const { data: meData } = useQuery(GET_ME);
   const myUsername = meData?.me?.username;
 
   if (loading) return <Text>Loading...</Text>;
@@ -46,11 +45,18 @@ const { data, loading, error } = useQuery(GET_INBOX, {
         data={inboxBubbles}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
-          // ✅ Find the OTHER user's username
-          const otherUser = item.members.find(
+          console.log("myUsername:", myUsername);
+          console.log(
+            "members:",
+            item.members.map((m) => m.user.username),
+          );
+          // ✅ Find the OTHER person (everyone who isn't me)
+          const otherUsers = item.members.filter(
             (member) => member.user.username !== myUsername,
           );
 
+          // ✅ Build a display name: if 1 other person, show them. If more, join with commas.
+const displayName = otherUsers.map((m) => m.user.username).join(" ↔ ");
           return (
             <View
               style={{
@@ -60,9 +66,8 @@ const { data, loading, error } = useQuery(GET_INBOX, {
                 marginBottom: 10,
               }}
             >
-              {/* ✅ Show the OTHER user's username */}
-              <Text style={{ color: "#fff", fontWeight: "bold" }}>
-                {otherUser?.user?.username || "Direct Message"}
+              <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>
+                {displayName}
               </Text>
 
               <TouchableOpacity
@@ -72,7 +77,9 @@ const { data, loading, error } = useQuery(GET_INBOX, {
                   )
                 }
               >
-                <Text style={{ color: "#00ffff" }}>Open Chat</Text>
+                <Text style={{ color: "#00ffff", marginTop: 5 }}>
+                  Open Chat
+                </Text>
               </TouchableOpacity>
             </View>
           );
