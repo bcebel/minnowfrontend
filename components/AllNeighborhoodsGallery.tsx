@@ -383,11 +383,17 @@ const combinedData = React.useMemo(() => {
     return item;
   });
 
-  const raw = normalized.sort((a, b) => {
-    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-    return timeB - timeA;
-  });
+ const raw = normalized.sort((a, b) => {
+   const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+   const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+   const idTimeA = a.id
+     ? new Date(parseInt(a.id.substring(0, 8), 16) * 1000).getTime()
+     : 0;
+   const idTimeB = b.id
+     ? new Date(parseInt(b.id.substring(0, 8), 16) * 1000).getTime()
+     : 0;
+   return (timeB || idTimeB) - (timeA || idTimeA);
+ });
 
   const withAds = [];
   raw.forEach((item, index) => {
