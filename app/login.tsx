@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   TextInput as RNTextInput,
   Alert,
+  ImageBackground,
 } from "react-native";
 import { Text } from "react-native";
 import { useRouter } from "expo-router";
@@ -81,6 +82,11 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
+      <ImageBackground
+        source={require("@/assets/images/bbl.jpg")}
+        style={styles.heroBubble}
+        resizeMode="cover"
+      />
       <Text style={styles.title}>Sign In</Text>
       <Text style={styles.subtitle}>Enter your bubble</Text>
 
@@ -139,6 +145,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#130720",
     justifyContent: "center",
   },
+  heroBubble: { width: "100%", height: "100%", position: "absolute" },
+
   title: {
     fontSize: 32,
     fontWeight: "bold",

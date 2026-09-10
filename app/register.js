@@ -8,6 +8,7 @@ import {
   ScrollView,
   TextInput as RNTextInput,
   Alert,
+  ImageBackground,
 } from "react-native";
 import { Text } from "react-native";
 import { useRouter } from "expo-router";
@@ -93,9 +94,14 @@ const RegistrationScreen = () => {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+        <ImageBackground
+                source={require("@/assets/images/bbl.jpg")}
+                style={styles.heroBubble}
+                resizeMode="cover"
+              />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Join the Neighborhood</Text>
+          <Text style={styles.title}>Join bubbleBASED</Text>
           <Text style={styles.subtitle}>
             Create your space in the digital community
           </Text>
@@ -177,6 +183,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#130720",
   },
+  heroBubble: { width: "100%", height: "100%", position: "absolute" },
   scrollContent: {
     flexGrow: 1,
     padding: 20,
@@ -195,7 +202,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: "#00AA00",
+    color: "#FF00FF",
     textAlign: "center",
     opacity: 0.8,
   },
@@ -241,7 +248,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   footerText: {
-    color: "#00AA00",
+    color: "#FF00FF",
     fontSize: 16,
   },
   linkText: {
@@ -265,7 +272,7 @@ const styles = StyleSheet.create({
   },
   feature: {
     fontSize: 16,
-    color: "#00AA00",
+    color: "#FF00FF",
     marginBottom: 8,
   },
 });
