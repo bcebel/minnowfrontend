@@ -409,7 +409,10 @@ export default function LivestreamScreen() {
 
   // Add skip: !isLoggedIn so they don't fire until logged in!
   const { data: meData } = useQuery(GET_ME, { skip: !isLoggedIn });
-  const { data: hoodsData, loading: lHoods } = useQuery(GET_MY_NEIGHBORHOODS, { skip: !isLoggedIn });
+  const { data: hoodsData, loading: lHoods } = useQuery(GET_MY_NEIGHBORHOODS, {
+    fetchPolicy: "network-only",
+    skip: !isLoggedIn,
+  });
   const {
     data: streamsData,
     loading: lStreams,
