@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   commentToggleText: {
-    color: "#FF8000",
+    color: "#FFFF00",
     fontSize: 13,
     fontWeight: "600",
   },
@@ -215,8 +215,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   username: {
-    color: "#FF00FF",
-    fontSize: 12,
+    color: "#FF99FF",
+    fontSize: 14,
     fontWeight: "600",
   },
   commentText: {

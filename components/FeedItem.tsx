@@ -200,21 +200,21 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     backgroundColor: "#130720",
     borderWidth: 2,
-    borderColor: "#FF8000", // 🧡 Orange border
+    borderColor: "#00ffff", // 
   },
   headerTextContainer: {
     marginLeft: 10,
   },
   username: {
-    color: "#FF8000", // 🧡 Orange username
-    fontSize: 14,
+    color: "#00ffff", // 
+    fontSize: 18,
     fontWeight: "700",
   },
   timestamp: {
-    color: "#FF00FF", // 🧡 Orange tint
-    fontSize: 11,
+    color: "#FF99FF", // 🧡 Orange tint
+    fontSize: 13,
     marginTop: 1,
-    opacity: 0.7,
+    opacity: 0.9,
   },
   content: {
     color: "#E0D8F0",
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   actionIcon: {
     fontSize: 14,
     marginRight: 6,
-    color: "#FF8000", // 🧡 Orange
+    color: "#fff", // 🧡 Orange
   },
   actionLabel: {
     color: "#8A829E",
