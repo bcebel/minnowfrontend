@@ -1,6 +1,8 @@
 // app/neighborhoods/[id].js
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect
+ } from "react";
+
 import {
   View,
   Text,
@@ -9,13 +11,16 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useQuery, gql } from "@apollo/client";
-import { GET_NEIGHBORHOOD } from "../../../graphql/queries";
+import { useQuery, useMutation, gql } from "@apollo/client";
+import { GET_NEIGHBORHOOD, UPDATE_BUBBLE_PHOTO } from "../../../graphql/queries";
 import { ImageBackground } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import * as ImagePicker from "expo-image-picker";
 import { BlurView } from "expo-blur";
+const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
 
 const GET_CURRENT_USER = gql`
@@ -27,15 +32,66 @@ const GET_CURRENT_USER = gql`
   }
 `;
 
+
 export default function NeighborhoodDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { loading, error, data } = useQuery(GET_NEIGHBORHOOD, {
-    variables: { id },
-  });
+const { loading, error, data, refetch } = useQuery(GET_NEIGHBORHOOD, {
+  variables: { id },
+  fetchPolicy: "network-only",
+});
 
   const { data: userData } = useQuery(GET_CURRENT_USER);
   const [username, setUsername] = useState("");
+
+  const [updateBubblePhoto] = useMutation(UPDATE_BUBBLE_PHOTO);
+
+const pickBubblePhoto = async () => {
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ["images"],
+    allowsEditing: true,
+    aspect: [16, 9],
+    quality: 0.8,
+  });
+
+  if (result.canceled) return;
+
+  const asset = result.assets[0];
+
+  try {
+    const token = await AsyncStorage.getItem("token");
+
+    const formData = new FormData();
+    const response = await fetch(asset.uri);
+    const blob = await response.blob();
+    formData.append("video", blob, "bubble-photo.jpg");
+    formData.append("title", "Bubble Photo");
+    formData.append("description", "Neighborhood cover photo");
+
+    const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/upload`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+
+    const data = await res.json();
+    const cid = data.ipfsUrl?.split("/ipfs/")[1];
+
+    if (cid) {
+      await updateBubblePhoto({
+        variables: { neighborhoodId: id, cid },
+      });
+
+      // Refetch the neighborhood to get the new photo
+  await refetch();
+
+      Alert.alert("Success", "Bubble photo updated!");
+    }
+  } catch (err) {
+    console.error("Bubble photo upload failed:", err);
+    Alert.alert("Upload Failed", err.message);
+  }
+};
 
   useEffect(() => {
     AsyncStorage.getItem("username").then((saved) => setUsername(saved || ""));
@@ -53,6 +109,10 @@ export default function NeighborhoodDetailScreen() {
       </View>
     );
   }
+
+const bubblePhotoSource = neighborhood.bubblePhotoCid
+  ? { uri: `https://${PINATA_GATEWAY}/ipfs/${neighborhood.bubblePhotoCid}` }
+  : require("@/assets/images/bbl.jpg");
 
   // ✅ Check if current user can invite (Owner or Moderator)
   const canInvite = (() => {
@@ -91,15 +151,17 @@ export default function NeighborhoodDetailScreen() {
     </TouchableOpacity>
   );
 
+  console.log("BUBBLE PHOTO CID:", neighborhood.bubblePhotoCid);
+  console.log("BUBBLE PHOTO URL:", bubblePhotoSource);
+
   // Inside your BubbleHub return:
   return (
     <View style={styles.container}>
       <ImageBackground
-        source={require("@/assets/images/bbl.jpg")}
+        source={bubblePhotoSource}
         style={styles.bubbleHeader}
         resizeMode="cover"
       >
-        {/* Liquid Glass overlay */}
         <LinearGradient
           colors={["rgba(0,0,0,0.7)", "rgba(0,0,0,0.2)"]}
           style={styles.gradientOverlay}
@@ -109,6 +171,14 @@ export default function NeighborhoodDetailScreen() {
             <Text style={styles.bubbleDescription}>
               {neighborhood.description}
             </Text>
+            {neighborhood.owner?.username === username && (
+              <TouchableOpacity
+                style={styles.editPhotoButton}
+                onPress={pickBubblePhoto}
+              >
+                <Text style={styles.editPhotoText}>📷 Change Photo</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </LinearGradient>
       </ImageBackground>
@@ -186,7 +256,8 @@ const styles = StyleSheet.create({
   },
   bubbleHeader: {
     width: "100%",
-    height: 100,
+    height: 200,
+    zIndex: 2,
   },
   gradientOverlay: {
     flex: 1,
@@ -258,5 +329,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba 57, 17, 89, 0.5",
     padding: "10px",
+  },
+  changePhotoButton: {
+    position: "absolute",
+    top: 20,
+    right: 20,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#00ffff",
+    zIndex: 10,
+  },
+  changePhotoText: {
+    color: "#00ffff",
+    fontWeight: "bold",
+    fontSize: 14,
   },
 });

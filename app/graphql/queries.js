@@ -46,6 +46,17 @@ const GET_POSTS_WITH_ADS = gql`
   }
 `;
 
+export const UPDATE_BUBBLE_PHOTO = gql`
+  mutation UpdateBubblePhoto($neighborhoodId: ID!, $cid: String!) {
+    updateBubblePhoto(neighborhoodId: $neighborhoodId, cid: $cid) {
+      id
+      name
+      bubblePhotoCid
+    }
+  }
+`;
+
+
 export const ADD_COMMENT = gql`
   mutation AddComment($postId: ID!, $content: String!) {
     addComment(postId: $postId, content: $content) {
@@ -192,6 +203,7 @@ export const GET_NEIGHBORHOOD = gql`
       name
       description
       type
+      bubblePhotoCid
       rules
       owner {
         username
