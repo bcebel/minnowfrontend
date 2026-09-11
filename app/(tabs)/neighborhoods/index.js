@@ -190,9 +190,7 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.subtitle}>
-        {neighborhoods.length} bubble(s) you're a member of
-      </Text>
+
       {neighborhoods.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>

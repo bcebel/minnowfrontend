@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 20,
     marginVertical: 20,
-    borderColor: "ff8000"
+    borderColor: "ff8000",
   },
   item: {
     paddingHorizontal: 15,
@@ -803,26 +803,26 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff",
     borderWidth: 3,
   },
-heroBubble: {
+  heroBubble: {
     width: "100%",
     height: "100%",
     position: "absolute",
   },
-container: {
+  container: {
     flex: 1,
   },
-loginButton: {
-    backgroundColor: '#00FFFF',
+  loginButton: {
+    backgroundColor: "#00FFFF",
     padding: 15,
     borderRadius: 30,
-    width: '80%',
-    alignItems: 'center',
+    width: "80%",
+    alignItems: "center",
     marginTop: 5,
-marginBottom: 85,
+    marginBottom: 85,
   },
-loginButtonText: {
-    color: '#130720',
-    fontWeight: 'bold',
+  loginButtonText: {
+    color: "#130720",
+    fontWeight: "bold",
     fontSize: 18,
   },
 });

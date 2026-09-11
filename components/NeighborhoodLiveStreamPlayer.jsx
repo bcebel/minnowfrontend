@@ -586,6 +586,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#000",
     overflow: "hidden",
+    paddingBottom: 180,
   },
   videoContainer: {
     flex: 1, // ✅ Takes up 90% of the space
