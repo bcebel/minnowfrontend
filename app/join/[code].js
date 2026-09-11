@@ -9,6 +9,7 @@ import {
   Alert,
   TouchableOpacity,
   ImageBackground,
+  ScrollView,
 } from "react-native";
 import { useQuery, useMutation } from "@apollo/client";
 import { gql } from "@apollo/client";
@@ -171,6 +172,7 @@ const handleJoin = async () => {
   const { link, neighborhood } = validateInviteLink;
 
   return (
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
     <View style={styles.container}>
       <ImageBackground
         source={require("@/assets/images/bbl.jpg")}
@@ -259,7 +261,8 @@ const handleJoin = async () => {
           {hasJoined ? "Back to Home" : "Cancel"}
         </Text>
       </TouchableOpacity>
-    </View>
+      </View>
+    </ScrollView>
   );
 
 }
@@ -267,15 +270,14 @@ const handleJoin = async () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: "#FFF",
+    backgroundColor: "#000",
   },
   header: {
     marginBottom: 30,
     alignItems: "center",
   },
   mainTitle: {
-    fontSize: 40,
+    fontSize: 30,
     fontWeight: "bold",
     marginBottom: 10,
     textAlign: "center",
@@ -283,7 +285,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   title: {
-    fontSize: 28,
+    fontSize: 25,
     fontWeight: "bold",
     marginBottom: 10,
     textAlign: "center",
