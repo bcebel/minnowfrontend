@@ -9,7 +9,9 @@ import {
   View,
   ActivityIndicator,
   ImageBackground,
+
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useQuery, useMutation } from "@apollo/client";
 import { Link } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -19,6 +21,8 @@ import {
   JOIN_NEIGHBORHOOD,
   LEAVE_NEIGHBORHOOD,
 } from "../../graphql/queries";
+
+const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
 export default function NeighborhoodsScreen() {
   const router = useRouter();
@@ -128,31 +132,43 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
  const renderItem = ({ item }) => {
     return (
       <View style={styles.neighborhoodItem}>
-        <Text style={styles.neighborhoodName}>{item.name}</Text>
-        <Text style={styles.neighborhoodType}>
-          {item.type} • {item.members?.length || 0} members
-        </Text>
-        <Text style={styles.neighborhoodDescription}>{item.description}</Text>
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.leaveButton}
-            onPress={() => handleLeaveNeighborhood(item.id)}
+        <ImageBackground
+          source={
+            item.bubblePhotoCid
+              ? { uri: `https://${PINATA_GATEWAY}/ipfs/${item.bubblePhotoCid}` }
+              : require("@/assets/images/bbl.jpg")
+          }
+          style={styles.neighborhoodCardImage}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={["rgba(0,0,0,0.8)", "rgba(0,0,0,0.1)"]}
+            style={styles.neighborhoodCardOverlay}
           >
-            <Text style={styles.leaveButtonText}>Leave</Text>
-          </TouchableOpacity>
+            <Text style={styles.neighborhoodName}>{item.name}</Text>
+            <Text style={styles.neighborhoodType}>
+              {item.type} • {item.members?.length || 0} members
+            </Text>
+            <Text style={styles.neighborhoodDescription}>
+              {item.description}
+            </Text>
 
-          <Link
-            href={`/neighborhoods/bubbles/${item.id}`}
-            asChild
-          >
-            <TouchableOpacity style={styles.viewButton}>
-              <Text style={styles.viewButtonText}>Enter Bubble</Text>
-            </TouchableOpacity>
-          </Link>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.leaveButton}
+                onPress={() => handleLeaveNeighborhood(item.id)}
+              >
+                <Text style={styles.leaveButtonText}>Leave</Text>
+              </TouchableOpacity>
 
-         
-        </View>
+              <Link href={`/neighborhoods/bubbles/${item.id}`} asChild>
+                <TouchableOpacity style={styles.viewButton}>
+                  <Text style={styles.viewButtonText}>Enter Bubble</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
+          </LinearGradient>
+        </ImageBackground>
       </View>
     );
   };
@@ -217,17 +233,17 @@ const styles = StyleSheet.create({
     position: "absolute",
   },
   loginButton: {
-    backgroundColor: '#00FFFF',
+    backgroundColor: "#00FFFF",
     padding: 15,
     borderRadius: 30,
-    width: '80%',
-    alignItems: 'center',
+    width: "80%",
+    alignItems: "center",
     marginTop: 5,
     marginBottom: 85,
   },
   loginButtonText: {
-    color: '#130720',
-    fontWeight: 'bold',
+    color: "#130720",
+    fontWeight: "bold",
     fontSize: 18,
   },
   container: {
@@ -274,12 +290,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   neighborhoodItem: {
-    backgroundColor: "#130720",
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#130720",
+    borderRadius: 12,
+    marginBottom: 15,
+    overflow: "hidden",
   },
   neighborhoodName: {
     fontSize: 18,
@@ -361,5 +374,17 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 120, // Adjust this until it clears your tab bar
     flexGrow: 1, // Ensures empty states center properly
+  },
+  neighborhoodCardImage: {
+    width: "100%",
+    height: 180,
+    borderRadius: 24,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+  },
+  neighborhoodCardOverlay: {
+    height: 180,
+    padding: 15,
+    borderRadius: 24,
   },
 });

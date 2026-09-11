@@ -164,6 +164,7 @@ export const GET_MY_NEIGHBORHOODS = gql`
       id
       name
       description
+      bubblePhotoCid
       type
       owner {
         username
@@ -230,6 +231,7 @@ export const MY_NEIGHBORHOODS = gql`
       id
       name
       description
+      bubblePhotoCid
       type
       owner {
         id
