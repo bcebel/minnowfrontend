@@ -110,6 +110,7 @@ export default function PostFeed({
 const styles = StyleSheet.create({
   listContent: {
     padding: 12,
+    paddingBottom: 120,
     backgroundColor: "#130720",
     flexGrow: 1,
   },
@@ -119,6 +120,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#130720",
     padding: 20,
+    
   },
   loadingText: {
     color: "#8A829E",

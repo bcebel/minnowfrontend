@@ -165,20 +165,11 @@ export default function FeedItem({ post, onLike, onComment, onDelete }) {
           <Text style={styles.actionIcon}>🗑️</Text>
           <Text style={styles.actionLabel}>Delete</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={onLike}>
-          <Text style={styles.actionIcon}>⚡</Text>
-          <Text style={styles.actionLabel}>Boost</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionBtn} onPress={onComment}>
-          <Text style={styles.actionIcon}>💬</Text>
-          <Text style={styles.actionLabel}>Reply ({commentCount})</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionBtn}>
-          <Text style={styles.actionIcon}>↗️</Text>
-          <Text style={styles.actionLabel}>Share</Text>
-        </TouchableOpacity>
+
+
+
       </View>
       <CommentSection
         postId={post.id}
@@ -220,7 +211,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   timestamp: {
-    color: "#FF8000", // 🧡 Orange tint
+    color: "#FF00FF", // 🧡 Orange tint
     fontSize: 11,
     marginTop: 1,
     opacity: 0.7,
@@ -250,11 +241,11 @@ const styles = StyleSheet.create({
     borderTopColor: "rgba(255,128,0,0.1)", // 🧡 Orange tint
     marginTop: 10,
     paddingTop: 8,
-    justifyContent: "space-around",
+    justifyContent: "flex-end",
   },
   actionBtn: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     paddingVertical: 4,
     paddingHorizontal: 12,
   },
