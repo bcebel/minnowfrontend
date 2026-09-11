@@ -21,7 +21,7 @@ const getCachedPinataUrl = (cid, fallbackUrl) => {
   }
   const url = fallbackUrl || `https://${PINATA_GATEWAY}/ipfs/${cid}`;
   pinataCache.set(cid, url);
-  console.log(`💾 Pinata cached: ${cid}`);
+  //console.log(`💾 Pinata cached: ${cid}`);
   return url;
 };
 
@@ -65,7 +65,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
             (fileName.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
           // Await the save so it's ready next time!
           await saveMedia(media.cid, blob, mimeType, fileName);
-          console.log("💾 Background cache saved:", media.cid);
+         // console.log("💾 Background cache saved:", media.cid);
         }
       } catch (e) {
         // Silent catch
@@ -139,7 +139,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
 
           overallTimeoutRef.current = setTimeout(() => {
             if (!isReady && isMountedRef.current) {
-              console.log("⏰ 15s overall timeout. Forcing HTTP.");
+             // console.log("⏰ 15s overall timeout. Forcing HTTP.");
               const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
               setVideoSrc(cachedUrl);
               setStatus("fallback_http");
@@ -151,7 +151,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
 
           noProgressTimeoutRef.current = setTimeout(() => {
             if (!isReady && progressRef.current === 0 && isMountedRef.current) {
-              console.log("🐌 No progress in 5s. Forcing HTTP.");
+             // console.log("🐌 No progress in 5s. Forcing HTTP.");
               const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
               setVideoSrc(cachedUrl);
               setStatus("fallback_http");
@@ -233,7 +233,7 @@ export default function WebTorrentMedia({ media, isFocused }) {
             setIsReady(true);
           }
         } catch (err) {
-          console.log("P2P Error:", err.message);
+        //  console.log("P2P Error:", err.message);
           const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
           setVideoSrc(cachedUrl);
           setStatus("fallback_http");
