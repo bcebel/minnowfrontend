@@ -90,6 +90,7 @@ export default function RootLayout() {
           <View role="main" style={{ flex: 1 }}>
             <Stack
               screenOptions={{
+                headerShown: false,
                 contentStyle: {
                   backgroundColor:
                     colorScheme === "dark" ? "#1C0A2E" : "#FFFFFF",
