@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   username: {
-    color: "#FF8000",
+    color: "#FF00FF",
     fontSize: 12,
     fontWeight: "600",
   },

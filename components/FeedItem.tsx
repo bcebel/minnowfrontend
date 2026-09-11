@@ -184,8 +184,8 @@ const styles = StyleSheet.create({
   feedItemContainer: {
     backgroundColor: "#1E1035",
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
+    padding: 7,
+    marginBottom: 6,
     borderWidth: 1,
     borderColor: "rgba(255,128,0,0.15)", // 🧡 Orange accent
   },
@@ -225,8 +225,7 @@ const styles = StyleSheet.create({
   mediaContainer: {
     borderRadius: 8,
     overflow: "hidden",
-    marginVertical: 6,
-    gap: 8,
+    gap: 4,
   },
   mediaWrapper: {
     width: "100%",
