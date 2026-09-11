@@ -26,7 +26,9 @@ const GET_ME = gql`
 
 export default function InboxScreen() {
   const router = useRouter();
-  const { data, loading, error } = useQuery(GET_INBOX);
+  const { data, loading, error } = useQuery(GET_INBOX, {
+    fetchPolicy: "network-only", // ✅ ALWAYS fetch fresh data!
+  });
   const { data: meData } = useQuery(GET_ME);
   const myUsername = meData?.me?.username;
 
@@ -56,7 +58,9 @@ export default function InboxScreen() {
           );
 
           // ✅ Build a display name: if 1 other person, show them. If more, join with commas.
-const displayName = otherUsers.map((m) => m.user.username).join(" ↔ ");
+          const displayName = otherUsers
+            .map((m) => m.user.username)
+            .join(" ↔ ");
           return (
             <View
               style={{
