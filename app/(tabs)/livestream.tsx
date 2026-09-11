@@ -9,13 +9,7 @@ import {
   Image,
   FlatList,
   TouchableOpacity,
-ImageBackground,
 } from "react-native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from "expo-router"
-import TabPreview from "../../components/LandingPreview";
-import { AuthContext } from "../../context/authProvider";
 import { gql, useQuery, useSubscription } from "@apollo/client";
 import NeighborhoodLiveStreamPlayer from "../../components/NeighborhoodLiveStreamPlayer";
 import NeighborhoodLiveStreamRecorder from "../../components/NeighborhoodLiveStreamRecorder";
@@ -385,81 +379,22 @@ function Livestream({ stream }) {
   );
 }
 */
-
 export default function LivestreamScreen() {
-  const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const checkLogin = async () => {
-      const token = await AsyncStorage.getItem('token');
-      setIsLoggedIn(!!token);
-      setLoading(false);
-    };
-    checkLogin();
-  }, []);
-
-  // ---------------------------------------------------------
-  // MOVE ALL HOOKS HERE! (BEFORE any early returns)
-  // ---------------------------------------------------------
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const [isRecording, setIsRecording] = useState(false);
   const [selectedHood, setSelectedHood] = useState(null);
 
-  // Add skip: !isLoggedIn so they don't fire until logged in!
-  const { data: meData } = useQuery(GET_ME, { skip: !isLoggedIn });
-  const { data: hoodsData, loading: lHoods } = useQuery(GET_MY_NEIGHBORHOODS, {
-    fetchPolicy: "network-only",
-    skip: !isLoggedIn,
-  });
+  // 1. Get Me, Neighborhoods,
+  // and Streams
+  const { data: meData } = useQuery(GET_ME);
+  const { data: hoodsData, loading: lHoods } = useQuery(GET_MY_NEIGHBORHOODS);
   const {
     data: streamsData,
     loading: lStreams,
     refetch,
-  } = useQuery(GET_ACTIVE_LIVESTREAMS, { skip: !isLoggedIn, pollInterval: 5000 });
-
-  // ---------------------------------------------------------
-  // NOW IT'S SAFE TO DO EARLY RETURNS
-  // ---------------------------------------------------------
-  if (loading) return <ActivityIndicator />;
-
-  if (!isLoggedIn) {
-    return (
-
-<View style={styles.container}>
-   
-  <ImageBackground
-        source={require("@/assets/images/bbl.jpg")}
-        style={styles.heroBubble}
-        resizeMode="cover"
-      />
-
-     <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: '#fff', fontSize: 18 }}>
-          Stream to your bubble!  
-        </Text>
-      </View>
-     <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: '#fff', fontSize: 18 }}>
-          Livestreams use webtorrent 
-          </Text>
-      </View>
-     <View style={{flex: 1, justifyContent: 'center', alignItems: 'center' }}>
- <Text style={{ color: '#fff', fontSize: 18 }}>
-          The more viewers there are the better!
-        </Text>
-      </View>
-
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/login')}>
-            <Text style={styles.loginButtonText}>Log in</Text>
-          </TouchableOpacity>
-        </View>
-
-</View>
-    );
-  }
+  } = useQuery(GET_ACTIVE_LIVESTREAMS, {
+    pollInterval: 5000,
+  });
 
   // 2. Handle Recording State
   if (isRecording) {
@@ -570,46 +505,44 @@ function LivestreamPreview({ stream }) {
   const [streamStatus, setStreamStatus] = useState("loading"); // 👈 ADD THIS LIN
   const sessionId = stream.sessionId;
   // 3. THE ROTATION QUERY: Just get rotation directly
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   const isiPhone = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const shouldRotate = isSafari || isiPhone;
-  
 
-const [rotation, setRotation] = useState(0);
+  const [rotation, setRotation] = useState(0);
   // 1. THE SCOUT: Polls for the header/chunk 0 until it finds them
   // This handles the "It just started" race condition
   // In LivestreamPreview.jsx, update the polling effect:
 
- useEffect(() => {
-   let isMounted = true;
+  useEffect(() => {
+    let isMounted = true;
 
-   const fetchRotation = async () => {
-     try {
-       const res = await fetch(`${API_BASE}/api/stream-rotation/${sessionId}`);
-       const data = await res.json();
-       if (isMounted) {
-         setRotation(data.rotation || 0);
-      //   console.log(`🔄 Rotation from REST: ${data.rotation}°`);
-       }
-     } catch (e) {
-       // silent fail
-     }
-   };
+    const fetchRotation = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/stream-rotation/${sessionId}`);
+        const data = await res.json();
+        if (isMounted) {
+          setRotation(data.rotation || 0);
+          console.log(`🔄 Rotation from REST: ${data.rotation}°`);
+        }
+      } catch (e) {
+        // silent fail
+      }
+    };
 
-   fetchRotation();
-   const interval = setInterval(fetchRotation, 2000);
-   return () => {
-     isMounted = false;
-     clearInterval(interval);
-   };
- }, [sessionId]);
-  
+    fetchRotation();
+    const interval = setInterval(fetchRotation, 2000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [sessionId]);
+
   useEffect(() => {
     let interval;
     let isMounted = true;
     let attemptCount = 0;
 
-    
     const findInitialData = async () => {
       // First check if stream is expired
       const streamAge = Date.now() - new Date(stream.createdAt).getTime();
@@ -653,7 +586,7 @@ const [rotation, setRotation] = useState(0);
             foundCount++;
           } else if (res.status === 404) {
             // Chunk not ready yet
-          //  console.log(`⏳ Waiting for chunk ${idx}...`);
+            console.log(`⏳ Waiting for chunk ${idx}...`);
           }
         } catch (e) {
           console.log(`Error fetching chunk ${idx}:`, e.message);
@@ -704,15 +637,14 @@ const [rotation, setRotation] = useState(0);
 
       const chunk = data.data?.livestreamChunkAdded;
       if (!chunk) return;
-         if (chunk.rotation) {
-           setRotation(chunk.rotation);
-           console.log(`🎯 Rotation from subscription: ${chunk.rotation}°`);
-         }
+      if (chunk.rotation) {
+        setRotation(chunk.rotation);
+        console.log(`🎯 Rotation from subscription: ${chunk.rotation}°`);
+      }
 
       console.log(
         `🔄 [Preview] Chunk ${chunk.chunkIndex} rotation: ${chunk.rotation}`,
       );
-
 
       // When a new chunk arrives, we go get it immediately
       try {
@@ -802,27 +734,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#ff375f",
     borderColor: "#ffffff",
     borderWidth: 3,
-  },
-  heroBubble: {
-    width: "100%",
-    height: "100%",
-    position: "absolute",
-  },
-  container: {
-    flex: 1,
-  },
-  loginButton: {
-    backgroundColor: "#00FFFF",
-    padding: 15,
-    borderRadius: 30,
-    width: "80%",
-    alignItems: "center",
-    marginTop: 5,
-    marginBottom: 85,
-  },
-  loginButtonText: {
-    color: "#130720",
-    fontWeight: "bold",
-    fontSize: 18,
   },
 });

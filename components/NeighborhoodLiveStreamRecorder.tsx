@@ -349,7 +349,7 @@ export default function NeighborhoodLiveStreamRecorder({
       const stream = await navigator.mediaDevices.getUserMedia({
         //     width: { ideal: 720 },
         //   height: { ideal: 1280 },
-        video: { width: { ideal: 640 }, height: { ideal: 360 } },
+        video: { width: { ideal: 720 }, height: { ideal: 720 } },
         audio: true,
         aspectRatio: { ideal: 1 },
       });
