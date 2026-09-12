@@ -9,7 +9,8 @@ import {
   View,
   ActivityIndicator,
   ImageBackground,
-
+  useWindowDimensions,
+  ScrollView,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useQuery, useMutation } from "@apollo/client";
@@ -25,6 +26,8 @@ import {
 const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
 export default function NeighborhoodsScreen() {
+  const { width } = useWindowDimensions();
+  const isWide = width >= 900;
   const router = useRouter();
 
   // ✅ Login state
@@ -120,7 +123,7 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
             <Text style={styles.loginButtonText}>Log in</Text>
           </TouchableOpacity>
         </View>
-      </View>
+        </View>
     );
   }
 
@@ -142,10 +145,10 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
                : require("@/assets/images/bbl.jpg")
            }
            style={styles.neighborhoodCardImage}
-           resizeMode="cover"
+           resizeMode="contain"
          >
            <LinearGradient
-             colors={["rgba(0,0,0,0.8)", "rgba(0,0,0,0.1)"]}
+             colors={["rgba(0,0,0,0.9)", "rgba(0,0,0,0.1)"]}
              style={styles.neighborhoodCardOverlay}
            >
              <Text style={styles.neighborhoodName}>{item.name}</Text>
@@ -174,22 +177,18 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
   };
 
   return (
+    
     <View style={styles.container}>
-            <Text style={styles.header}>🏘️ My Bubbles - click a banner to enter</Text>
+      <Text style={styles.header}>🏘️ My Bubbles - click a banner to enter</Text>
 
       <View style={styles.actions}>
- 
-
         <TouchableOpacity
           style={styles.createButton}
           onPress={() => router.push(`/neighborhoods/bubbles/create`)}
         >
-          <Text style={styles.createButtonText}>
-            ➕ Create New Bubble
-          </Text>
+          <Text style={styles.createButtonText}>➕ Create New Bubble</Text>
         </TouchableOpacity>
       </View>
-
 
       {neighborhoods.length === 0 ? (
         <View style={styles.emptyState}>
@@ -203,22 +202,27 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
             style={styles.browseButton}
             onPress={() => router.push(`/bubbles/all`)}
           >
-            <Text style={styles.browseButtonText}>
-              Browse Bubbles to Join
-            </Text>
+            <Text style={styles.browseButtonText}>Browse Bubbles to Join</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={neighborhoods}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          refreshing={loadingNeighborhoods}
-          onRefresh={refetch}
-          contentContainerStyle={styles.listContent}
-        />
+          <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+
+        <View style={styles.grid}>
+          {neighborhoods.map((item) => (
+            <View
+              key={item.id}
+              style={[styles.gridItem, isWide && styles.gridItemWide]}
+            >
+              {renderItem({ item })}
+            </View>
+          ))}
+              
+            </View>
+          </ScrollView>
       )}
-    </View>
+          </View>
+          
   );
 }
 
@@ -288,7 +292,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   neighborhoodItem: {
-    borderRadius: 12,
+    borderRadius: 48,
     marginBottom: 15,
     overflow: "hidden",
   },
@@ -298,7 +302,6 @@ const styles = StyleSheet.create({
     color: "#00ffff",
     margin: 10,
     alignSelf: "center",
-
   },
   neighborhoodType: {
     fontSize: 12,
@@ -380,20 +383,30 @@ const styles = StyleSheet.create({
     flexGrow: 1, // Ensures empty states center properly
   },
   neighborhoodCardImage: {
-    width: "50vh",
-    height: "50vh",
-    borderRadius: 24,
-    overflow: "hidden",
+    width: "100%",
+    aspectRatio: 1, // square, scales with whatever width the wrapper gives it
+    overflow: "scroll",
     justifyContent: "flex-end",
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: "#008888",
-    alignSelf: "center",
+    borderRadius: 48,
   },
   neighborhoodCardOverlay: {
-  
-    width: "50vh",
-    height: "50vh",
-    borderRadius: 24,
-    alignSelf: "center",
+    flex: 1,
+    borderRadius: 48,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 20,
+    justifyContent: "center",
+    paddingBottom: 120,
+  },
+  gridItem: {
+    width: "100%", // phone: full width, one per row
+  },
+  gridItemWide: {
+    width: "48%", // laptop: two per row
+    // or "31%" for three per row
   },
 });
