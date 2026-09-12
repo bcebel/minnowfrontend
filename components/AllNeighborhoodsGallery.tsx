@@ -198,10 +198,12 @@ const getFileType = (fileName: string) => {
 const MediaDisplay = ({
   item,
   isFocused,
+  isAlmostFocused,
   onMediaAspectChange,
 }: {
   item: any;
-  isFocused: boolean;
+    isFocused: boolean;
+  isAlmostFocused: boolean;
   onMediaAspectChange: (ratio: number) => void;
 }) => {
   const fileType = getFileType(item.fileName);
@@ -244,6 +246,7 @@ const MediaDisplay = ({
             isGif: isGif,
           }}
           isFocused={isFocused}
+          isAlmostFocused={isAlmostFocused}
         />
       </View>
     );
@@ -483,7 +486,8 @@ const combinedData = React.useMemo(() => {
           const isInWindow = index >= startIndex && index <= endIndex;
           const neighborhoodName =
             item.neighborhood?.name || "Unknown Neighborhood";
-          const isFocused = Math.abs(index - activeIndex) <= 3;
+          const isFocused = Math.abs(index - activeIndex) <= 2;
+          const isAlmostFocused = Math.abs(index - activeIndex) <= 10;
 
           const uniqueKey = `${item.id}-${index}`;
 
@@ -536,6 +540,7 @@ const combinedData = React.useMemo(() => {
                 <MediaDisplay
                   item={item}
                   isFocused={isFocused}
+                  isAlmostFocused={isAlmostFocused}
                   onMediaAspectChange={setMediaAspect}
                 />
               </View>

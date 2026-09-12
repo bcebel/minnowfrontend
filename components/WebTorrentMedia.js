@@ -25,7 +25,7 @@ const getCachedPinataUrl = (cid, fallbackUrl) => {
   return url;
 };
 
-export default function WebTorrentMedia({ media, isFocused }) {
+export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
   const [videoSrc, setVideoSrc] = useState(null);
   const [status, setStatus] = useState("initializing");
   const [progress, setProgress] = useState(0);
@@ -41,6 +41,63 @@ export default function WebTorrentMedia({ media, isFocused }) {
   const overallTimeoutRef = useRef(null);
   const noProgressTimeoutRef = useRef(null);
 
+  useEffect(() => {
+    if (isFocused) return; // focused path handles itself
+    if (!isAlmostFocused) return; // out of lookahead window
+    if (!media.magnetLink) return; // nothing to prefetch
+
+    let cancelled = false;
+
+    const warmQuietly = async () => {
+      // 1. Already cached? Nothing to do.
+      const cached = await getMedia(media.cid);
+      if (cached?.blob || cancelled) return;
+
+      // 2. Attach to the magnet, don't wait for anything
+      try {
+        const client = await webtorrentService.ensureClient();
+        if (cancelled) return;
+
+        const existing = client.get(media.magnetLink);
+        const torrent =
+          existing ||
+          client.add(media.magnetLink, {
+            announce: webtorrentService.trackers,
+            strategy: "sequential",
+          });
+
+        if (cancelled) return;
+
+        const onDone = async () => {
+          if (cancelled) return;
+          try {
+            const buffer = await new Promise((res, rej) =>
+              torrent.files[0].getBuffer((err, buf) =>
+                err ? rej(err) : res(buf),
+              ),
+            );
+            const type = torrent.files[0].type || "video/mp4";
+            const blob = new Blob([buffer], { type });
+            await saveMedia(media.cid, blob, type, media.fileName);
+          } catch (e) {}
+        };
+
+        torrent.once("done", onDone);
+
+        // Cleanup: if this leaves the window, remove the listener
+        // (but don't destroy the torrent — the global client owns it)
+        return () => {
+          cancelled = true;
+          torrent.removeListener("done", onDone);
+        };
+      } catch (e) {
+        // silent — prefetch is best-effort
+      }
+    };
+
+    warmQuietly();
+  }, [isAlmostFocused, isFocused, media.cid, media.magnetLink]);
+  
   useEffect(() => {
     if (!isFocused) return;
 
