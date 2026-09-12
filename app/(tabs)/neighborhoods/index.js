@@ -348,6 +348,7 @@ const styles = StyleSheet.create({
   leaveButtonText: {
     color: "#F5F2FA",
     fontWeight: "bold",
+    alignSelf: "center",
   },
   loading: {
     marginTop: 50,
