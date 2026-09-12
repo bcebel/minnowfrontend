@@ -16,9 +16,28 @@ export default function Root({ children }: PropsWithChildren) {
         <title>bubbleBASED - 🫧 Digital Neighborhoods, Not Just Feeds</title>
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, shrink-to-fit=no"
+          content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
         />
         <ScrollViewStyleReset />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+      }
+      body {
+        background-color: #130720;
+      }
+      #root {
+        display: flex;
+        flex-direction: column;
+      }
+    `,
+          }}
+        />
         <script
           async
           src="https://www.googletagmanager.com/gtag/js?id=G-2D7BEHDVXW"
@@ -33,7 +52,6 @@ export default function Root({ children }: PropsWithChildren) {
     `,
           }}
         />
-      
         <meta
           name="description"
           content="BubbleBase is a private social network where you join digital neighborhoods (Bubbles), share photos and videos via P2P, and control exactly who sees your content. Earn from affiliate links and connect with communities."

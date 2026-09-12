@@ -523,7 +523,7 @@ function LivestreamPreview({ stream }) {
         const data = await res.json();
         if (isMounted) {
           setRotation(data.rotation || 0);
-          console.log(`🔄 Rotation from REST: ${data.rotation}°`);
+        //  console.log(`🔄 Rotation from REST: ${data.rotation}°`);
         }
       } catch (e) {
         // silent fail
@@ -586,7 +586,7 @@ function LivestreamPreview({ stream }) {
             foundCount++;
           } else if (res.status === 404) {
             // Chunk not ready yet
-            console.log(`⏳ Waiting for chunk ${idx}...`);
+           // console.log(`⏳ Waiting for chunk ${idx}...`);
           }
         } catch (e) {
           console.log(`Error fetching chunk ${idx}:`, e.message);
@@ -639,7 +639,7 @@ function LivestreamPreview({ stream }) {
       if (!chunk) return;
       if (chunk.rotation) {
         setRotation(chunk.rotation);
-        console.log(`🎯 Rotation from subscription: ${chunk.rotation}°`);
+        // console.log(`🎯 Rotation from subscription: ${chunk.rotation}°`);
       }
 
       console.log(
