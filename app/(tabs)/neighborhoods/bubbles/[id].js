@@ -15,6 +15,7 @@ import { useQuery, useMutation, gql } from "@apollo/client";
 import {
   GET_NEIGHBORHOOD,
   UPDATE_BUBBLE_PHOTO,
+  LEAVE_NEIGHBORHOOD,
 } from "../../../graphql/queries";
 import { ImageBackground } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -47,7 +48,7 @@ export default function NeighborhoodDetailScreen() {
     variables: { id },
     fetchPolicy: "network-only",
   });
-
+const [leaveNeighborhood] = useMutation(LEAVE_NEIGHBORHOOD);
   const { data: userData } = useQuery(GET_CURRENT_USER);
   const [username, setUsername] = useState("");
   const [updateBubblePhoto] = useMutation(UPDATE_BUBBLE_PHOTO);
@@ -71,6 +72,26 @@ export default function NeighborhoodDetailScreen() {
     );
   }
 
+  const handleLeaveBubble = async () => {
+    const confirmed = window.confirm(
+      `Leave "${neighborhood.name}"? You'll need to be re-invited to rejoin.`,
+    );
+    if (!confirmed) return;
+
+    try {
+      await leaveNeighborhood({
+        variables: { neighborhoodId: neighborhood.id },
+      });
+      alert("👋 Left bubble");
+      router.replace("/neighborhoods");
+    } catch (err) {
+      if (err.message.includes("owner")) {
+        alert("Owners can't leave — transfer ownership or delete the bubble.");
+      } else {
+        alert(`Leave failed: ${err.message}`);
+      }
+    }
+  };
   // ✅ Derived values (no hooks)
   const bubblePhotoSource = neighborhood.bubblePhotoCid
     ? { uri: `https://${PINATA_GATEWAY}/ipfs/${neighborhood.bubblePhotoCid}` }
@@ -179,16 +200,6 @@ export default function NeighborhoodDetailScreen() {
       </ImageBackground>
 
       <View style={styles.menu}>
-        {isOwner && !isPersonal && (
-          <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
-            <TouchableOpacity onPress={handleDeleteBubble}>
-              <Text style={[styles.button, { color: "#ff375f" }]}>
-                🗑️ Delete Bubble
-              </Text>
-            </TouchableOpacity>
-          </BlurView>
-        )}
-
         <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
           <TouchableOpacity
             onPress={() =>
@@ -247,6 +258,25 @@ export default function NeighborhoodDetailScreen() {
               }
             >
               <Text style={styles.button}>📧 Invite</Text>
+            </TouchableOpacity>
+          </BlurView>
+        )}
+        {!isOwner && !isPersonal && (
+          <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
+            <TouchableOpacity onPress={handleLeaveBubble}>
+              <Text style={[styles.button, { color: "#ff375f" }]}>
+                🚪 Leave Bubble
+              </Text>
+            </TouchableOpacity>
+          </BlurView>
+        )}
+
+        {isOwner && !isPersonal && (
+          <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
+            <TouchableOpacity onPress={handleDeleteBubble}>
+              <Text style={[styles.button, { color: "#ff375f" }]}>
+                🗑️ Delete Bubble
+              </Text>
             </TouchableOpacity>
           </BlurView>
         )}

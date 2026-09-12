@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useQuery, useMutation } from "@apollo/client";
+import { BlurView } from "expo-blur";
 import { Link } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -56,7 +57,6 @@ export default function NeighborhoodsScreen() {
   const [joinNeighborhood] = useMutation(JOIN_NEIGHBORHOOD);
   const [leaveNeighborhood] = useMutation(LEAVE_NEIGHBORHOOD);
 
-  // ... rest of your handlers (join/leave) ...
 
 const handleJoinNeighborhood = async (neighborhoodId) => {
     try {
@@ -161,14 +161,7 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
                About: {item.description}
              </Text>
 
-             <View style={styles.buttonContainer}>
-               <TouchableOpacity
-                 style={styles.leaveButton}
-                 onPress={() => handleLeaveNeighborhood(item.id)}
-               >
-                 <Text style={styles.leaveButtonText}>Leave</Text>
-               </TouchableOpacity>
-             </View>
+
            </LinearGradient>
          </ImageBackground>
        </View>
@@ -177,17 +170,20 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
   };
 
   return (
-    
     <View style={styles.container}>
-      <Text style={styles.header}>🏘️ My Bubbles - Click a bubble to enter!</Text>
+      <Text style={styles.header}>
+        🏘️ My Bubbles - Click a bubble to enter!
+      </Text>
 
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => router.push(`/neighborhoods/bubbles/create`)}
-        >
-          <Text style={styles.createButtonText}>➕ Create New Bubble</Text>
-        </TouchableOpacity>
+        <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
+          <TouchableOpacity
+            style={styles.createButton}
+            onPress={() => router.push(`/neighborhoods/bubbles/create`)}
+          >
+            <Text style={styles.createButtonText}>➕ Create New Bubble</Text>
+          </TouchableOpacity>
+        </BlurView>
       </View>
 
       {neighborhoods.length === 0 ? (
@@ -206,23 +202,20 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
           </TouchableOpacity>
         </View>
       ) : (
-          <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-
-        <View style={styles.grid}>
-          {neighborhoods.map((item) => (
-            <View
-              key={item.id}
-              style={[styles.gridItem, isWide && styles.gridItemWide]}
-            >
-              {renderItem({ item })}
-            </View>
-          ))}
-              
-            </View>
-          </ScrollView>
-      )}
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+          <View style={styles.grid}>
+            {neighborhoods.map((item) => (
+              <View
+                key={item.id}
+                style={[styles.gridItem, isWide && styles.gridItemWide]}
+              >
+                {renderItem({ item })}
+              </View>
+            ))}
           </View>
-          
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -281,16 +274,16 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   createButton: {
-    backgroundColor: "#00ffff",
+    backgroundColor: "#33ffff88",
     paddingHorizontal: 15,
     paddingVertical: 12,
     borderRadius: 48,
     alignItems: "center",
   },
   createButtonText: {
-    color: "#130720",
+    color: "#ffffff",
     fontWeight: "bold",
-    fontSize: 26,
+    fontSize: 20,
   },
   neighborhoodItem: {
     borderRadius: 48,
@@ -411,5 +404,22 @@ const styles = StyleSheet.create({
   gridItemWide: {
     width: "30%", // laptop: two per row
     // or "31%" for three per row
+  },
+  bubbleGlass: {
+    maxWidth: 600,
+    alignSelf: "center",
+
+    backgroundColor: "#00ffff", // Semi-transparent background
+    borderWidth: 1,
+    borderColor: "rgba(255, 0, 129, 0.3)",
+    borderRadius: 48,
+
+    // Web only (React Native Web supports this)
+    boxShadow:
+      "inset 1px 1px 1px 0px rgba(255, 255, 255, 0.6), inset -1px -1px 2px 0px rgba(0, 0, 0, 0.2), 0 12px 32px 0 rgba(0, 0, 0, 0.15)",
+
+    // Web only (Safari needs the prefix)
+    backdropFilter: "blur(16px) saturate(190%) brightness(1.1)",
+    WebkitBackdropFilter: "blur(16px) saturate(190%) brightness(1.1)",
   },
 });
