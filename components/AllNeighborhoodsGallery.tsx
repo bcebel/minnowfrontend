@@ -483,7 +483,7 @@ const combinedData = React.useMemo(() => {
           const isInWindow = index >= startIndex && index <= endIndex;
           const neighborhoodName =
             item.neighborhood?.name || "Unknown Neighborhood";
-          const isFocused = Math.abs(index - activeIndex) <= 1;
+          const isFocused = Math.abs(index - activeIndex) <= 3;
 
           const uniqueKey = `${item.id}-${index}`;
 
