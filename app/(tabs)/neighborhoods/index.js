@@ -104,17 +104,17 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
         />
   
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: '#fff', fontSize: 18 }}>
+          <Text style={{ color: '#fff', fontSize: 20 }}>
             Make and Join Bubbles
           </Text>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: '#fff', fontSize: 18 }}>
+          <Text style={{ color: '#fff', fontSize: 20 }}>
             Context-based privacy
           </Text>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: '#fff', fontSize: 18 }}>
+          <Text style={{ color: '#fff', fontSize: 20 }}>
             P2P powered
           </Text>
         </View>
@@ -156,7 +156,7 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
                {item.type} • {item.members?.length || 0} members
              </Text>
              <Text style={styles.neighborhoodDescription}>
-               {item.description}
+            About:   {item.description}
              </Text>
 
              <View style={styles.buttonContainer}>
@@ -179,7 +179,7 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
   return (
     
     <View style={styles.container}>
-      <Text style={styles.header}>🏘️ My Bubbles - click a banner to enter</Text>
+      <Text style={styles.header}>🏘️ My Bubbles - click bubble to enter</Text>
 
       <View style={styles.actions}>
         <TouchableOpacity
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   loginButtonText: {
     color: "#130720",
     fontWeight: "bold",
-    fontSize: 18,
+    fontSize: 22,
   },
   container: {
     flex: 1,
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize:20,
     color: "#ff8000",
     marginBottom: 20,
   },
@@ -297,14 +297,14 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   neighborhoodName: {
-    fontSize: 18,
+    fontSize: 26,
     fontWeight: "bold",
     color: "#00ffff",
     margin: 10,
     alignSelf: "center",
   },
   neighborhoodType: {
-    fontSize: 12,
+    fontSize: 18,
     color: "rgba(255, 0, 129, 1)",
     marginBottom: 8,
     alignSelf: "center",
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     color: "#B8B0C9",
   },
   neighborhoodDescription: {
-    fontSize: 14,
+    fontSize:20,
     color: "#CCC",
     marginBottom: 12,
     alignSelf: "center",
@@ -368,13 +368,13 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     color: "#FFF",
-    fontSize: 16,
+    fontSize: 18,
     textAlign: "center",
     marginBottom: 8,
   },
   emptyStateSubtext: {
     color: "#888",
-    fontSize: 14,
+    fontSize: 20,
     textAlign: "center",
     marginBottom: 20,
   },
