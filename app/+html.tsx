@@ -27,6 +27,7 @@ export default function Root({ children }: PropsWithChildren) {
         padding: 0;
         height: 100%;
         width: 100%;
+        overscroll-behavior: none;
       }
       body {
         background-color: #130720;
