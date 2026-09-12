@@ -182,7 +182,7 @@ const handleJoin = async () => {
       <View style={styles.header}>
         <Text style={styles.mainTitle}>bubbleBASED.com</Text>
         <Text style={styles.title}>
-          Your formal bubble invitation to {neighborhood.name}
+          Your formal invitation to the {neighborhood.name} bubble.
         </Text>
         <Text style={styles.description}>{neighborhood.description}</Text>
       </View>
@@ -190,18 +190,10 @@ const handleJoin = async () => {
       <View style={styles.neighborhoodInfo}>
         <Text style={styles.infoTitle}>Bubble Info</Text>
         <Text style={styles.infoTitle}>Type: {neighborhood.type}</Text>
-        <Text style={styles.infoTitle}>
-          Members: {neighborhood.memberCount}
-        </Text>
-        <Text style={styles.infoTitle}>
-          Owner: {neighborhood.owner.username}
-        </Text>
       </View>
 
       {link && (
         <View style={styles.linkInfo}>
-          <Text style={styles.infoTitle}>Invite Details</Text>
-          <Text style={styles.infoTitle}>Name: {link.name}</Text>
           <Text style={styles.infoTitle}>Role: {link.role}</Text>
           <Text>
             Uses: {link.uses}/{link.maxUses || "Unlimited"}
