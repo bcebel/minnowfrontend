@@ -142,10 +142,12 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
                ? {
                    uri: `https://${PINATA_GATEWAY}/ipfs/${item.bubblePhotoCid}`,
                  }
-               : require("@/assets/images/bbl.jpg")
+               : {
+                   uri: "/bbl.jpg" 
+                 }
            }
            style={styles.neighborhoodCardImage}
-           resizeMode="contain"
+           resizeMode="cover"
          >
            <LinearGradient
              colors={["rgba(0,0,0,0.9)", "rgba(0,0,0,0.1)"]}
@@ -156,7 +158,7 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
                {item.type} • {item.members?.length || 0} members
              </Text>
              <Text style={styles.neighborhoodDescription}>
-            About:   {item.description}
+               About: {item.description}
              </Text>
 
              <View style={styles.buttonContainer}>
@@ -166,8 +168,6 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
                >
                  <Text style={styles.leaveButtonText}>Leave</Text>
                </TouchableOpacity>
-
-
              </View>
            </LinearGradient>
          </ImageBackground>
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    fontSize:20,
+    fontSize: 20,
     color: "#ff8000",
     marginBottom: 20,
   },
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     color: "#B8B0C9",
   },
   neighborhoodDescription: {
-    fontSize:20,
+    fontSize: 20,
     color: "#CCC",
     marginBottom: 12,
     alignSelf: "center",
@@ -395,6 +395,7 @@ const styles = StyleSheet.create({
   neighborhoodCardOverlay: {
     flex: 1,
     borderRadius: 48,
+    aspectRatio: 1,
   },
   grid: {
     flexDirection: "row",
