@@ -179,7 +179,7 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
   return (
     
     <View style={styles.container}>
-      <Text style={styles.header}>🏘️ My Bubbles - click bubble to enter</Text>
+      <Text style={styles.header}>🏘️ My Bubbles - Click a bubble to enter!</Text>
 
       <View style={styles.actions}>
         <TouchableOpacity
@@ -290,6 +290,7 @@ const styles = StyleSheet.create({
   createButtonText: {
     color: "#130720",
     fontWeight: "bold",
+    fontSize: 26,
   },
   neighborhoodItem: {
     borderRadius: 48,
@@ -299,7 +300,7 @@ const styles = StyleSheet.create({
   neighborhoodName: {
     fontSize: 26,
     fontWeight: "bold",
-    color: "#00ffff",
+    color: "#ffffff",
     margin: 10,
     alignSelf: "center",
   },
@@ -406,7 +407,7 @@ const styles = StyleSheet.create({
     width: "100%", // phone: full width, one per row
   },
   gridItemWide: {
-    width: "48%", // laptop: two per row
+    width: "30%", // laptop: two per row
     // or "31%" for three per row
   },
 });
