@@ -130,52 +130,52 @@ const handleJoinNeighborhood = async (neighborhoodId) => {
   const neighborhoods = data?.myNeighborhoods || [];
 
  const renderItem = ({ item }) => {
-    return (
-      <View style={styles.neighborhoodItem}>
-        <ImageBackground
-          source={
-            item.bubblePhotoCid
-              ? { uri: `https://${PINATA_GATEWAY}/ipfs/${item.bubblePhotoCid}` }
-              : require("@/assets/images/bbl.jpg")
-          }
-          style={styles.neighborhoodCardImage}
-          resizeMode="cover"
-        >
-          <LinearGradient
-            colors={["rgba(0,0,0,0.8)", "rgba(0,0,0,0.1)"]}
-            style={styles.neighborhoodCardOverlay}
-          >
-            <Text style={styles.neighborhoodName}>{item.name}</Text>
-            <Text style={styles.neighborhoodType}>
-              {item.type} • {item.members?.length || 0} members
-            </Text>
-            <Text style={styles.neighborhoodDescription}>
-              {item.description}
-            </Text>
+   return (
+     <Link href={`/neighborhoods/bubbles/${item.id}`} asChild>
+       <View style={styles.neighborhoodItem}>
+         <ImageBackground
+           source={
+             item.bubblePhotoCid
+               ? {
+                   uri: `https://${PINATA_GATEWAY}/ipfs/${item.bubblePhotoCid}`,
+                 }
+               : require("@/assets/images/bbl.jpg")
+           }
+           style={styles.neighborhoodCardImage}
+           resizeMode="cover"
+         >
+           <LinearGradient
+             colors={["rgba(0,0,0,0.8)", "rgba(0,0,0,0.1)"]}
+             style={styles.neighborhoodCardOverlay}
+           >
+             <Text style={styles.neighborhoodName}>{item.name}</Text>
+             <Text style={styles.neighborhoodType}>
+               {item.type} • {item.members?.length || 0} members
+             </Text>
+             <Text style={styles.neighborhoodDescription}>
+               {item.description}
+             </Text>
 
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={styles.leaveButton}
-                onPress={() => handleLeaveNeighborhood(item.id)}
-              >
-                <Text style={styles.leaveButtonText}>Leave</Text>
-              </TouchableOpacity>
+             <View style={styles.buttonContainer}>
+               <TouchableOpacity
+                 style={styles.leaveButton}
+                 onPress={() => handleLeaveNeighborhood(item.id)}
+               >
+                 <Text style={styles.leaveButtonText}>Leave</Text>
+               </TouchableOpacity>
 
-              <Link href={`/neighborhoods/bubbles/${item.id}`} asChild>
-                <TouchableOpacity style={styles.viewButton}>
-                  <Text style={styles.viewButtonText}>Enter Bubble</Text>
-                </TouchableOpacity>
-              </Link>
-            </View>
-          </LinearGradient>
-        </ImageBackground>
-      </View>
-    );
+
+             </View>
+           </LinearGradient>
+         </ImageBackground>
+       </View>
+     </Link>
+   );
   };
 
   return (
     <View style={styles.container}>
-            <Text style={styles.header}>🏘️ My Bubbles</Text>
+            <Text style={styles.header}>🏘️ My Bubbles - click a banner to enter</Text>
 
       <View style={styles.actions}>
  
@@ -296,12 +296,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#00ffff",
-    marginBottom: 4,
+    margin: 10,
+    alignSelf: "center",
+
   },
   neighborhoodType: {
     fontSize: 12,
     color: "rgba(255, 0, 129, 1)",
     marginBottom: 8,
+    alignSelf: "center",
   },
   memberBadge: {
     color: "#B8B0C9",
@@ -310,10 +313,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#CCC",
     marginBottom: 12,
+    alignSelf: "center",
   },
   buttonContainer: {
+    width: "20%",
     flexDirection: "row",
     gap: 10,
+    alignSelf: "center",
   },
   viewButton: {
     backgroundColor: "#F5F2FA",
@@ -333,7 +339,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 48,
     flex: 1,
-    alignItems: "center",
+    alignSelf: "center",
   },
   leaveButtonText: {
     color: "#F5F2FA",
@@ -374,15 +380,20 @@ const styles = StyleSheet.create({
     flexGrow: 1, // Ensures empty states center properly
   },
   neighborhoodCardImage: {
-    width: "100%",
-    height: 180,
+    width: "50vh",
+    height: "50vh",
     borderRadius: 24,
     overflow: "hidden",
     justifyContent: "flex-end",
+    borderWidth: 1,
+    borderColor: "#008888",
+    alignSelf: "center",
   },
   neighborhoodCardOverlay: {
-    height: 180,
-    padding: 15,
+  
+    width: "50vh",
+    height: "50vh",
     borderRadius: 24,
+    alignSelf: "center",
   },
 });
