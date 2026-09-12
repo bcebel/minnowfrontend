@@ -438,7 +438,9 @@ export default function LivestreamScreen() {
             ]}
           >
             <View style={{ width: "100%", alignItems: "center", zIndex: 10 }}>
-              <Text style={styles.title}>Pick a Bubble to Stream To</Text>
+              <Text style={styles.title}>Livestream BASE!</Text>
+
+              <Text style={styles.title}>Pick A Bubble To Go Live!</Text>
 
               <View style={styles.picker}>
                 {hoodsData?.myNeighborhoods?.map((h) => (
@@ -473,6 +475,10 @@ export default function LivestreamScreen() {
               >
                 <Text style={styles.btnText}>GO LIVE</Text>
               </TouchableOpacity>
+
+              <Text style={styles.title}>
+                Scroll Down to Watch Livestreams From Your Bubbles!
+              </Text>
 
               <Text
                 style={[styles.loadingText, { marginTop: 40, opacity: 0.6 }]}
@@ -523,7 +529,7 @@ function LivestreamPreview({ stream }) {
         const data = await res.json();
         if (isMounted) {
           setRotation(data.rotation || 0);
-        //  console.log(`🔄 Rotation from REST: ${data.rotation}°`);
+          //  console.log(`🔄 Rotation from REST: ${data.rotation}°`);
         }
       } catch (e) {
         // silent fail
@@ -586,7 +592,7 @@ function LivestreamPreview({ stream }) {
             foundCount++;
           } else if (res.status === 404) {
             // Chunk not ready yet
-           // console.log(`⏳ Waiting for chunk ${idx}...`);
+            // console.log(`⏳ Waiting for chunk ${idx}...`);
           }
         } catch (e) {
           console.log(`Error fetching chunk ${idx}:`, e.message);
@@ -703,13 +709,15 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "white",
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: "bold",
+    padding: 10,
   },
   goLive: {
     backgroundColor: "#ff375f",
-    padding: 20,
-    borderRadius: 15,
+    padding: 30,
+    marginBottom: 20,
+    borderRadius: 48,
     marginTop: 40,
   },
   btnText: { color: "white", fontWeight: "bold" },
