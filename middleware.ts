@@ -6,7 +6,8 @@ const BOT_UA =
   /(Twitterbot|facebookexternalhit|Discordbot|Slackbot|TelegramBot|WhatsApp|LinkedInBot|Pinterestbot|Embedly|VKShare|Tumblr)/i;
 
 // Your Heroku backend URL
-const BACKEND_URL = "https://your-heroku-app.herokuapp.com";
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
