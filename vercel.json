@@ -3,9 +3,17 @@
     {
       "source": "/join/:code",
       "has": [
-        { "type": "header", "key": "user-agent", "value": ".*(Twitterbot|facebookexternalhit|Discordbot|Slackbot|TelegramBot|WhatsApp|LinkedInBot|Pinterestbot|Embedly|VKShare|Tumblr).*" }
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(Twitterbot|facebookexternalhit|Discordbot|Slackbot|TelegramBot|WhatsApp|LinkedInBot|Pinterestbot|Embedly|VKShare|Tumblr|Googlebot|bingbot|Applebot).*"
+        }
       ],
       "destination": "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/api/og/join/:code"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
     }
   ]
-
+}
