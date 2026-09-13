@@ -2,38 +2,80 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://bubblebased.com/</loc>
+    <lastmod>2026-09-12T22:30:06+00:00</lastmod>
+
+    <priority>0.90</priority>
   </url>
   <url>
     <loc>https://bubblebased.com/inbox</loc>
+    <lastmod>2026-09-12T22:30:06+00:00</lastmod>
+
+    <priority>0.80</priority>
   </url>
   <url>
     <loc>https://bubblebased.com/setup</loc>
+    <lastmod>2026-09-12T22:30:06+00:00</lastmod>
+
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://bubblebased.com/gallery</loc>
+    <lastmod>2026-09-12T22:30:06+00:00</lastmod>
+
+    <priority>0.80</priority>
   </url>
   <url>
     <loc>https://bubblebased.com/livestream</loc>
+    <lastmod>2026-09-12T22:30:06+00:00</lastmod>
+
+    <priority>0.80</priority>
   </url>
   <url>
     <loc>https://bubblebased.com/neighborhoods</loc>
+    <lastmod>2026-09-12T22:30:06+00:00</lastmod>
+
+    <priority>0.80</priority>
+  </url>
+   <url>
+    <loc>https://bubblebased.com/join/C457D548E479FCF2</loc>
+    <lastmod>2026-09-12T22:30:06+00:00</lastmod>
+
+    <priority>0.80</priority>
   </url>
   <url>
     <loc>https://bubblebased.com/neighborhoods/bubbles/create</loc>
+    <lastmod>2026-09-12T22:30:06+00:00</lastmod>
+
+    <priority>0.80</priority>
   </url>
   <url>
     <loc>https://bubblebased.com/cam</loc>
+    <lastmod>2026-09-12T22:30:06+00:00</lastmod>
+
+    <priority>0.80</priority>       
   </url>
   <url>
     <loc>https://bubblebased.com/login</loc>
+    <lastmod>2026-09-12T22:30:06+00:00</lastmod>
+
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://bubblebased.com/register</loc>
+    <lastmod>2026-09-12T22:30:06+00:00</lastmod>
+
+    <priority>0.80</priority>
   </url>
   <url>
     <loc>https://bubblebased.com/tos</loc>
+    <lastmod>2026-09-12T22:30:06+00:00</lastmod>
+
+    <priority>0.80</priority>
   </url>
   <url>
     <loc>https://bubblebased.com/privacy</loc>
+    <lastmod>2026-09-12T22:30:06+00:00</lastmod>
+
+    <priority>0.80</priority>
   </url>
 </urlset>
