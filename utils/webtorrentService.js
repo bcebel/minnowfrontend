@@ -1,4 +1,5 @@
-// utils/webtorrentService.js - ENHANCED & UNIFIED VERSION
+// utils/webtorrentService.js - Cleaned version
+// Public API preserved from previous version. Changes noted inline.
 
 class WebTorrentService {
   constructor() {
@@ -15,37 +16,43 @@ class WebTorrentService {
           ];
 
     // Caching layer
-    this.downloadCache = new Map(); // In-memory cache for active blob URLs
+    this.downloadCache = new Map(); // In-memory metadata cache (no blobs)
     this.seedingCache = new Map(); // Track torrents currently being seeded
+
+    // Per-item cap for retaining raw seed data in memory. Anything larger
+    // is not stored for re-seeding. Prevents unbounded memory growth when
+    // seeding large files.
+    this.MAX_SEED_DATA_BYTES = 25 * 1024 * 1024; // 25 MB
   }
 
-  // In webtorrentService.js
+  // ---------------------------------------------------------------------------
+  // Cleanup
+  // ---------------------------------------------------------------------------
+
   async destroyCleanup(magnetUri) {
     const client = await this.ensureClient();
-
     if (!client) return;
 
-    // Destroy all torrents related to this magnet or infoHash
-    const infoHash = magnetUri.match(/btih:([a-zA-Z0-9]+)/)?.[1];
-    if (client.get(infoHash)) {
-      client.get(infoHash).destroy();
-      console.log("🧹 Cleaned up torrent:", infoHash);
+    // Use client.get() directly with the full magnet URI — WebTorrent parses
+    // it correctly, so we don't need to extract the infoHash ourselves.
+    const torrent = client.get(magnetUri);
+    if (torrent) {
+      torrent.destroy();
+      console.log("🧹 Cleaned up torrent:", torrent.infoHash);
     }
   }
-  /**
-   * Gets a playable blob URL for a torrent file
-   * Handles both full files and sliced videos
-   */
+
+  // ---------------------------------------------------------------------------
+  // Playback helpers
+  // ---------------------------------------------------------------------------
+
   async getPlayableUrl(torrent, file) {
     return new Promise((resolve, reject) => {
-      // Try to get a blob URL directly (works for most videos)
       file.getBlobURL((err, url) => {
         if (!err && url) {
           resolve(url);
           return;
         }
-
-        // Fallback: Read file as buffer and create blob
         file.getBuffer((err, buffer) => {
           if (err) {
             reject(err);
@@ -58,10 +65,7 @@ class WebTorrentService {
       });
     });
   }
-  /**
-   * THE CHAMP GATEKEEPER
-   * Polls until the global WebTorrent client from +html.tsx is available.
-   */
+
   async ensureClient() {
     let attempts = 0;
     while (
@@ -81,8 +85,14 @@ class WebTorrentService {
     return window.globalWebTorrentClient;
   }
 
+  // ---------------------------------------------------------------------------
+  // Cache keys
+  // ---------------------------------------------------------------------------
+
   /**
-   * Generates a consistent cache key from a magnet URI or infoHash
+   * Generates a consistent cache key from a magnet URI.
+   * Uses TextEncoder + base64url so it handles unicode in `dn=` without
+   * colliding (the old btoa fallback truncated to 32 chars).
    */
   getCacheKey(magnetUri) {
     if (!magnetUri) return "";
@@ -91,35 +101,44 @@ class WebTorrentService {
       return `magnet_${match[1].toLowerCase()}`;
     }
     try {
-      return `magnet_${btoa(magnetUri).replace(/[^a-zA-Z0-9]/g, "")}`;
+      const bytes = new TextEncoder().encode(magnetUri);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const b64 = btoa(binary)
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+      return `magnet_${b64}`;
     } catch (e) {
-      return `magnet_${magnetUri.slice(0, 32)}`;
+      // Last resort — extremely unlikely to be reached with TextEncoder
+      return `magnet_${magnetUri.length}_${magnetUri.slice(0, 16)}`;
     }
   }
 
-  /**
-   * Caches magnet result to memory (blob URL) and localStorage (metadata)
-   */
+  // ---------------------------------------------------------------------------
+  // Caching
+  // ---------------------------------------------------------------------------
 
-  // In webtorrentService.js - update cacheMagnetResult
+  /**
+   * Stores metadata about a magnet result. Never stores blob URLs (they're
+   * device/session-specific) and never stores raw `data` here — that's
+   * `storeSeedData`'s job.
+   */
   cacheMagnetResult(magnetUri, result) {
     const cacheKey = this.getCacheKey(magnetUri);
 
-    // ✅ DON'T cache blob URLs - they're device-specific!
-    // Only cache if it's from a download (has data)
     if (result.url && result.url.startsWith("blob:")) {
-      console.log("⚠️ Not caching blob URL (device-specific)");
+      // Blob URLs are ephemeral; don't cache them.
       return;
     }
 
-    // Store in memory cache
     this.downloadCache.set(cacheKey, {
       ...result,
       cachedAt: Date.now(),
-      url: result.url,
-      data: result.data,
     });
-    // Store metadata in localStorage
+
     try {
       const cache = JSON.parse(
         localStorage.getItem("webtorrent_cache") || "{}",
@@ -138,56 +157,70 @@ class WebTorrentService {
   }
 
   /**
-   * Retrieves fresh cached magnet data (freshness threshold: 1 hour)
+   * Returns a cached magnet entry if it's still fresh.
+   * The 1-hour TTL is arbitrary but harmless — the map lives only for the
+   * lifetime of the tab anyway.
    */
-  // In webtorrentService.js - update getCachedMagnet
   getCachedMagnet(magnetUri) {
     const cacheKey = this.getCacheKey(magnetUri);
+    const cached = this.downloadCache.get(cacheKey);
+    if (!cached) return null;
 
-    if (this.downloadCache.has(cacheKey)) {
-      const cached = this.downloadCache.get(cacheKey);
-
-      // ✅ If it's a blob URL, treat it as expired (device-specific)
-      if (cached.url && cached.url.startsWith("blob:")) {
-        console.log("⚠️ Cached blob URL is device-specific, re-downloading");
-        this.downloadCache.delete(cacheKey);
-        return null;
-      }
-
-      // Check if less than 1 hour old
-      if (Date.now() - cached.cachedAt < 60 * 60 * 1000) {
-        console.log("⚡ Returning cached torrent from memory");
-        return cached;
-      }
+    if (cached.url && cached.url.startsWith("blob:")) {
       this.downloadCache.delete(cacheKey);
+      return null;
     }
+
+    if (Date.now() - cached.cachedAt < 60 * 60 * 1000) {
+      return cached;
+    }
+
+    this.downloadCache.delete(cacheKey);
     return null;
   }
 
-  /**
-   * Seed data across the P2P network using the primary Heroku tracker
-  
-  * ENHANCED seed method: Stores data for re-seeding if needed
- */
+  // ---------------------------------------------------------------------------
+  // Seeding
+  // ---------------------------------------------------------------------------
+
   async seed(data, options = {}) {
     const client = await this.ensureClient();
 
     return new Promise((resolve, reject) => {
-      const seedOptions = {
-        announce: this.trackers,
-        ...options,
-      };
+      const seedOptions = { announce: this.trackers, ...options };
 
       try {
         client.seed(data, seedOptions, (torrent) => {
           console.log("🌱 Champ is seeding:", torrent.name || torrent.infoHash);
 
-          // ✅ Store the torrent AND the data for re-seeding
-          this.seedingCache.set(torrent.infoHash, {
-            torrent,
-            data: data, // Keep the data alive!
-            timestamp: Date.now(),
-          });
+          // Only retain data if it's under the cap. Large blobs are dropped
+          // from memory; the torrent itself continues to seed as long as the
+          // tab lives.
+          const dataSize =
+            typeof data?.size === "number"
+              ? data.size
+              : typeof data?.byteLength === "number"
+                ? data.byteLength
+                : 0;
+
+          if (dataSize > 0 && dataSize <= this.MAX_SEED_DATA_BYTES) {
+            this.seedingCache.set(torrent.infoHash, {
+              torrent,
+              data,
+              timestamp: Date.now(),
+            });
+          } else {
+            // Still track the torrent, just without the payload
+            this.seedingCache.set(torrent.infoHash, {
+              torrent,
+              timestamp: Date.now(),
+            });
+            if (dataSize > this.MAX_SEED_DATA_BYTES) {
+              console.log(
+                `⚠️ Not retaining seed data (${dataSize} bytes > ${this.MAX_SEED_DATA_BYTES})`,
+              );
+            }
+          }
 
           const result = {
             torrent,
@@ -197,12 +230,7 @@ class WebTorrentService {
             size: torrent.length,
           };
 
-          // ✅ Cache the result with the data
-          this.cacheMagnetResult(torrent.magnetURI, {
-            ...result,
-            data: data, // Store data in cache too
-          });
-
+          this.cacheMagnetResult(torrent.magnetURI, result);
           resolve(result);
         });
       } catch (err) {
@@ -213,7 +241,8 @@ class WebTorrentService {
   }
 
   /**
-   * Re-seed a cached torrent if needed
+   * Re-seed a cached torrent using retained data. Only works if the data
+   * was small enough to retain.
    */
   async reSeedCached(magnetUri) {
     const cacheKey = this.getCacheKey(magnetUri);
@@ -221,64 +250,64 @@ class WebTorrentService {
 
     if (cached && cached.data) {
       console.log("🔄 Re-seeding from cached data...");
-      const result = await this.seed(cached.data, {
-        name: cached.name || "re-seeded",
-      });
-      return result;
+      return this.seed(cached.data, { name: cached.name || "re-seeded" });
     }
 
     console.log("❌ No cached data available for re-seeding");
     return null;
   }
 
-  /**
-   * ENHANCED add method: Handles memory caching, WebSeeding, sequential loading & blob generation
-   */
-  // In webtorrentService.js - update add method
-  async add(magnetUri, options = {}) {
-    // 1. Check memory cache first
-    const cached = this.getCachedMagnet(magnetUri);
+  // ---------------------------------------------------------------------------
+  // Adding (download)
+  // ---------------------------------------------------------------------------
 
-    // ✅ Only use cache for downloads (not seeds)
+  async add(magnetUri, options = {}) {
+    const { forceRefresh = false, _retry = 0, ...torrentOpts } = options;
+
+    // Retry guard — prevents infinite loop if the existing torrent is
+    // permanently broken.
+    if (_retry > 2) {
+      throw new Error("Torrent could not be recovered after 3 attempts");
+    }
+
+    if (forceRefresh) {
+      this.downloadCache.delete(this.getCacheKey(magnetUri));
+    }
+
+    // 1. Memory cache
+    const cached = !forceRefresh ? this.getCachedMagnet(magnetUri) : null;
     if (cached && cached.url && !cached.url.startsWith("blob:")) {
-      // Check if the URL is still valid
+      // Note: cacheMagnetResult never stores blob URLs, so this branch is
+      // only reached if a caller manually put a non-blob URL in the cache.
+      // HEAD check still validates it.
       try {
         const response = await fetch(cached.url, { method: "HEAD" });
         if (response.ok) {
-          console.log("⚡ Returning cached torrent from memory");
-          return {
-            ...cached,
-            fromCache: true,
-            ready: true,
-          };
+          return { ...cached, fromCache: true, ready: true };
         }
       } catch (e) {
-        console.log("⚠️ Cache expired, re-downloading...");
-        this.downloadCache.delete(this.getCacheKey(magnetUri));
+        // fall through to fresh fetch
       }
+      this.downloadCache.delete(this.getCacheKey(magnetUri));
     }
 
     const client = await this.ensureClient();
 
-    // 2. Check if the client is already swarming this magnet
+    // 2. Existing torrent in client
     const existing = client.get(magnetUri);
     if (existing) {
-      console.log("🔄 Using existing torrent instance");
-
-      // ✅ Check if the existing torrent has data
-      const file = existing.files[0];
+      const file = existing.files?.[0];
       if (file) {
-        // Check if the file is actually downloadable
         return new Promise((resolve) => {
           file.getBuffer((err, buffer) => {
             if (err || !buffer) {
-              console.log("⚠️ Existing torrent has no data, re-seeding...");
-              // Remove the dead torrent
               client.remove(existing.infoHash);
-              // Try again (recursive call but with cache cleared)
-              return this.add(magnetUri, { ...options, forceRefresh: true });
+              return this.add(magnetUri, {
+                ...torrentOpts,
+                forceRefresh: true,
+                _retry: _retry + 1,
+              }).then(resolve);
             }
-
             file.getBlobURL((err, url) => {
               resolve({
                 torrent: existing,
@@ -296,22 +325,34 @@ class WebTorrentService {
       }
     }
 
-    // 3. Initiate new swarm
+    // 3. New swarm
     return new Promise((resolve, reject) => {
       let isResolved = false;
+      let progressTimeoutId = null;
+      const NO_PROGRESS_MS = 60_000;
+
+      const armProgressTimeout = () => {
+        if (progressTimeoutId) clearTimeout(progressTimeoutId);
+        progressTimeoutId = setTimeout(() => {
+          if (!isResolved) {
+            isResolved = true;
+            reject(new Error("Torrent stalled (no progress in 60s)"));
+          }
+        }, NO_PROGRESS_MS);
+      };
+
+      const finish = (fn, value) => {
+        if (isResolved) return;
+        isResolved = true;
+        if (progressTimeoutId) clearTimeout(progressTimeoutId);
+        fn(value);
+      };
 
       const torrentOptions = {
         announce: this.trackers,
-        strategy: "sequential", // Essential for video streaming
-        ...options,
+        strategy: "sequential",
+        ...torrentOpts,
       };
-
-      const timeoutId = setTimeout(() => {
-        if (!isResolved) {
-          isResolved = true;
-          reject(new Error("Torrent download timeout (60s)"));
-        }
-      }, 60000);
 
       try {
         client.add(magnetUri, torrentOptions, (torrent) => {
@@ -320,6 +361,9 @@ class WebTorrentService {
             torrent.name || torrent.infoHash,
           );
 
+          // Reset stall timer on any progress
+          torrent.on("download", armProgressTimeout);
+
           const processReadyTorrent = () => {
             const file =
               torrent.files.find((f) =>
@@ -327,23 +371,14 @@ class WebTorrentService {
               ) || torrent.files[0];
 
             if (!file) {
-              if (!isResolved) {
-                isResolved = true;
-                clearTimeout(timeoutId);
-                reject(new Error("No valid media files in torrent"));
-              }
-              return;
+              return finish(
+                reject,
+                new Error("No valid media files in torrent"),
+              );
             }
 
             file.getBlobURL((err, url) => {
-              if (err) {
-                if (!isResolved) {
-                  isResolved = true;
-                  clearTimeout(timeoutId);
-                  reject(err);
-                }
-                return;
-              }
+              if (err) return finish(reject, err);
 
               const result = {
                 torrent,
@@ -356,12 +391,7 @@ class WebTorrentService {
               };
 
               this.cacheMagnetResult(magnetUri, result);
-
-              if (!isResolved) {
-                isResolved = true;
-                clearTimeout(timeoutId);
-                resolve(result);
-              }
+              finish(resolve, result);
             });
           };
 
@@ -373,60 +403,53 @@ class WebTorrentService {
 
           torrent.on("done", () => {
             console.log("✅ Torrent complete - now seeding:", torrent.name);
-            this.seedingCache.set(torrent.infoHash, torrent);
+            this.seedingCache.set(torrent.infoHash, { torrent });
           });
 
           torrent.on("error", (err) => {
             console.error("Torrent error:", err);
-            if (!isResolved) {
-              isResolved = true;
-              clearTimeout(timeoutId);
-              reject(err);
-            }
+            finish(reject, err);
           });
 
-          torrent.on("download", () => {
-            const percent = Math.floor(torrent.progress * 100);
-
-            // Early buffer check (at 5% download)
-            if (
-              percent >= 5 &&
-              torrent.files[0] &&
-              !torrent._earlyPlaybackAttempted
-            ) {
-              torrent._earlyPlaybackAttempted = true;
-              torrent.files[0].getBlobURL((err, url) => {
-                if (!err && url) {
-                  console.log("🎬 Early playback available at 5%");
-                }
-              });
-            }
-          });
+          armProgressTimeout();
         });
       } catch (err) {
-        clearTimeout(timeoutId);
-        reject(err);
+        finish(reject, err);
       }
     });
   }
 
-  // In webtorrentService.js - add this method
+  // ---------------------------------------------------------------------------
+  // Seed data storage
+  // ---------------------------------------------------------------------------
+
   async storeSeedData(magnetUri, fileData, metadata = {}) {
     const cacheKey = this.getCacheKey(magnetUri);
 
-    // ✅ Store the raw file data (NOT a blob URL)
+    const dataSize =
+      typeof fileData?.size === "number"
+        ? fileData.size
+        : typeof fileData?.byteLength === "number"
+          ? fileData.byteLength
+          : 0;
+
+    if (dataSize > this.MAX_SEED_DATA_BYTES) {
+      console.log(
+        `⚠️ Skipping storeSeedData (${dataSize} bytes > ${this.MAX_SEED_DATA_BYTES})`,
+      );
+      return;
+    }
+
     this.downloadCache.set(cacheKey, {
       ...metadata,
-      data: fileData, // This is the actual File/Blob data
+      data: fileData,
       isSeedData: true,
       cachedAt: Date.now(),
-      magnetUri: magnetUri,
+      magnetUri,
     });
     console.log("💾 Seed data stored for re-seeding");
   }
-  /**
-   * Register magnet link metadata from IPFS/Pinata uploads
-   */
+
   async cacheMagnetLink(magnetUri, metadata = {}) {
     const cacheKey = this.getCacheKey(magnetUri);
     const cacheEntry = {
@@ -449,9 +472,10 @@ class WebTorrentService {
     }
   }
 
-  /**
-   * Background pre-fetch for feeds
-   */
+  // ---------------------------------------------------------------------------
+  // Pre-warming
+  // ---------------------------------------------------------------------------
+
   async prewarmMagnet(magnetUri) {
     try {
       const result = await this.add(magnetUri);
@@ -463,9 +487,6 @@ class WebTorrentService {
     }
   }
 
-  /**
-   * Retrieve all cached magnet records
-   */
   getCachedMagnets() {
     const cached = [];
     for (const [key, value] of this.downloadCache.entries()) {
@@ -474,9 +495,10 @@ class WebTorrentService {
     return cached;
   }
 
-  /**
-   * Clean up torrent instances by filter string
-   */
+  // ---------------------------------------------------------------------------
+  // Cleanup
+  // ---------------------------------------------------------------------------
+
   cleanup(filter = "") {
     if (typeof window === "undefined" || !window.globalWebTorrentClient) return;
 
@@ -494,26 +516,18 @@ class WebTorrentService {
       }
     }
   }
-  // In webtorrentService.js - add this method after the existing cleanup method
 
-  /**
-   * Clean up torrents but keep data for re-seeding
-   */
   cleanupWithData(filter = "") {
     if (typeof window === "undefined" || !window.globalWebTorrentClient) return;
 
     window.globalWebTorrentClient.torrents.forEach((t) => {
       if (!filter || t.name?.includes(filter) || t.infoHash?.includes(filter)) {
-        // ✅ Remove the torrent but keep the data in cache
         const cacheKey = this.getCacheKey(t.magnetURI);
         const cached = this.downloadCache.get(cacheKey);
 
-        // If we have cached data, keep it
         if (cached && cached.data) {
           console.log("💾 Keeping cached data for:", t.name);
-          // Don't delete the cache
         } else {
-          // Remove from cache if no data
           this.downloadCache.delete(cacheKey);
         }
 
@@ -523,7 +537,9 @@ class WebTorrentService {
   }
 
   /**
-   * Purge expired cache entries beyond a given age in hours (default: 24h)
+   * Purge expired entries from both memory and localStorage.
+   * NOTE: localStorage writes here race with other tabs. If you see entries
+   * mysteriously disappearing, this is likely why.
    */
   clearExpiredCache(maxAgeHours = 24) {
     const maxAge = maxAgeHours * 60 * 60 * 1000;
