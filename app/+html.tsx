@@ -77,7 +77,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta property="og:image" content="https://bubblebased.com/bble.png" />
         <meta
           property="og:image:secure_url"
-          content="https://bubblebased.com/bble.png"
+          content="https://bubblebased.com/bbl-og.jpg"
         />
         <meta property="og:image:type" content="image/png" />
         <meta property="og:site_name" content="BubbleBased" />
@@ -98,7 +98,7 @@ export default function Root({ children }: PropsWithChildren) {
           name="twitter:description"
           content="Join bubblebased.com - a private social network where you control your privacy, earn from your content, and connect in digital neighborhoods."
         />
-        <meta name="twitter:image" content="https://bubblebased.com/bble.png" />
+        <meta name="twitter:image" content="https://bubblebased.com/bbl-og.jpg" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

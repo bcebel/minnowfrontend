@@ -22,7 +22,7 @@ class WebTorrentService {
     // Per-item cap for retaining raw seed data in memory. Anything larger
     // is not stored for re-seeding. Prevents unbounded memory growth when
     // seeding large files.
-    this.MAX_SEED_DATA_BYTES = 50 * 1024 * 1024; // 25 MB
+    this.MAX_SEED_DATA_BYTES = 50 * 1024 * 1024; // 50 MB
   }
 
   // ---------------------------------------------------------------------------
