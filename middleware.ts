@@ -6,7 +6,7 @@ const BOT_UA =
   /(Twitterbot|facebookexternalhit|Discordbot|Slackbot|TelegramBot|WhatsApp|LinkedInBot|Pinterestbot|Embedly|VKShare|Tumblr)/i;
 
 // Your Heroku backend URL
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+const BACKEND_URL = "https://minnowspacebackend-e6635e46c3d0.herokuapp.com";
 
 
 export function middleware(request: NextRequest) {
