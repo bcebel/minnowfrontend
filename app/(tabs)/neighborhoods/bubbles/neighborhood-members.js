@@ -283,49 +283,49 @@ const [createDirectMessageBubble] = useMutation(CREATE_DIRECT_MESSAGE_BUBBLE);
       {/* Member Profile Modal */}
       {selectedMember && (
         <Modal visible={true} transparent animationType="slide">
-            <KeyboardAvoidingView
-    style={{ flex: 1 }}
-    behavior={Platform.OS === "ios" ? "padding" : undefined}
-  >
-          <View style={styles.modalContainer}>
-            <BlurView intensity={50} tint="dark" style={styles.modalContent}>
-              <Image
-                source={{ uri: selectedMember.user.profilePhoto }}
-                style={styles.modalAvatar}
-              />
-              <Text style={styles.modalName}>
-                {selectedMember.user.username}
-              </Text>
-              <Text style={styles.modalRole}>{selectedMember.role}</Text>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            <View style={styles.modalContainer}>
+              <BlurView intensity={50} tint="dark" style={styles.modalContent}>
+                <Image
+                  source={{ uri: selectedMember.user.profilePhoto }}
+                  style={styles.modalAvatar}
+                />
+                <Text style={styles.modalName}>
+                  {selectedMember.user.username}
+                </Text>
+                <Text style={styles.modalRole}>{selectedMember.role}</Text>
 
-              <TouchableOpacity
-                onPress={async () => {
-                  try {
-                    const { data } = await createDirectMessageBubble({
-                      variables: { userId: selectedMember.user.id },
-                    });
-                    if (data?.createDirectMessageBubble?.id) {
-                      router.push(
-                        `/neighborhoods/bubbles/neighborhood-chat?neighborhoodId=${data.createDirectMessageBubble.id}`,
-                      );
+                <TouchableOpacity
+                  onPress={async () => {
+                    try {
+                      const { data } = await createDirectMessageBubble({
+                        variables: { userId: selectedMember.user.id },
+                      });
+                      if (data?.createDirectMessageBubble?.id) {
+                        router.push(
+                          `/neighborhoods/bubbles/neighborhood-chat?neighborhoodId=${data.createDirectMessageBubble.id}`,
+                        );
+                      }
+                    } catch (err) {
+                      Alert.alert("Error", "Could not create direct message");
                     }
-                  } catch (err) {
-                    Alert.alert("Error", "Could not create direct message");
-                  }
-                }}
-              >
-                <Text>💬 Message</Text>
-              </TouchableOpacity>
+                  }}
+                >
+                  <Text style={styles.modalCloseText}>💬 Message</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.modalCloseButton}
-                onPress={() => setSelectedMember(null)}
-              >
-                <Text style={styles.modalCloseText}>Close</Text>
-              </TouchableOpacity>
-            </BlurView>
+                <TouchableOpacity
+                  style={styles.modalCloseButton}
+                  onPress={() => setSelectedMember(null)}
+                >
+                  <Text style={styles.modalCloseText}>Close</Text>
+                </TouchableOpacity>
+              </BlurView>
             </View>
-            </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
         </Modal>
       )}
     </View>
