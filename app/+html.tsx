@@ -65,10 +65,21 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="robots" content="index, follow" />
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
-        <meta property="og:url" content={url} />
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={description} />
-        <meta property="og:image" content={image} />
+        <meta property="og:url" content="https://bubblebased.com" />
+        <meta
+          property="og:title"
+          content="BubbleBased - Digital Neighborhoods, Not Just Feeds"
+        />
+        <meta
+          property="og:description"
+          content="Join bubblebased.com - a private social network where you control your privacy, earn from your content, and connect in digital neighborhoods. Bubbly & based."
+        />
+        <meta property="og:image" content="https://bubblebased.com/bble.png" />
+        <meta
+          property="og:image:secure_url"
+          content="https://bubblebased.com/bble.png"
+        />
+        <meta property="og:image:type" content="image/png" />
         <meta property="og:site_name" content="BubbleBased" />
         <meta property="og:locale" content="en_US" />
         <meta
@@ -76,7 +87,18 @@ export default function Root({ children }: PropsWithChildren) {
           content="lvnAxw0UhYgjF3kq4GKccyigEEVkHXkKTHntmIXRGvJ9aIHkiVw4Kg=="
         />
         {/* Twitter */}
-        <meta property="twitter:creator" content="@bubbleBASED_" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:site" content="@bubbleBASED_" />
+        <meta name="twitter:creator" content="@bubbleBASED_" />
+        <meta
+          name="twitter:title"
+          content="BubbleBased - Digital Neighborhoods, Not Just Feeds"
+        />
+        <meta
+          name="twitter:description"
+          content="Join bubblebased.com - a private social network where you control your privacy, earn from your content, and connect in digital neighborhoods."
+        />
+        <meta name="twitter:image" content="https://bubblebased.com/bble.png" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
