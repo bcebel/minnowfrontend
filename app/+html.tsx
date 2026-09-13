@@ -7,7 +7,7 @@ export default function Root({ children }: PropsWithChildren) {
   const description =
     "Join bubblebased.com - a private social network where you control your privacy, earn from your content, and connect in digital neighborhoods. Bubbly & based.";
   const url = "https://bubblebased.com";
-  const image = "https://bubblebased.com/og-image.jpg";
+  const image = "https://bubblebased.com/bble.png";
 
   return (
     <html lang="en">
@@ -66,6 +66,7 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content={url} />
+        <meta property="og:title" content={title} />
         <meta property="og:description" content={description} />
         <meta property="og:image" content={image} />
         <meta property="og:site_name" content="BubbleBased" />
