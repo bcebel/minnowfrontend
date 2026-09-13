@@ -1,6 +1,6 @@
 # bubbleBASED
 
-bubbleBASED is a decentralized social media platform that prioritizes user privacy and peer-to-peer (P2P) content delivery. It's built on the concept of "Bubbles" (formerly known as Neighborhoods), which are private, invite-only spaces for sharing content and communicating with a trusted group of people.
+bubbleBASED is a decentralized social media platform that prioritizes user privacy and peer-to-peer (P2P) content delivery. It's built on the concept of "Bubbles" (formerly known as Neighborhoods), which are private, invite-only spaces for sharing content and communicating with a trusted group of people!!
 
 ## Core Concepts
 
