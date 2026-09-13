@@ -65,7 +65,7 @@ export default function CreateNeighborhoodScreen() {
         <Text style={styles.label}>Neighborhood Name *</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g., Thanksgiving 2025, Coding Crew, Book Club"
+          placeholder="e.g., Theater Nerds, Music Nerds, Book Nerds"
           value={name}
           onChangeText={setName}
           maxLength={50}
