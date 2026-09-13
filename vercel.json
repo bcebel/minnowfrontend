@@ -1,3 +1,11 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/" }]
-}
+  "rewrites": [
+    {
+      "source": "/join/:code",
+      "has": [
+        { "type": "header", "key": "user-agent", "value": ".*(Twitterbot|facebookexternalhit|Discordbot|Slackbot|TelegramBot|WhatsApp|LinkedInBot|Pinterestbot|Embedly|VKShare|Tumblr).*" }
+      ],
+      "destination": "https://minnowspacebackend-e6635e46c3d0.herokuapp.com/api/og/join/:code"
+    }
+  ]
+
