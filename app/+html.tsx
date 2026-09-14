@@ -290,7 +290,7 @@ if (typeof window !== 'undefined' && window.WebTorrent) {
 
       <body>
         {children}
-        <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+     
       </body>
     </html>
   );
