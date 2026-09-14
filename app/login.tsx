@@ -106,7 +106,7 @@ export default function LoginScreen() {
         resizeMode="cover"
       />
       <Text style={styles.title}>Sign In</Text>
-      <Text style={styles.subtitle}>Enter your bubble</Text>
+      <Text style={styles.subtitle}>Enter bubbleBASED</Text>
 
       <View style={styles.form}>
         <View style={styles.inputContainer}>
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 25,
     color: "#ff0081",
     textAlign: "center",
     marginBottom: 40,
