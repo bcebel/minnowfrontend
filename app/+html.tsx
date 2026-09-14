@@ -98,7 +98,10 @@ export default function Root({ children }: PropsWithChildren) {
           name="twitter:description"
           content="Join bubblebased.com - a private social network where you control your privacy, earn from your content, and connect in digital neighborhoods."
         />
-        <meta name="twitter:image" content="https://bubblebased.com/bbl-og.jpg" />
+        <meta
+          name="twitter:image"
+          content="https://bubblebased.com/bbl-og.jpg"
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -289,8 +292,64 @@ if (typeof window !== 'undefined' && window.WebTorrent) {
       </head>
 
       <body>
+        <div id="root">
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100vh",
+              width: "100vw",
+              backgroundColor: "#130720",
+              /* 1. Add your public image as the background */
+              backgroundImage: "url(/bble.png)",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+              color: "#ffffff",
+              fontFamily:
+                '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              textAlign: "center",
+              padding: "20px",
+              boxSizing: "border-box",
+            }}
+          >
+            {/* Optional: Render image as a logo graphic instead */}
+            <img
+              src="/bble.png"
+              alt="BubbleBased"
+              style={{ width: "96px", height: "96px", marginBottom: "1rem" }}
+            />
+
+            <h1
+              style={{
+                fontSize: "2.5rem",
+                marginBottom: "0.5rem",
+                color: "#20B2AA",
+              }}
+            >
+              BubbleBased
+            </h1>
+            <p style={{ fontSize: "1.2rem", color: "#ccc", maxWidth: "500px" }}>
+              Digital Neighborhoods, Not Just Feeds.
+            </p>
+            <div
+              style={{
+                marginTop: "2rem",
+                padding: "10px 20px",
+                borderRadius: "20px",
+                backgroundColor: "#20B2AA",
+                color: "#fff",
+                fontWeight: "bold",
+              }}
+            >
+              Connecting Swarm...
+            </div>
+          </div>
+        </div>
+
         {children}
-     
       </body>
     </html>
   );
