@@ -107,7 +107,7 @@ export default function HomeScreen() {
               onPress={() => router.push("/register")}
             >
               <Text style={[styles.primaryButtonText, { color: "#FFFFFF" }]}>
-                New User? Join the Bubble
+                Join bubbleBASED
               </Text>
             </TouchableOpacity>
           </BlurView>

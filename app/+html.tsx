@@ -289,11 +289,21 @@ if (typeof window !== 'undefined' && window.WebTorrent) {
           name="impact-site-verification"
           content="6430b649-d08d-495d-8ef7-5f05702bf594"
         />
+        <link rel="preload" as="image" href="/bble.png" />
       </head>
 
       <body>
+        <noscript>
+          <div style={{ color: "#fff", textAlign: "center", padding: "20px" }}>
+            <h2>BubbleBased requires JavaScript to join P2P swarms.</h2>
+            <p>
+              Please enable JavaScript in your browser settings to continue.
+            </p>
+          </div>
+        </noscript>
         <div id="root">
-          <div
+          <main
+            role="main"
             style={{
               display: "flex",
               flexDirection: "column",
@@ -302,7 +312,6 @@ if (typeof window !== 'undefined' && window.WebTorrent) {
               height: "100vh",
               width: "100vw",
               backgroundColor: "#130720",
-              /* 1. Add your public image as the background */
               backgroundImage: "url(/bble.png)",
               backgroundSize: "cover",
               backgroundPosition: "center",
@@ -315,26 +324,42 @@ if (typeof window !== 'undefined' && window.WebTorrent) {
               boxSizing: "border-box",
             }}
           >
-            {/* Optional: Render image as a logo graphic instead */}
-            <img
-              src="/bble.png"
-              alt="BubbleBased"
-              style={{ width: "96px", height: "96px", marginBottom: "1rem" }}
-            />
+            <header>
+              <img
+                src="/bble.png"
+                alt="BubbleBased - Decentralized P2P Social Network Logo"
+                width="96"
+                height="96"
+                style={{ marginBottom: "1rem" }}
+              />
+              <h1
+                style={{
+                  fontSize: "2.5rem",
+                  marginBottom: "0.5rem",
+                  color: "#20B2AA",
+                }}
+              >
+                BubbleBased
+              </h1>
+            </header>
 
-            <h1
-              style={{
-                fontSize: "2.5rem",
-                marginBottom: "0.5rem",
-                color: "#20B2AA",
-              }}
-            >
-              BubbleBased
-            </h1>
-            <p style={{ fontSize: "1.2rem", color: "#ccc", maxWidth: "500px" }}>
-              Digital Neighborhoods, Not Just Feeds.
-            </p>
+            <section aria-label="About BubbleBased">
+              <p
+                style={{
+                  fontSize: "1.2rem",
+                  color: "#ccc",
+                  maxWidth: "500px",
+                  lineHeight: "1.5",
+                }}
+              >
+                Digital Neighborhoods, Not Just Feeds. Join private bubbles,
+                stream P2P media, and own your social graph.
+              </p>
+            </section>
+
             <div
+              role="status"
+              aria-live="polite"
               style={{
                 marginTop: "2rem",
                 padding: "10px 20px",
@@ -346,7 +371,7 @@ if (typeof window !== 'undefined' && window.WebTorrent) {
             >
               Connecting Swarm...
             </div>
-          </div>
+          </main>
         </div>
 
         {children}
