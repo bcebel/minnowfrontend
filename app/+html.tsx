@@ -300,10 +300,12 @@ if (typeof window !== 'undefined' && window.WebTorrent) {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              height: "100vh",
-              width: "100vw",
+              height: "100%",
+              width: "100%",
+              position: "fixed",
+              top: 0,
+              left: 0,
               backgroundColor: "#130720",
-              /* 1. Add your public image as the background */
               backgroundImage: "url(/bble.png)",
               backgroundSize: "cover",
               backgroundPosition: "center",
@@ -316,7 +318,6 @@ if (typeof window !== 'undefined' && window.WebTorrent) {
               boxSizing: "border-box",
             }}
           >
-            {/* Optional: Render image as a logo graphic instead */}
             <img
               src="/bble.png"
               alt="BubbleBased"
