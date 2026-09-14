@@ -15,6 +15,7 @@ import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
 import { createClient } from "graphql-ws";
 import { getMainDefinition } from "@apollo/client/utilities";
 
+let globalApolloClient = null;
 
 const styles = StyleSheet.create({
   loadingContainer: {
@@ -29,10 +30,19 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 // Remove "http://" or "https://" from the URL for the WebSocket link
 const WS_URL = BACKEND_URL.replace(/^https?:\/\//, "");
 
+export async function clearApolloStore() {
+  if (globalApolloClient) {
+    // 1. Clear in-memory Apollo cache
+    await globalApolloClient
+      .clearStore()
+      .catch(() => globalApolloClient.resetStore());
+  }
+}
+
 export function useApolloClient() {
   const [client, setClient] = useState(null);
   const [cacheReady, setCacheReady] = useState(false);
-console.log("🔌 [WS] Connecting to:", `wss://${WS_URL}/graphql`);
+  console.log("🔌 [WS] Connecting to:", `wss://${WS_URL}/graphql`);
   useEffect(() => {
     const initializeClient = async () => {
       try {
@@ -42,7 +52,6 @@ console.log("🔌 [WS] Connecting to:", `wss://${WS_URL}/graphql`);
           token ? "YES" : "NO",
         );
 
-        // apolloProvider.js
         // apolloProvider.js
         const cache = new InMemoryCache({
           typePolicies: {
@@ -133,6 +142,7 @@ console.log("🔌 [WS] Connecting to:", `wss://${WS_URL}/graphql`);
           cache: cache,
         });
 
+        globalApolloClient = newClient;
         setClient(newClient);
       } catch (error) {
         console.error("❌ Apollo Client: Initialization error:", error);

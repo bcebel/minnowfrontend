@@ -64,6 +64,7 @@ const RegistrationScreen = () => {
         // Auto-login after registration
         await AsyncStorage.setItem("token", token);
         await AsyncStorage.setItem("username", user.username);
+        await AsyncStorage.setItem("userId", user.id); 
 
         console.log("✅ Registration - Token saved to AsyncStorage");
         console.log("✅ Registration - Username saved:", user.username);

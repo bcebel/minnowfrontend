@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { io } from "socket.io-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
   const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export const AuthContext = React.createContext();
@@ -25,9 +26,11 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    await AsyncStorage.removeItem("token");
+    await client.clearStore();
+    await AsyncStorage.multiRemove(["userToken", "userData", "userId"]);
     setToken(null);
-    if (socket) socket.disconnect();
+    setAuthContextState(null);
+    if (socket) socket.disconnect(); 
     setSocket(null);
   };
 

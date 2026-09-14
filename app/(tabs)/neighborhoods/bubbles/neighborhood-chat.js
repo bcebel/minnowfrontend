@@ -22,7 +22,7 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-
+import { ROLE_RANK, canModerate, isOwner, isModerator } from "../../../utils/permissions";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io } from "socket.io-client";
@@ -39,6 +39,13 @@ import webtorrentService from "../../../../utils/webtorrentService";
 //import heic2any from "heic2any";
 import convert from "heic-convert/browser";
 const myTracker = "wss://tracker-0ad4cca9fd92.herokuapp.com";
+const GET_ME_ID = gql`
+  query GetMeId {
+    me {
+      id
+    }
+  }
+`;
 // Helper function to create optimistic message
 const createOptimisticMessage = (type, fileName, url, thumbnailUrl) => {
   const tempId = `temp-${Date.now()}`;
@@ -410,6 +417,10 @@ const getMimeTypeFromExtension = (filename) => {
 };
 
 export default function NeighborhoodChatScreen() {
+
+  
+  const { data: meData } = useQuery(GET_ME_ID);
+  const currentUserId = meData?.me?.id;
   const params = useLocalSearchParams();
   const router = useRouter();
   const neighborhoodId = params.neighborhoodId;
@@ -427,6 +438,21 @@ export default function NeighborhoodChatScreen() {
   const [messages, setMessages] = useState([]);
   // State to track item IDs that should be active in P2P swarm
   const [swarmItemIds, setSwarmItemIds] = useState([]);
+  
+  useEffect(() => {
+    (async () => {
+      const storedId = await AsyncStorage.getItem("userId");
+      const storedUsername = await AsyncStorage.getItem("username");
+      const storedToken = await AsyncStorage.getItem("token");
+      console.log("SESSION CHECK", {
+        currentUserId,
+        username,
+        storedId,
+        storedUsername,
+        tokenPreview: storedToken?.slice(0, 10),
+      });
+    })();
+  }, []);
 
   // Viewability callback: Swarms visible items + next 2 buffer items
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
@@ -464,6 +490,9 @@ export default function NeighborhoodChatScreen() {
     minimumViewTime: 250, // <-- CRITICAL: Item must sit on screen for 250ms before firing
   }).current;
 
+  const currentUserIdStr = String(currentUserId || "")
+    .trim()
+    .toLowerCase();
   // Pass `shouldSwarm` into your renderMessage helper
   const renderFeedItem = ({ item, index }) => {
     if (item.type === "ad") {
@@ -479,6 +508,7 @@ export default function NeighborhoodChatScreen() {
         msg.fileType !== "video_chunk" && msg.fileType !== "video_header",
     );
   }, [messages]);
+
   const [showAd, setShowAd] = useState(false);
   const [currentAd, setCurrentAd] = useState(null);
   const isDesktopWeb =
@@ -571,6 +601,15 @@ export default function NeighborhoodChatScreen() {
     },
   );
 
+    const myMember = useMemo(() => {
+      return neighborhoodData?.neighborhood?.members?.find(
+        (m) =>
+          String(m.user?.id || m.user?._id || "")
+            .trim()
+            .toLowerCase() === currentUserIdStr,
+      );
+    }, [neighborhoodData, currentUserIdStr]);
+
   const { loading, error, data, refetch } = useQuery(
     GET_NEIGHBORHOOD_MESSAGES,
     {
@@ -650,13 +689,44 @@ export default function NeighborhoodChatScreen() {
 
   const renderMessage = useCallback(
     (message) => {
+      console.log(
+        "MEMBERS ARRAY",
+        neighborhoodData?.neighborhood?.members?.map((m) => ({
+          userId: m.user?.id,
+          userIdType: typeof m.user?.id,
+          username: m.user?.username,
+          role: m.role,
+        })),
+      );
       const senderUsername = message.sender?.username || "Unknown";
       const profilePhoto = getProfilePhotoUrl(message.sender?.profilePhoto);
       const timestamp = formatTimestamp(message.createdAt);
       const uniqueKey = message.id || `temp-${Date.now()}-${index}`;
+
+      const authorMember = neighborhoodData?.neighborhood?.members?.find(
+        (m) => String(m.user?.id) === String(message.sender?.id || ""),
+      );
+      const isSelf = !!(
+        message.sender?.id &&
+        currentUserId &&
+        String(message.sender.id) === currentUserIdStr
+      );
+
+      const members = neighborhoodData?.neighborhood?.members;
+      const canDelete = members
+        ? canModerate(myMember?.role, authorMember?.role, isSelf)
+        : isSelf; // before data loads, only self-delete
+
+  console.log("DELETE CHECK", {
+    messageId: message.id,
+    isSelf,
+    deleterRole: myMember?.role,
+    authorRole: authorMember?.role,
+    canDelete,
+  });
+
       return (
         <View key={uniqueKey} style={styles.messageContainer}>
-    
           <Image
             source={{ uri: profilePhoto }}
             style={styles.profileImage}
@@ -702,8 +772,7 @@ export default function NeighborhoodChatScreen() {
             {message.content && message.content.startsWith("Shared: ") && (
               <Text style={styles.sharedLabel}>{message.content}</Text>
             )}
-
-            {isNeighborhoodAdmin && (
+            {canDelete && (
               <TouchableOpacity
                 onPress={() => handleDeleteMessage(message.id)}
                 style={styles.deleteButton}
@@ -715,7 +784,7 @@ export default function NeighborhoodChatScreen() {
         </View>
       );
     },
-    [isNeighborhoodAdmin],
+    [currentUserId, neighborhoodData, handleDeleteMessage],
   );
 
   useEffect(() => {

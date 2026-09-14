@@ -10,6 +10,9 @@ import {
 import { Text } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { clearApolloStore } from "@/context/apolloProvider"; // Adjust path if needed
+
+
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -20,6 +23,7 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
+    
     if (!username.trim() || !password.trim()) {
       Alert.alert("Error", "Please fill in all fields");
       return;
@@ -53,12 +57,26 @@ export default function LoginScreen() {
       console.log("✅ Login response:", data);
 
       if (data.data?.loginUser?.token) {
-        const token = data.data.loginUser.token;
-        const user = data.data.loginUser.user;
+        const { token, user } = data.data.loginUser;
+        await clearApolloStore();
+        await AsyncStorage.multiRemove([
+          "token",
+          "username",
+          "userId",
+          "apollo-cache-persist",
+        ]);
+        await AsyncStorage.setItem("token", token);
+        await AsyncStorage.setItem("username", user.username);
+        await AsyncStorage.setItem("userId", user.id);
+
+        Alert.alert("Success", `Welcome back, ${user.username}!`);
+        router.replace("/(tabs)/neighborhoods");
+
 
         // ✅ CRITICAL: Save token and username to AsyncStorage
         await AsyncStorage.setItem("token", token);
         await AsyncStorage.setItem("username", user.username);
+        await AsyncStorage.setItem("userId", user.id); 
 
         console.log(
           "✅ Token saved to AsyncStorage:",

@@ -15,16 +15,33 @@ import { warehouse } from "../../components/StreamWearhouse";
 import { mediaCache } from "../../components/mediaCache";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-
+import { clearApolloStore } from "@/context/apolloProvider";
 
 
 const router = useRouter();
 
 const handleLogout = async () => {
-  await AsyncStorage.multiRemove(["token", "username"]);
-    await warehouse.clearAllExcept(""); // clear everything
+  try {
+    // 1. Purge Apollo client memory cache
+    await clearApolloStore();
+
+    // 2. Wipe ALL auth keys & persisted disk cache
+    await AsyncStorage.multiRemove([
+      "token",
+      "username",
+      "userId",
+      "apollo-cache-persist",
+    ]);
+
+    // 3. Wipe your custom caches
+    await warehouse.clearAllExcept("");
     await mediaCache.clearCache();
-  router.replace("/login");
+
+    // 4. Redirect to login
+    router.replace("/login");
+  } catch (error) {
+    console.error("Logout error:", error);
+  }
 };
 
 export default function HomeScreen() {
