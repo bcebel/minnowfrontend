@@ -437,7 +437,7 @@ export default function LivestreamScreen() {
               { height: SCREEN_HEIGHT, backgroundColor: "#130720" },
             ]}
           >
-            <View style={{ width: "100%", alignItems: "center", zIndex: 10 }}>
+            <View style={{ width: "100%", alignItems: "center", zIndex: 10, marginTop: 50 }}>
               <Text style={styles.title}>Pick a Bubble to Stream To</Text>
 
               <View style={styles.picker}>
