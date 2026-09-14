@@ -293,65 +293,68 @@ if (typeof window !== 'undefined' && window.WebTorrent) {
       </head>
 
       <body>
-        <div id="root">
-          <div
+        {/* 1. Static Splash Overlay sitting OUTSIDE #root */}
+        <div
+          id="splash-screen"
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "#130720",
+            backgroundImage: "url(/bble.png)",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            color: "#ffffff",
+            fontFamily:
+              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            textAlign: "center",
+            padding: "20px",
+            boxSizing: "border-box",
+            zIndex: 99999, // Sits on top of everything on frame 1
+          }}
+        >
+          <img
+            src="/bble.png"
+            alt="BubbleBased"
+            style={{ width: "96px", height: "96px", marginBottom: "1rem" }}
+          />
+          <h1
             style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              height: "100%",
-              width: "100%",
-              position: "fixed",
-              top: 0,
-              left: 0,
-              backgroundColor: "#130720",
-              backgroundImage: "url(/bble.png)",
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-              color: "#ffffff",
-              fontFamily:
-                '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-              textAlign: "center",
-              padding: "20px",
-              boxSizing: "border-box",
+              fontSize: "2.5rem",
+              marginBottom: "0.5rem",
+              color: "#20B2AA",
             }}
           >
-            <img
-              src="/bble.png"
-              alt="BubbleBased"
-              style={{ width: "96px", height: "96px", marginBottom: "1rem" }}
-            />
-
-            <h1
-              style={{
-                fontSize: "2.5rem",
-                marginBottom: "0.5rem",
-                color: "#20B2AA",
-              }}
-            >
-              BubbleBased
-            </h1>
-            <p style={{ fontSize: "1.2rem", color: "#ccc", maxWidth: "500px" }}>
-              Digital Neighborhoods, Not Just Feeds.
-            </p>
-            <div
-              style={{
-                marginTop: "2rem",
-                padding: "10px 20px",
-                borderRadius: "20px",
-                backgroundColor: "#20B2AA",
-                color: "#fff",
-                fontWeight: "bold",
-              }}
-            >
-              Connecting Swarm...
-            </div>
-          </div>
+            BubbleBased
+          </h1>
+          <p style={{ fontSize: "1.2rem", color: "#ccc", maxWidth: "500px" }}>
+            Digital Neighborhoods, Not Just Feeds.
+          </p>
         </div>
 
-        {children}
+        {/* 2. Clean, untouched Expo Root */}
+        <div id="root">{children}</div>
+
+        {/* 3. Small inline script that hides the splash as soon as React mounts */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+        window.addEventListener('DOMContentLoaded', () => {
+          const checkReact = setInterval(() => {
+            const root = document.getElementById('root');
+            if (root && root.children.length > 0) {
+              const splash = document.getElementById('splash-screen');
+              if (splash) splash.style.display = 'none';
+              clearInterval(checkReact);
+            }
+          }, 50);
+        });
+      `,
+          }}
+        />
       </body>
     </html>
   );
