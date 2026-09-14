@@ -9,12 +9,21 @@ import {
   ImageBackground,
 } from "react-native";
 import { BlurView } from 'expo-blur';
-import { useRouter } from "expo-router";
+
 import { themes } from "../theme";
+import { warehouse } from "../../components/StreamWearhouse";
+import { mediaCache } from "../../components/mediaCache";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
+
+
+
 const router = useRouter();
+
 const handleLogout = async () => {
   await AsyncStorage.multiRemove(["token", "username"]);
+    await warehouse.clearAllExcept(""); // clear everything
+    await mediaCache.clearCache();
   router.replace("/login");
 };
 
@@ -97,7 +106,8 @@ export default function HomeScreen() {
               role="heading"
               aria-level={2}
             >
-              Welcome to BubbleBased.
+              Never doubt that a small group of thoughtful, committed citizens
+              can change the world; indeed, it's the only thing that ever has.
             </Text>
             <Text
               style={[
@@ -107,44 +117,9 @@ export default function HomeScreen() {
               ]}
               role="heading"
               aria-level={3}
-            >
-              It’s a big club and you run it.
+            >Margaret Mead
             </Text>
-            <Text
-              style={[
-                { color: "#F5F2FA" },
-                { fontSize: 24 },
-                { marginBottom: 15 },
-              ]}
-            >
-              Our own private digital neighborhoods.
-            </Text>
-            <Text
-              style={[
-                { color: "#F5F2FA" },
-                { fontSize: 24 },
-                { marginBottom: 15 },
-              ]}
-            ></Text>
-            <Text
-              style={[
-                { color: "#F5F2FA" },
-                { fontSize: 24 },
-                { marginBottom: 20 },
-              ]}
-            >
-              Bubbles are by invitation only. You can make and join as many
-              bubbles as you want!
-            </Text>
-            <Text
-              style={[
-                { color: "#F5F2FA" },
-                { fontSize: 24 },
-                { marginBottom: 20 },
-              ]}
-            >
-              Check out the tabs for more info!
-            </Text>
+           
           </View>
         </View>
       </ScrollView>
