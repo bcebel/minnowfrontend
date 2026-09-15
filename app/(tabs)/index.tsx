@@ -307,18 +307,17 @@ const styles = StyleSheet.create({
 
   // Hero Section
   heroSection: {
-    paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingTop: 40,
     paddingBottom: 40,
-    gap: 40,
+    flexDirection: "column",
+    gap: 32, // Guarantees space between text/buttons and the visual card
   },
   heroSectionDesktop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 48,
-    paddingTop: 80,
-    paddingBottom: 60,
   },
   heroTextContainer: {
     flex: 1,
@@ -360,7 +359,8 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: "row",
     gap: 12,
-    flexWrap: "wrap",
+    flexWrap: "wrap", // Prevents buttons from spilling into the card below
+    marginBottom: 24, // Adds explicit margin beneath the buttons
   },
   bubbleGlass: {
     borderRadius: 48,
@@ -405,15 +405,16 @@ const styles = StyleSheet.create({
 
   // Visual Card
   heroVisualCard: {
-    flex: 1,
+    width: "100%",
     backgroundColor: "rgba(19, 23, 31, 0.8)",
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
     padding: 16,
-    minHeight: 260,
+    minHeight: 200, // Reduced from 280 for mobile screens
   },
   heroVisualDesktop: {
+    flex: 1, // Only flex on desktop layout
     maxWidth: 480,
   },
   visualCardInner: {
