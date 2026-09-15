@@ -47,23 +47,9 @@ class WebTorrentService {
   // ---------------------------------------------------------------------------
 
   async getPlayableUrl(torrent, file) {
-    return new Promise((resolve, reject) => {
-      file.getBlobURL((err, url) => {
-        if (!err && url) {
-          resolve(url);
-          return;
-        }
-        file.getBuffer((err, buffer) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          const blob = new Blob([buffer], { type: "video/mp4" });
-          const url = URL.createObjectURL(blob);
-          resolve(url);
-        });
-      });
-    });
+    // v3: file.blob() replaces the old getBlobURL callback API
+    const blob = await file.blob();
+    return URL.createObjectURL(blob);
   }
 
   async ensureClient() {
@@ -264,8 +250,6 @@ class WebTorrentService {
   async add(magnetUri, options = {}) {
     const { forceRefresh = false, _retry = 0, ...torrentOpts } = options;
 
-    // Retry guard — prevents infinite loop if the existing torrent is
-    // permanently broken.
     if (_retry > 2) {
       throw new Error("Torrent could not be recovered after 3 attempts");
     }
@@ -277,51 +261,46 @@ class WebTorrentService {
     // 1. Memory cache
     const cached = !forceRefresh ? this.getCachedMagnet(magnetUri) : null;
     if (cached && cached.url && !cached.url.startsWith("blob:")) {
-      // Note: cacheMagnetResult never stores blob URLs, so this branch is
-      // only reached if a caller manually put a non-blob URL in the cache.
-      // HEAD check still validates it.
       try {
         const response = await fetch(cached.url, { method: "HEAD" });
         if (response.ok) {
           return { ...cached, fromCache: true, ready: true };
         }
       } catch (e) {
-        // fall through to fresh fetch
+        // fall through
       }
       this.downloadCache.delete(this.getCacheKey(magnetUri));
     }
 
     const client = await this.ensureClient();
 
-    // 2. Existing torrent in client
+    // 2. Existing torrent in client — DO THIS HERE, OUTSIDE THE PROMISE
     const existing = client.get(magnetUri);
     if (existing) {
-      const file = existing.files?.[0];
+      const file =
+        existing.files?.find((f) =>
+          f.name.match(/\.(mp4|webm|m4v|jpg|jpeg|png|gif|webp)$/i),
+        ) || existing.files?.[0];
+
       if (file) {
-        return new Promise((resolve) => {
-          file.getBuffer((err, buffer) => {
-            if (err || !buffer) {
-              client.remove(existing.infoHash);
-              return this.add(magnetUri, {
-                ...torrentOpts,
-                forceRefresh: true,
-                _retry: _retry + 1,
-              }).then(resolve);
-            }
-            file.getBlobURL((err, url) => {
-              resolve({
-                torrent: existing,
-                url: err ? null : url,
-                name: existing.name,
-                size: existing.length,
-                infoHash: existing.infoHash,
-                magnetUri: existing.magnetURI,
-                ready: true,
-                fromExisting: true,
-              });
-            });
-          });
-        });
+        try {
+          const blob = await file.blob(); // ✅ await works — we're in the async method body
+          const url = URL.createObjectURL(blob);
+          const result = {
+            torrent: existing,
+            url,
+            name: existing.name,
+            size: existing.length,
+            infoHash: existing.infoHash,
+            magnetUri: existing.magnetURI,
+            ready: true,
+            fromExisting: true,
+          };
+          this.cacheMagnetResult(magnetUri, result);
+          return result;
+        } catch (e) {
+          // Existing torrent has no usable data — fall through to fresh add
+        }
       }
     }
 
@@ -377,22 +356,23 @@ class WebTorrentService {
               );
             }
 
-            file.getBlobURL((err, url) => {
-              if (err) return finish(reject, err);
-
-              const result = {
-                torrent,
-                url,
-                name: torrent.name,
-                size: torrent.length,
-                infoHash: torrent.infoHash,
-                magnetUri: torrent.magnetURI,
-                ready: true,
-              };
-
-              this.cacheMagnetResult(magnetUri, result);
-              finish(resolve, result);
-            });
+       file
+         .blob()
+         .then((blob) => {
+           const url = URL.createObjectURL(blob);
+           const result = {
+             torrent,
+             url,
+             name: torrent.name,
+             size: torrent.length,
+             infoHash: torrent.infoHash,
+             magnetUri: torrent.magnetURI,
+             ready: true,
+           };
+           this.cacheMagnetResult(magnetUri, result);
+           finish(resolve, result);
+         })
+         .catch((err) => finish(reject, err));
           };
 
           if (torrent.ready) {

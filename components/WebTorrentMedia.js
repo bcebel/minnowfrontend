@@ -31,7 +31,6 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
   const [progress, setProgress] = useState(0);
   const [peerCount, setPeerCount] = useState(0);
   const [isReady, setIsReady] = useState(false);
-  let cachedUrl = useRef(null);
   const videoRef = useRef(null);
   const currentUrlRef = useRef(null);
   const isMountedRef = useRef(true);
@@ -197,7 +196,7 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
           overallTimeoutRef.current = setTimeout(() => {
             if (!isReady && isMountedRef.current) {
               // console.log("⏰ 15s overall timeout. Forcing HTTP.");
-            cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
+           const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
               setVideoSrc(cachedUrl);
               setStatus("fallback_http");
               setIsReady(true);
@@ -228,16 +227,9 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
           activeTorrent = torrentResult.torrent;
 
           if (activeTorrent) {
-            activeTorrent.on("done", () => {
-              if (isMountedRef.current && activeTorrent.files[0]) {
-                activeTorrent.files[0].getBuffer((err, buffer) => {
-                  if (!err && buffer) {
-                    const blob = new Blob([buffer]);
-                    saveCachedMedia(blob, media.fileName);
-                  }
-                });
-              }
-            });
+activeTorrent.files[0].blob().then((blob) => {
+  saveCachedMedia(blob, media.fileName);
+});
 
             const updateStats = () => {
               if (!isMountedRef.current) return;
@@ -369,7 +361,7 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
     return <img src={videoSrc} style={styles.image} alt="User content" />;
   }
 
-  if (cachedUrl !== videoSrc) {
+ 
     return (
       <View style={styles.container}>
         <video
@@ -406,7 +398,7 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
       </View>
     );
   }
-}
+
 
 const styles = StyleSheet.create({
   container: {
