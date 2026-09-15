@@ -31,7 +31,7 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
   const [progress, setProgress] = useState(0);
   const [peerCount, setPeerCount] = useState(0);
   const [isReady, setIsReady] = useState(false);
-
+  const cachedUrl = useRef(null);
   const videoRef = useRef(null);
   const currentUrlRef = useRef(null);
   const isMountedRef = useRef(true);
@@ -79,7 +79,7 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
             const type = torrent.files[0].type || "video/mp4";
             const blob = new Blob([buffer], { type });
             await saveMedia(media.cid, blob, type, media.fileName);
-          } catch (e) {}
+          } catch (e) { }
         };
 
         torrent.once("done", onDone);
@@ -122,7 +122,7 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
             (fileName.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
           // Await the save so it's ready next time!
           await saveMedia(media.cid, blob, mimeType, fileName);
-         // console.log("💾 Background cache saved:", media.cid);
+          // console.log("💾 Background cache saved:", media.cid);
         }
       } catch (e) {
         // Silent catch
@@ -139,7 +139,7 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
       }
       saveMedia(media.cid, blob, mimeType, fileName || `media-${media.cid}`)
         .then(() => console.log("💾 Saved to cache:", media.cid))
-        .catch(() => {});
+        .catch(() => { });
     };
 
     const loadMedia = async () => {
@@ -196,8 +196,8 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
 
           overallTimeoutRef.current = setTimeout(() => {
             if (!isReady && isMountedRef.current) {
-             // console.log("⏰ 15s overall timeout. Forcing HTTP.");
-              const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
+              // console.log("⏰ 15s overall timeout. Forcing HTTP.");
+            cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
               setVideoSrc(cachedUrl);
               setStatus("fallback_http");
               setIsReady(true);
@@ -208,7 +208,7 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
 
           noProgressTimeoutRef.current = setTimeout(() => {
             if (!isReady && progressRef.current === 0 && isMountedRef.current) {
-             // console.log("🐌 No progress in 5s. Forcing HTTP.");
+              // console.log("🐌 No progress in 5s. Forcing HTTP.");
               const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
               setVideoSrc(cachedUrl);
               setStatus("fallback_http");
@@ -290,7 +290,7 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
             setIsReady(true);
           }
         } catch (err) {
-        //  console.log("P2P Error:", err.message);
+          //  console.log("P2P Error:", err.message);
           const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
           setVideoSrc(cachedUrl);
           setStatus("fallback_http");
@@ -369,31 +369,43 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
     return <img src={videoSrc} style={styles.image} alt="User content" />;
   }
 
-  return (
-    <View style={styles.container}>
-      <video
-        ref={videoRef}
-        src={videoSrc}
-        style={styles.video}
-        muted={true}
-        controls
-        playsInline
-        autoPlay
-        preload="auto"
-        onLoadedData={() => console.log("🎬 Video loaded and ready")}
-        onError={(e) => console.log("❌ Video error:", e)}
-      />
-      <View style={styles.overlayStatus}>
-        <Text style={styles.overlayText}>
-          {status === "p2p_streaming" &&
-            `🚀 P2P (${peerCount} peers, ${progress}%)`}
-          {status === "p2p_swarming" && `🌊 Swarming (${progress}%)`}
-          {status === "fallback_http" && "🌍 HTTP"}
-          {status === "cached" && "💾 Cache"}
-        </Text>
+  if (cachedUrl !== videoSrc) {
+    return (
+      <View style={styles.container}>
+        <video
+          ref={videoRef}
+          src={videoSrc}
+          style={styles.video}
+          muted={true}
+          controls
+          playsInline
+          autoPlay
+          preload="auto"
+          onLoadedData={() => console.log("🎬 Video loaded and ready")}
+          onError={() => {
+            console.log("Video element failed to load. Forcing HTTP fallback.");
+            const cachedUrl = getCachedPinataUrl(
+              media.cid,
+              media.ipfsUrl || media.fallbackUrl,
+            );
+            if (cachedUrl && cachedUrl !== videoSrc) {
+              setVideoSrc(cachedUrl);
+              setStatus("fallback_http");
+            }
+          }}
+        />
+        <View style={styles.overlayStatus}>
+          <Text style={styles.overlayText}>
+            {status === "p2p_streaming" &&
+              `🚀 P2P (${peerCount} peers, ${progress}%)`}
+            {status === "p2p_swarming" && `🌊 Swarming (${progress}%)`}
+            {status === "fallback_http" && "🌍 HTTP"}
+            {status === "cached" && "💾 Cache"}
+          </Text>
+        </View>
       </View>
-    </View>
-  );
+    );
+  }
 }
 
 const styles = StyleSheet.create({
