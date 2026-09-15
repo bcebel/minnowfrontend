@@ -1,55 +1,54 @@
+import React, { useState } from "react";
 import {
-  Image,
   StyleSheet,
-  Platform,
-  TouchableOpacity,
   Text,
-  ScrollView,
   View,
+  ScrollView,
+  TouchableOpacity,
+  Pressable,
   ImageBackground,
+  useWindowDimensions,
+  Platform,
 } from "react-native";
-import { BlurView } from 'expo-blur';
+import { BlurView } from "expo-blur";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
 
 import { themes } from "../theme";
 import { warehouse } from "../../components/StreamWearhouse";
 import { mediaCache } from "../../components/mediaCache";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
 import { clearApolloStore } from "@/context/apolloProvider";
-
-
-const router = useRouter();
-
-const handleLogout = async () => {
-  try {
-    // 1. Purge Apollo client memory cache
-    await clearApolloStore();
-
-    // 2. Wipe ALL auth keys & persisted disk cache
-    await AsyncStorage.multiRemove([
-      "token",
-      "username",
-      "userId",
-      "apollo-cache-persist",
-    ]);
-
-    // 3. Wipe your custom caches
-    await warehouse.clearAllExcept("");
-    await mediaCache.clearCache();
-
-    // 4. Redirect to login
-    router.replace("/login");
-  } catch (error) {
-    console.error("Logout error:", error);
-  }
-};
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+
   const theme = themes.bubblefusion.dark;
-  const accents = themes.bubblefusion.dark.accents;
-  const light = themes.bubblefusion.light;
-  const lightaccents = themes.bubblefusion.light.accents;
+
+  const handleLogout = async () => {
+    try {
+      // 1. Purge Apollo client memory cache
+      await clearApolloStore();
+
+      // 2. Wipe ALL auth keys & persisted disk cache
+      await AsyncStorage.multiRemove([
+        "token",
+        "username",
+        "userId",
+        "apollo-cache-persist",
+      ]);
+
+      // 3. Wipe custom caches
+      await warehouse.clearAllExcept("");
+      await mediaCache.clearCache();
+
+      // 4. Redirect to login
+      router.replace("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -59,296 +58,433 @@ export default function HomeScreen() {
         resizeMode="cover"
       />
 
+      {/* NAV HEADER */}
+      <View
+        style={[
+          styles.navContainer,
+          isDesktop ? styles.navDesktop : styles.navMobile,
+        ]}
+      >
+        <View style={styles.brandContainer}>
+          <View style={styles.logoBadge}>
+            <Text style={styles.logoBadgeText}>bB</Text>
+          </View>
+          <Text style={styles.brandTitle}>bubbleBASED</Text>
+        </View>
+
+        <View style={styles.navLinks}>
+          <NavButton title="" />
+          <NavButton title="" />
+          <NavButton title="" />
+
+          <BlurView
+            intensity={50}
+            tint="dark"
+            style={styles.bubbleGlassCompact}
+          >
+            <TouchableOpacity
+              style={styles.navActionButton}
+              onPress={() => router.push("/login")}
+            >
+              <Text style={styles.navActionButtonText}>Sign In</Text>
+            </TouchableOpacity>
+          </BlurView>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.heroOverlay}>
-          <Text
-            style={[styles.heroTitle, { color: "#F5F2FA" }]}
-            role="heading"
-            aria-level={1}
+        {/* HERO SECTION */}
+        <View
+          style={[styles.heroSection, isDesktop && styles.heroSectionDesktop]}
+        >
+          <View
+            style={[
+              styles.heroTextContainer,
+              isDesktop && styles.heroTextDesktop,
+            ]}
           >
-            bubbleBASED
-          </Text>
+            <View style={styles.tagBadge}>
+              <Text style={styles.tagBadgeText}>
+                Peer-to-Peer Media Network
+              </Text>
+            </View>
+
+            <Text style={styles.heroTitle} role="heading" aria-level={1}>
+              Stream & Share Without Middlemen.
+            </Text>
+
+            <Text style={styles.heroSub}>
+              Direct peer connections, WebTorrent video streaming, and Apollo
+              GraphQL synchronization built for modern web and mobile.
+            </Text>
+
+            {/* ACTION BUTTONS (Login / Logout / Join) */}
+            <View style={styles.actionsRow}>
+              <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={() => router.push("/register")}
+                >
+                  <Text style={styles.actionButtonText}>Join bubbleBASED</Text>
+                </TouchableOpacity>
+              </BlurView>
+
+              <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => router.push("/login")}
+                >
+                  <Text style={styles.actionButtonText}>Sign In</Text>
+                </TouchableOpacity>
+              </BlurView>
+
+              <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
+                <TouchableOpacity
+                  onPress={handleLogout}
+                  style={styles.logoutButton}
+                >
+                  <Text style={styles.actionButtonText}>Logout</Text>
+                </TouchableOpacity>
+              </BlurView>
+            </View>
+          </View>
+
+          {/* CODE / PEER STATUS CARD */}
+          <View
+            style={[
+              styles.heroVisualCard,
+              isDesktop && styles.heroVisualDesktop,
+            ]}
+          >
+            <View style={styles.visualCardInner}>
+              <View style={styles.visualCardHeader}>
+                <View style={[styles.dot, { backgroundColor: "#FF5F56" }]} />
+                <View style={[styles.dot, { backgroundColor: "#FFBD2E" }]} />
+                <View style={[styles.dot, { backgroundColor: "#27C93F" }]} />
+              </View>
+              <View style={styles.mockContentBox}>
+                <Text style={styles.mockCodeText}>
+                  // WebTorrent P2P Status
+                </Text>
+                <Text style={styles.mockCodeTextAccent}>
+                  status: "Connected"
+                </Text>
+                <Text style={styles.mockCodeText}>peers: 128 active</Text>
+                <Text style={styles.mockCodeText}>
+                  apolloCache: "Persisted"
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.actionsContainer}>
-          <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => router.push("/login")}
-            >
-              <Text style={[styles.secondaryButtonText, { color: "#FFFFFF" }]}>
-                Sign In
-              </Text>
-            </TouchableOpacity>
-          </BlurView>
-          <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
-            <TouchableOpacity
-              onPress={handleLogout}
-              style={[
-                styles.logoutButton,
-                { backgroundColor: "rgba 89, 17, 85, 0.5" },
-              ]}
-            >
-              <Text style={[styles.logoutButtonText, { color: "#FFFFFF" }]}>
-                Logout
-              </Text>
-            </TouchableOpacity>
-          </BlurView>
-          <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
-            <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                { backgroundColor: "rgba 21, 17, 89, 0.5" },
-              ]}
-              onPress={() => router.push("/register")}
-            >
-              <Text style={[styles.primaryButtonText, { color: "#FFFFFF" }]}>
-                Join bubbleBASED
-              </Text>
-            </TouchableOpacity>
+        {/* MARGARET MEAD QUOTE */}
+        <View style={styles.quoteSection}>
+          <BlurView intensity={40} tint="dark" style={styles.quoteGlassCard}>
+            <Text style={styles.quoteText}>
+              "Never doubt that a small group of thoughtful, committed citizens
+              can change the world; indeed, it's the only thing that ever has."
+            </Text>
+            <Text style={styles.quoteAuthor}>— Margaret Mead</Text>
           </BlurView>
         </View>
-        <View style={styles.features}>
-          <View style={styles.featureItem}>
-            <Text
-              style={[
-                { color: "#F5F2FA" },
-                { marginBottom: 15 },
-                { fontSize: 24 },
-              ]}
-              role="heading"
-              aria-level={2}
-            >
-              Never doubt that a small group of thoughtful, committed citizens
-              can change the world; indeed, it's the only thing that ever has.
-            </Text>
-            <Text
-              style={[
-                { color: "#F5F2FA" },
-                { marginBottom: 15 },
-                { fontSize: 24 },
-              ]}
-              role="heading"
-              aria-level={3}
-            >Margaret Mead
-            </Text>
-           
-          </View>
+
+        {/* FOOTER */}
+        <View style={styles.footerContainer}>
+          <Text style={styles.footerText}>
+            © {new Date().getFullYear()} bubbleBASED. Built with React Native &
+            Expo Router.
+          </Text>
         </View>
       </ScrollView>
     </View>
   );
 }
 
+function NavButton({ title }: { title: string }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Pressable
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={styles.navLinkPressable}
+    >
+      <Text style={[styles.navLinkText, hovered && styles.navLinkTextHover]}>
+        {title}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#0A0C10",
+  },
+  heroBubble: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.35,
   },
   scrollView: {
     flex: 1,
   },
-  heroSection: {
-    height: 300, // Adjust based on your image
-    position: "relative",
-  },
-  heroBubble: {
-    width: "100%",
-    height: "100%",
-    position: "absolute",
-  },
-  heroOverlay: {
-    position: "relative",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  heroTitle: {
-    borderRadius: 20, // Rounded edges
-    borderColor: "#00FFFF",
-    position: "relative",
-    fontSize: 36,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 4,
-    alignSelf: "center",
-    padding: 3,
-  },
-  heroSubtitle: {
-    fontSize: 18,
-    borderRadius: 20, // Rounded edges
-    textAlign: "center",
-    fontWeight: "600",
-    marginBottom: 4,
-    alignSelf: "center",
-    padding: 5,
-    margin: 2,
-    backgroundColor: "transparent",
-  },
-  heroTagline: {
-    borderRadius: 20, // Rounded edges
-    backgroundColor: "theme.link",
-    fontSize: 16,
-    textAlign: "center",
-    opacity: 0.9,
-    alignSelf: "center",
-    padding: 5,
-    margin: 2,
-  },
-  footerBubbles: {
-    flex: 1,
-    width: "100%",
-  },
   scrollContent: {
-    flexGrow: 1,
     paddingBottom: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "transparent",
-  },
-  headerImage: {
-    width: "100%",
-    height: 50,
-    resizeMode: "cover",
-    marginTop: Platform.OS === "ios" ? 50 : 20,
-    marginBottom: 10,
-  },
-  titleContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 18,
-    textAlign: "center",
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  tagline: {
-    fontSize: 18,
-    textAlign: "center",
-    opacity: 0.9,
-    borderRadius: 100,
-    height: 30,
-  },
-  actionsContainer: {
-    alignSelf: "center",
-    maxWidth: 300,
-    borderRadius: 100,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    gap: 12,
-    marginBottom: 20,
-  },
-  primaryButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 48,
-    alignItems: "center",
-  },
-  primaryButtonText: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  secondaryButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 48,
-    alignItems: "center", 
-    backgroundColor: "rgba 57, 17, 89, 0.5",
-  },
-  secondaryButtonText: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  features: {
-    fontSize: 20,
-    marginHorizontal: 20,
-    padding: 16,
-    backgroundColor: "transparent",
-    borderRadius: 100,
-    width: 300,
-    alignSelf: "center",
-  },
-  featureItem: {
-    alignItems: "center",
-    marginBottom: 12,
-    paddingHorizontal: 8,
-  },
-  featureEmoji: {
-    fontSize: 20,
-    marginRight: 12,
-    width: 24,
-  },
-  featureText: {
-    fontSize: 18,
-    flex: 1,
-    lineHeight: 18,
-  },
-  accentShowcase: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  accentTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 12,
-  },
-  accentGrid: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    width: "100%",
-  },
-  accentCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  accentText: {
-    fontSize: 18,
   },
 
-  logoutButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+  // Nav Header
+  navContainer: {
+    paddingHorizontal: 24,
+    paddingVertical: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(10, 12, 16, 0.75)",
+    zIndex: 10,
+  },
+  navDesktop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 48,
+  },
+  navMobile: {
+    flexDirection: "column",
+    gap: 16,
+  },
+  brandContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  logoBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#FF0081",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoBadgeText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 18,
+  },
+  brandTitle: {
+    color: "#F5F2FA",
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+  },
+  navLinks: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
+  },
+  navLinkPressable: {
+    paddingVertical: 4,
+  },
+  navLinkText: {
+    color: "#9CA3AF",
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  navLinkTextHover: {
+    color: "#FFFFFF",
+  },
+  navActionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  navActionButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  // Hero Section
+  heroSection: {
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
+    gap: 40,
+  },
+  heroSectionDesktop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 48,
+    paddingTop: 80,
+    paddingBottom: 60,
+  },
+  heroTextContainer: {
+    flex: 1,
+  },
+  heroTextDesktop: {
+    paddingRight: 40,
+  },
+  tagBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255, 0, 129, 0.2)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 0, 129, 0.4)",
+  },
+  tagBadgeText: {
+    color: "#FF5CB0",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  heroTitle: {
+    color: "#F5F2FA",
+    fontSize: Platform.OS === "web" ? 44 : 34,
+    fontWeight: "800",
+    lineHeight: Platform.OS === "web" ? 52 : 42,
+    letterSpacing: -1,
+    marginBottom: 16,
+  },
+  heroSub: {
+    color: "#9CA3AF",
+    fontSize: 18,
+    lineHeight: 28,
+    marginBottom: 32,
+  },
+
+  // Actions Container (Buttons)
+  actionsRow: {
+    flexDirection: "row",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  bubbleGlass: {
+    borderRadius: 48,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 0, 129, 0.3)",
+    backgroundColor: "rgba(255, 0, 129, 0.2)",
+  },
+  bubbleGlassCompact: {
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 0, 129, 0.3)",
+    backgroundColor: "rgba(255, 0, 129, 0.2)",
+  },
+  primaryButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     borderRadius: 48,
     alignItems: "center",
+    backgroundColor: "rgba(21, 17, 89, 0.6)",
   },
-  logoutButtonText: {
-    fontSize: 18,
+  secondaryButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 48,
+    alignItems: "center",
+    backgroundColor: "rgba(57, 17, 89, 0.6)",
+  },
+  logoutButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 48,
+    alignItems: "center",
+    backgroundColor: "rgba(89, 17, 85, 0.6)",
+  },
+  actionButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
     fontWeight: "bold",
   },
-bubbleGlass: {
-    backgroundColor: 'rgba(255, 0, 129, 0.3)', // Semi-transparent background
+
+  // Visual Card
+  heroVisualCard: {
+    flex: 1,
+    backgroundColor: "rgba(19, 23, 31, 0.8)",
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 0, 129, 0.3)',
-    borderRadius: 48,
-    
-    // Web only (React Native Web supports this)
-    boxShadow: 'inset 1px 1px 1px 0px rgba(255, 255, 255, 0.6), inset -1px -1px 2px 0px rgba(0, 0, 0, 0.2), 0 12px 32px 0 rgba(0, 0, 0, 0.15)',
-    
-    // Web only (Safari needs the prefix)
-    backdropFilter: 'blur(16px) saturate(190%) brightness(1.1)',
-    WebkitBackdropFilter: 'blur(16px) saturate(190%) brightness(1.1)',
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    padding: 16,
+    minHeight: 260,
   },
-  // ... rest of your styles
+  heroVisualDesktop: {
+    maxWidth: 480,
+  },
+  visualCardInner: {
+    flex: 1,
+    backgroundColor: "#0D1017",
+    borderRadius: 10,
+    padding: 16,
+  },
+  visualCardHeader: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 20,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  mockContentBox: {
+    gap: 12,
+  },
+  mockCodeText: {
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    color: "#6B7280",
+    fontSize: 14,
+  },
+  mockCodeTextAccent: {
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    color: "#10B981",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  // Quote Section
+  quoteSection: {
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+    alignItems: "center",
+  },
+  quoteGlassCard: {
+    maxWidth: 700,
+    width: "100%",
+    padding: 32,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255, 0, 129, 0.1)",
+  },
+  quoteText: {
+    color: "#F5F2FA",
+    fontSize: 20,
+    lineHeight: 30,
+    textAlign: "center",
+    fontStyle: "italic",
+    marginBottom: 16,
+  },
+  quoteAuthor: {
+    color: "#FF5CB0",
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "right",
+  },
+
+  // Footer
+  footerContainer: {
+    paddingTop: 20,
+    paddingBottom: 20,
+    alignItems: "center",
+  },
+  footerText: {
+    color: "#6B7280",
+    fontSize: 14,
+  },
 });
