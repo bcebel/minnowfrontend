@@ -31,7 +31,7 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
     const [progress, setProgress] = useState(0);
     const [peerCount, setPeerCount] = useState(0);
     const [isReady, setIsReady] = useState(false);
-const cachedUrl = useRef(null);;
+let cachedUrl = useRef(null);;
     const videoRef = useRef(null);
     const currentUrlRef = useRef(null);
     const isMountedRef = useRef(true);
