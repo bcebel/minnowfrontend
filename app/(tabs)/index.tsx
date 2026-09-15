@@ -13,13 +13,15 @@ import {
 import { BlurView } from "expo-blur";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-
+import WebTorrentMedia from "@/components/WebTorrentMedia";
 import { themes } from "../theme";
 import { warehouse } from "../../components/StreamWearhouse";
 import { mediaCache } from "../../components/mediaCache";
 import { clearApolloStore } from "@/context/apolloProvider";
 
 export default function HomeScreen() {
+    const [peerCount, setPeerCount] = useState(null);
+    const [source, setSource] = useState(null);
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
@@ -160,25 +162,44 @@ export default function HomeScreen() {
               isDesktop && styles.heroVisualDesktop,
             ]}
           >
-            <View style={styles.visualCardInner}>
-              <View style={styles.visualCardHeader}>
-                <View style={[styles.dot, { backgroundColor: "#FF5F56" }]} />
-                <View style={[styles.dot, { backgroundColor: "#FFBD2E" }]} />
-                <View style={[styles.dot, { backgroundColor: "#27C93F" }]} />
+            <BlurView intensity={30} tint="dark" style={styles.demoGlassCard}>
+              {/* 1. WebTorrent Live Media Player */}
+              <View style={styles.mediaFrame}>
+                <WebTorrentMedia
+                  media={{
+                    cid: "QmcyDcyj4akQHLy3oStjT5xgzZAAZ5NYiQwEKjtnoXQ9tv",
+                    magnetLink:
+                      "magnet:?xt=urn:btih:65e2f9a7b928988f8dec8dfa794c93008c109a23&dn=post_1789104924484.mp4&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&tr=wss%3A%2F%2Ftracker.webtorrent.dev",
+                    fileName: "post_1789104924484.mp4",
+                    fileType: "video",
+                  }}
+                  isFocused={true}
+                />
+                <View style={styles.peerBadge}>
+                  <View style={styles.liveDot} />
+                  <Text style={styles.peerBadgeText}>
+                    {peerCount} peers · P2P
+                  </Text>
+                </View>
               </View>
-              <View style={styles.mockContentBox}>
-                <Text style={styles.mockCodeText}>
-                  // WebTorrent P2P Status
-                </Text>
-                <Text style={styles.mockCodeTextAccent}>
-                  status: "Connected"
-                </Text>
-                <Text style={styles.mockCodeText}>peers: 128 active</Text>
-                <Text style={styles.mockCodeText}>
-                  apolloCache: "Persisted"
-                </Text>
+
+              {/* 2. Mock Terminal Status Box */}
+              <View style={styles.mockTerminalBox}>
+                <View style={styles.terminalHeader}>
+                  <View style={[styles.dot, { backgroundColor: "#FF5F56" }]} />
+                  <View style={[styles.dot, { backgroundColor: "#FFBD2E" }]} />
+                  <View style={[styles.dot, { backgroundColor: "#27C93F" }]} />
+                  <Text style={styles.terminalTitle}>p2p-node-status.log</Text>
+                </View>
+                <View style={styles.mockContentBox}>
+                  <Text style={styles.mockCodeText}>// bubbleBASED</Text>
+                  <Text style={styles.mockCodeTextAccent}>feel: "small" </Text>
+                  <Text style={styles.mockCodeText}>people: "you know" </Text>
+                  <Text style={styles.mockCodeText}>algorithm: "none" </Text>
+                  <Text style={styles.mockCodeText}>bubble: "based" </Text>
+                </View>
               </View>
-            </View>
+            </BlurView>
           </View>
         </View>
 

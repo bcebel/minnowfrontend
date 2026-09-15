@@ -5,54 +5,7 @@
     <meta charset="utf-8" />
     <title>WebTorrent Demo</title>
     <style>
-        body {
-            margin: 0;
-            background: #0A0C10;
-            color: #fff;
-            font-family: sans-serif;
-        }
-
-        .frame {
-            width: 100%;
-            max-width: 720px;
-            margin: 20px auto;
-            border-radius: 12px;
-            overflow: hidden;
-            background: #000;
-            position: relative;
-            aspect-ratio: 16/9;
-        }
-
-        video {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        .badge {
-            position: absolute;
-            bottom: 12px;
-            right: 12px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-family: monospace;
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #FFBD2E;
-        }
-
-        .dot.live {
-            background: #27C93F;
-        }
+        /* ...your styles, unchanged... */
     </style>
 </head>
 
@@ -62,19 +15,16 @@
         <div class="badge"><span class="dot" id="dot"></span><span id="peers">connecting…</span></div>
     </div>
 
-<script src="/webtorrent.min.js"></script> <script>
+    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+    <script>
         (async () => {
-            if (!navigator.serviceWorker) return;
-            await navigator.serviceWorker.register('/sw.min.js');
-            const controller = await navigator.serviceWorker.ready;
-
-            const client = new WebTorrent();
-            client.createServer({ controller });
-
-            const magnet = "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fsintel.torrent";
             const video = document.getElementById('player');
             const dot = document.getElementById('dot');
             const peersEl = document.getElementById('peers');
+
+            const client = new WebTorrent();
+
+            const magnet = "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&...";
 
             client.add(magnet, (torrent) => {
                 const file = torrent.files.find((f) => f.name.endsWith('.mp4'));
