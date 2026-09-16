@@ -39,20 +39,8 @@ export default function Root({ children }: PropsWithChildren) {
     `,
           }}
         />
-        <script
-          async
-          src="https://www.googletagmanager.com/gtag/js?id=G-2D7BEHDVXW"
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-2D7BEHDVXW');
-    `,
-          }}
-        />
+
+
         <meta
           name="description"
           content="BubbleBase is a private social network where you join digital neighborhoods (Bubbles), share photos and videos via P2P, and control exactly who sees your content. Earn from affiliate links and connect with communities."

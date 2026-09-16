@@ -16,23 +16,10 @@ import { Platform, View } from "react-native";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  if (typeof window !== "undefined") {
-    (window as any).dataLayer = (window as any).dataLayer || [];
-    (window as any).gtag =
-      (window as any).gtag ||
-      function () {
-        (window as any).dataLayer.push(arguments);
-      };
-  }
+
   const pathname = usePathname();
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.gtag) {
-      window.gtag("config", "G-2D7BEHDVXW", {
-        page_path: pathname,
-      });
-    }
-  }, [pathname]);
+
 
   if (Platform.OS === "web" && typeof window !== "undefined") {
     const initChamp = () => {
