@@ -22,6 +22,7 @@
     "@ipld/car": "^5.4.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.2.0",
+    "@vercel/analytics": "^2.0.1",
     "apollo3-cache-persist": "0.15.0",
     "expo": "~57.0.21",
     "expo-blur": "~57.0.2",

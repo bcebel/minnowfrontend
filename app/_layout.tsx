@@ -12,6 +12,7 @@ import { ApolloProviderWrapper } from "../context/apolloProvider";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Platform, View } from "react-native";
+import { inject } from "@vercel/analytics";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -19,7 +20,9 @@ export default function RootLayout() {
 
   const pathname = usePathname();
 
-
+if (typeof window !== "undefined") {
+  import("@vercel/analytics").then(({ inject }) => inject());
+}
 
   if (Platform.OS === "web" && typeof window !== "undefined") {
     const initChamp = () => {
