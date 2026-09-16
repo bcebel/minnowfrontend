@@ -45,6 +45,9 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
   const [isPaused, setIsPaused] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+    const [volume, setVolume] = useState(1); // 1 = 100% max volume volume
+    const [isMuted, setIsMuted] = useState(true); // Matches your video element's muted={true} default setting
+    const [isVolumeHovered, setIsVolumeHovered] = useState(false);
     const progressBarRef = useRef(null);
     const timerRef = useRef(null);
 
@@ -68,6 +71,36 @@ useEffect(() => {
   };
 }, []);
 
+  const handleVolumeChange = (e) => {
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+
+    if (videoRef.current) {
+      videoRef.current.volume = newVolume;
+      // Automatically toggle off mute if the user slides volume up
+      if (newVolume > 0 && isMuted) {
+        videoRef.current.muted = false;
+        setIsMuted(false);
+      } else if (newVolume === 0) {
+        videoRef.current.muted = true;
+        setIsMuted(true);
+      }
+    }
+  };
+
+  // Click handler to toggle speaker muting settings instantly
+  const toggleMute = () => {
+    if (!videoRef.current) return;
+    const nextMutedState = !isMuted;
+    videoRef.current.muted = nextMutedState;
+    setIsMuted(nextMutedState);
+
+    // Reset slider view location if unmuting from a zero volume state
+    if (!nextMutedState && volume === 0) {
+      videoRef.current.volume = 0.5;
+      setVolume(0.5);
+    }
+  };
 // --- 3. VIDEO INTERACTIONS ---
 const togglePlay = () => {
   if (!videoRef.current) return;
@@ -453,7 +486,7 @@ const formatTime = (secs) => {
 
    // --- 4. THE LIVE VIEW TREE ---
   return (
-    <View 
+    <View
       style={styles.container}
       // @ts-ignore
       onMouseMove={resetActivityTimer}
@@ -464,27 +497,33 @@ const formatTime = (secs) => {
         src={videoSrc}
         style={styles.video}
         muted={true}
+        volume={volume}
         playsInline
         autoPlay
         preload="auto"
-        onTimeUpdate={() => videoRef.current && setCurrentTime(videoRef.current.currentTime)}
-        onLoadedMetadata={() => videoRef.current && setDuration(videoRef.current.duration)}
+        onTimeUpdate={() =>
+          videoRef.current && setCurrentTime(videoRef.current.currentTime)
+        }
+        onLoadedMetadata={() =>
+          videoRef.current && setDuration(videoRef.current.duration)
+        }
         onLoadedData={() => console.log("🎬 Video loaded and ready")}
         onClick={togglePlay}
         onError={(e) => console.log("❌ Video error:", e)}
       />
-      
-      <View 
+
+      <View
         style={[
-          styles.controlsOverlay, 
+          styles.controlsOverlay,
           { opacity: controlsVisible ? 1 : 0 },
-          !controlsVisible && { pointerEvents: "none" }
+          !controlsVisible && { pointerEvents: "none" },
         ]}
       >
         <View style={styles.topBar}>
           <View style={styles.overlayStatus}>
             <Text style={styles.overlayText}>
-              {status === "p2p_streaming" && `🚀 P2P (${peerCount} peers, ${progress}%)`}
+              {status === "p2p_streaming" &&
+                `🚀 P2P (${peerCount} peers, ${progress}%)`}
               {status === "p2p_swarming" && `🌊 Swarming (${progress}%)`}
               {status === "fallback_http" && "🌍 HTTP"}
               {status === "cached" && "💾 Cache"}
@@ -497,13 +536,60 @@ const formatTime = (secs) => {
         </TouchableOpacity>
 
         <View style={styles.bottomControlBar}>
+          {/* 1. Current Time Label */}
           <Text style={styles.timeLabel}>{formatTime(currentTime)}</Text>
-          <TouchableOpacity activeOpacity={1} style={styles.seekHitbox} onPress={handleSeek}>
+
+          {/* 2. LOCKED VOLUME CONTAINER (No more hover tracking functions!) */}
+          <View style={styles.volumeControlContainer}>
+            <TouchableOpacity style={styles.volumeButton} onPress={toggleMute}>
+              <Text style={styles.volumeIconText}>
+                {isMuted || volume === 0 ? "🔇" : volume < 0.5 ? "🔉" : "🔊"}
+              </Text>
+            </TouchableOpacity>
+
+            {/* This slider is now locked wide open at 60px permanently */}
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={isMuted ? 0 : volume}
+              onChange={handleVolumeChange}
+              style={{
+                cursor: "pointer",
+                height: "4px",
+                backgroundColor: "#00ffff",
+                accentColor: "#00ffff",
+                outline: "none",
+                border: "none",
+                marginLeft: "6px",
+                width: "60px", // <--- Forces it to stay wide open
+                opacity: 1, // <--- Forces it to stay completely visible
+                display: "block", // <--- Ensures it never hides on web viewports
+              }}
+            />
+          </View>
+
+          {/* 3. The Clickable Timeline Seek Bar */}
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.seekHitbox}
+            onPress={handleSeek}
+          >
             <View ref={progressBarRef} style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
-              <View style={[styles.progressKnob, { left: `${progressPercent}%` }]} />
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${progressPercent}%` },
+                ]}
+              />
+              <View
+                style={[styles.progressKnob, { left: `${progressPercent}%` }]}
+              />
             </View>
           </TouchableOpacity>
+
+          {/* 4. Total Duration Label */}
           <Text style={styles.timeLabel}>{formatTime(duration)}</Text>
         </View>
       </View>
@@ -535,7 +621,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#111",
   },
   statusText: {
-    color: "#fff",
+    color: "rgb(255, 255, 255)",
     fontSize: 14,
     marginTop: 10,
     textAlign: "center",
@@ -565,7 +651,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.15)",
   },
-  overlayText: { color: "#fff", fontSize: 11, fontWeight: "bold" },
+  overlayText: { color: "#fff", fontSize: 11, fontWeight: "bold",
+   },
   centerPlayButton: {
     width: 60,
     height: 60,
@@ -622,5 +709,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
+  },
+  volumeControlContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 6,
+    marginRight: 12,
+
+    marginLeft: 12,
+    height: "100%",
+  },
+  volumeButton: {
+    padding: 4,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  volumeIconText: {
+    color: "#fff",
+    fontSize: 16,
   },
 });

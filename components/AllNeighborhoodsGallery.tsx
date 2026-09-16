@@ -570,6 +570,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
+    padding: 50,
   },
   fixedMediaWrapper: {
     width: "100%",
@@ -666,7 +667,7 @@ const styles = StyleSheet.create({
     left: 27,
     zIndex: 4,
   },
-  metadataRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  metadataRow: { flexDirection: "row", alignItems: "center", marginBottom: 18 },
   metadataLabel: { fontSize: 12, color: "#fafafa", width: 60 },
   metadataValue: {
     fontSize: 14,
