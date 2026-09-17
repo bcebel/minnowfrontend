@@ -595,7 +595,7 @@ const formatTime = (secs) => {
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    aspectRatio: 16 / 9,
+    height: "100%",
     position: "relative",
     backgroundColor: "#000",
     overflow: "hidden",
