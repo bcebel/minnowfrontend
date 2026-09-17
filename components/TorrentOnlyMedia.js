@@ -62,7 +62,7 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
 
     timerRef.current = setTimeout(() => {
       setControlsVisible(false);
-    }, 3000);
+    }, 500);
   };
 
   useEffect(() => {

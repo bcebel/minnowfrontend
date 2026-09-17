@@ -62,7 +62,7 @@ const resetActivityTimer = () => {
 
   timerRef.current = setTimeout(() => {
     setControlsVisible(false);
-  }, 3000);
+  }, 500);
 };
 
 useEffect(() => {
