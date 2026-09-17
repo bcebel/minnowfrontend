@@ -8,13 +8,13 @@ export default function HomeScreen() {
     <ScrollView>
       <ThemedView style={styles.titleContainer}>
         <ThemedText style={{ fontFamily: "Montserrat" }}>
-          <ThemedText type="title">Welcome to gigunit!</ThemedText>
+          <ThemedText type="title">Welcome to bubbleBASED!</ThemedText>
   
         </ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">
-          gigunit is a place where we can all come together to share our
+          bubbleBASED is a place where we can all come together to share our
           stories, experiences, and ideas.
         </ThemedText>
       </ThemedView>
@@ -26,10 +26,10 @@ export default function HomeScreen() {
         <ThemedText>
           <ThemedText style={{ fontFamily: "Montserrat" }}>
             Privacy Policy Effective Date: 1/24/2025 Last Updated: 1/24/2025
-            gigunit respects your privacy and is committed to protecting the
+            bubbleBASED respects your privacy and is committed to protecting the
             information you share with us. This Privacy Policy describes how we
             collect, use, and protect your data. 1. Information We Collect We
-            may collect the following information when you use gigunit: Personal
+            may collect the following information when you use bubbleBASED: Personal
             Information: Name, email address, or other data you provide. Device
             Information: IP address, device type, operating system, and unique
             device identifiers. Usage Data: Information about how you interact
@@ -48,7 +48,7 @@ export default function HomeScreen() {
             collection. 6. Third-Party Links and Services Our app may link to
             third-party websites or services. We are not responsible for their
             privacy practices. Please review their policies before sharing your
-            information. 7. Children’s Privacy gigunit is not intended for use
+            information. 7. Children’s Privacy bubbleBASED is not intended for use
             by children under the age of 13. We do not knowingly collect
             personal information from children. 8. Changes to This Privacy
             Policy We may update this Privacy Policy. Changes will be posted
@@ -63,7 +63,7 @@ export default function HomeScreen() {
         </ThemedText>
         <ThemedText style={{ fontFamily: "Montserrat" }}>
           <ThemedText>
-            This is just the start of an exciting journey. gigunit is built on
+            This is just the start of an exciting journey. bubbleBASED is built on
             the idea of collaboration and creativity, and we’re laying the
             foundation for something truly unique in the digital space.
           </ThemedText>

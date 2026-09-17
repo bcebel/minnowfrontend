@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "BubbleBase",
-    "slug": "bubblebase",
+    "name": "bubbleBASED",
+    "slug": "bubbleBASED",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/bubble.png",
@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.gigunit",
+      "bundleIdentifier": "com.anonymous.bubbleBASED",
       "infoPlist": {
         "NSCameraUsageDescription": "$(PRODUCT_NAME) needs access to your Camera.",
         "NSMicrophoneUsageDescription": "$(PRODUCT_NAME) needs access to your Microphone.",
@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#F5F2FA"
       },
-      "package": "com.anonymous.gigunit",
+      "package": "com.anonymous.bubbleBASED",
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.CAMERA",
@@ -37,8 +37,8 @@
         "publicFolder": "public"
       },
       "manifest": {
-        "name": "BubbleBase - Digital Neighborhoods",
-        "short_name": "BubbleBase",
+        "name": "bubbleBASED - Digital Neighborhoods",
+        "short_name": "bubbleBASED",
         "description": "A private social network where you control your privacy...",
         "theme_color": "#1C0A2E",
         "background_color": "#1C0A2E",

@@ -9,12 +9,12 @@ export default function HomeScreen() {
     >
       <ThemedView style={styles.titleContainer}>
         <ThemedText style={{ fontFamily: "Montserrat" }}>
-          <ThemedText type="title">Welcome to gigunit!</ThemedText>
+          <ThemedText type="title">Welcome to bubbleBASED!</ThemedText>
         </ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">
-          gigunit is a place where we can all come together to share our
+          bubbleBASED is a place where we can all come together to share our
           stories, experiences, and ideas.
         </ThemedText>
       </ThemedView>
@@ -26,7 +26,7 @@ export default function HomeScreen() {
         <ThemedText>
           <ThemedText style={{ fontFamily: "Montserrat" }}>
             Terms of Service Effective Date: 1/24/25 Last Updated: 1/24/25
-            Welcome to gigunit! By using our app, you agree to these Terms of
+            Welcome to bubbleBASED! By using our app, you agree to these Terms of
             Service ("Terms"). Please read them carefully. 1. Acceptance of
             Terms By downloading, accessing, or using [Your App Name], you agree
             to comply with these Terms. If you do not agree, do not use the app.
@@ -39,7 +39,7 @@ export default function HomeScreen() {
             share content in the app: You grant us a license to use it as
             necessary for the app's operation. You confirm that your content
             does not violate the rights of others or applicable laws. 5.
-            Disclaimer of Warranties gigunit is provided "as is" without
+            Disclaimer of Warranties bubbleBASED is provided "as is" without
             warranties of any kind. We do not guarantee the app will be
             error-free or available at all times. 6. Limitation of Liability We
             are not liable for any indirect, incidental, or consequential
@@ -60,7 +60,7 @@ export default function HomeScreen() {
         </ThemedText>
         <ThemedText style={{ fontFamily: "Montserrat" }}>
           <ThemedText>
-            This is just the start of an exciting journey. gigunit is built on
+            This is just the start of an exciting journey. bubbleBASED is built on
             the idea of collaboration and creativity, and we’re laying the
             foundation for something truly unique in the digital space.
           </ThemedText>
