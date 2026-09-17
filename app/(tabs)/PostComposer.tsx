@@ -124,8 +124,10 @@ export default function PostComposer({
   };
 
   const handleSubmit = async () => {
-    if (!content.trim() && !selectedMedia) return;
+const hasContent = content.trim().length > 0;
+const hasMedia = !!selectedMedia?.uri;
 
+if (!hasContent && !hasMedia) return;
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem("token");
