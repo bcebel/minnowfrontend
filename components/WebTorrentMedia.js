@@ -435,10 +435,9 @@ const formatTime = (secs) => {
   if (!videoSrc || !isReady) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator color="#a5b0b0" size="large" />
+        <ActivityIndicator color="#0f0f0f" size="large" />
         <Text style={styles.statusText}>
           {status === "checking_cache" && "📦 Loading from cache..."}
-          {status === "connecting_p2p" && "🌐 Connecting to peers..."}
           {status === "p2p_swarming" && `📡 Swarming (${progress}%)`}
           {status === "initializing" && "⏳ Initializing..."}
           {status === "fallback_http" && "🌍 Loading video..."}
@@ -496,8 +495,9 @@ const formatTime = (secs) => {
         ref={videoRef}
         src={videoSrc}
         style={styles.video}
-        muted={true}
+        muted={isMuted}
         volume={volume}
+        loop={true}
         playsInline
         autoPlay
         preload="auto"
@@ -509,6 +509,10 @@ const formatTime = (secs) => {
         }
         onLoadedData={() => console.log("🎬 Video loaded and ready")}
         onClick={togglePlay}
+        onEnded={() => {
+          setIsPaused(false);
+          resetActivityTimer();
+        }}
         onError={(e) => console.log("❌ Video error:", e)}
       />
 
@@ -601,7 +605,7 @@ const formatTime = (secs) => {
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    height: "100%",
+    aspectRatio: 16 / 9,
     position: "relative",
     backgroundColor: "#000",
     overflow: "hidden",
@@ -651,8 +655,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.15)",
   },
-  overlayText: { color: "#fff", fontSize: 11, fontWeight: "bold",
-   },
+  overlayText: { color: "#fff", fontSize: 11, fontWeight: "bold" },
   centerPlayButton: {
     width: 60,
     height: 60,

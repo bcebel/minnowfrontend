@@ -167,10 +167,10 @@ export default function HomeScreen() {
               <View style={styles.mediaFrame}>
                 <WebTorrentMedia
                   media={{
-                    cid: "QmcyDcyj4akQHLy3oStjT5xgzZAAZ5NYiQwEKjtnoXQ9tv",
+                    cid: "QmWYyMqc9C3YCnszNsArdTU43KEeXqGKrw1AVrY28wxDZf",
                     magnetLink:
-                      "magnet:?xt=urn:btih:65e2f9a7b928988f8dec8dfa794c93008c109a23&dn=post_1789104924484.mp4&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&tr=wss%3A%2F%2Ftracker.webtorrent.dev",
-                    fileName: "post_1789104924484.mp4",
+                      "magnet:?xt=urn:btih:b77acfd4f16c11daf18126b20164666c04829f90&dn=IMG_3517.mov&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&tr=wss%3A%2F%2Ftracker.webtorrent.dev",
+                    fileName: "IMG_3517.mov",
                     fileType: "video",
                   }}
                   isFocused={true}
