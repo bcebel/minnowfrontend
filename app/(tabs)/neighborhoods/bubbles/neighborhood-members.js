@@ -16,6 +16,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { gql, useQuery, useMutation } from "@apollo/client";
 import { BlurView } from "expo-blur";
+const PINATA_GATEWAY = process.env.EXPO_PUBLIC_PINATA_GATEWAY;
 
 // GraphQL Queries
 const CREATE_DIRECT_MESSAGE_BUBBLE = gql`
@@ -98,6 +99,15 @@ const REMOVE_MEMBER = gql`
     }
   }
 `;
+const getProfilePhotoUrl = (profilePhoto) => {
+  if (!profilePhoto) {
+    return "https://via.placeholder.com/56";
+  }
+  if (profilePhoto.startsWith("http")) return profilePhoto;
+  if (profilePhoto.startsWith("blob:")) return profilePhoto;
+  // Anything else is an IPFS CID
+  return `https://${PINATA_GATEWAY}/ipfs/${profilePhoto}`;
+};
 
 export default function NeighborhoodMembersScreen() {
 
@@ -218,7 +228,9 @@ const [createDirectMessageBubble] = useMutation(CREATE_DIRECT_MESSAGE_BUBBLE);
             {pendingRequests.map((request) => (
               <View key={request.user.id} style={styles.requestCard}>
                 <Image
-                  source={{ uri: request.user.profilePhoto }}
+                  source={{
+                    uri: getProfilePhotoUrl(request.user.profilePhoto),
+                  }}
                   style={styles.avatar}
                 />
                 <View style={styles.userInfo}>
@@ -251,7 +263,7 @@ const [createDirectMessageBubble] = useMutation(CREATE_DIRECT_MESSAGE_BUBBLE);
               onPress={() => setSelectedMember(member)}
             >
               <Image
-                source={{ uri: member.user.profilePhoto }}
+                source={{ uri: getProfilePhotoUrl(member.user.profilePhoto) }}
                 style={styles.avatar}
               />
               <View style={styles.userInfo}>
@@ -290,8 +302,8 @@ const [createDirectMessageBubble] = useMutation(CREATE_DIRECT_MESSAGE_BUBBLE);
             <View style={styles.modalContainer}>
               <BlurView intensity={50} tint="dark" style={styles.modalContent}>
                 <Image
-                  source={{ uri: selectedMember.user.profilePhoto }}
-                  style={styles.modalAvatar}
+                  source={{ uri: getProfilePhotoUrl(member.user.profilePhoto) }}
+                  style={styles.avatar}
                 />
                 <Text style={styles.modalName}>
                   {selectedMember.user.username}
@@ -412,8 +424,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   avatar: {
-    width: 40,
-    height: 40,
+    width: 60,
+    height: 60,
     borderRadius: 20,
     marginRight: 12,
   },
