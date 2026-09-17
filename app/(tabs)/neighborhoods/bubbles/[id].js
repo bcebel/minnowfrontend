@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation, gql } from "@apollo/client";
@@ -199,7 +200,7 @@ const [leaveNeighborhood] = useMutation(LEAVE_NEIGHBORHOOD);
         </LinearGradient>
       </ImageBackground>
 
-      <View style={styles.menu}>
+      <ScrollView style={styles.menu}>
         <BlurView intensity={50} tint="dark" style={styles.bubbleGlass}>
           <TouchableOpacity
             onPress={() =>
@@ -280,7 +281,7 @@ const [leaveNeighborhood] = useMutation(LEAVE_NEIGHBORHOOD);
             </TouchableOpacity>
           </BlurView>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 }
