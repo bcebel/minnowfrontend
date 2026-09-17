@@ -2202,8 +2202,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "#333333",
   },
   profileImage: {
-    width: 40,
-    height: 40,
+    width: 80,
+    height: 80,
     borderRadius: 20,
     marginRight: 12,
     backgroundColor: "#333333",
