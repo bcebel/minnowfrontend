@@ -48,7 +48,7 @@ const GET_FEED_POSTS = gql`
         profilePhoto
       }
       media {
-        id
+        
         url
         cid
         magnetURI
