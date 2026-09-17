@@ -178,7 +178,7 @@ export default function HomeScreen() {
                 <View style={styles.peerBadge}>
                   <View style={styles.liveDot} />
                   <Text style={styles.peerBadgeText}>
-                    {peerCount} peers · P2P
+             
                   </Text>
                 </View>
               </View>
@@ -189,7 +189,7 @@ export default function HomeScreen() {
                   <View style={[styles.dot, { backgroundColor: "#FF5F56" }]} />
                   <View style={[styles.dot, { backgroundColor: "#FFBD2E" }]} />
                   <View style={[styles.dot, { backgroundColor: "#27C93F" }]} />
-                  <Text style={styles.terminalTitle}>p2p-node-status.log</Text>
+                  <Text style={styles.terminalTitle}></Text>
                 </View>
                 <View style={styles.mockContentBox}>
                   <Text style={styles.mockCodeText}>// bubbleBASED</Text>

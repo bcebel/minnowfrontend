@@ -523,17 +523,7 @@ const formatTime = (secs) => {
           !controlsVisible && { pointerEvents: "none" },
         ]}
       >
-        <View style={styles.topBar}>
-          <View style={styles.overlayStatus}>
-            <Text style={styles.overlayText}>
-              {status === "p2p_streaming" &&
-                `🚀 P2P (${peerCount} peers, ${progress}%)`}
-              {status === "p2p_swarming" && `🌊 Swarming (${progress}%)`}
-              {status === "fallback_http" && "🌍 HTTP"}
-              {status === "cached" && "💾 Cache"}
-            </Text>
-          </View>
-        </View>
+ 
 
         <TouchableOpacity style={styles.centerPlayButton} onPress={togglePlay}>
           <Text style={styles.playIconText}>{isPaused ? "▶" : "❚❚"}</Text>
