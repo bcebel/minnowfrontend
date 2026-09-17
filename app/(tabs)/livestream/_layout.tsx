@@ -10,7 +10,7 @@ export const unstable_settings = {
 export default function LivestreamLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="streams" />
+      <Stack.Screen name="index" />
       <Stack.Screen name="selector" />
     </Stack>
   );
