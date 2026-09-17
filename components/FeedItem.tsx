@@ -139,14 +139,18 @@ export default function FeedItem({ post, onLike, onComment, onDelete }) {
               magnetLink: item.magnetLink || item.magnetURI || null,
               fallbackUrl: fallbackUrl,
               ipfsUrl: fallbackUrl,
-              fileType: item.fileType || item.mediaType || getFileType(item.fileName) || "image",
+              fileType:
+                item.fileType ||
+                item.mediaType ||
+                getFileType(item.fileName) ||
+                "image",
               fileName: item.fileName || `media-${item.cid}`,
               slices: item.slices || null,
             };
 
             return (
               <View
-                key={item.cid || item.url || index}
+                key={`${post.id}-media-${index}`}
                 style={styles.mediaWrapper}
               >
                 <WebTorrentMedia media={normalizedMedia} isFocused={true} />
@@ -165,11 +169,6 @@ export default function FeedItem({ post, onLike, onComment, onDelete }) {
           <Text style={styles.actionIcon}>🗑️</Text>
           <Text style={styles.actionLabel}>Delete</Text>
         </TouchableOpacity>
-
-
-
-
-
       </View>
       <CommentSection
         postId={post.id}
