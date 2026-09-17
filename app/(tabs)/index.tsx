@@ -169,17 +169,15 @@ export default function HomeScreen() {
                   media={{
                     cid: "QmWYyMqc9C3YCnszNsArdTU43KEeXqGKrw1AVrY28wxDZf",
                     magnetLink:
-                      "magnet:?xt=urn:btih:b77acfd4f16c11daf18126b20164666c04829f90&dn=IMG_3517.mov&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&tr=wss%3A%2F%2Ftracker.webtorrent.dev",
-                    fileName: "IMG_3517.mov",
+                      "magnet:?xt=urn:btih:d2367ea8c4fad0671d0bd565f2ad2a072523eab7&dn=livestream-video-QmWYyMqc9C3YCnszNsArdTU43KEeXqGKrw1AVrY28wxDZf-1789660399008&tr=wss%3A%2F%2Ftracker-0ad4cca9fd92.herokuapp.com&tr=wss%3A%2F%2Ftracker.files.fm%3A7073%2Fannounce&tr=wss%3A%2F%2Ftracker.webtorrent.dev&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.files.fm%3A7073&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=udp%3A%2F%2Fopen.tracker.cl%3A1337%2Fannounce&tr=udp%3A%2F%2F9.rarbg.to%3A2710%2Fannounce&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.internetwarriors.net%3A1337%2Fannounce&tr=udp%3A%2F%2Fexodus.desync.com%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.moeking.me%3A6969%2Fannounce&tr=udp%3A%2F%2Fopentor.org%3A2710%2Fannounce&tr=udp%3A%2F%2Ftracker.cyberia.is%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker3.itzmx.com%3A6961%2Fannounce&ws=https%3A%2F%2Ffuchsia-solid-parrot-571.mypinata.cloud%2Fipfs%2FQmWYyMqc9C3YCnszNsArdTU43KEeXqGKrw1AVrY28wxDZf",
+                    fileName: "post_1789660390926.mp4",
                     fileType: "video",
                   }}
                   isFocused={true}
                 />
                 <View style={styles.peerBadge}>
                   <View style={styles.liveDot} />
-                  <Text style={styles.peerBadgeText}>
-             
-                  </Text>
+                  <Text style={styles.peerBadgeText}></Text>
                 </View>
               </View>
 

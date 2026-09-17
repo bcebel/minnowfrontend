@@ -27,7 +27,6 @@ const GET_POSTS_WITH_ADS = gql`
         profilePhoto
       }
       media {
-        id
         url
         cid
         magnetURI
