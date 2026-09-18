@@ -236,7 +236,7 @@ const formatTime = (secs) => {
 
       try {
         const response = await fetch(fallbackUrl);
-        const blob = await response.blob();
+        const blob = await response.streamTo();
         if (blob && blob.size > 0) {
           const fileName = media.fileName || `media-${media.cid}`;
           const mimeType =
@@ -297,7 +297,7 @@ const formatTime = (secs) => {
             if (!isMountedRef.current) return;
             const result = await webtorrentService.add(slice.magnetLink);
             const response = await fetch(result.url);
-            const blob = await response.blob();
+            const blob = await response.streamTo();
             chunks.push(blob);
           }
           const combined = new Blob(chunks, { type: "video/mp4" });
@@ -353,7 +353,7 @@ const formatTime = (secs) => {
           activeTorrent = torrentResult.torrent;
 
           if (activeTorrent) {
-            activeTorrent.files[0].blob().then((blob) => {
+            activeTorrent.files[0].streamTo().then((blob) => {
               saveCachedMedia(blob, media.fileName);
             });
 

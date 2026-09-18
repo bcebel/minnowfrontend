@@ -39,30 +39,20 @@ export default function Root({ children }: PropsWithChildren) {
     `,
           }}
         />
-
-
-        <meta
-          name="description"
-          content="BubbleBase is a private social network where you join digital neighborhoods (Bubbles), share photos and videos via P2P, and control exactly who sees your content. Earn from affiliate links and connect with communities."
-        />
+        <meta name="description" content={description} />
         <meta
           name="keywords"
           content="social network, privacy, digital neighborhoods, affiliate marketing, community, bubblebase"
         />
         <meta name="author" content="BubbleBase" />
         <meta name="robots" content="index, follow" />
+
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://bubblebased.com" />
-        <meta
-          property="og:title"
-          content="BubbleBased - Digital Neighborhoods, Not Just Feeds"
-        />
-        <meta
-          property="og:description"
-          content="Join bubblebased.com - a private social network where you control your privacy, earn from your content, and connect in digital neighborhoods. Bubbly & based."
-        />
-        <meta property="og:image" content="https://bubblebased.com/bble.png" />
+        <meta property="og:url" content={url} />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+        <meta property="og:image" content={image} />
         <meta
           property="og:image:secure_url"
           content="https://bubblebased.com/bbl-og.jpg"
@@ -74,22 +64,18 @@ export default function Root({ children }: PropsWithChildren) {
           name="root.txt"
           content="lvnAxw0UhYgjF3kq4GKccyigEEVkHXkKTHntmIXRGvJ9aIHkiVw4Kg=="
         />
+
         {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:site" content="@bubbleBASED_" />
         <meta name="twitter:creator" content="@bubbleBASED_" />
-        <meta
-          name="twitter:title"
-          content="BubbleBased - Digital Neighborhoods, Not Just Feeds"
-        />
-        <meta
-          name="twitter:description"
-          content="Join bubblebased.com - a private social network where you control your privacy, earn from your content, and connect in digital neighborhoods."
-        />
+        <meta name="twitter:title" content={title} />
+        <meta name="twitter:description" content={description} />
         <meta
           name="twitter:image"
           content="https://bubblebased.com/bbl-og.jpg"
         />
+
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -121,7 +107,7 @@ export default function Root({ children }: PropsWithChildren) {
             }),
           }}
         />
-        {/* Additional Schema for Organization */}
+
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -144,14 +130,13 @@ export default function Root({ children }: PropsWithChildren) {
             }),
           }}
         />
-        {/* Preconnect for performance */}
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" />{" "}
+
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
         <link
           rel="preconnect"
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
-        {/* Favicon */}
         <link rel="icon" href="/favicon.ico" />
         <link
           rel="apple-touch-icon"
@@ -170,109 +155,87 @@ export default function Root({ children }: PropsWithChildren) {
           sizes="16x16"
           href="/favicon-16x16.png"
         />
-        {/* 1. Load the library first */}
-        <script type="module">
-          {`
-import WebTorrent from 'https://esm.sh/webtorrent/dist/webtorrent.min.js';    window.WebTorrent = WebTorrent;
-  `}
-        </script>
+
+        {/* Unified WebTorrent Initialization */}
         <script
+          type="module"
           dangerouslySetInnerHTML={{
             __html: `
+      import WebTorrent from 'https://esm.sh/webtorrent/dist/webtorrent.min.js';
+      window.WebTorrent = WebTorrent;
+
       window.enhancedTrackers = [
-  "wss://tracker-0ad4cca9fd92.herokuapp.com",
-  "wss://tracker.files.fm:7073/announce",
-  "wss://tracker.webtorrent.dev",
-  "wss://tracker.openwebtorrent.com",
-  "wss://tracker.btorrent.xyz",
-  "wss://tracker.files.fm:7073",
-  "udp://tracker.opentrackr.org:1337/announce",
-  "udp://open.tracker.cl:1337/announce",
-  "udp://9.rarbg.to:2710/announce",
-  "udp://tracker.coppersurfer.tk:6969/announce",
-  "udp://tracker.leechers-paradise.org:6969/announce",
-  "udp://tracker.internetwarriors.net:1337/announce",
-  "udp://exodus.desync.com:6969/announce",
-  "udp://tracker.moeking.me:6969/announce",
-  "udp://opentor.org:2710/announce",
-  "udp://tracker.cyberia.is:6969/announce",
-  "udp://tracker3.itzmx.com:6961/announce"
+        "wss://tracker-0ad4cca9fd92.herokuapp.com",
+        "wss://tracker.files.fm:7073/announce",
+        "wss://tracker.webtorrent.dev",
+        "wss://tracker.openwebtorrent.com",
+        "wss://tracker.btorrent.xyz",
+        "wss://tracker.files.fm:7073",
+        "udp://tracker.opentrackr.org:1337/announce",
+        "udp://open.tracker.cl:1337/announce",
+        "udp://9.rarbg.to:2710/announce",
+        "udp://tracker.coppersurfer.tk:6969/announce",
+        "udp://tracker.leechers-paradise.org:6969/announce",
+        "udp://tracker.internetwarriors.net:1337/announce",
+        "udp://exodus.desync.com:6969/announce",
+        "udp://tracker.moeking.me:6969/announce",
+        "udp://opentor.org:2710/announce",
+        "udp://tracker.cyberia.is:6969/announce",
+        "udp://tracker3.itzmx.com:6961/announce"
       ];
+
       try {
-if (typeof window !== 'undefined' && window.WebTorrent) {
-  window.globalWebTorrentClient = new window.WebTorrent({
-  tracker: { 
-    announce: window.enhancedTrackers,
-    rtcConfig: {
-      iceServers: [
-        {
-        urls: "stun:stun.relay.metered.ca:80",
-      },
-      {
-        urls: "turn:global.relay.metered.ca:80",
-        username: "fe67734f65cabae0c1f0bf61",
-        credential: "AY3FDMwL9QjEIZ2R",
-      },
-      {
-        urls: "turn:global.relay.metered.ca:80?transport=tcp",
-        username: "fe67734f65cabae0c1f0bf61",
-        credential: "AY3FDMwL9QjEIZ2R",
-      },
-      {
-        urls: "turn:global.relay.metered.ca:443",
-        username: "fe67734f65cabae0c1f0bf61",
-        credential: "AY3FDMwL9QjEIZ2R",
-      },
-      {
-        urls: "turns:global.relay.metered.ca:443?transport=tcp",
-        username: "fe67734f65cabae0c1f0bf61",
-        credential: "AY3FDMwL9QjEIZ2R",
-      },
-        // STUN servers (for NAT traversal)
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' },
-        { urls: 'stun:global.stun.twilio.com:3478' },
-           { urls: 'turn:openrelay.metered.ca:80' },
-  { urls: 'turn:openrelay.metered.ca:443' },
-  { urls: 'turn:openrelay.metered.ca:443?transport=tcp' },
-        // TURN servers (fallback for symmetric NAT)
-        { 
-          urls: 'turn:global.turn.twilio.com:3478?transport=udp',
-        },
-        { 
-          urls: 'turn:global.turn.twilio.com:3478?transport=tcp',
-        },
-          {
-    urls: [
-      'turn:global-turn.metered.ca:80?transport=udp',
-      'turn:global-turn.metered.ca:3478?transport=udp',
-      'turn:global-turn.metered.ca:443?transport=tcp'
-    ],
-    username: 'fe67734f65cabae0c1f0bf61',
-    credential: 'AY3FDMwL9QjEIZ2R'
-  }
-      ],
-    },
-  },
-  webSeeds: true,
-});
-          }
+        if (typeof window !== "undefined" && window.WebTorrent) {
+          window.globalWebTorrentClient = new window.WebTorrent({
+            tracker: {
+              announce: window.enhancedTrackers,
+              rtcConfig: {
+                iceServers: [
+                  { urls: "stun:stun.relay.metered.ca:80" },
+                  {
+                    urls: "turn:global.relay.metered.ca:80",
+                    username: "fe67734f65cabae0c1f0bf61",
+                    credential: "AY3FDMwL9QjEIZ2R",
+                  },
+                  { urls: "stun:stun.l.google.com:19302" },
+                  { urls: "stun:stun1.l.google.com:19302" }
+                ],
+              },
+            },
+            webSeeds: true,
+          });
+        }
+
         console.log("🌪️ CHAMP INITIALIZED WITH HEROKU TRACKER");
-      } catch(e) {
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker
+            .register("/sw.min.js", { scope: "/" })
+            .then((registration) => navigator.serviceWorker.ready.then(() => registration))
+            .then((registration) => {
+              window.globalWebTorrentClient.createServer({
+                controller: registration,
+              });
+              window.__canStream = true;
+              console.log("🎬 Service worker registered and server created");
+            })
+            .catch((e) => {
+              console.error("🎬 Service worker failed:", e);
+              window.__canStream = false;
+            });
+        }
+      } catch (e) {
         console.error("🌪️ CHAMP FAILED:", e);
       }
     `,
           }}
         />
+
         <meta name="theme-color" content="#20B2AA" />
         <meta name="msapplication-TileColor" content="#20B2AA" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="format-detection" content="telephone=no" />
-        {/* Canonical URL */}
         <link rel="canonical" href={url} />
         <meta
           name="impact-site-verification"
@@ -282,7 +245,6 @@ if (typeof window !== 'undefined' && window.WebTorrent) {
       </head>
 
       <body>
-        {/* 1. Static Splash Overlay sitting OUTSIDE #root */}
         <div
           id="splash-screen"
           style={{
@@ -302,7 +264,7 @@ if (typeof window !== 'undefined' && window.WebTorrent) {
             textAlign: "center",
             padding: "20px",
             boxSizing: "border-box",
-            zIndex: 99999, // Sits on top of everything on frame 1
+            zIndex: 99999,
           }}
         >
           <img
@@ -324,24 +286,22 @@ if (typeof window !== 'undefined' && window.WebTorrent) {
           </p>
         </div>
 
-        {/* 2. Clean, untouched Expo Root */}
         <div id="root">{children}</div>
 
-        {/* 3. Small inline script that hides the splash as soon as React mounts */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
-        window.addEventListener('DOMContentLoaded', () => {
-          const checkReact = setInterval(() => {
-            const root = document.getElementById('root');
-            if (root && root.children.length > 0) {
-              const splash = document.getElementById('splash-screen');
-              if (splash) splash.style.display = 'none';
-              clearInterval(checkReact);
-            }
-          }, 50);
-        });
-      `,
+      window.addEventListener('DOMContentLoaded', () => {
+        const checkReact = setInterval(() => {
+          const root = document.getElementById('root');
+          if (root && root.children.length > 0) {
+            const splash = document.getElementById('splash-screen');
+            if (splash) splash.style.display = 'none';
+            clearInterval(checkReact);
+          }
+        }, 50);
+      });
+    `,
           }}
         />
       </body>
