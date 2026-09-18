@@ -61,6 +61,7 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
      media.type === "image" ||
      media.fileName?.match(/\.(jpg|jpeg|png|gif|webp|avif|heic|heif|svg)$/i);
 
+  
 const resetActivityTimer = () => {
   setControlsVisible(true);
   if (timerRef.current) clearTimeout(timerRef.current);
@@ -70,6 +71,8 @@ const resetActivityTimer = () => {
     setControlsVisible(false);
   }, 1000);
 };
+
+ 
 
 useEffect(() => {
   return () => {

@@ -86,6 +86,13 @@ export default function FeedItem({ post, onLike, onComment, onDelete }) {
       fetchPolicy: "cache-first",
     });
   
+   const getMediaKey = (media) => {
+     if (media?.magnetLink) {
+       const match = media.magnetLink.match(/btih:([a-zA-Z0-9]+)/);
+       if (match) return match[1];
+     }
+     return media?.cid || media?.fallbackUrl || media?.fileName || "unknown";
+   };
 
   // Update count when data arrives
   useEffect(() => {
@@ -153,7 +160,11 @@ export default function FeedItem({ post, onLike, onComment, onDelete }) {
                 key={`${post.id}-media-${index}`}
                 style={styles.mediaWrapper}
               >
-                <WebTorrentMedia media={normalizedMedia} isFocused={true} />
+                <WebTorrentMedia
+                  key={getMediaKey(normalizedMedia)}
+                  media={normalizedMedia}
+                  isFocused={true}
+                />{" "}
               </View>
             );
           })}
