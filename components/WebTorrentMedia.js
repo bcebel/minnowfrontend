@@ -56,6 +56,11 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
 
   const overallTimeoutRef = useRef(null);
   const noProgressTimeoutRef = useRef(null);
+   const isImage =
+     media.fileType === "image" ||
+     media.type === "image" ||
+     media.fileName?.match(/\.(jpg|jpeg|png|gif|webp|avif|heic|heif|svg)$/i);
+
 const resetActivityTimer = () => {
   setControlsVisible(true);
   if (timerRef.current) clearTimeout(timerRef.current);
@@ -142,6 +147,14 @@ const formatTime = (secs) => {
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   
   useEffect(() => {
+      console.log(
+        "MEDIA EFFECT:",
+        media.cid,
+        "| type:",
+        isImage ? "image" : "video",
+        "| magnet:",
+        !!media.magnetLink,
+      );
     if (isFocused) return; // focused path handles itself
     if (!isAlmostFocused) return; // out of lookahead window
     if (!media.magnetLink) return; // nothing to prefetch
@@ -149,7 +162,7 @@ const formatTime = (secs) => {
     let cancelled = false;
 
     const warmQuietly = async () => {
-      // 1. Already cached? Nothing to do.
+      // 1. Already cached? Nothing to do (besides seed it though)
       const cached = await getMedia(media.cid);
       if (cached?.blob || cancelled) return;
 
@@ -181,6 +194,7 @@ const formatTime = (secs) => {
             const type = torrent.files[0].type || "video/mp4";
             const blob = new Blob([buffer], { type });
             await saveMedia(media.cid, blob, type, media.fileName);
+            // should we add magnet link?  why aren't we using magnetlinks when we can
           } catch (e) {}
         };
 
@@ -212,8 +226,11 @@ const formatTime = (secs) => {
 
     // ✅ BACKGROUND CACHE DOWNLOAD (Starts immediately, saves even if you scroll away)
     // ✅ BACKGROUND CACHE DOWNLOAD (Saves even if you scroll away)
+    //maybe move this to the almost viewed ones?
     const startBackgroundCache = async () => {
       if (!fallbackUrl) return;
+
+
       try {
         const response = await fetch(fallbackUrl);
         const blob = await response.blob();
@@ -223,8 +240,10 @@ const formatTime = (secs) => {
             blob.type ||
             (fileName.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
           // Await the save so it's ready next time!
+          // i still think its weird to call everything either an m4 or a jpeg, also smaller photo forats exist like webm etc?
           await saveMedia(media.cid, blob, mimeType, fileName);
           // console.log("💾 Background cache saved:", media.cid);
+          //again maybe add magnet links?  
         }
       } catch (e) {
         // Silent catch
@@ -240,6 +259,7 @@ const formatTime = (secs) => {
         mimeType = ext === "mp4" ? "video/mp4" : "image/jpeg";
       }
       saveMedia(media.cid, blob, mimeType, fileName || `media-${media.cid}`)
+        //save magnetlink to saveMedia?
         .then(() => console.log("💾 Saved to cache:", media.cid))
         .catch(() => {});
     };
@@ -352,17 +372,19 @@ const formatTime = (secs) => {
                 overallTimeoutRef.current = null;
               }
 
-              if (pct >= 1 && !isReady) {
-                setIsReady(true);
-                if (overallTimeoutRef.current) {
-                  clearTimeout(overallTimeoutRef.current);
-                  overallTimeoutRef.current = null;
-                }
-                if (torrentResult.url) {
-                  setVideoSrc(torrentResult.url);
-                  setStatus("p2p_streaming");
-                }
-              }
+           const threshold = isImage ? 100 : 1;
+
+           if (pct >= threshold && !isReady) {
+             setIsReady(true);
+             if (overallTimeoutRef.current) {
+               clearTimeout(overallTimeoutRef.current);
+               overallTimeoutRef.current = null;
+             }
+             if (torrentResult.url) {
+               setVideoSrc(torrentResult.url);
+               setStatus("p2p_streaming");
+             }
+           }
             };
 
             activeTorrent.on("wire", updateStats);
@@ -454,10 +476,7 @@ const formatTime = (secs) => {
     );
   }
 
-  const isImage =
-    media.fileType === "image" ||
-    media.type === "image" ||
-    media.fileName?.match(/\.(jpg|jpeg|png|gif|webp|avif|heic|heif|svg)$/i);
+ 
 
   if (isImage) {
     return <img src={videoSrc} style={styles.image} alt="User content" />;
