@@ -1,5 +1,6 @@
 // utils/webtorrentService.js - Cleaned version
 // Public API preserved from previous version. Changes noted inline.
+import idbChunkStore from "@thaunknown/idb-chunk-store";
 
 class WebTorrentService {
   constructor() {
@@ -330,6 +331,8 @@ class WebTorrentService {
       const torrentOptions = {
         announce: this.trackers,
         strategy: "sequential",
+        store: idbChunkStore,
+        storeOpts: { name: "test-sintel" },
         ...torrentOpts,
       };
 

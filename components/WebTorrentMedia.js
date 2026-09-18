@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { getMedia, saveMedia } from "../components/mediaCache";
+import idbChunkStore from "@thaunknown/idb-chunk-store";
 import webtorrentService from "../utils/webtorrentService";
 
 const PINATA_GATEWAY =
@@ -161,6 +162,8 @@ const formatTime = (secs) => {
         const torrent =
           existing ||
           client.add(media.magnetLink, {
+            store: idbChunkStore,
+            storeOpts: { name: "test-sintel" },
             announce: webtorrentService.trackers,
             strategy: "sequential",
           });
@@ -349,7 +352,7 @@ const formatTime = (secs) => {
                 overallTimeoutRef.current = null;
               }
 
-              if (pct >= 3 && !isReady) {
+              if (pct >= 1 && !isReady) {
                 setIsReady(true);
                 if (overallTimeoutRef.current) {
                   clearTimeout(overallTimeoutRef.current);
