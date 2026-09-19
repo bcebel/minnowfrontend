@@ -29,7 +29,7 @@ const GET_POSTS_WITH_ADS = gql`
       media {
         url
         cid
-        magnetLink
+        magnetURI
         mediaType
       }
       createdAt
@@ -94,7 +94,7 @@ export const CREATE_POST = gql`
       media {
         url
         cid
-        magnetLink
+        magnetURI
         mediaType
       }
       neighborhood {
@@ -134,7 +134,7 @@ export const GET_POSTS = gql`
       media {
         url
         cid
-        magnetLink
+        magnetURI
         mediaType
       }
       neighborhood {

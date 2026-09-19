@@ -30,13 +30,13 @@ class WebTorrentService {
   // Cleanup
   // ---------------------------------------------------------------------------
 
-  async destroyCleanup(magnetLink) {
+  async destroyCleanup(magnetUri) {
     const client = await this.ensureClient();
     if (!client) return;
 
     // Use client.get() directly with the full magnet URI — WebTorrent parses
     // it correctly, so we don't need to extract the infoHash ourselves.
-    const torrent = client.get(magnetLink);
+    const torrent = client.get(magnetUri);
     if (torrent) {
       torrent.destroy();
       console.log("🧹 Cleaned up torrent:", torrent.infoHash);
@@ -81,14 +81,14 @@ class WebTorrentService {
    * Uses TextEncoder + base64url so it handles unicode in `dn=` without
    * colliding (the old btoa fallback truncated to 32 chars).
    */
-  getCacheKey(magnetLink) {
-    if (!magnetLink) return "";
-    const match = magnetLink.match(/xt=urn:btih:([^&]+)/i);
+  getCacheKey(magnetUri) {
+    if (!magnetUri) return "";
+    const match = magnetUri.match(/xt=urn:btih:([^&]+)/i);
     if (match) {
       return `magnet_${match[1].toLowerCase()}`;
     }
     try {
-      const bytes = new TextEncoder().encode(magnetLink);
+      const bytes = new TextEncoder().encode(magnetUri);
       let binary = "";
       for (let i = 0; i < bytes.length; i++) {
         binary += String.fromCharCode(bytes[i]);
@@ -100,7 +100,7 @@ class WebTorrentService {
       return `magnet_${b64}`;
     } catch (e) {
       // Last resort — extremely unlikely to be reached with TextEncoder
-      return `magnet_${magnetLink.length}_${magnetLink.slice(0, 16)}`;
+      return `magnet_${magnetUri.length}_${magnetUri.slice(0, 16)}`;
     }
   }
 
@@ -113,8 +113,8 @@ class WebTorrentService {
    * device/session-specific) and never stores raw `data` here — that's
    * `storeSeedData`'s job.
    */
-  cacheMagnetResult(magnetLink, result) {
-    const cacheKey = this.getCacheKey(magnetLink);
+  cacheMagnetResult(magnetUri, result) {
+    const cacheKey = this.getCacheKey(magnetUri);
 
     if (result.url && result.url.startsWith("blob:")) {
       // Blob URLs are ephemeral; don't cache them.
@@ -131,7 +131,7 @@ class WebTorrentService {
         localStorage.getItem("webtorrent_cache") || "{}",
       );
       cache[cacheKey] = {
-        magnetLink,
+        magnetUri,
         name: result.name,
         size: result.size,
         infoHash: result.infoHash,
@@ -148,8 +148,8 @@ class WebTorrentService {
    * The 1-hour TTL is arbitrary but harmless — the map lives only for the
    * lifetime of the tab anyway.
    */
-  getCachedMagnet(magnetLink) {
-    const cacheKey = this.getCacheKey(magnetLink);
+  getCachedMagnet(magnetUri) {
+    const cacheKey = this.getCacheKey(magnetUri);
     const cached = this.downloadCache.get(cacheKey);
     if (!cached) return null;
 
@@ -211,13 +211,13 @@ class WebTorrentService {
 
           const result = {
             torrent,
-            magnetLink: torrent.magnetLink,
+            magnetUri: torrent.magnetURI,
             infoHash: torrent.infoHash,
             name: torrent.name,
             size: torrent.length,
           };
 
-          this.cacheMagnetResult(torrent.magnetLink, result);
+          this.cacheMagnetResult(torrent.magnetURI, result);
           resolve(result);
         });
       } catch (err) {
@@ -231,8 +231,8 @@ class WebTorrentService {
    * Re-seed a cached torrent using retained data. Only works if the data
    * was small enough to retain.
    */
-  async reSeedCached(magnetLink) {
-    const cacheKey = this.getCacheKey(magnetLink);
+  async reSeedCached(magnetUri) {
+    const cacheKey = this.getCacheKey(magnetUri);
     const cached = this.downloadCache.get(cacheKey);
 
     if (cached && cached.data) {
@@ -248,7 +248,7 @@ class WebTorrentService {
   // Adding (download)
   // ---------------------------------------------------------------------------
 
-  async add(magnetLink, options = {}) {
+  async add(magnetUri, options = {}) {
     const { forceRefresh = false, _retry = 0, ...torrentOpts } = options;
 
     if (_retry > 2) {
@@ -256,11 +256,11 @@ class WebTorrentService {
     }
 
     if (forceRefresh) {
-      this.downloadCache.delete(this.getCacheKey(magnetLink));
+      this.downloadCache.delete(this.getCacheKey(magnetUri));
     }
 
     // 1. Memory cache
-    const cached = !forceRefresh ? this.getCachedMagnet(magnetLink) : null;
+    const cached = !forceRefresh ? this.getCachedMagnet(magnetUri) : null;
     if (cached && cached.url && !cached.url.startsWith("blob:")) {
       try {
         const response = await fetch(cached.url, { method: "HEAD" });
@@ -270,13 +270,13 @@ class WebTorrentService {
       } catch (e) {
         // fall through
       }
-      this.downloadCache.delete(this.getCacheKey(magnetLink));
+      this.downloadCache.delete(this.getCacheKey(magnetUri));
     }
 
     const client = await this.ensureClient();
 
     // 2. Existing torrent in client — DO THIS HERE, OUTSIDE THE PROMISE
-    const existing = client.get(magnetLink);
+    const existing = client.get(magnetUri);
     if (existing) {
       const file =
         existing.files?.find((f) =>
@@ -293,11 +293,11 @@ class WebTorrentService {
             name: existing.name,
             size: existing.length,
             infoHash: existing.infoHash,
-            magnetLink: existing.magnetLink,
+            magnetUri: existing.magnetURI,
             ready: true,
             fromExisting: true,
           };
-          this.cacheMagnetResult(magnetLink, result);
+          this.cacheMagnetResult(magnetUri, result);
           return result;
         } catch (e) {
           // Existing torrent has no usable data — fall through to fresh add
@@ -337,7 +337,7 @@ class WebTorrentService {
       };
 
       try {
-        client.add(magnetLink, torrentOptions, (torrent) => {
+        client.add(magnetUri, torrentOptions, (torrent) => {
           console.log(
             "🧲 Torrent added to swarm:",
             torrent.name || torrent.infoHash,
@@ -369,10 +369,10 @@ class WebTorrentService {
              name: torrent.name,
              size: torrent.length,
              infoHash: torrent.infoHash,
-             magnetLink: torrent.magnetLink,
+             magnetUri: torrent.magnetURI,
              ready: true,
            };
-           this.cacheMagnetResult(magnetLink, result);
+           this.cacheMagnetResult(magnetUri, result);
            finish(resolve, result);
          })
          .catch((err) => finish(reject, err));
@@ -406,8 +406,8 @@ class WebTorrentService {
   // Seed data storage
   // ---------------------------------------------------------------------------
 
-  async storeSeedData(magnetLink, fileData, metadata = {}) {
-    const cacheKey = this.getCacheKey(magnetLink);
+  async storeSeedData(magnetUri, fileData, metadata = {}) {
+    const cacheKey = this.getCacheKey(magnetUri);
 
     const dataSize =
       typeof fileData?.size === "number"
@@ -428,15 +428,15 @@ class WebTorrentService {
       data: fileData,
       isSeedData: true,
       cachedAt: Date.now(),
-      magnetLink,
+      magnetUri,
     });
     console.log("💾 Seed data stored for re-seeding");
   }
 
-  async cacheMagnetLink(magnetLink, metadata = {}) {
-    const cacheKey = this.getCacheKey(magnetLink);
+  async cacheMagnetLink(magnetUri, metadata = {}) {
+    const cacheKey = this.getCacheKey(magnetUri);
     const cacheEntry = {
-      magnetLink,
+      magnetUri,
       ...metadata,
       cachedAt: Date.now(),
       source: "ipfs_upload",
@@ -459,9 +459,9 @@ class WebTorrentService {
   // Pre-warming
   // ---------------------------------------------------------------------------
 
-  async prewarmMagnet(magnetLink) {
+  async prewarmMagnet(magnetUri) {
     try {
-      const result = await this.add(magnetLink);
+      const result = await this.add(magnetUri);
       console.log("🔥 Pre-warmed magnet link:", result.name);
       return result;
     } catch (error) {
@@ -505,7 +505,7 @@ class WebTorrentService {
 
     window.globalWebTorrentClient.torrents.forEach((t) => {
       if (!filter || t.name?.includes(filter) || t.infoHash?.includes(filter)) {
-        const cacheKey = this.getCacheKey(t.magnetLink);
+        const cacheKey = this.getCacheKey(t.magnetURI);
         const cached = this.downloadCache.get(cacheKey);
 
         if (cached && cached.data) {

@@ -1441,7 +1441,7 @@ export default function NeighborhoodChatScreen() {
                 fileType: "video",
                 mimeType: blob.type,
                 videoUrl: null, // No IPFS URL for P2P
-                magnetLink: seedResult.magnetLink,
+                magnetLink: seedResult.magnetUri,
                 thumbnailUrl: thumbnailUrl,
               },
             });
@@ -1553,7 +1553,7 @@ export default function NeighborhoodChatScreen() {
           fileType: "video",
           mimeType: videoBlob.type,
           videoUrl: null, // No IPFS URL for P2P-only
-          magnetLink: seedResult.magnetLink,
+          magnetLink: seedResult.magnetUri,
           thumbnailUrl: thumbnailUrl,
         },
       });
@@ -1722,7 +1722,7 @@ export default function NeighborhoodChatScreen() {
                   neighborhoodId: neighborhoodId,
                   fileName: `${fileName}_part${index}`,
                   fileType: "video_chunk",
-                  magnetLink: torrent.magnetLink, // THIS is what the neighbor needs
+                  magnetLink: torrent.magnetURI, // THIS is what the neighbor needs
                   chunkIndex: index,
                   sessionId: sessionId,
                   totalChunks: totalChunks,

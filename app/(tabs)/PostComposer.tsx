@@ -51,7 +51,7 @@ const GET_FEED_POSTS = gql`
     
         url
         cid
-        magnetLink
+        magnetURI
         mediaType
       }
       createdAt
@@ -178,7 +178,7 @@ if (!hasContent && !hasMedia) return;
               const seedResult = await webtorrentService.seed(blob, {
                 name: fileName,
               });
-              const p2pMagnet = seedResult.magnetLink;
+              const p2pMagnet = seedResult.magnetUri;
               magnetLink = p2pMagnet;
 
               console.log(
@@ -225,7 +225,7 @@ if (!hasContent && !hasMedia) return;
           };
 
           if (magnetLink) {
-            mediaObject.magnetLink = magnetLink;
+            mediaObject.magnetURI = magnetLink;
           }
 
           await createPostMutation({
