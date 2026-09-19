@@ -263,7 +263,9 @@ const [createDirectMessageBubble] = useMutation(CREATE_DIRECT_MESSAGE_BUBBLE);
               onPress={() => setSelectedMember(member)}
             >
               <Image
-                source={{ uri: getProfilePhotoUrl(member.user.profilePhoto) }}
+                source={{
+                  uri: getProfilePhotoUrl(member.user.profilePhoto),
+                }}
                 style={styles.avatar}
               />
               <View style={styles.userInfo}>
@@ -302,7 +304,9 @@ const [createDirectMessageBubble] = useMutation(CREATE_DIRECT_MESSAGE_BUBBLE);
             <View style={styles.modalContainer}>
               <BlurView intensity={50} tint="dark" style={styles.modalContent}>
                 <Image
-                  source={{ uri: getProfilePhotoUrl(member.user.profilePhoto) }}
+                  source={{
+                    uri: getProfilePhotoUrl(selectedMember.user.profilePhoto),
+                  }}
                   style={styles.avatar}
                 />
                 <Text style={styles.modalName}>

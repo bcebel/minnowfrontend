@@ -520,11 +520,9 @@ export default function WebTorrentMedia({ media, isFocused, isAlmostFocused }) {
           { opacity: controlsVisible ? 1 : 0 },
           !controlsVisible && { pointerEvents: "none" },
         ]}
+        // @ts-ignore
+        onClick={togglePlay}
       >
-        <TouchableOpacity style={styles.centerPlayButton} onPress={togglePlay}>
-          <Text style={styles.playIconText}>{isPaused ? "▶" : "❚❚"}</Text>
-        </TouchableOpacity>
-
         <View style={styles.bottomControlBar}>
           {/* 1. Current Time Label */}
           <Text style={styles.timeLabel}>{formatTime(currentTime)}</Text>

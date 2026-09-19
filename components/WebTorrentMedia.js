@@ -547,13 +547,9 @@ const formatTime = (secs) => {
           { opacity: controlsVisible ? 1 : 0 },
           !controlsVisible && { pointerEvents: "none" },
         ]}
+        // @ts-ignore
+        onClick={togglePlay}
       >
- 
-
-        <TouchableOpacity style={styles.centerPlayButton} onPress={togglePlay}>
-          <Text style={styles.playIconText}>{isPaused ? "▶" : "❚❚"}</Text>
-        </TouchableOpacity>
-
         <View style={styles.bottomControlBar}>
           {/* 1. Current Time Label */}
           <Text style={styles.timeLabel}>{formatTime(currentTime)}</Text>
@@ -672,6 +668,7 @@ const styles = StyleSheet.create({
   },
   overlayText: { color: "#fff", fontSize: 11, fontWeight: "bold" },
   centerPlayButton: {
+
     width: 60,
     height: 60,
     borderRadius: 30,
