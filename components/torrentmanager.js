@@ -1,11 +1,25 @@
 // torrentManager.js
 import idbChunkStore from "@thaunknown/idb-chunk-store";
 import { getMedia, saveMedia } from "../components/mediaCache";
+import { webtorrentService } from "../utils/webtorrentService"
 // Global WebTorrent client instance
 let client = null;
 const activeDownloads = new Map(); // Magnet/CID -> { torrent, blobUrl, status }
 // torrentManager.js
+const MAX_ACTIVE_TORRENTS = 15;
 
+if (activeDownloads.size >= MAX_ACTIVE_TORRENTS) {
+  const oldestCid = activeDownloads.keys().next().value;
+  const item = activeDownloads.get(oldestCid);
+
+  if (item?.torrent) {
+    client.remove(item.torrent.infoHash); // Releases WebRTC connections
+  }
+  if (item?.blobUrl) {
+    URL.revokeObjectURL(item.blobUrl); // Frees browser RAM
+  }
+  activeDownloads.delete(oldestCid);
+}
 
 export const getOrStartTorrent = async (magnetLink, cid) => {
   if (!client) {
@@ -19,15 +33,16 @@ export const getOrStartTorrent = async (magnetLink, cid) => {
   }
 
   // 2. Check if client already knows about this magnet
-  let torrent = await client.get(magnetLink);
+let torrent = await client.get(magnetLink);
+if (!torrent) {
+  torrent = await client.add(magnetLink, {
+    store: idbChunkStore,
+    storeOpts: { name: `media-${cid}` },
+    announce: webtorrentService.trackers,
+    strategy: media.fileType === "image" ? "rarest" : "sequential",
+  });
+}
 
-  if (!torrent) {
-    torrent = await client.add(magnetLink, {
-      store: idbChunkStore,
-      storeOpts: { name: `media-${cid}` },
-      strategy: "sequential",
-    });
-  }
 
   const record = { torrent, blobUrl: null, isDone: false };
   activeDownloads.set(cid, record);
