@@ -10,6 +10,23 @@ import {
 import { getMedia, saveMedia } from "../components/mediaCache";
 import idbChunkStore from "@thaunknown/idb-chunk-store";
 import webtorrentService from "../utils/webtorrentService";
+import { Platform } from "react-native";
+import * as FileSystem from "expo-file-system";
+import { getOrStartTorrent, getMediaWithFallback } from "./torrentmanager";
+
+const CACHE_FOLDER = `${FileSystem.cacheDirectory}webtorrent_media/`;
+
+const ensureCacheDir = async () => {
+  if (Platform.OS !== "web") {
+    const dirInfo = await FileSystem.getInfoAsync(CACHE_FOLDER);
+    if (!dirInfo.exists) {
+      await FileSystem.makeDirectoryAsync(CACHE_FOLDER, {
+        intermediates: true,
+      });
+    }
+  }
+};
+
 
 const PINATA_GATEWAY =
   process.env.EXPO_PUBLIC_PINATA_GATEWAY || "gateway.pinata.cloud";
@@ -149,130 +166,40 @@ const formatTime = (secs) => {
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   
-  useEffect(() => {
-      console.log(
-        "MEDIA EFFECT:",
-        media.cid,
-        "| type:",
-        isImage ? "image" : "video",
-        "| magnet:",
-        !!media.magnetLink,
-      );
-    if (isFocused) return; // focused path handles itself
-    if (!isAlmostFocused) return; // out of lookahead window
-    if (!media.magnetLink) return; // nothing to prefetch
+useEffect(() => {
+  if (!isFocused) return;
+  let isMounted = true;
 
-    let cancelled = false;
+  const load = async () => {
+    const result = await getMediaWithFallback(media, (status) => {
+      if (isMounted) setStatus(status);
+    });
 
-    const warmQuietly = async () => {
-      // 1. Already cached? Nothing to do (besides seed it though)
-      const cached = await getMedia(media.cid);
-      if (cached?.blob || cancelled) return;
+    if (isMounted) {
+      setVideoSrc(result.url);
+      setIsReady(true);
+    }
+  };
 
-      // 2. Attach to the magnet, don't wait for anything
-      try {
-        const client = await webtorrentService.ensureClient();
-        if (cancelled) return;
+  load();
 
-        const existing = client.get(media.magnetLink);
-        const torrent =
-          existing ||
-          client.add(media.magnetLink, {
-            store: idbChunkStore,
-            storeOpts: { name: "test-sintel" },
-            announce: webtorrentService.trackers,
-            strategy: "sequential",
-          });
-
-        if (cancelled) return;
-
-        const onDone = async () => {
-          if (cancelled) return;
-          try {
-            const buffer = await new Promise((res, rej) =>
-              torrent.files[0].getBuffer((err, buf) =>
-                err ? rej(err) : res(buf),
-              ),
-            );
-            const type = torrent.files[0].type || "video/mp4";
-            const blob = new Blob([buffer], { type });
-            await saveMedia(media.cid, blob, type, media.fileName);
-            // should we add magnet link?  why aren't we using magnetlinks when we can
-          } catch (e) {}
-        };
-
-        torrent.once("done", onDone);
-
-        // Cleanup: if this leaves the window, remove the listener
-        // (but don't destroy the torrent — the global client owns it)
-        return () => {
-          cancelled = true;
-          torrent.removeListener("done", onDone);
-        };
-      } catch (e) {
-        // silent — prefetch is best-effort
-      }
-    };
-
-    warmQuietly();
-  }, [isAlmostFocused, isFocused, media.cid, media.magnetLink]);
+  return () => {
+    isMounted = false;
+  };
+}, [isFocused, media.cid, media.magnetLink]);
 
   useEffect(() => {
     if (!isFocused) return;
 
-    isMountedRef.current = true;
-    p2pHitRef.current = false;
-    progressRef.current = 0;
-
-    let activeTorrent = null;
-    const fallbackUrl = media.ipfsUrl || media.fallbackUrl;
-
-    // ✅ BACKGROUND CACHE DOWNLOAD (Starts immediately, saves even if you scroll away)
-    // ✅ BACKGROUND CACHE DOWNLOAD (Saves even if you scroll away)
-    //maybe move this to the almost viewed ones?
-    const startBackgroundCache = async () => {
-      if (!fallbackUrl) return;
-
-
-      try {
-        const response = await fetch(fallbackUrl);
-        const blob = await response.streamTo();
-        if (blob && blob.size > 0) {
-          const fileName = media.fileName || `media-${media.cid}`;
-          const mimeType =
-            blob.type ||
-            (fileName.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
-          // Await the save so it's ready next time!
-          // i still think its weird to call everything either an m4 or a jpeg, also smaller photo forats exist like webm etc?
-          await saveMedia(media.cid, blob, mimeType, fileName);
-          // console.log("💾 Background cache saved:", media.cid);
-          //again maybe add magnet links?  
-        }
-      } catch (e) {
-        // Silent catch
-      }
-    };
-
-    // ✅ Helper to save blob from P2P when it completes
-    const saveCachedMedia = (blob, fileName) => {
-      if (!blob) return;
-      let mimeType = blob.type;
-      if (!mimeType) {
-        const ext = (fileName || "").split(".").pop().toLowerCase();
-        mimeType = ext === "mp4" ? "video/mp4" : "image/jpeg";
-      }
-      saveMedia(media.cid, blob, mimeType, fileName || `media-${media.cid}`)
-        //save magnetlink to saveMedia?
-        .then(() => console.log("💾 Saved to cache:", media.cid))
-        .catch(() => {});
-    };
+    let isMounted = true;
+    let unsubscribeProgress = null;
 
     const loadMedia = async () => {
-      // 1. Check local device cache (fastest)
+      // 1. Check local IndexedDB cache first
       try {
         setStatus("checking_cache");
         const cachedData = await getMedia(media.cid);
-        if (cachedData?.blob && isMountedRef.current) {
+        if (cachedData?.blob && isMounted) {
           const url = URL.createObjectURL(cachedData.blob);
           currentUrlRef.current = url;
           setVideoSrc(url);
@@ -282,167 +209,78 @@ const formatTime = (secs) => {
           return;
         }
       } catch (err) {
-        console.log("Cache miss:", err.message);
+        console.log("Cache miss, falling back to manager:", err.message);
       }
 
-      // 2. Start background cache immediately (so even if you scroll away, it'll be saved)
-      startBackgroundCache();
-
-      // 3. Check multi-slice video
-      if (media.slices && media.slices.length > 1) {
-        try {
-          setStatus("connecting_slices");
-          const chunks = [];
-          for (const slice of media.slices) {
-            if (!isMountedRef.current) return;
-            const result = await webtorrentService.add(slice.magnetLink);
-            const response = await fetch(result.url);
-            const blob = await response.streamTo();
-            chunks.push(blob);
-          }
-          const combined = new Blob(chunks, { type: "video/mp4" });
-          const url = URL.createObjectURL(combined);
-          currentUrlRef.current = url;
-          setVideoSrc(url);
-          setStatus("p2p_streaming");
-          setProgress(100);
-          setIsReady(true);
-          saveCachedMedia(combined, media.fileName);
-          return;
-        } catch (err) {
-          console.log("Slice assembly failed:", err.message);
-        }
-      }
-
-      // 4. GIVE P2P A CHANCE
-      if (media?.magnetLink) {
-        try {
-          if (isMountedRef.current) setStatus("connecting_p2p");
-
-          overallTimeoutRef.current = setTimeout(() => {
-            if (!isReady && isMountedRef.current) {
-              // console.log("⏰ 15s overall timeout. Forcing HTTP.");
-              const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
-              setVideoSrc(cachedUrl);
-              setStatus("fallback_http");
-              setIsReady(true);
-              if (noProgressTimeoutRef.current)
-                clearTimeout(noProgressTimeoutRef.current);
-            }
-          }, 15000);
-
-          noProgressTimeoutRef.current = setTimeout(() => {
-            if (!isReady && progressRef.current === 0 && isMountedRef.current) {
-              // console.log("🐌 No progress in 5s. Forcing HTTP.");
-              const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
-              setVideoSrc(cachedUrl);
-              setStatus("fallback_http");
-              setIsReady(true);
-              if (overallTimeoutRef.current)
-                clearTimeout(overallTimeoutRef.current);
-            }
-          }, 5000);
-
-          const torrentResult = await webtorrentService.add(media.magnetLink, {
-            urlList: fallbackUrl ? [fallbackUrl] : [],
-            strategy: "sequential",
-            maxWebConns: 4,
-          });
-
-          if (!isMountedRef.current) return;
-          activeTorrent = torrentResult.torrent;
-
-          if (activeTorrent) {
-            activeTorrent.files[0].streamTo().then((blob) => {
-              saveCachedMedia(blob, media.fileName);
-            });
-
-            const updateStats = () => {
-              if (!isMountedRef.current) return;
-              const numPeers = activeTorrent.numPeers || 0;
-              const pct = Math.floor(activeTorrent.progress * 100);
-              progressRef.current = pct;
-
-              setPeerCount(numPeers);
-              setProgress(pct);
-
-              if (pct > 0 && noProgressTimeoutRef.current) {
-                clearTimeout(noProgressTimeoutRef.current);
-                noProgressTimeoutRef.current = null;
-              }
-              if (isReady && overallTimeoutRef.current) {
-                clearTimeout(overallTimeoutRef.current);
-                overallTimeoutRef.current = null;
-              }
-
-           const threshold = isImage ? 100 : 1;
-
-           if (pct >= threshold && !isReady) {
-             setIsReady(true);
-             if (overallTimeoutRef.current) {
-               clearTimeout(overallTimeoutRef.current);
-               overallTimeoutRef.current = null;
-             }
-             if (torrentResult.url) {
-               setVideoSrc(torrentResult.url);
-               setStatus("p2p_streaming");
-             }
-           }
-            };
-
-            activeTorrent.on("wire", updateStats);
-            activeTorrent.on("download", updateStats);
-            activeTorrent.on("piece", updateStats);
-
-            if (activeTorrent.pieces > 0) {
-              const firstPieces = Math.max(
-                1,
-                Math.floor(activeTorrent.pieces * 0.1),
-              );
-              activeTorrent.select(0, firstPieces - 1);
-            }
-          }
-
-          if (torrentResult.url && isMountedRef.current) {
-            p2pHitRef.current = true;
-            setVideoSrc(torrentResult.url);
-            setStatus("p2p_streaming");
-            setIsReady(true);
-          }
-        } catch (err) {
-          //  console.log("P2P Error:", err.message);
-          const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
-          setVideoSrc(cachedUrl);
-          setStatus("fallback_http");
-          setIsReady(true);
-          if (noProgressTimeoutRef.current)
-            clearTimeout(noProgressTimeoutRef.current);
-          if (overallTimeoutRef.current)
-            clearTimeout(overallTimeoutRef.current);
-        }
-      } else if (fallbackUrl && isMountedRef.current) {
+      // 2. Fallback to HTTP if no P2P magnet link exists
+      const fallbackUrl = media.ipfsUrl || media.fallbackUrl;
+      if (!media.magnetLink && fallbackUrl && isMounted) {
         const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
         setVideoSrc(cachedUrl);
         setStatus("fallback_http");
         setIsReady(true);
+        return;
+      }
+
+      // 3. Delegate P2P handling entirely to the Torrent Manager
+      if (media.magnetLink) {
+        try {
+          setStatus("connecting_p2p");
+
+          const record = await getOrStartTorrent(media.magnetLink, media.cid);
+
+          // If already completed in manager cache, hit immediately
+          if (record.blobUrl && isMounted) {
+            setVideoSrc(record.blobUrl);
+            setStatus(record.status || "p2p_streaming");
+            setProgress(100);
+            setIsReady(true);
+            return;
+          }
+
+          // Subscribe UI updates to progress changes
+          const updateStats = () => {
+            if (!isMounted) return;
+            const pct = Math.floor((record.torrent?.progress || 0) * 100);
+            setProgress(pct);
+            setPeerCount(record.torrent?.numPeers || 0);
+
+            if (record.blobUrl) {
+              setVideoSrc(record.blobUrl);
+              setStatus("p2p_streaming");
+              setIsReady(true);
+            }
+          };
+
+          record.torrent.on("download", updateStats);
+          record.torrent.on("done", updateStats);
+
+          unsubscribeProgress = () => {
+            record.torrent.removeListener("download", updateStats);
+            record.torrent.removeListener("done", updateStats);
+          };
+        } catch (err) {
+          console.error("Manager request failed, using HTTP fallback:", err);
+          if (fallbackUrl && isMounted) {
+            const cachedUrl = getCachedPinataUrl(media.cid, fallbackUrl);
+            setVideoSrc(cachedUrl);
+            setStatus("fallback_http");
+            setIsReady(true);
+          }
+        }
       }
     };
 
     loadMedia();
 
     return () => {
-      isMountedRef.current = false;
-      if (noProgressTimeoutRef.current)
-        clearTimeout(noProgressTimeoutRef.current);
-      if (overallTimeoutRef.current) clearTimeout(overallTimeoutRef.current);
+      isMounted = false;
 
-      // If already ready, don't destroy; keeps it mounted for instant access
-      if (isReady) return;
-
-      // If still loading, kill the torrent to save memory
-      if (activeTorrent) {
-        activeTorrent.destroy();
+      // Clean up UI event listeners ONLY — leave the WebTorrent download running in background
+      if (unsubscribeProgress) {
+        unsubscribeProgress();
       }
+
       if (currentUrlRef.current && currentUrlRef.current.startsWith("blob:")) {
         URL.revokeObjectURL(currentUrlRef.current);
         currentUrlRef.current = null;
@@ -450,13 +288,12 @@ const formatTime = (secs) => {
     };
   }, [
     isFocused,
-    media.magnetLink,
     media.cid,
+    media.magnetLink,
     media.ipfsUrl,
     media.fallbackUrl,
-    media.fileName,
-    media.slices,
   ]);
+  
 
   if (!isFocused) return null;
 
