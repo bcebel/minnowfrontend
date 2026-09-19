@@ -346,22 +346,29 @@ class StreamController {
       }
       try {
         const client = await webtorrentService.ensureClient();
-        client.add(
-          magnet,
-          { announce: ["wss://://herokuapp.com"] },
-          (torrent) => {
-            torrent.on("done", () => {
-              torrent.files[0].getBuffer(async (err, buf) => {
-                if (!handled) {
-                  handled = true;
-                  clearTimeout(swarmTimeout);
-                  resolve(buf);
-                }
-                client.remove(torrent.infoHash);
-              });
-            });
-          },
-        );
+   client.add(
+     magnet,
+     { announce: ["wss://tracker-0ad4cca9fd92.herokuapp.com"] },
+     (torrent) => {
+       torrent.on("done", async () => {
+         try {
+           const buffer = await torrent.files[0].arrayBuffer();
+           if (!handled) {
+             handled = true;
+             clearTimeout(swarmTimeout);
+             resolve(new Uint8Array(buffer));
+           }
+         } catch (err) {
+           if (!handled) {
+             handled = true;
+             clearTimeout(swarmTimeout);
+             resolve(null);
+           }
+         }
+         client.remove(torrent.infoHash).catch(() => {});
+       });
+     },
+   );
       } catch (e) {
         resolve(null);
       }

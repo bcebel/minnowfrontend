@@ -198,7 +198,8 @@ export default function Root({ children }: PropsWithChildren) {
                     credential: "AY3FDMwL9QjEIZ2R",
                   },
                   { urls: "stun:stun.l.google.com:19302" },
-                  { urls: "stun:stun1.l.google.com:19302" }
+                  { urls: "stun:stun1.l.google.com:19302" },
+                     { urls: "stun:global.stun.twilio.com:3478" }
                 ],
               },
             },
