@@ -42,7 +42,7 @@
 
                 client.seed(testData, { name: 'test-file.txt' }, (torrent) => {
                     addLog(`Seeding test torrent: ${torrent.name}`);
-                    addLog(`Magnet URI: ${torrent.magnetURI}`);
+                    addLog(`Magnet URI: ${torrent.magnetLink}`);
 
                     // Monitor torrent events
                     torrent.on('trackerAnnounce', () => {

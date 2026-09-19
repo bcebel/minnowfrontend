@@ -214,7 +214,7 @@ export default function NeighborhoodLiveStreamRecorder({
               variables: {
                 content: isHeader ? "STREAM_HEADER" : "",
                 neighborhoodId,
-                magnetLink: result?.magnetUri || torrent.magnetURI,
+                magnetLink: result?.magnetLink || torrent.magnetLink,
                 thumbnailUrl: thumbToSend,
                 sessionId: sessionIdRef.current,
                 chunkIndex: index,

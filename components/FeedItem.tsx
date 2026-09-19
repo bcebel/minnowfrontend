@@ -143,7 +143,7 @@ export default function FeedItem({ post, onLike, onComment, onDelete }) {
 
             const normalizedMedia = {
               cid: item.cid,
-              magnetLink: item.magnetLink || item.magnetURI || null,
+              magnetLink: item.magnetLink || item.magnetLink || null,
               fallbackUrl: fallbackUrl,
               ipfsUrl: fallbackUrl,
               fileType:
